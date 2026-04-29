@@ -16,6 +16,49 @@ export function getConfig() {
 }
 
 /**
+ * Mapeamento de conselhos para códigos ANS (Tabela ANS)
+ */
+const mapaConselhos = {
+  'CRM': '06',
+  'CRO': '07',
+  'CRF': '05',
+  'COREN': '04',
+  'CREFITO': '03',
+  'CRP': '08',
+  'CRBio': '09',
+  'CRN': '10',
+  'CREF': '11',
+  'CRA': '12',
+  'CRESS': '13'
+};
+
+/**
+ * Mapeamento de UFs para códigos ANS (Tabela ANS)
+ */
+const mapaUFs = {
+  'RO': '11', 'AC': '12', 'AM': '13', 'RR': '14', 'PA': '15',
+  'AP': '16', 'TO': '17', 'MA': '18', 'MT': '21', 'GO': '22',
+  'DF': '23', 'MS': '24', 'MG': '31', 'ES': '32', 'RJ': '33',
+  'SP': '35', 'PR': '41', 'SC': '42', 'RS': '43', 'SE': '28',
+  'BA': '29', 'PE': '26', 'CE': '23', 'RN': '24', 'PB': '25',
+  'PI': '22', 'AL': '27'
+};
+
+/**
+ * Converte sigla do conselho para código ANS
+ */
+function getCodigoConselho(sigla) {
+  return mapaConselhos[sigla] || '06';
+}
+
+/**
+ * Converte UF para código ANS
+ */
+function getCodigoUF(uf) {
+  return mapaUFs[uf.toUpperCase()] || '35';
+}
+
+/**
  * Gera um número aleatório com apenas dígitos
  */
 function gerarNumeroAleatorio(tamanho) {
@@ -53,17 +96,14 @@ function gerarNumeroLote() {
  */
 function formatarHora(hora) {
   if (!hora) return '00:00:00';
-  // Se já estiver no formato HH:MM:SS
   if (hora.includes(':')) {
     const partes = hora.split(':');
     while (partes.length < 3) partes.push('00');
     return `${partes[0].padStart(2, '0')}:${partes[1].padStart(2, '0')}:${partes[2].padStart(2, '0')}`;
   }
-  // Se for apenas números (HHMMSS)
   if (hora.length === 6) {
     return `${hora.substring(0, 2)}:${hora.substring(2, 4)}:${hora.substring(4, 6)}`;
   }
-  // Se for apenas hora e minuto (HHMM)
   if (hora.length === 4) {
     return `${hora.substring(0, 2)}:${hora.substring(2, 4)}:00`;
   }
@@ -154,10 +194,11 @@ function gerarGuiaSPSADT(guia, sequencial, registroANS, config, convenio) {
   const nomeContratadoSolicitante = (config?.nome_contratado || 'CLINICA NAO CONFIGURADA').toUpperCase();
   const cnesExecutante = config?.cnes || '0000000';
   
-  // Dados fixos da estrutura
-  const conselhoProfissionalSolicitante = '06';
-  const ufConselhoSolicitante = '35';
-  const cbosSolicitante = '225125';
+  // Dados da clínica (usando os códigos da configuração)
+  const conselhoClinica = config?.conselho_clinica || '06';
+  const ufClinica = getCodigoUF(config?.uf_clinica || 'SP');
+  const cbosClinica = config?.cbos_clinica || '225125';
+  
   const tipoAtendimento = '04';
   const indicacaoAcidente = '9';
   const tipoConsulta = '4';
@@ -169,21 +210,20 @@ function gerarGuiaSPSADT(guia, sequencial, registroANS, config, convenio) {
   const dataAutorizacao = data_autorizacao || dataSolicitacao;
   const senha = senha_autorizacao || gerarNumeroAleatorio(9);
 
-  // GERAR MÚLTIPLOS PROCEDIMENTOS COM HORÁRIO NO FORMATO CORRETO
+  // GERAR MÚLTIPLOS PROCEDIMENTOS
   let procedimentosXML = '';
   
   if (itens && itens.length > 0) {
     itens.forEach((item, idx) => {
       const sequencialItem = idx + 1;
       const dataExecucao = item.data_execucao || dataSolicitacao;
-      // Formatar hora no padrão HH:MM:SS
       const horaInicial = formatarHora(item.hora_inicial);
       const horaFinal = formatarHora(item.hora_final);
       
       const prestadorNome = item.prestador_nome || 'PROFISSIONAL';
-      const prestadorConselho = item.prestador_conselho || '06';
+      const prestadorConselho = getCodigoConselho(item.prestador_conselho);
       const prestadorNumeroConselho = item.prestador_numero_conselho || '00000';
-      const prestadorUF = item.prestador_uf_conselho || '35';
+      const prestadorUF = getCodigoUF(item.prestador_uf_conselho);
       const prestadorCBOS = item.prestador_cbos || '225125';
       const prestadorCPF = item.prestador_cpf || '00000000000';
       const grauParticipacao = item.grau_participacao || '12';
@@ -243,10 +283,10 @@ function gerarGuiaSPSADT(guia, sequencial, registroANS, config, convenio) {
             <ans:nomeContratadoSolicitante>${nomeContratadoSolicitante}</ans:nomeContratadoSolicitante>
             <ans:profissionalSolicitante>
               <ans:nomeProfissional>${nomeProfissionalSolicitante || 'PROFISSIONAL'}</ans:nomeProfissional>
-              <ans:conselhoProfissional>${conselhoProfissionalSolicitante}</ans:conselhoProfissional>
+              <ans:conselhoProfissional>${conselhoClinica}</ans:conselhoProfissional>
               <ans:numeroConselhoProfissional>${numeroConselhoProfissionalSolicitante || '00000'}</ans:numeroConselhoProfissional>
-              <ans:UF>${ufConselhoSolicitante}</ans:UF>
-              <ans:CBOS>${cbosSolicitante}</ans:CBOS>
+              <ans:UF>${ufClinica}</ans:UF>
+              <ans:CBOS>${cbosClinica}</ans:CBOS>
             </ans:profissionalSolicitante>
           </ans:dadosSolicitante>
           <ans:dadosSolicitacao>
