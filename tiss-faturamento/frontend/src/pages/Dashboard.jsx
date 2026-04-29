@@ -11,6 +11,7 @@ import {
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon
 } from '@heroicons/react/24/outline';
+import { getStorageItem } from '../lib/storage';
 
 export default function Dashboard() {
   const [stats, setStats] = useState({
@@ -34,11 +35,11 @@ export default function Dashboard() {
     carregarStats();
   }, []);
 
-  const carregarStats = () => {
-    const convenios = JSON.parse(localStorage.getItem('convenios') || '[]');
-    const pacientes = JSON.parse(localStorage.getItem('pacientes') || '[]');
-    const atendimentos = JSON.parse(localStorage.getItem('atendimentos') || '[]');
-    const guias = JSON.parse(localStorage.getItem('guias_geradas') || '[]');
+  const carregarStats = async () => {
+    const convenios = await getStorageItem('convenios', []);
+    const pacientes = await getStorageItem('pacientes', []);
+    const atendimentos = await getStorageItem('atendimentos', []);
+    const guias = await getStorageItem('guias_geradas', []);
     
     const pendentes = atendimentos.filter(a => a.status === 'pendente');
     const faturados = atendimentos.filter(a => a.status === 'faturado');
@@ -85,8 +86,12 @@ export default function Dashboard() {
   };
 
   return (
-    <div>
-      <h2 className="text-2xl font-semibold text-gray-800 mb-6">Dashboard</h2>
+    <div className="space-y-6">
+      <section className="bg-gradient-to-r from-slate-900 via-indigo-900 to-slate-900 text-white rounded-2xl p-6 shadow-lg">
+        <p className="text-indigo-200 text-sm">Visão executiva</p>
+        <h2 className="text-3xl font-bold">Dashboard</h2>
+        <p className="text-sm text-indigo-100 mt-2">Acompanhe faturamento, glosas e produtividade em tempo real.</p>
+      </section>
       
       {/* Cards principais */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

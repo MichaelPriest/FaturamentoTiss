@@ -21,6 +21,7 @@ import Configuracoes from './pages/Configuracoes';
 import Login from './pages/Login';
 
 import { setConfig } from './lib/tissGenerator';
+import { getStorageItem, setStorageItem, isSupabaseEnabled } from './lib/storage';
 
 // Componente Principal com o conteúdo do sistema
 function MainApp() {
@@ -31,24 +32,19 @@ function MainApp() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Carregar configuração do sistema
-    const storedConfig = localStorage.getItem('config_sistema');
-    if (storedConfig) {
-      setConfig(JSON.parse(storedConfig));
-    }
-    
-    // Verificar sessão
-    const sessao = localStorage.getItem('tiss_sessao');
-    if (sessao) {
-      const sessaoData = JSON.parse(sessao);
-      if (sessaoData.logado) {
-        setUsuario(sessaoData.usuario);
-      }
-    }
+    const init = async () => {
+      const config = await getStorageItem('config_sistema', null);
+      if (config) setConfig(config);
+
+      const sessaoData = await getStorageItem('tiss_sessao', null);
+      if (sessaoData?.logado) setUsuario(sessaoData.usuario);
+    };
+
+    init();
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('tiss_sessao');
+    setStorageItem('tiss_sessao', null);
     setUsuario(null);
     toast.success('Logout realizado com sucesso!');
     navigate('/login');
@@ -188,7 +184,7 @@ function LoginPage({ onLogin }) {
         logado: true,
         data_hora: new Date().toISOString()
       };
-      localStorage.setItem('tiss_sessao', JSON.stringify(sessao));
+      await setStorageItem('tiss_sessao', sessao);
       toast.success(`Bem-vindo, ${USUARIO_VALIDO.nome}!`);
       if (onLogin) onLogin(true);
       navigate('/');
@@ -209,6 +205,7 @@ function LoginPage({ onLogin }) {
           </div>
           <h1 className="text-2xl font-bold text-gray-800">TISS Faturamento</h1>
           <p className="text-gray-500 text-sm mt-1">Sistema de Faturamento TISS 4.03.00</p>
+          <p className="text-xs text-indigo-600 mt-2">{isSupabaseEnabled() ? 'Sincronização Supabase ativa' : 'Modo local ativo (configure Supabase no .env)'}</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl p-8">
