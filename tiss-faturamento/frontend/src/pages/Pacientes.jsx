@@ -78,13 +78,29 @@ export default function Pacientes() {
   const carregarDados = () => {
     const storedPacientes = localStorage.getItem('pacientes');
     const storedConvenios = localStorage.getItem('convenios');
-    if (storedPacientes) setPacientes(JSON.parse(storedPacientes));
-    if (storedConvenios) setConvenios(JSON.parse(storedConvenios));
+    
+    console.log('=== CARREGANDO DADOS ===');
+    console.log('Convênios raw:', storedConvenios);
+    console.log('Pacientes raw:', storedPacientes);
+    
+    if (storedPacientes) {
+      const parsedPacientes = JSON.parse(storedPacientes);
+      setPacientes(parsedPacientes);
+      console.log('Pacientes carregados:', parsedPacientes);
+    }
+    if (storedConvenios) {
+      const parsedConvenios = JSON.parse(storedConvenios);
+      setConvenios(parsedConvenios);
+      console.log('Convênios carregados:', parsedConvenios);
+    }
   };
 
   const salvarPacientes = (lista) => {
+    console.log('=== SALVANDO PACIENTES ===');
+    console.log('Lista a ser salva:', lista);
     localStorage.setItem('pacientes', JSON.stringify(lista));
     setPacientes(lista);
+    console.log('Pacientes salvos com sucesso!');
   };
 
   // Buscar endereço pelo CEP usando ViaCEP
@@ -128,13 +144,27 @@ export default function Pacientes() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    
+    console.log('=== SUBMETENDO FORMULÁRIO ===');
+    console.log('FormData:', formData);
+    console.log('convenio_id selecionado:', formData.convenio_id);
+    
     if (!formData.nome || !formData.numero_carteira || !formData.convenio_id) {
       toast.error('Nome, número da carteira e convênio são obrigatórios');
       return;
     }
 
+    // Verificar se o convênio existe
+    const convenioExists = convenios.some(c => c.id === parseInt(formData.convenio_id));
+    if (!convenioExists) {
+      toast.error('Convênio selecionado não existe!');
+      console.error('Convênio não encontrado para ID:', formData.convenio_id);
+      return;
+    }
+
     const pacienteData = {
       ...formData,
+      convenio_id: parseInt(formData.convenio_id), // Garantir que é número
       cpf: formData.cpf.replace(/\D/g, ''),
       rg: formData.rg.replace(/\D/g, ''),
       telefone: formData.telefone.replace(/\D/g, ''),
@@ -142,11 +172,15 @@ export default function Pacientes() {
       cep: formData.cep.replace(/\D/g, '')
     };
 
+    console.log('PacienteData a ser salvo:', pacienteData);
+
     if (editing) {
-      salvarPacientes(pacientes.map(p => p.id === editing.id ? { ...pacienteData, id: p.id, updated_at: new Date().toISOString() } : p));
+      const updated = pacientes.map(p => p.id === editing.id ? { ...pacienteData, id: p.id, updated_at: new Date().toISOString() } : p);
+      salvarPacientes(updated);
       toast.success('Paciente atualizado com sucesso!');
     } else {
-      salvarPacientes([...pacientes, { ...pacienteData, id: Date.now(), created_at: new Date().toISOString(), status: 'ATIVO' }]);
+      const novoPaciente = { ...pacienteData, id: Date.now(), created_at: new Date().toISOString(), status: 'ATIVO' };
+      salvarPacientes([...pacientes, novoPaciente]);
       toast.success('Paciente cadastrado com sucesso!');
     }
 
@@ -178,6 +212,13 @@ export default function Pacientes() {
     return { text: `Válida até ${format(parseISO(validade), 'dd/MM/yyyy')}`, color: 'green' };
   };
 
+  // Função para encontrar o convênio com debug
+  const getConvenioById = (convenioId) => {
+    const convenio = convenios.find(c => c.id === convenioId);
+    console.log(`Buscando convênio ID ${convenioId} encontrado:`, convenio);
+    return convenio;
+  };
+
   const filteredPacientes = pacientes.filter(p => {
     const matchConvenio = filtroConvenio === 'todos' || p.convenio_id === parseInt(filtroConvenio);
     const matchSearch = p.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -194,6 +235,10 @@ export default function Pacientes() {
     }))
   };
 
+  console.log('=== RENDER PÁGINA PACIENTES ===');
+  console.log('Pacientes state:', pacientes);
+  console.log('Convênios state:', convenios);
+
   return (
     <div>
       <div className="flex justify-between items-center mb-4">
@@ -209,7 +254,7 @@ export default function Pacientes() {
           <p className="text-xs text-gray-500">Total de Pacientes</p>
           <p className="text-2xl font-bold text-gray-800">{estatisticas.total}</p>
         </div>
-        {estatisticas.porConvenio.slice(0, 3).map(c => (
+        {estatisticas.porConvenio.filter(c => c.quantidade > 0).slice(0, 3).map(c => (
           <div key={c.id} className="bg-white rounded-lg border p-4">
             <p className="text-xs text-gray-500">{c.razao_social}</p>
             <p className="text-2xl font-bold text-blue-600">{c.quantidade}</p>
@@ -264,16 +309,22 @@ export default function Pacientes() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {filteredPacientes.map((p) => {
-                const convenio = convenios.find(c => c.id === p.convenio_id);
+                const convenio = getConvenioById(p.convenio_id);
                 const status = getStatusCarteira(p.data_validade_carteira);
                 return (
                   <tr key={p.id} className="hover:bg-gray-50">
                     <td className="px-4 py-2 text-xs text-gray-800">{p.nome}</td>
                     <td className="px-4 py-2 text-xs font-mono text-gray-600">{p.numero_carteira}</td>
                     <td className="px-4 py-2 text-xs">
-                      <span className={`px-2 py-0.5 rounded-full text-xs ${convenio ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
-                        {convenio?.razao_social || 'Sem convênio'}
-                      </span>
+                      {convenio ? (
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700">
+                          {convenio.razao_social}
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700">
+                          Sem convênio (ID: {p.convenio_id})
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-2 text-xs text-gray-500">{p.cpf ? aplicarMascaraCPF(p.cpf) : '-'}</td>
                     <td className="px-4 py-2">
@@ -379,13 +430,26 @@ export default function Pacientes() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Convênio *</label>
                   <select 
                     value={formData.convenio_id} 
-                    onChange={e => setFormData({...formData, convenio_id: e.target.value})} 
+                    onChange={e => {
+                      const selectedId = e.target.value;
+                      console.log('Convênio selecionado:', selectedId);
+                      setFormData({...formData, convenio_id: selectedId});
+                    }} 
                     className="w-full border rounded-lg px-3 py-2 text-sm" 
                     required
                   >
                     <option value="">Selecione o convênio</option>
-                    {convenios.filter(c => c.ativo).map(c => <option key={c.id} value={c.id}>{c.razao_social}</option>)}
+                    {convenios.filter(c => c.ativo !== false).map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.razao_social} {c.codigo_prestador ? `(Cód: ${c.codigo_prestador})` : ''}
+                      </option>
+                    ))}
                   </select>
+                  {formData.convenio_id && (
+                    <p className="text-xs text-green-600 mt-1">
+                      ✓ Convênio ID: {formData.convenio_id} selecionado
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Número da Carteira *</label>
