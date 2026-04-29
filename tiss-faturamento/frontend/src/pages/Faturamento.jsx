@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { DocumentArrowDownIcon, PaperAirplaneIcon, BuildingOfficeIcon, ArrowPathIcon, CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { DocumentArrowDownIcon, PaperAirplaneIcon, BuildingOfficeIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { gerarXMLTISS, converterAtendimentoParaTISS, setVersao, VERSAO_TISS } from '../lib/tissGenerator';
 
@@ -14,7 +14,6 @@ export default function Faturamento() {
   const [guiasGeradas, setGuiasGeradas] = useState([]);
   const [filtroConvenio, setFiltroConvenio] = useState('todos');
   const [versaoTISS, setVersaoTISS] = useState('4.03.00');
-  const [showGerarNovamente, setShowGerarNovamente] = useState(null);
 
   useEffect(() => {
     carregarDados();
@@ -173,7 +172,6 @@ export default function Faturamento() {
 
     setGerando(true);
     
-    // Buscar os atendimentos originais
     const atendimentosOriginais = atendimentos.filter(a => guia.guias_ids?.includes(a.id));
     
     if (atendimentosOriginais.length === 0) {
@@ -189,20 +187,17 @@ export default function Faturamento() {
       return;
     }
 
-    // Marcar atendimentos como pendentes novamente
     const atendimentosAtualizados = atendimentos.map(a => 
       guia.guias_ids?.includes(a.id) ? { ...a, status: 'pendente' } : a
     );
     localStorage.setItem('atendimentos', JSON.stringify(atendimentosAtualizados));
     setAtendimentos(atendimentosAtualizados);
 
-    // Remover o lote antigo
     const guiasAtualizadas = guiasGeradas.filter(g => g.id !== guia.id);
     localStorage.setItem('guias_geradas', JSON.stringify(guiasAtualizadas));
     setGuiasGeradas(guiasAtualizadas);
 
-    // Gerar novo lote
-    const guias = atendimentosOriginais.map(atendimento => ({
+    const novasGuias = atendimentosOriginais.map(atendimento => ({
       ...converterAtendimentoParaTISS(atendimento, convenio),
       codigoPrestadorExecutante: convenio.codigo_prestador,
       versao: versaoTISS
@@ -212,7 +207,7 @@ export default function Faturamento() {
       versao: versaoTISS,
       codigoPrestadorNaOperadora: convenio.codigo_prestador,
       registroANS: convenio.registro_ans,
-      guias: guias,
+      guias: novasGuias,
       convenio: convenio
     });
 
@@ -238,7 +233,6 @@ export default function Faturamento() {
     a.click();
     URL.revokeObjectURL(url);
 
-    // Atualizar status dos atendimentos para faturado novamente
     const atendimentosFinal = atendimentosAtualizados.map(a => 
       guia.guias_ids?.includes(a.id) ? { ...a, status: 'faturado' } : a
     );
@@ -423,7 +417,7 @@ export default function Faturamento() {
               {guiasGeradas.map((g) => (
                 <tr key={g.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2 text-xs text-gray-600">{g.convenio_nome}</td>
-                  <td className="px-4 py-2 text-xs font-mono text-gray-500">{g.numero_lote}<table>
+                  <td className="px-4 py-2 text-xs font-mono text-gray-500">{g.numero_lote}</td>
                   <td className="px-4 py-2 text-xs text-gray-500">{g.data_envio}</td>
                   <td className="px-4 py-2 text-xs text-gray-500">{g.quantidade_guias}</td>
                   <td className="px-4 py-2 text-xs text-gray-500">{g.versao || '4.03.00'}</td>
@@ -476,7 +470,7 @@ export default function Faturamento() {
           <li>• Limite máximo de <strong>{MAX_GUIAS_POR_LOTE} guias por lote</strong></li>
           <li>• Selecione as guias desejadas e clique em "Faturar Selecionados"</li>
           <li>• O XML será gerado conforme a versão TISS selecionada</li>
-          <li>• Use o botão <ArrowPathIcon className="w-3 h-3 inline" /> para regenerar um lote e corrigir erros</li>
+          <li>• Use o botão de regenerar para recriar um lote e corrigir erros</li>
         </ul>
       </div>
     </div>
