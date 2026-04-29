@@ -21,6 +21,7 @@ import Configuracoes from './pages/Configuracoes';
 import Login from './pages/Login';
 
 import { setConfig } from './lib/tissGenerator';
+import { getStorageItem, setStorageItem, isSupabaseEnabled } from './lib/storage';
 
 // Componente Principal com o conteúdo do sistema
 function MainApp() {
@@ -31,24 +32,19 @@ function MainApp() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Carregar configuração do sistema
-    const storedConfig = localStorage.getItem('config_sistema');
-    if (storedConfig) {
-      setConfig(JSON.parse(storedConfig));
-    }
-    
-    // Verificar sessão
-    const sessao = localStorage.getItem('tiss_sessao');
-    if (sessao) {
-      const sessaoData = JSON.parse(sessao);
-      if (sessaoData.logado) {
-        setUsuario(sessaoData.usuario);
-      }
-    }
+    const init = async () => {
+      const config = await getStorageItem('config_sistema', null);
+      if (config) setConfig(config);
+
+      const sessaoData = await getStorageItem('tiss_sessao', null);
+      if (sessaoData?.logado) setUsuario(sessaoData.usuario);
+    };
+
+    init();
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('tiss_sessao');
+    setStorageItem('tiss_sessao', null);
     setUsuario(null);
     toast.success('Logout realizado com sucesso!');
     navigate('/login');
@@ -84,11 +80,11 @@ function MainApp() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-indigo-50 to-cyan-50">
       <Toaster position="top-right" richColors />
       
       {/* Sidebar Desktop */}
-      <aside className={`fixed left-0 top-0 h-full bg-white shadow-lg transition-all duration-300 z-20 hidden lg:block ${sidebarOpen ? 'w-64' : 'w-16'}`}>
+      <aside className={`fixed left-0 top-0 h-full bg-white/90 backdrop-blur-md shadow-xl border-r border-white/70 transition-all duration-300 z-20 hidden lg:block ${sidebarOpen ? 'w-64' : 'w-16'}`}>
         <div className="flex items-center justify-between p-4 border-b">
           {sidebarOpen && <h1 className="text-xl font-bold text-blue-600">TISS Faturamento</h1>}
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-lg hover:bg-gray-100">
@@ -109,7 +105,7 @@ function MainApp() {
 
       {/* Main Content */}
       <main className={`transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-16'} ml-0`}>
-        <header className="bg-white shadow-sm sticky top-0 z-10">
+        <header className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-10 border-b border-white/70">
           <div className="flex justify-between items-center px-6 py-4">
             <div className="flex items-center gap-3">
               <button onClick={() => setMobileSidebarOpen(true)} className="p-2 rounded-lg hover:bg-gray-100 lg:hidden">
@@ -135,7 +131,7 @@ function MainApp() {
             </div>
           </div>
         </header>
-        <div className="p-6">{renderContent()}</div>
+        <div className="p-6 max-w-7xl mx-auto">{renderContent()}</div>
       </main>
 
       {/* Mobile Sidebar */}
@@ -188,7 +184,7 @@ function LoginPage({ onLogin }) {
         logado: true,
         data_hora: new Date().toISOString()
       };
-      localStorage.setItem('tiss_sessao', JSON.stringify(sessao));
+      await setStorageItem('tiss_sessao', sessao);
       toast.success(`Bem-vindo, ${USUARIO_VALIDO.nome}!`);
       if (onLogin) onLogin(true);
       navigate('/');
@@ -209,6 +205,7 @@ function LoginPage({ onLogin }) {
           </div>
           <h1 className="text-2xl font-bold text-gray-800">TISS Faturamento</h1>
           <p className="text-gray-500 text-sm mt-1">Sistema de Faturamento TISS 4.03.00</p>
+          <p className="text-xs text-indigo-600 mt-2">{isSupabaseEnabled() ? 'Sincronização Supabase ativa' : 'Modo local ativo (configure Supabase no .env)'}</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl p-8">
