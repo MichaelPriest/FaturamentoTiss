@@ -1,5 +1,11 @@
 {
   "version": 2,
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/frontend/index.html"
+    }
+  ],
   "builds": [
     {
       "src": "frontend/**",
@@ -7,12 +13,6 @@
       "config": {
         "distDir": "frontend/dist"
       }
-    }
-  ],
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/frontend/index.html"
     }
   ]
 }
