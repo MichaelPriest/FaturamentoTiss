@@ -1,10 +1,21 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Substitua pelos seus valores reais
-const supabaseUrl = 'https://mxgyimemvgrwyqlevoey.supabase.co';
-const supabaseAnonKey = 'sua-chave-anon-aqui'; // COLE SUA CHAVE ANÔNIMA AQUI
+// Configurações do Supabase
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Log para debug
+console.log('Supabase URL:', supabaseUrl);
+console.log('Supabase Key:', supabaseAnonKey ? 'Configurada ✓' : 'Não configurada ✗');
+
+// Verificar se as variáveis estão configuradas
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('❌ Variáveis de ambiente do Supabase não configuradas!');
+}
+
+export const supabase = supabaseUrl && supabaseAnonKey 
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null;
 
 export const TABLES = {
   CONVENIOS: 'convenios',
@@ -22,10 +33,17 @@ export const isSupabaseAvailable = () => {
 };
 
 export async function checkSupabaseConnection() {
+  if (!supabase) return false;
   try {
     const { error } = await supabase.from(TABLES.CONVENIOS).select('count', { count: 'exact', head: true });
-    return !error;
-  } catch {
+    if (error) {
+      console.error('Erro de conexão Supabase:', error);
+      return false;
+    }
+    console.log('✅ Supabase conectado com sucesso!');
+    return true;
+  } catch (err) {
+    console.error('Erro ao conectar Supabase:', err);
     return false;
   }
 }
