@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Toaster } from 'sonner';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Toaster, toast } from 'sonner';
 import { 
   HomeIcon, BuildingOfficeIcon, UsersIcon, UserGroupIcon, 
   ClipboardDocumentListIcon, CalendarIcon, CurrencyDollarIcon,
   ChartBarIcon, ExclamationTriangleIcon, DocumentTextIcon,
-  Cog6ToothIcon, Bars3Icon, XMarkIcon
+  Cog6ToothIcon, Bars3Icon, XMarkIcon, ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline';
 
 import Dashboard from './pages/Dashboard';
@@ -17,22 +18,41 @@ import Faturamento from './pages/Faturamento';
 import Glosas from './pages/Glosas';
 import Relatorios from './pages/Relatorios';
 import Configuracoes from './pages/Configuracoes';
+import Login from './pages/Login';
+import PrivateRoute from './components/PrivateRoute';
 
-// Importar o setConfig do tissGenerator
 import { setConfig } from './lib/tissGenerator';
 
-function App() {
+function AppContent() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [usuario, setUsuario] = useState(null);
+  const navigate = useNavigate();
 
-  // Carregar configuração do sistema no início
   useEffect(() => {
-    const stored = localStorage.getItem('config_sistema');
-    if (stored) {
-      setConfig(JSON.parse(stored));
+    // Carregar configuração do sistema
+    const storedConfig = localStorage.getItem('config_sistema');
+    if (storedConfig) {
+      setConfig(JSON.parse(storedConfig));
+    }
+    
+    // Verificar sessão
+    const sessao = localStorage.getItem('tiss_sessao');
+    if (sessao) {
+      const sessaoData = JSON.parse(sessao);
+      if (sessaoData.logado) {
+        setUsuario(sessaoData.usuario);
+      }
     }
   }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('tiss_sessao');
+    setUsuario(null);
+    toast.success('Logout realizado com sucesso!');
+    navigate('/login');
+  };
 
   const menuItems = [
     { id: 'dashboard', name: 'Dashboard', icon: HomeIcon },
@@ -62,6 +82,15 @@ function App() {
       default: return <Dashboard />;
     }
   };
+
+  if (!usuario) {
+    return <Login onLogin={(logged) => {
+      if (logged) {
+        const sessao = localStorage.getItem('tiss_sessao');
+        if (sessao) setUsuario(JSON.parse(sessao).usuario);
+      }
+    }} />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -95,10 +124,23 @@ function App() {
               <button onClick={() => setMobileSidebarOpen(true)} className="p-2 rounded-lg hover:bg-gray-100 lg:hidden">
                 <Bars3Icon className="w-6 h-6 text-gray-600" />
               </button>
-              <h2 className="text-xl font-semibold text-gray-800">{menuItems.find(i => i.id === activeTab)?.name}</h2>
+              <h2 className="text-xl font-semibold text-gray-800">
+                {menuItems.find(i => i.id === activeTab)?.name}
+              </h2>
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-xs text-gray-400">TISS 4.02.00</span>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-gray-500">{usuario?.nome}</span>
+                <span className="text-gray-300">|</span>
+                <span className="text-gray-400 text-xs">{usuario?.perfil}</span>
+              </div>
+              <button 
+                onClick={handleLogout}
+                className="flex items-center gap-2 text-gray-700 hover:text-red-600 transition-colors text-sm"
+              >
+                <ArrowRightOnRectangleIcon className="w-4 h-4" />
+                <span className="hidden sm:inline">Sair</span>
+              </button>
             </div>
           </div>
         </header>
@@ -125,6 +167,21 @@ function App() {
         </nav>
       </aside>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<Login onLogin={() => {}} />} />
+        <Route path="/*" element={
+          <PrivateRoute>
+            <AppContent />
+          </PrivateRoute>
+        } />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
