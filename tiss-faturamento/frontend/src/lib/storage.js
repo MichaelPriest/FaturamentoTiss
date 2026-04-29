@@ -9,37 +9,69 @@ const headers = {
   'Content-Type': 'application/json'
 };
 
-export async function getStorageItem(key, fallback = []) {
-  if (!hasSupabase) {
-    return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
+const toJson = (value) => JSON.stringify(value);
+const fromJson = (value, fallback) => {
+  if (value === null || value === undefined) return fallback;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
   }
+};
 
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/app_storage?storage_key=eq.${encodeURIComponent(key)}&select=storage_value`, {
-    headers
-  });
+async function fetchFromSupabase(key, fallback = null) {
+  if (!hasSupabase) return fallback;
 
-  if (!response.ok) {
-    return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
-  }
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/app_storage?storage_key=eq.${encodeURIComponent(key)}&select=storage_value`, { headers });
+  if (!response.ok) return fallback;
 
   const data = await response.json();
-  if (!data.length) return fallback;
-  return data[0].storage_value ?? fallback;
+  return data[0]?.storage_value ?? fallback;
 }
 
-export async function setStorageItem(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
-
+async function pushToSupabase(key, value) {
   if (!hasSupabase) return;
 
   await fetch(`${SUPABASE_URL}/rest/v1/app_storage`, {
     method: 'POST',
-    headers: {
-      ...headers,
-      Prefer: 'resolution=merge-duplicates'
-    },
+    headers: { ...headers, Prefer: 'resolution=merge-duplicates' },
     body: JSON.stringify({ storage_key: key, storage_value: value })
   });
+}
+
+export async function getStorageItem(key, fallback = []) {
+  const remote = await fetchFromSupabase(key, null);
+  if (remote !== null) {
+    localStorage.setItem(key, toJson(remote));
+    return remote;
+  }
+  return fromJson(localStorage.getItem(key), fallback);
+}
+
+export async function setStorageItem(key, value) {
+  localStorage.setItem(key, toJson(value));
+  await pushToSupabase(key, value);
+}
+
+export function setupSupabaseStorageBridge() {
+  if (!hasSupabase) return;
+
+  const originalSetItem = localStorage.setItem.bind(localStorage);
+  localStorage.setItem = (key, value) => {
+    originalSetItem(key, value);
+    pushToSupabase(key, fromJson(value, value)).catch(() => null);
+  };
+
+  const originalGetItem = localStorage.getItem.bind(localStorage);
+  localStorage.getItem = (key) => {
+    fetchFromSupabase(key, null)
+      .then((value) => {
+        if (value !== null) originalSetItem(key, toJson(value));
+      })
+      .catch(() => null);
+
+    return originalGetItem(key);
+  };
 }
 
 export function isSupabaseEnabled() {
