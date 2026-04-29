@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BellIcon, CheckCircleIcon, XCircleIcon, ClockIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { format } from 'date-fns';
+import { supabase, TABLES, isSupabaseAvailable } from '../lib/supabaseClient';
 
 export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
@@ -13,59 +14,80 @@ export default function NotificationBell() {
     return () => clearInterval(interval);
   }, []);
 
-  const carregarNotificacoes = () => {
-    const stored = localStorage.getItem('notifications');
-    if (stored) {
-      const notifs = JSON.parse(stored);
+  const carregarNotificacoes = async () => {
+    try {
+      let notifs = [];
+      
+      if (isSupabaseAvailable()) {
+        const { data, error } = await supabase
+          .from(TABLES.NOTIFICACOES)
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (!error && data) {
+          notifs = data;
+        }
+      }
+      
+      if (notifs.length === 0) {
+        const stored = localStorage.getItem('notifications');
+        if (stored) {
+          notifs = JSON.parse(stored);
+        } else {
+          notifs = [{
+            id: 1,
+            titulo: 'Bem-vindo ao TISS Faturamento',
+            mensagem: 'Sistema pronto para uso. Comece cadastrando seus convênios.',
+            tipo: 'success',
+            lido: false,
+            created_at: new Date().toISOString()
+          }];
+        }
+      }
+      
       setNotifications(notifs);
       setUnreadCount(notifs.filter(n => !n.lido).length);
-    } else {
-      // Notificações de exemplo
-      const exemplos = [
-        {
-          id: 1,
-          titulo: 'Bem-vindo ao TISS Faturamento',
-          mensagem: 'Sistema pronto para uso. Comece cadastrando seus convênios.',
-          tipo: 'success',
-          lido: false,
-          data: new Date().toISOString()
-        }
-      ];
-      localStorage.setItem('notifications', JSON.stringify(exemplos));
-      setNotifications(exemplos);
-      setUnreadCount(1);
+    } catch (error) {
+      console.error('Erro ao carregar notificações:', error);
     }
   };
 
-  const marcarComoLido = (id) => {
-    const updated = notifications.map(n => 
-      n.id === id ? { ...n, lido: true } : n
-    );
-    localStorage.setItem('notifications', JSON.stringify(updated));
-    setNotifications(updated);
-    setUnreadCount(updated.filter(n => !n.lido).length);
+  const marcarComoLido = async (id) => {
+    try {
+      if (isSupabaseAvailable()) {
+        await supabase
+          .from(TABLES.NOTIFICACOES)
+          .update({ lido: true })
+          .eq('id', id);
+      }
+      
+      const updated = notifications.map(n => 
+        n.id === id ? { ...n, lido: true } : n
+      );
+      localStorage.setItem('notifications', JSON.stringify(updated));
+      setNotifications(updated);
+      setUnreadCount(updated.filter(n => !n.lido).length);
+    } catch (error) {
+      console.error('Erro ao marcar como lido:', error);
+    }
   };
 
-  const marcarTodosComoLidos = () => {
-    const updated = notifications.map(n => ({ ...n, lido: true }));
-    localStorage.setItem('notifications', JSON.stringify(updated));
-    setNotifications(updated);
-    setUnreadCount(0);
-  };
-
-  const adicionarNotificacao = (titulo, mensagem, tipo = 'info') => {
-    const novaNotificacao = {
-      id: Date.now(),
-      titulo,
-      mensagem,
-      tipo,
-      lido: false,
-      data: new Date().toISOString()
-    };
-    const updated = [novaNotificacao, ...notifications];
-    localStorage.setItem('notifications', JSON.stringify(updated));
-    setNotifications(updated);
-    setUnreadCount(updated.filter(n => !n.lido).length);
+  const marcarTodosComoLidos = async () => {
+    try {
+      if (isSupabaseAvailable()) {
+        await supabase
+          .from(TABLES.NOTIFICACOES)
+          .update({ lido: true })
+          .neq('lido', true);
+      }
+      
+      const updated = notifications.map(n => ({ ...n, lido: true }));
+      localStorage.setItem('notifications', JSON.stringify(updated));
+      setNotifications(updated);
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Erro ao marcar todos como lidos:', error);
+    }
   };
 
   const getIcon = (tipo) => {
@@ -74,15 +96,6 @@ export default function NotificationBell() {
       case 'error': return <XCircleIcon className="w-5 h-5 text-red-500" />;
       case 'warning': return <ExclamationTriangleIcon className="w-5 h-5 text-yellow-500" />;
       default: return <ClockIcon className="w-5 h-5 text-blue-500" />;
-    }
-  };
-
-  const getBgColor = (tipo) => {
-    switch(tipo) {
-      case 'success': return 'bg-green-50 dark:bg-green-900/20';
-      case 'error': return 'bg-red-50 dark:bg-red-900/20';
-      case 'warning': return 'bg-yellow-50 dark:bg-yellow-900/20';
-      default: return 'bg-blue-50 dark:bg-blue-900/20';
     }
   };
 
@@ -139,7 +152,7 @@ export default function NotificationBell() {
                           {notif.mensagem}
                         </p>
                         <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-                          {format(new Date(notif.data), 'dd/MM/yyyy HH:mm')}
+                          {format(new Date(notif.created_at || notif.data), 'dd/MM/yyyy HH:mm')}
                         </p>
                       </div>
                       {!notif.lido && (
@@ -156,16 +169,3 @@ export default function NotificationBell() {
     </div>
   );
 }
-
-export const adicionarNotificacaoGlobal = (titulo, mensagem, tipo = 'info') => {
-  const notifications = JSON.parse(localStorage.getItem('notifications') || '[]');
-  const novaNotificacao = {
-    id: Date.now(),
-    titulo,
-    mensagem,
-    tipo,
-    lido: false,
-    data: new Date().toISOString()
-  };
-  localStorage.setItem('notifications', JSON.stringify([novaNotificacao, ...notifications]));
-};
