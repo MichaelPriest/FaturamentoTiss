@@ -1,7 +1,17 @@
 import CryptoJS from 'crypto-js';
 
-// Configuração global (carregada do localStorage)
+// ============================================
+// VERSÕES SUPORTADAS DO PADRÃO TISS
+// ============================================
+export const VERSAO_TISS = {
+  '4.01.00': '4.01.00',
+  '4.02.00': '4.02.00',
+  '4.03.00': '4.03.00'
+};
+
+// Configuração global
 let configGlobal = null;
+let versaoAtual = VERSAO_TISS['4.03.00'];
 
 export function setConfig(config) {
   configGlobal = config;
@@ -15,52 +25,73 @@ export function getConfig() {
   return configGlobal;
 }
 
-/**
- * Mapeamento de conselhos para códigos ANS (Tabela ANS)
- */
-const mapaConselhos = {
-  'CRM': '06',
-  'CRO': '07',
-  'CRF': '05',
-  'COREN': '04',
-  'CREFITO': '03',
-  'CRP': '08',
-  'CRBio': '09',
-  'CRN': '10',
-  'CREF': '11',
-  'CRA': '12',
-  'CRESS': '13'
+export function setVersao(versao) {
+  if (Object.values(VERSAO_TISS).includes(versao)) {
+    versaoAtual = versao;
+  }
+}
+
+export function getVersao() {
+  return versaoAtual;
+}
+
+// ============================================
+// MAPEAMENTO DE TABELAS ANS
+// ============================================
+
+// Tabela 39 - Grau de Participação
+const GRAU_PARTICIPACAO = {
+  '00': '00', '01': '01', '02': '02', '03': '03', '04': '04',
+  '05': '05', '06': '06', '07': '07', '08': '08', '09': '09',
+  '10': '10', '11': '11', '12': '12', '13': '13'
 };
 
-/**
- * Mapeamento de UFs para códigos ANS (Tabela ANS)
- */
+// Tabela 36 - Indicador de Acidente
+const INDICADOR_ACIDENTE = {
+  '0': '0', '1': '1', '2': '2', '9': '9'
+};
+
+// Tabela 50 - Tipo de Atendimento
+const TIPO_ATENDIMENTO = {
+  '01': '01', '02': '02', '03': '03', '04': '04',
+  '08': '08', '09': '09', '10': '10', '13': '13', '23': '23'
+};
+
+// Tabela 26 - Regime de Atendimento
+const REGIME_ATENDIMENTO = {
+  '01': '01', '02': '02', '03': '03', '04': '04', '05': '05'
+};
+
+// Tabela 53 - Caráter do Atendimento
+const CARATER_ATENDIMENTO = {
+  '1': '1', '2': '2'
+};
+
+// Mapeamento de conselhos para códigos ANS
+const mapaConselhos = {
+  'CRM': '06', 'CRO': '08', 'CRF': '03', 'COREN': '02',
+  'CREFITO': '05', 'CRP': '09', 'CRBio': '11', 'CRN': '07',
+  'CREF': '13', 'CRA': '10', 'CRESS': '01'
+};
+
+// Mapeamento de UFs para códigos ANS
 const mapaUFs = {
   'RO': '11', 'AC': '12', 'AM': '13', 'RR': '14', 'PA': '15',
-  'AP': '16', 'TO': '17', 'MA': '18', 'MT': '21', 'GO': '22',
-  'DF': '23', 'MS': '24', 'MG': '31', 'ES': '32', 'RJ': '33',
-  'SP': '35', 'PR': '41', 'SC': '42', 'RS': '43', 'SE': '28',
-  'BA': '29', 'PE': '26', 'CE': '23', 'RN': '24', 'PB': '25',
-  'PI': '22', 'AL': '27'
+  'AP': '16', 'TO': '17', 'MA': '21', 'MT': '51', 'MS': '50',
+  'MG': '31', 'ES': '32', 'RJ': '33', 'SP': '35', 'PR': '41',
+  'SC': '42', 'RS': '43', 'BA': '29', 'SE': '28', 'AL': '27',
+  'PE': '26', 'PB': '25', 'RN': '24', 'CE': '23', 'PI': '22',
+  'GO': '52', 'DF': '53'
 };
 
-/**
- * Converte sigla do conselho para código ANS
- */
 function getCodigoConselho(sigla) {
   return mapaConselhos[sigla] || '06';
 }
 
-/**
- * Converte UF para código ANS
- */
 function getCodigoUF(uf) {
   return mapaUFs[uf.toUpperCase()] || '35';
 }
 
-/**
- * Gera um número aleatório com apenas dígitos
- */
 function gerarNumeroAleatorio(tamanho) {
   let numero = '';
   for (let i = 0; i < tamanho; i++) {
@@ -69,9 +100,6 @@ function gerarNumeroAleatorio(tamanho) {
   return numero;
 }
 
-/**
- * Gera número de guia do prestador (APENAS NÚMEROS)
- */
 function gerarNumeroGuiaPrestador(convenio) {
   if (convenio && convenio.proximo_numero_guia) {
     const numero = convenio.proximo_numero_guia;
@@ -84,16 +112,10 @@ function gerarNumeroGuiaPrestador(convenio) {
   return Date.now().toString();
 }
 
-/**
- * Gera número de lote com apenas números
- */
 function gerarNumeroLote() {
   return '3' + gerarNumeroAleatorio(4) + gerarNumeroAleatorio(4) + gerarNumeroAleatorio(4);
 }
 
-/**
- * Formata hora no padrão HH:MM:SS
- */
 function formatarHora(hora) {
   if (!hora) return '00:00:00';
   if (hora.includes(':')) {
@@ -111,10 +133,11 @@ function formatarHora(hora) {
 }
 
 /**
- * Gera XML TISS 4.02.00 completo no formato ANS
+ * Gera XML TISS conforme versão especificada
  */
 export function gerarXMLTISS(dados) {
   const config = getConfig();
+  const versao = dados.versao || versaoAtual;
   
   const {
     tipoTransacao = 'ENVIO_LOTE_GUIAS',
@@ -130,11 +153,11 @@ export function gerarXMLTISS(dados) {
 
   let guiasXML = '';
   guias.forEach((guia, index) => {
-    guiasXML += gerarGuiaSPSADT(guia, index + 1, registroANS, config, convenio);
+    guiasXML += gerarGuiaSPSADT(guia, index + 1, registroANS, config, convenio, versao);
   });
 
   let xml = `<?xml version="1.0" encoding="ISO-8859-1"?>
-<ans:mensagemTISS xsi:schemaLocation="http://www.ans.gov.br/padroes/tiss/schemas/tissV4_01_00.xsd" xmlns:ans="http://www.ans.gov.br/padroes/tiss/schemas" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<ans:mensagemTISS xsi:schemaLocation="http://www.ans.gov.br/padroes/tiss/schemas/tissV${versao.replace(/\./g, '_')}.xsd" xmlns:ans="http://www.ans.gov.br/padroes/tiss/schemas" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <ans:cabecalho>
     <ans:identificacaoTransacao>
       <ans:tipoTransacao>${tipoTransacao}</ans:tipoTransacao>
@@ -150,7 +173,7 @@ export function gerarXMLTISS(dados) {
     <ans:destino>
       <ans:registroANS>${registroANS}</ans:registroANS>
     </ans:destino>
-    <ans:Padrao>4.01.00</ans:Padrao>
+    <ans:Padrao>${versao}</ans:Padrao>
   </ans:cabecalho>
   <ans:prestadorParaOperadora>
     <ans:loteGuias>
@@ -172,10 +195,7 @@ ${guiasXML}
   return xml;
 }
 
-/**
- * Gera uma guia SP/SADT com múltiplos procedimentos
- */
-function gerarGuiaSPSADT(guia, sequencial, registroANS, config, convenio) {
+function gerarGuiaSPSADT(guia, sequencial, registroANS, config, convenio, versao) {
   const {
     numeroCarteira,
     nomeBeneficiario,
@@ -183,34 +203,33 @@ function gerarGuiaSPSADT(guia, sequencial, registroANS, config, convenio) {
     numero_guia_operadora,
     data_autorizacao,
     senha_autorizacao,
+    data_validade_senha = '',
     codigoPrestadorExecutante,
     nomeProfissionalSolicitante,
     numeroConselhoProfissionalSolicitante,
-    itens
+    itens,
+    // Campos específicos do atendimento
+    carater_atendimento = '1',
+    tipo_atendimento = '04',
+    indicacao_acidente = '9',
+    tipo_consulta = '1',
+    regime_atendimento = '01',
+    cobertura_especial = '',
+    saude_ocupacional = ''
   } = guia;
 
-  // Dados da clínica/hospital
   const cnpjContratado = config?.cnpj ? config.cnpj.replace(/\D/g, '') : '20384928000205';
   const nomeContratadoSolicitante = (config?.nome_contratado || 'CLINICA NAO CONFIGURADA').toUpperCase();
   const cnesExecutante = config?.cnes || '0000000';
-  
-  // Dados da clínica (usando os códigos da configuração)
   const conselhoClinica = config?.conselho_clinica || '06';
   const ufClinica = getCodigoUF(config?.uf_clinica || 'SP');
   const cbosClinica = config?.cbos_clinica || '225125';
-  
-  const tipoAtendimento = '04';
-  const indicacaoAcidente = '9';
-  const tipoConsulta = '4';
-  const regimeAtendimento = '04';
-  const caraterAtendimento = '2';
 
   const numeroGuiaPrestador = guia.numero_guia_prestador || gerarNumeroGuiaPrestador(convenio);
   const numeroGuiaOperadora = numero_guia_operadora || gerarNumeroAleatorio(10);
   const dataAutorizacao = data_autorizacao || dataSolicitacao;
   const senha = senha_autorizacao || gerarNumeroAleatorio(9);
 
-  // GERAR MÚLTIPLOS PROCEDIMENTOS
   let procedimentosXML = '';
   
   if (itens && itens.length > 0) {
@@ -226,7 +245,7 @@ function gerarGuiaSPSADT(guia, sequencial, registroANS, config, convenio) {
       const prestadorUF = getCodigoUF(item.prestador_uf_conselho);
       const prestadorCBOS = item.prestador_cbos || '225125';
       const prestadorCPF = item.prestador_cpf || '00000000000';
-      const grauParticipacao = item.grau_participacao || '12';
+      const grauParticipacao = item.grau_participacao || '00';
       
       procedimentosXML += `
             <ans:procedimentoExecutado>
@@ -235,14 +254,14 @@ function gerarGuiaSPSADT(guia, sequencial, registroANS, config, convenio) {
               <ans:horaInicial>${horaInicial}</ans:horaInicial>
               <ans:horaFinal>${horaFinal}</ans:horaFinal>
               <ans:procedimento>
-                <ans:codigoTabela>${item.codigoTabela || '98'}</ans:codigoTabela>
+                <ans:codigoTabela>${item.tabela_referencia || '22'}</ans:codigoTabela>
                 <ans:codigoProcedimento>${item.procedimento_codigo}</ans:codigoProcedimento>
                 <ans:descricaoProcedimento>${item.procedimento_nome}</ans:descricaoProcedimento>
               </ans:procedimento>
               <ans:quantidadeExecutada>${item.quantidade || 1}</ans:quantidadeExecutada>
               <ans:viaAcesso>1</ans:viaAcesso>
               <ans:tecnicaUtilizada>1</ans:tecnicaUtilizada>
-              <ans:reducaoAcrescimo>1.00</ans:reducaoAcrescimo>
+              <ans:reducaoAcrescimo>${item.fator_reducao_acrescimo || '1.00'}</ans:reducaoAcrescimo>
               <ans:valorUnitario>${item.valor_unitario}</ans:valorUnitario>
               <ans:valorTotal>${item.valor_total}</ans:valorTotal>
               <ans:equipeSadt>
@@ -262,16 +281,31 @@ function gerarGuiaSPSADT(guia, sequencial, registroANS, config, convenio) {
 
   const valorTotal = itens ? itens.reduce((sum, item) => sum + (parseFloat(item.valor_total) || 0), 0) : 0;
 
+  // Versão 4.03.00 tem suporte a novos campos
+  const hasCoberturaEspecial = versao >= VERSAO_TISS['4.00.00'];
+  const hasSaudeOcupacional = versao >= VERSAO_TISS['4.00.00'];
+  const hasDataValidadeSenha = versao >= VERSAO_TISS['4.00.00'];
+
+  const dadosAutorizacao = `
+          <ans:dadosAutorizacao>
+            <ans:numeroGuiaOperadora>${numeroGuiaOperadora}</ans:numeroGuiaOperadora>
+            <ans:dataAutorizacao>${dataAutorizacao}</ans:dataAutorizacao>
+            ${hasDataValidadeSenha && data_validade_senha ? `<ans:dataValidadeSenha>${data_validade_senha}</ans:dataValidadeSenha>` : ''}
+            <ans:senha>${senha}</ans:senha>
+          </ans:dadosAutorizacao>`;
+
+  const coberturaEspecialXML = hasCoberturaEspecial && cobertura_especial ? 
+    `<ans:coberturaEspecial>${cobertura_especial}</ans:coberturaEspecial>` : '';
+
+  const saudeOcupacionalXML = hasSaudeOcupacional && saude_ocupacional ? 
+    `<ans:saudeOcupacional>${saude_ocupacional}</ans:saudeOcupacional>` : '';
+
   return `        <ans:guiaSP-SADT>
           <ans:cabecalhoGuia>
             <ans:registroANS>${registroANS}</ans:registroANS>
             <ans:numeroGuiaPrestador>${numeroGuiaPrestador}</ans:numeroGuiaPrestador>
           </ans:cabecalhoGuia>
-          <ans:dadosAutorizacao>
-            <ans:numeroGuiaOperadora>${numeroGuiaOperadora}</ans:numeroGuiaOperadora>
-            <ans:dataAutorizacao>${dataAutorizacao}</ans:dataAutorizacao>
-            <ans:senha>${senha}</ans:senha>
-          </ans:dadosAutorizacao>
+          ${dadosAutorizacao}
           <ans:dadosBeneficiario>
             <ans:numeroCarteira>${numeroCarteira || '000000000'}</ans:numeroCarteira>
             <ans:atendimentoRN>N</ans:atendimentoRN>
@@ -291,7 +325,7 @@ function gerarGuiaSPSADT(guia, sequencial, registroANS, config, convenio) {
           </ans:dadosSolicitante>
           <ans:dadosSolicitacao>
             <ans:dataSolicitacao>${dataSolicitacao}</ans:dataSolicitacao>
-            <ans:caraterAtendimento>${caraterAtendimento}</ans:caraterAtendimento>
+            <ans:caraterAtendimento>${CARATER_ATENDIMENTO[carater_atendimento] || '1'}</ans:caraterAtendimento>
           </ans:dadosSolicitacao>
           <ans:dadosExecutante>
             <ans:contratadoExecutante>
@@ -300,10 +334,12 @@ function gerarGuiaSPSADT(guia, sequencial, registroANS, config, convenio) {
             <ans:CNES>${cnesExecutante}</ans:CNES>
           </ans:dadosExecutante>
           <ans:dadosAtendimento>
-            <ans:tipoAtendimento>${tipoAtendimento}</ans:tipoAtendimento>
-            <ans:indicacaoAcidente>9</ans:indicacaoAcidente>
-            <ans:tipoConsulta>4</ans:tipoConsulta>
-            <ans:regimeAtendimento>${regimeAtendimento}</ans:regimeAtendimento>
+            <ans:tipoAtendimento>${TIPO_ATENDIMENTO[tipo_atendimento] || '04'}</ans:tipoAtendimento>
+            <ans:indicacaoAcidente>${INDICADOR_ACIDENTE[indicacao_acidente] || '9'}</ans:indicacaoAcidente>
+            <ans:tipoConsulta>${TIPO_CONSULTA[tipo_consulta] || '1'}</ans:tipoConsulta>
+            ${coberturaEspecialXML}
+            <ans:regimeAtendimento>${REGIME_ATENDIMENTO[regime_atendimento] || '01'}</ans:regimeAtendimento>
+            ${saudeOcupacionalXML}
           </ans:dadosAtendimento>
           <ans:procedimentosExecutados>
 ${procedimentosXML}
@@ -321,12 +357,8 @@ ${procedimentosXML}
         </ans:guiaSP-SADT>`;
 }
 
-/**
- * Converte atendimento para o formato de guia TISS
- */
 export function converterAtendimentoParaTISS(atendimento, convenio) {
   const config = getConfig();
-  
   const numeroCarteira = atendimento.numero_carteira || '000000000';
   const primeiroItem = atendimento.itens && atendimento.itens.length > 0 ? atendimento.itens[0] : null;
   
@@ -336,11 +368,19 @@ export function converterAtendimentoParaTISS(atendimento, convenio) {
     nomeBeneficiario: atendimento.paciente_nome || 'PACIENTE',
     numero_guia_operadora: atendimento.numero_guia_operadora || '',
     data_autorizacao: atendimento.data_autorizacao || '',
+    data_validade_senha: atendimento.data_validade_senha || '',
     senha_autorizacao: atendimento.senha_autorizacao || '',
-    dataSolicitacao: atendimento.data_atendimento || new Date().toISOString().split('T')[0],
+    dataSolicitacao: atendimento.data_solicitacao || atendimento.data_atendimento || new Date().toISOString().split('T')[0],
     numero_guia_prestador: atendimento.numero_guia_prestador || '',
-    nomeProfissionalSolicitante: primeiroItem?.prestador_nome || atendimento.prestador_nome || 'PROFISSIONAL',
-    numeroConselhoProfissionalSolicitante: primeiroItem?.prestador_numero_conselho || atendimento.prestador_numero_conselho || '00000',
+    nomeProfissionalSolicitante: atendimento.profissional_solicitante || primeiroItem?.prestador_nome || 'PROFISSIONAL',
+    numeroConselhoProfissionalSolicitante: atendimento.numero_conselho_solicitante || primeiroItem?.prestador_numero_conselho || '00000',
+    carater_atendimento: atendimento.carater_atendimento || '1',
+    tipo_atendimento: atendimento.tipo_atendimento || '04',
+    indicacao_acidente: atendimento.indicacao_acidente || '9',
+    tipo_consulta: atendimento.tipo_consulta || '1',
+    regime_atendimento: atendimento.regime_atendimento || '01',
+    cobertura_especial: atendimento.cobertura_especial || '',
+    saude_ocupacional: atendimento.saude_ocupacional || '',
     itens: atendimento.itens && atendimento.itens.length > 0 
       ? atendimento.itens.map(item => ({
           procedimento_codigo: item.procedimento_codigo,
@@ -351,14 +391,61 @@ export function converterAtendimentoParaTISS(atendimento, convenio) {
           data_execucao: item.data_execucao || atendimento.data_atendimento,
           hora_inicial: item.hora_inicial || '00:00:00',
           hora_final: item.hora_final || '00:00:00',
+          tabela_referencia: item.tabela_referencia || '22',
+          fator_reducao_acrescimo: item.fator_reducao_acrescimo || 1.00,
           prestador_nome: item.prestador_nome || 'PROFISSIONAL',
           prestador_cpf: item.prestador_cpf || '00000000000',
           prestador_conselho: item.prestador_conselho || '06',
           prestador_numero_conselho: item.prestador_numero_conselho || '00000',
           prestador_uf_conselho: item.prestador_uf_conselho || '35',
           prestador_cbos: item.prestador_cbos || '225125',
-          grau_participacao: item.grau_participacao || '12'
+          grau_participacao: item.grau_participacao || '00'
         }))
       : []
   };
+}
+
+/**
+ * Gera XML de exemplo para teste conforme versão
+ */
+export function gerarXMLExemplo(versao = '4.03.00') {
+  const dataAtual = new Date().toISOString().split('T')[0];
+  const config = getConfig();
+  
+  const guias = [
+    {
+      numeroGuiaPrestador: gerarNumeroAleatorio(10),
+      numeroCarteira: '09700020008288318',
+      nomeBeneficiario: 'PACIENTE EXEMPLO',
+      nomeProfissionalSolicitante: 'PROFISSIONAL EXEMPLO',
+      numeroConselhoProfissionalSolicitante: '12345',
+      dataSolicitacao: dataAtual,
+      codigoPrestadorExecutante: config?.codigo_prestador || '002535718',
+      carater_atendimento: '1',
+      tipo_atendimento: '04',
+      indicacao_acidente: '9',
+      tipo_consulta: '1',
+      regime_atendimento: '01',
+      procedimentos: [
+        {
+          codigoProcedimento: '01010101',
+          descricaoProcedimento: 'CONSULTA MÉDICA',
+          valorUnitario: '150.00',
+          valorTotal: '150.00',
+          nomeProfissional: 'PROFISSIONAL EXEMPLO',
+          numeroConselhoProfissional: '12345',
+          tabela_referencia: '22',
+          grau_participacao: '12'
+        }
+      ]
+    }
+  ];
+
+  return gerarXMLTISS({
+    versao: versao,
+    codigoPrestadorNaOperadora: config?.codigo_prestador || '20.384.928/0002-05',
+    registroANS: config?.registro_ans || '421928',
+    numeroLote: gerarNumeroLote(),
+    guias: guias
+  });
 }
