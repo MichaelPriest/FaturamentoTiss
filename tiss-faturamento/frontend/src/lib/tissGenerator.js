@@ -36,7 +36,7 @@ export function getVersao() {
 }
 
 // ============================================
-// MAPEAMENTO DE TABELAS ANS
+// TABELAS ANS (mapeamentos)
 // ============================================
 
 // Tabela 39 - Grau de Participação
@@ -65,6 +65,21 @@ const REGIME_ATENDIMENTO = {
 // Tabela 53 - Caráter do Atendimento
 const CARATER_ATENDIMENTO = {
   '1': '1', '2': '2'
+};
+
+// Tabela 52 - Tipo de Consulta (CORRIGIDO - estava faltando)
+const TIPO_CONSULTA = {
+  '1': '1',   // Primeira Consulta
+  '2': '2',   // Seguimento / Retorno
+  '3': '3',   // Pré-Natal
+  '4': '4'    // Por encaminhamento
+};
+
+// Tabela 34 - Motivo de Saída da Internação (apenas para óbito)
+const MOTIVO_ENCERRAMENTO = {
+  '41': '41', // Óbito com declaração de óbito fornecida pelo médico assistente
+  '42': '42', // Óbito com declaração de Óbito fornecida pelo IML
+  '43': '43'  // Óbito com declaração de Óbito fornecida pelo SVO
 };
 
 // Mapeamento de conselhos para códigos ANS
@@ -208,7 +223,7 @@ function gerarGuiaSPSADT(guia, sequencial, registroANS, config, convenio, versao
     nomeProfissionalSolicitante,
     numeroConselhoProfissionalSolicitante,
     itens,
-    // Campos específicos do atendimento
+    // Campos específicos do atendimento (com valores padrão)
     carater_atendimento = '1',
     tipo_atendimento = '04',
     indicacao_acidente = '9',
@@ -300,6 +315,13 @@ function gerarGuiaSPSADT(guia, sequencial, registroANS, config, convenio, versao
   const saudeOcupacionalXML = hasSaudeOcupacional && saude_ocupacional ? 
     `<ans:saudeOcupacional>${saude_ocupacional}</ans:saudeOcupacional>` : '';
 
+  // Usar os mapeamentos corretos
+  const caraterValue = CARATER_ATENDIMENTO[carater_atendimento] || '1';
+  const tipoAtendimentoValue = TIPO_ATENDIMENTO[tipo_atendimento] || '04';
+  const indicadorAcidenteValue = INDICADOR_ACIDENTE[indicacao_acidente] || '9';
+  const tipoConsultaValue = TIPO_CONSULTA[tipo_consulta] || '1';
+  const regimeAtendimentoValue = REGIME_ATENDIMENTO[regime_atendimento] || '01';
+
   return `        <ans:guiaSP-SADT>
           <ans:cabecalhoGuia>
             <ans:registroANS>${registroANS}</ans:registroANS>
@@ -325,7 +347,7 @@ function gerarGuiaSPSADT(guia, sequencial, registroANS, config, convenio, versao
           </ans:dadosSolicitante>
           <ans:dadosSolicitacao>
             <ans:dataSolicitacao>${dataSolicitacao}</ans:dataSolicitacao>
-            <ans:caraterAtendimento>${CARATER_ATENDIMENTO[carater_atendimento] || '1'}</ans:caraterAtendimento>
+            <ans:caraterAtendimento>${caraterValue}</ans:caraterAtendimento>
           </ans:dadosSolicitacao>
           <ans:dadosExecutante>
             <ans:contratadoExecutante>
@@ -334,11 +356,11 @@ function gerarGuiaSPSADT(guia, sequencial, registroANS, config, convenio, versao
             <ans:CNES>${cnesExecutante}</ans:CNES>
           </ans:dadosExecutante>
           <ans:dadosAtendimento>
-            <ans:tipoAtendimento>${TIPO_ATENDIMENTO[tipo_atendimento] || '04'}</ans:tipoAtendimento>
-            <ans:indicacaoAcidente>${INDICADOR_ACIDENTE[indicacao_acidente] || '9'}</ans:indicacaoAcidente>
-            <ans:tipoConsulta>${TIPO_CONSULTA[tipo_consulta] || '1'}</ans:tipoConsulta>
+            <ans:tipoAtendimento>${tipoAtendimentoValue}</ans:tipoAtendimento>
+            <ans:indicacaoAcidente>${indicadorAcidenteValue}</ans:indicacaoAcidente>
+            <ans:tipoConsulta>${tipoConsultaValue}</ans:tipoConsulta>
             ${coberturaEspecialXML}
-            <ans:regimeAtendimento>${REGIME_ATENDIMENTO[regime_atendimento] || '01'}</ans:regimeAtendimento>
+            <ans:regimeAtendimento>${regimeAtendimentoValue}</ans:regimeAtendimento>
             ${saudeOcupacionalXML}
           </ans:dadosAtendimento>
           <ans:procedimentosExecutados>
@@ -395,9 +417,9 @@ export function converterAtendimentoParaTISS(atendimento, convenio) {
           fator_reducao_acrescimo: item.fator_reducao_acrescimo || 1.00,
           prestador_nome: item.prestador_nome || 'PROFISSIONAL',
           prestador_cpf: item.prestador_cpf || '00000000000',
-          prestador_conselho: item.prestador_conselho || '06',
+          prestador_conselho: item.prestador_conselho || 'CRM',
           prestador_numero_conselho: item.prestador_numero_conselho || '00000',
-          prestador_uf_conselho: item.prestador_uf_conselho || '35',
+          prestador_uf_conselho: item.prestador_uf_conselho || 'SP',
           prestador_cbos: item.prestador_cbos || '225125',
           grau_participacao: item.grau_participacao || '00'
         }))
