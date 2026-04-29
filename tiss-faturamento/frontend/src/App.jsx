@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
 import { 
   HomeIcon, BuildingOfficeIcon, UsersIcon, UserGroupIcon, 
   ClipboardDocumentListIcon, CalendarIcon, CurrencyDollarIcon,
   ChartBarIcon, ExclamationTriangleIcon, DocumentTextIcon,
   Cog6ToothIcon, Bars3Icon, XMarkIcon, ArrowRightOnRectangleIcon,
-  ChevronLeftIcon, ChevronRightIcon, BellIcon, SunIcon, MoonIcon
+  ChevronLeftIcon, ChevronRightIcon, SunIcon, MoonIcon
 } from '@heroicons/react/24/outline';
 
 import Dashboard from './pages/Dashboard';
@@ -20,8 +20,10 @@ import Glosas from './pages/Glosas';
 import Relatorios from './pages/Relatorios';
 import Configuracoes from './pages/Configuracoes';
 import Login from './pages/Login';
+import NotificationBell from './components/NotificationBell';
 
 import { setConfig } from './lib/tissGenerator';
+import { isSupabaseAvailable, checkSupabaseConnection } from './lib/supabaseClient';
 
 // Componente Principal com o conteúdo do sistema
 function MainApp() {
@@ -30,10 +32,15 @@ function MainApp() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [usuario, setUsuario] = useState(null);
   const [darkMode, setDarkMode] = useState(false);
+  const [supabaseStatus, setSupabaseStatus] = useState(null);
   const navigate = useNavigate();
-  const location = useLocation();
 
   useEffect(() => {
+    carregarConfiguracoes();
+    verificarSupabase();
+  }, []);
+
+  const carregarConfiguracoes = () => {
     const storedConfig = localStorage.getItem('config_sistema');
     if (storedConfig) {
       setConfig(JSON.parse(storedConfig));
@@ -48,11 +55,28 @@ function MainApp() {
     }
 
     const savedDarkMode = localStorage.getItem('darkMode');
-    if (savedDarkMode === 'true') {
-      setDarkMode(true);
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const shouldBeDark = savedDarkMode === 'true' || (savedDarkMode === null && prefersDark);
+    
+    setDarkMode(shouldBeDark);
+    if (shouldBeDark) {
       document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
     }
-  }, []);
+  };
+
+  const verificarSupabase = async () => {
+    const isConnected = await checkSupabaseConnection();
+    setSupabaseStatus(isConnected);
+    if (isConnected) {
+      console.log('✅ Conectado ao Supabase');
+    } else if (isSupabaseAvailable()) {
+      console.warn('⚠️ Supabase configurado mas não conectado');
+    } else {
+      console.log('📦 Usando localStorage como fallback');
+    }
+  };
 
   const toggleDarkMode = () => {
     const newDarkMode = !darkMode;
@@ -60,8 +84,10 @@ function MainApp() {
     localStorage.setItem('darkMode', newDarkMode);
     if (newDarkMode) {
       document.documentElement.classList.add('dark');
+      toast.success('Modo escuro ativado');
     } else {
       document.documentElement.classList.remove('dark');
+      toast.success('Modo claro ativado');
     }
   };
 
@@ -105,9 +131,18 @@ function MainApp() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
-      <Toaster position="top-right" richColors />
+      <Toaster 
+        position="top-right" 
+        richColors 
+        toastOptions={{
+          style: {
+            background: 'var(--toast-bg)',
+            color: 'var(--toast-color)',
+          },
+        }}
+      />
       
-      {/* Sidebar Desktop Modernizado */}
+      {/* Sidebar Desktop */}
       <aside className={`fixed left-0 top-0 h-full bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 shadow-2xl transition-all duration-300 z-20 hidden lg:block ${sidebarOpen ? 'w-72' : 'w-20'}`}>
         {/* Logo Area */}
         <div className="flex items-center justify-between p-5 border-b border-gray-700/50">
@@ -119,6 +154,15 @@ function MainApp() {
               <div>
                 <h1 className="text-lg font-bold text-white tracking-tight">TISS Faturamento</h1>
                 <p className="text-xs text-gray-400">Sistema TISS 4.03.00</p>
+                {supabaseStatus !== null && (
+                  <p className="text-xs mt-0.5">
+                    {supabaseStatus ? (
+                      <span className="text-green-400">✓ Cloud</span>
+                    ) : (
+                      <span className="text-yellow-400">📦 Local</span>
+                    )}
+                  </p>
+                )}
               </div>
             </div>
           ) : (
@@ -196,7 +240,7 @@ function MainApp() {
 
       {/* Main Content */}
       <main className={`transition-all duration-300 ${sidebarOpen ? 'lg:ml-72' : 'lg:ml-20'} ml-0`}>
-        {/* Header Modernizado */}
+        {/* Header */}
         <header className="sticky top-0 z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-700 shadow-sm">
           <div className="flex justify-between items-center px-6 py-4">
             <div className="flex items-center gap-4">
@@ -232,11 +276,8 @@ function MainApp() {
                 )}
               </button>
 
-              {/* Notifications */}
-              <button className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 relative">
-                <BellIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
+              {/* Notifications Bell */}
+              <NotificationBell />
 
               {/* User Menu */}
               <div className="flex items-center gap-3 pl-3 border-l border-gray-200 dark:border-gray-700">
@@ -342,7 +383,7 @@ function MainApp() {
   );
 }
 
-// Componente de Login (mantido igual, mas com estilo moderno)
+// Componente de Login
 function LoginPage({ onLogin }) {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
