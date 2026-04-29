@@ -9,10 +9,14 @@ import {
   CheckCircleIcon,
   ChartBarIcon,
   ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon
+  ArrowTrendingDownIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
+import { toast } from 'sonner';
+import { conveniosService, pacientesService, atendimentosService } from '../services/supabaseService';
 
 export default function Dashboard() {
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalConvenios: 0,
     totalPacientes: 0,
@@ -34,48 +38,56 @@ export default function Dashboard() {
     carregarStats();
   }, []);
 
-  const carregarStats = () => {
-    const convenios = JSON.parse(localStorage.getItem('convenios') || '[]');
-    const pacientes = JSON.parse(localStorage.getItem('pacientes') || '[]');
-    const atendimentos = JSON.parse(localStorage.getItem('atendimentos') || '[]');
-    const guias = JSON.parse(localStorage.getItem('guias_geradas') || '[]');
-    
-    const pendentes = atendimentos.filter(a => a.status === 'pendente');
-    const faturados = atendimentos.filter(a => a.status === 'faturado');
-    const guiasPendentes = guias.filter(g => g.status === 'pendente');
-    const guiasFaturadas = guias.filter(g => g.status === 'gerado');
-    
-    const valorTotalPendente = pendentes.reduce((sum, a) => sum + (a.valor_total || 0), 0);
-    const valorTotalFaturado = faturados.reduce((sum, a) => sum + (a.valor_total || 0), 0);
-    const faturadoMes = valorTotalFaturado * 0.8;
-    const recebidoMes = faturadoMes * 0.7;
-    const glosasMes = faturadoMes * 0.1;
-    const taxaGlosa = faturadoMes > 0 ? (glosasMes / faturadoMes) * 100 : 0;
-    const ticketMedio = atendimentos.length > 0 ? valorTotalFaturado / atendimentos.length : 0;
-    
-    setStats({
-      totalConvenios: convenios.length,
-      totalPacientes: pacientes.length,
-      totalAtendimentos: atendimentos.length,
-      totalGuias: guias.length,
-      faturadoMes: faturadoMes,
-      faturadoTotal: valorTotalFaturado,
-      recebidoMes: recebidoMes,
-      glosasMes: glosasMes,
-      taxaGlosa: taxaGlosa,
-      atendimentosPendentes: pendentes.length,
-      guiasPendentes: guiasPendentes.length,
-      guiasFaturadas: guiasFaturadas.length,
-      valorPendente: valorTotalPendente,
-      ticketMedio: ticketMedio
-    });
+  const carregarStats = async () => {
+    setLoading(true);
+    try {
+      // Carregar dados do Supabase
+      const [convenios, pacientes, estatisticasAtendimentos, guias] = await Promise.all([
+        conveniosService.listar(),
+        pacientesService.listar(),
+        atendimentosService.getEstatisticas(),
+        // guiasService.listar() // quando implementar
+      ]);
+      
+      const guiasList = JSON.parse(localStorage.getItem('guias_geradas') || '[]');
+      const guiasPendentes = guiasList.filter(g => g.status === 'pendente');
+      const guiasFaturadas = guiasList.filter(g => g.status === 'gerado');
+      
+      const faturadoMes = estatisticasAtendimentos.valorTotal * 0.8;
+      const recebidoMes = faturadoMes * 0.7;
+      const glosasMes = faturadoMes * 0.1;
+      const taxaGlosa = faturadoMes > 0 ? (glosasMes / faturadoMes) * 100 : 0;
+      const ticketMedio = estatisticasAtendimentos.total > 0 ? estatisticasAtendimentos.valorTotal / estatisticasAtendimentos.total : 0;
+      
+      setStats({
+        totalConvenios: convenios.length,
+        totalPacientes: pacientes.length,
+        totalAtendimentos: estatisticasAtendimentos.total,
+        totalGuias: guiasList.length,
+        faturadoMes: faturadoMes,
+        faturadoTotal: estatisticasAtendimentos.valorTotal,
+        recebidoMes: recebidoMes,
+        glosasMes: glosasMes,
+        taxaGlosa: taxaGlosa,
+        atendimentosPendentes: estatisticasAtendimentos.pendentes,
+        guiasPendentes: guiasPendentes.length,
+        guiasFaturadas: guiasFaturadas.length,
+        valorPendente: estatisticasAtendimentos.valorPendente,
+        ticketMedio: ticketMedio
+      });
+    } catch (error) {
+      console.error('Erro ao carregar estatísticas:', error);
+      toast.error('Erro ao carregar dados do dashboard');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const cards = [
-    { name: 'Convênios', value: stats.totalConvenios, icon: BuildingOfficeIcon, color: 'bg-blue-500', change: '+' },
-    { name: 'Pacientes', value: stats.totalPacientes, icon: UsersIcon, color: 'bg-green-500', change: '+' },
-    { name: 'Atendimentos', value: stats.totalAtendimentos, icon: DocumentTextIcon, color: 'bg-purple-500', change: '+' },
-    { name: 'Faturamento Mensal', value: `R$ ${stats.faturadoMes.toFixed(2)}`, icon: CurrencyDollarIcon, color: 'bg-emerald-500', change: '+' },
+    { name: 'Convênios', value: stats.totalConvenios, icon: BuildingOfficeIcon, color: 'bg-blue-500' },
+    { name: 'Pacientes', value: stats.totalPacientes, icon: UsersIcon, color: 'bg-green-500' },
+    { name: 'Atendimentos', value: stats.totalAtendimentos, icon: DocumentTextIcon, color: 'bg-purple-500' },
+    { name: 'Faturamento Mensal', value: `R$ ${stats.faturadoMes.toFixed(2)}`, icon: CurrencyDollarIcon, color: 'bg-emerald-500' },
   ];
 
   const getTaxaGlosaColor = () => {
@@ -84,9 +96,29 @@ export default function Dashboard() {
     return 'text-red-600 bg-red-100';
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <ArrowPathIcon className="w-12 h-12 text-blue-500 animate-spin mx-auto mb-4" />
+          <p className="text-gray-500">Carregando dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
-      <h2 className="text-2xl font-semibold text-gray-800 mb-6">Dashboard</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-semibold text-gray-800">Dashboard</h2>
+        <button 
+          onClick={carregarStats}
+          className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+        >
+          <ArrowPathIcon className="w-4 h-4" />
+          Atualizar
+        </button>
+      </div>
       
       {/* Cards principais */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
