@@ -60,6 +60,16 @@ const TIPO_CONSULTA = {
   '1': '1', '2': '2', '3': '3', '4': '4'
 };
 
+const TIPO_GUIA = {
+  'SP_SADT': 'SP_SADT',
+  'SP_HONOR': 'SP_HONOR'
+};
+
+const GRAU_PARTICIPACAO = {
+  '00': '00', '01': '01', '02': '02', '03': '03', '04': '04',
+  '05': '05', '06': '06', '07': '07', '12': '12', '13': '13'
+};
+
 const mapaConselhos = {
   'CRM': '06', 'CRO': '08', 'CRF': '03', 'COREN': '02',
   'CREFITO': '05', 'CRP': '09', 'CRBio': '11', 'CRN': '07',
@@ -90,6 +100,11 @@ function getCodigoUF(uf) {
   if (!uf) return '35';
   const codigo = mapaUFs[uf.toUpperCase()] || mapaUFs[uf];
   return codigo || '35';
+}
+
+function getGrauParticipacao(valor) {
+  if (!valor) return '12';
+  return GRAU_PARTICIPACAO[valor] || '12';
 }
 
 function gerarNumeroAleatorio(tamanho) {
@@ -132,7 +147,6 @@ export function gerarXMLTISS(dados) {
   const config = getConfig();
   const versao = dados.versao || versaoAtual;
   
-  const tipoTransacao = dados.tipoTransacao || 'ENVIO_LOTE_GUIAS';
   const sequencialTransacao = dados.sequencialTransacao || gerarNumeroAleatorio(4);
   const dataRegistroTransacao = dados.dataRegistroTransacao || new Date().toISOString().split('T')[0];
   const horaRegistroTransacao = dados.horaRegistroTransacao || new Date().toLocaleTimeString('pt-BR', { hour12: false });
@@ -140,18 +154,17 @@ export function gerarXMLTISS(dados) {
   const registroANS = dados.registroANS || '';
   const numeroLote = dados.numeroLote || ('LOTE' + Date.now().toString());
   const guias = dados.guias || [];
-  const convenio = dados.convenio;
 
   let guiasXML = '';
   for (let i = 0; i < guias.length; i++) {
-    guiasXML += gerarGuiaSPSADT(guias[i], i + 1, registroANS, config, convenio, versao);
+    guiasXML += gerarGuiaSPSADT(guias[i], registroANS, config, versao);
   }
 
   let xml = '<?xml version="1.0" encoding="ISO-8859-1"?>\n';
-  xml += '<ans:mensagemTISS xsi:schemaLocation="http://www.ans.gov.br/padroes/tiss/schemas/tissV' + versao.replace(/\./g, '_') + '.xsd" xmlns:ans="http://www.ans.gov.br/padroes/tiss/schemas" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n';
+  xml += '<ans:mensagemTISS xmlns:ans="http://www.ans.gov.br/padroes/tiss/schemas" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.ans.gov.br/padroes/tiss/schemas tissV4_03_00.xsd">\n';
   xml += '  <ans:cabecalho>\n';
   xml += '    <ans:identificacaoTransacao>\n';
-  xml += '      <ans:tipoTransacao>' + tipoTransacao + '</ans:tipoTransacao>\n';
+  xml += '      <ans:tipoTransacao>ENVIO_LOTE_GUIAS</ans:tipoTransacao>\n';
   xml += '      <ans:sequencialTransacao>' + sequencialTransacao + '</ans:sequencialTransacao>\n';
   xml += '      <ans:dataRegistroTransacao>' + dataRegistroTransacao + '</ans:dataRegistroTransacao>\n';
   xml += '      <ans:horaRegistroTransacao>' + horaRegistroTransacao + '</ans:horaRegistroTransacao>\n';
@@ -186,18 +199,20 @@ export function gerarXMLTISS(dados) {
   return xml;
 }
 
-function gerarGuiaSPSADT(guia, sequencial, registroANS, config, convenio, versao) {
+function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   const numeroCarteira = guia.numeroCarteira || '000000000';
   const nomeBeneficiario = guia.nomeBeneficiario || 'BENEFICIARIO';
   const dataSolicitacao = guia.dataSolicitacao || new Date().toISOString().split('T')[0];
-  const numeroGuiaOperadora = guia.numero_guia_operadora || gerarNumeroAleatorio(10);
+  const numeroGuiaPrestador = guia.numero_guia_prestador || ('G' + Date.now().toString());
+  const numeroGuiaOperadora = guia.numero_guia_operadora || '';
   const dataAutorizacao = guia.data_autorizacao || dataSolicitacao;
-  const senha = guia.senha_autorizacao || gerarNumeroAleatorio(9);
+  const senha = guia.senha_autorizacao || '';
   const dataValidadeSenha = guia.data_validade_senha || '';
   const codigoPrestadorExecutante = guia.codigoPrestadorExecutante || '';
   const nomeProfissionalSolicitante = guia.nomeProfissionalSolicitante || 'PROFISSIONAL';
   const numeroConselhoProfissionalSolicitante = guia.numeroConselhoProfissionalSolicitante || '00000';
   const itens = guia.itens || [];
+  
   const caraterAtendimento = guia.carater_atendimento || '1';
   const tipoAtendimento = guia.tipo_atendimento || '04';
   const indicacaoAcidente = guia.indicacao_acidente || '9';
@@ -205,7 +220,6 @@ function gerarGuiaSPSADT(guia, sequencial, registroANS, config, convenio, versao
   const regimeAtendimento = guia.regime_atendimento || '01';
   const coberturaEspecial = guia.cobertura_especial || '';
   const saudeOcupacional = guia.saude_ocupacional || '';
-  const numeroGuiaPrestador = guia.numero_guia_prestador || ('G' + Date.now().toString());
 
   const cnpjContratado = (config && config.cnpj) ? config.cnpj.replace(/\D/g, '') : '20384928000205';
   const nomeContratadoSolicitante = (config && config.nome_contratado) ? config.nome_contratado.toUpperCase() : 'CLINICA NAO CONFIGURADA';
@@ -219,7 +233,7 @@ function gerarGuiaSPSADT(guia, sequencial, registroANS, config, convenio, versao
   
   for (let idx = 0; idx < itens.length; idx++) {
     const item = itens[idx];
-    const sequencialItem = idx + 1;
+    const sequencialItem = (idx + 1).toString();
     const dataExecucao = item.data_execucao || dataSolicitacao;
     const horaInicial = formatarHora(item.hora_inicial);
     const horaFinal = formatarHora(item.hora_final);
@@ -230,14 +244,14 @@ function gerarGuiaSPSADT(guia, sequencial, registroANS, config, convenio, versao
     const prestadorUF = getCodigoUF(item.prestador_uf_conselho || item.uf_conselho || 'SP');
     const prestadorCBOS = item.prestador_cbos || item.cbos || '225125';
     const prestadorCPF = item.prestador_cpf || item.cpf || '00000000000';
-    const grauParticipacao = item.grau_participacao || '12';
+    const grauParticipacao = getGrauParticipacao(item.grau_participacao || '12');
     
     const codigoProcedimento = item.codigo || item.codigo_procedimento || item.procedimento_codigo || '00000000';
     const nomeProcedimento = item.nome || item.nome_procedimento || item.procedimento_nome || 'PROCEDIMENTO';
     const tabelaReferencia = item.tabela_referencia || '22';
-    const quantidade = item.quantidade || 1;
-    const valorUnitario = parseFloat(item.valor_unitario || item.valor_unitario || 0).toFixed(2);
-    const valorTotal = parseFloat(item.valor_total || item.valor_total || 0).toFixed(2);
+    const quantidade = (item.quantidade || 1).toString();
+    const valorUnitario = parseFloat(item.valor_unitario || 0).toFixed(2);
+    const valorTotal = parseFloat(item.valor_total || 0).toFixed(2);
     
     valorTotalGeral += parseFloat(valorTotal);
     
@@ -252,9 +266,6 @@ function gerarGuiaSPSADT(guia, sequencial, registroANS, config, convenio, versao
     procedimentosXML += '                <ans:descricaoProcedimento>' + escapeXML(nomeProcedimento) + '</ans:descricaoProcedimento>\n';
     procedimentosXML += '              </ans:procedimento>\n';
     procedimentosXML += '              <ans:quantidadeExecutada>' + quantidade + '</ans:quantidadeExecutada>\n';
-    procedimentosXML += '              <ans:viaAcesso>1</ans:viaAcesso>\n';
-    procedimentosXML += '              <ans:tecnicaUtilizada>1</ans:tecnicaUtilizada>\n';
-    procedimentosXML += '              <ans:reducaoAcrescimo>1.00</ans:reducaoAcrescimo>\n';
     procedimentosXML += '              <ans:valorUnitario>' + valorUnitario + '</ans:valorUnitario>\n';
     procedimentosXML += '              <ans:valorTotal>' + valorTotal + '</ans:valorTotal>\n';
     procedimentosXML += '              <ans:equipeSadt>\n';
@@ -272,22 +283,6 @@ function gerarGuiaSPSADT(guia, sequencial, registroANS, config, convenio, versao
   }
 
   const valorTotalFormatado = valorTotalGeral.toFixed(2);
-  const hasDataValidadeSenha = versao >= '4.00.00';
-  const hasCoberturaEspecial = versao >= '4.00.00';
-  const hasSaudeOcupacional = versao >= '4.00.00';
-
-  let dadosAutorizacao = '          <ans:dadosAutorizacao>\n';
-  dadosAutorizacao += '            <ans:numeroGuiaOperadora>' + numeroGuiaOperadora + '</ans:numeroGuiaOperadora>\n';
-  dadosAutorizacao += '            <ans:dataAutorizacao>' + dataAutorizacao + '</ans:dataAutorizacao>\n';
-  if (hasDataValidadeSenha && dataValidadeSenha) {
-    dadosAutorizacao += '            <ans:dataValidadeSenha>' + dataValidadeSenha + '</ans:dataValidadeSenha>\n';
-  }
-  dadosAutorizacao += '            <ans:senha>' + senha + '</ans:senha>\n';
-  dadosAutorizacao += '          </ans:dadosAutorizacao>';
-
-  const coberturaEspecialXML = (hasCoberturaEspecial && coberturaEspecial) ? '<ans:coberturaEspecial>' + coberturaEspecial + '</ans:coberturaEspecial>' : '';
-  const saudeOcupacionalXML = (hasSaudeOcupacional && saudeOcupacional) ? '<ans:saudeOcupacional>' + saudeOcupacional + '</ans:saudeOcupacional>' : '';
-
   const caraterValue = CARATER_ATENDIMENTO[caraterAtendimento] || '1';
   const tipoAtendimentoValue = TIPO_ATENDIMENTO[tipoAtendimento] || '04';
   const indicadorAcidenteValue = INDICADOR_ACIDENTE[indicacaoAcidente] || '9';
@@ -299,12 +294,27 @@ function gerarGuiaSPSADT(guia, sequencial, registroANS, config, convenio, versao
   guiaXML += '            <ans:registroANS>' + escapeXML(registroANS) + '</ans:registroANS>\n';
   guiaXML += '            <ans:numeroGuiaPrestador>' + escapeXML(numeroGuiaPrestador) + '</ans:numeroGuiaPrestador>\n';
   guiaXML += '          </ans:cabecalhoGuia>\n';
-  guiaXML += dadosAutorizacao + '\n';
+  
+  if (numeroGuiaOperadora || dataAutorizacao || senha) {
+    guiaXML += '          <ans:dadosAutorizacao>\n';
+    if (numeroGuiaOperadora) {
+      guiaXML += '            <ans:numeroGuiaOperadora>' + numeroGuiaOperadora + '</ans:numeroGuiaOperadora>\n';
+    }
+    guiaXML += '            <ans:dataAutorizacao>' + dataAutorizacao + '</ans:dataAutorizacao>\n';
+    if (senha) {
+      guiaXML += '            <ans:senha>' + senha + '</ans:senha>\n';
+    }
+    if (dataValidadeSenha) {
+      guiaXML += '            <ans:dataValidadeSenha>' + dataValidadeSenha + '</ans:dataValidadeSenha>\n';
+    }
+    guiaXML += '          </ans:dadosAutorizacao>\n';
+  }
+  
   guiaXML += '          <ans:dadosBeneficiario>\n';
   guiaXML += '            <ans:numeroCarteira>' + escapeXML(numeroCarteira) + '</ans:numeroCarteira>\n';
   guiaXML += '            <ans:atendimentoRN>N</ans:atendimentoRN>\n';
-  guiaXML += '            <ans:nomeBeneficiario>' + escapeXML(nomeBeneficiario) + '</ans:nomeBeneficiario>\n';
   guiaXML += '          </ans:dadosBeneficiario>\n';
+  
   guiaXML += '          <ans:dadosSolicitante>\n';
   guiaXML += '            <ans:contratadoSolicitante>\n';
   guiaXML += '              <ans:cnpjContratado>' + cnpjContratado + '</ans:cnpjContratado>\n';
@@ -318,38 +328,41 @@ function gerarGuiaSPSADT(guia, sequencial, registroANS, config, convenio, versao
   guiaXML += '              <ans:CBOS>' + cbosClinica + '</ans:CBOS>\n';
   guiaXML += '            </ans:profissionalSolicitante>\n';
   guiaXML += '          </ans:dadosSolicitante>\n';
+  
   guiaXML += '          <ans:dadosSolicitacao>\n';
   guiaXML += '            <ans:dataSolicitacao>' + dataSolicitacao + '</ans:dataSolicitacao>\n';
   guiaXML += '            <ans:caraterAtendimento>' + caraterValue + '</ans:caraterAtendimento>\n';
   guiaXML += '          </ans:dadosSolicitacao>\n';
+  
   guiaXML += '          <ans:dadosExecutante>\n';
   guiaXML += '            <ans:contratadoExecutante>\n';
   guiaXML += '              <ans:codigoPrestadorNaOperadora>' + escapeXML(codigoPrestadorExecutante) + '</ans:codigoPrestadorNaOperadora>\n';
   guiaXML += '            </ans:contratadoExecutante>\n';
   guiaXML += '            <ans:CNES>' + cnesExecutante + '</ans:CNES>\n';
   guiaXML += '          </ans:dadosExecutante>\n';
+  
   guiaXML += '          <ans:dadosAtendimento>\n';
   guiaXML += '            <ans:tipoAtendimento>' + tipoAtendimentoValue + '</ans:tipoAtendimento>\n';
   guiaXML += '            <ans:indicacaoAcidente>' + indicadorAcidenteValue + '</ans:indicacaoAcidente>\n';
   guiaXML += '            <ans:tipoConsulta>' + tipoConsultaValue + '</ans:tipoConsulta>\n';
-  if (coberturaEspecialXML) guiaXML += '            ' + coberturaEspecialXML + '\n';
+  if (coberturaEspecial) {
+    guiaXML += '            <ans:coberturaEspecial>' + coberturaEspecial + '</ans:coberturaEspecial>\n';
+  }
   guiaXML += '            <ans:regimeAtendimento>' + regimeAtendimentoValue + '</ans:regimeAtendimento>\n';
-  if (saudeOcupacionalXML) guiaXML += '            ' + saudeOcupacionalXML + '\n';
+  if (saudeOcupacional) {
+    guiaXML += '            <ans:saudeOcupacional>' + saudeOcupacional + '</ans:saudeOcupacional>\n';
+  }
   guiaXML += '          </ans:dadosAtendimento>\n';
+  
   guiaXML += '          <ans:procedimentosExecutados>\n';
   guiaXML += procedimentosXML;
   guiaXML += '          </ans:procedimentosExecutados>\n';
+  
   guiaXML += '          <ans:valorTotal>\n';
   guiaXML += '            <ans:valorProcedimentos>' + valorTotalFormatado + '</ans:valorProcedimentos>\n';
-  guiaXML += '            <ans:valorDiarias>0.00</ans:valorDiarias>\n';
-  guiaXML += '            <ans:valorTaxasAlugueis>0.00</ans:valorTaxasAlugueis>\n';
-  guiaXML += '            <ans:valorMateriais>0.00</ans:valorMateriais>\n';
-  guiaXML += '            <ans:valorMedicamentos>0.00</ans:valorMedicamentos>\n';
-  guiaXML += '            <ans:valorOPME>0.00</ans:valorOPME>\n';
-  guiaXML += '            <ans:valorGasesMedicinais>0.00</ans:valorGasesMedicinais>\n';
   guiaXML += '            <ans:valorTotalGeral>' + valorTotalFormatado + '</ans:valorTotalGeral>\n';
   guiaXML += '          </ans:valorTotal>\n';
-  guiaXML += '        </ans:guiaSP-SADT>';
+  guiaXML += '        </ans:guiaSP-SADT>\n';
 
   return guiaXML;
 }
@@ -413,7 +426,7 @@ export function gerarXMLExemplo(versao) {
   const config = getConfig();
   
   const guias = [{
-    numeroGuiaPrestador: 'G' + Date.now().toString(),
+    numero_guia_prestador: 'G' + Date.now().toString(),
     numeroCarteira: '09700020008288318',
     nomeBeneficiario: 'PACIENTE EXEMPLO',
     nomeProfissionalSolicitante: 'PROFISSIONAL EXEMPLO',
