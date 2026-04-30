@@ -7,7 +7,8 @@ import {
   ChartBarIcon, ExclamationTriangleIcon, DocumentTextIcon,
   Cog6ToothIcon, Bars3Icon, XMarkIcon, ArrowRightOnRectangleIcon,
   ChevronLeftIcon, ChevronRightIcon, SunIcon, MoonIcon,
-  CalendarDaysIcon, FolderIcon, ChevronDownIcon, ChevronUpIcon
+  CalendarDaysIcon, FolderIcon, ChevronDownIcon, ChevronUpIcon,
+  ClockIcon
 } from '@heroicons/react/24/outline';
 
 import Dashboard from './pages/Dashboard';
@@ -22,6 +23,7 @@ import Relatorios from './pages/Relatorios';
 import Configuracoes from './pages/Configuracoes';
 import NotificationBell from './components/NotificationBell';
 import Agendamentos from './pages/Agendamentos';
+import Prontuario from './pages/Prontuario';
 
 import { setConfig } from './lib/tissGenerator';
 import { supabase, isSupabaseAvailable, checkSupabaseConnection, TABLES } from './lib/supabaseClient';
@@ -76,10 +78,8 @@ function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Verificar conexão com Supabase
     checkSupabaseConnection();
     
-    // Verificar sessão atual no localStorage
     const checkSession = () => {
       const sessao = localStorage.getItem('tiss_sessao');
       if (sessao) {
@@ -105,7 +105,6 @@ function AuthProvider({ children }) {
     }
     
     try {
-      // Buscar usuário na tabela
       const { data, error } = await supabase
         .from(TABLES.USUARIOS)
         .select('*')
@@ -119,9 +118,7 @@ function AuthProvider({ children }) {
         return { success: false };
       }
 
-      // Verificar senha
       if (data && data.senha === senha) {
-        // Atualizar último acesso
         await supabase
           .from(TABLES.USUARIOS)
           .update({ ultimo_acesso: new Date().toISOString() })
@@ -134,7 +131,6 @@ function AuthProvider({ children }) {
           perfil: data.perfil
         };
 
-        // Salvar sessão no localStorage
         const sessao = { user: userData, logado: true, data_hora: new Date().toISOString() };
         localStorage.setItem('tiss_sessao', JSON.stringify(sessao));
         
@@ -190,7 +186,6 @@ function LoginPage() {
   const { signIn, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
-  // Redirecionar se já estiver logado
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/');
@@ -322,72 +317,6 @@ function LoginPage() {
   );
 }
 
-// Componente de Item do Menu com Submenu
-function MenuItem({ item, isActive, isOpen, onClick, sidebarOpen, hasSubmenu, isSubmenuOpen, onToggleSubmenu }) {
-  const Icon = item.icon;
-  
-  if (hasSubmenu) {
-    return (
-      <div>
-        <button
-          onClick={onToggleSubmenu}
-          className={`
-            w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group
-            ${isActive ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-gray-800/50'}
-            ${!sidebarOpen ? 'justify-center' : ''}
-          `}
-          title={!sidebarOpen ? item.name : ''}
-        >
-          <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'group-hover:text-white'}`} />
-          {sidebarOpen && (
-            <>
-              <span className="text-sm font-medium flex-1 text-left">{item.name}</span>
-              {isSubmenuOpen ? (
-                <ChevronUpIcon className="w-4 h-4" />
-              ) : (
-                <ChevronDownIcon className="w-4 h-4" />
-              )}
-            </>
-          )}
-        </button>
-        {sidebarOpen && isSubmenuOpen && (
-          <div className="ml-8 mt-1 space-y-1">
-            {item.subItems.map((subItem) => (
-              <button
-                key={subItem.id}
-                onClick={() => onClick(subItem.id)}
-                className={`
-                  w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200
-                  ${activeTab === subItem.id ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white hover:bg-gray-800/50'}
-                `}
-              >
-                <subItem.icon className="w-4 h-4" />
-                <span className="text-xs">{subItem.name}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-  
-  return (
-    <button
-      onClick={() => onClick(item.id)}
-      className={`
-        w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group
-        ${isActive ? `bg-gradient-to-r ${item.color} text-white shadow-lg` : 'text-gray-400 hover:text-white hover:bg-gray-800/50'}
-        ${!sidebarOpen ? 'justify-center' : ''}
-      `}
-      title={!sidebarOpen ? item.name : ''}
-    >
-      <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'group-hover:text-white'}`} />
-      {sidebarOpen && <span className="text-sm font-medium">{item.name}</span>}
-      {isActive && sidebarOpen && <div className="ml-auto w-1.5 h-6 bg-white rounded-full opacity-60"></div>}
-    </button>
-  );
-}
-
 // Componente Principal do App (logado)
 function MainApp() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -395,8 +324,8 @@ function MainApp() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState({
     cadastros: true,
-    faturamento: true,
     agenda: true,
+    faturamento: true,
     relatorios: true
   });
   const { darkMode, toggleDarkMode } = useTheme();
@@ -484,6 +413,11 @@ function MainApp() {
   ];
 
   const renderContent = () => {
+    // Verificar se é rota de prontuário (tratada separadamente)
+    if (window.location.pathname.includes('/prontuario/')) {
+      return <Prontuario />;
+    }
+    
     switch(activeTab) {
       case 'dashboard': return <Dashboard />;
       case 'convenios': return <Convenios />;
@@ -638,16 +572,22 @@ function MainApp() {
               </button>
               <div>
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-                  {(() => {
-                    for (const group of menuGroups) {
-                      const found = group.items.find(i => i.id === activeTab);
-                      if (found) return found.name;
-                    }
-                    return 'Dashboard';
-                  })()}
+                  {window.location.pathname.includes('/prontuario/') 
+                    ? 'Prontuário Eletrônico'
+                    : (() => {
+                        for (const group of menuGroups) {
+                          const found = group.items.find(i => i.id === activeTab);
+                          if (found) return found.name;
+                        }
+                        return 'Dashboard';
+                      })()
+                  }
                 </h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  {activeTab === 'dashboard' && 'Visão geral do sistema'}
+                  {window.location.pathname.includes('/prontuario/') 
+                    ? 'Atendimento médico e registro clínico'
+                    : activeTab === 'dashboard' && 'Visão geral do sistema'
+                  }
                   {activeTab === 'faturamento' && 'Geração e envio de lotes TISS'}
                   {activeTab === 'atendimentos' && 'Registro de atendimentos e guias'}
                   {activeTab === 'agendamentos' && 'Gerenciamento de agenda e consultas'}
@@ -778,6 +718,7 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/prontuario/:id" element={<MainApp />} />
             <Route path="/*" element={<MainApp />} />
           </Routes>
         </BrowserRouter>
