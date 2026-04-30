@@ -12,13 +12,12 @@ import {
   CurrencyDollarIcon,
   DocumentPlusIcon,
   ReceiptPercentIcon,
-  CalendarDaysIcon,
   BanknotesIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
-import { gerarXMLTISS, converterAtendimentoParaTISS, setVersao, VERSAO_TISS } from '../lib/tissGenerator';
+import { gerarXMLTISS, converterAtendimentoParaTISS, setVersao } from '../lib/tissGenerator';
 
 const MAX_GUIAS_POR_LOTE = 100;
 
@@ -34,6 +33,7 @@ export default function Faturamento() {
   const [showLoteModal, setShowLoteModal] = useState(false);
   const [showPreviaModal, setShowPreviaModal] = useState(false);
   const [selectedLote, setSelectedLote] = useState(null);
+  const [sequencialTransacao, setSequencialTransacao] = useState(1);
   
   const [dadosFatura, setDadosFatura] = useState({
     competencia: format(new Date(), 'yyyy-MM'),
@@ -152,12 +152,12 @@ export default function Faturamento() {
   };
 
   // Gerar número do lote (12 dígitos)
-  const gerarNumeroLote = (convenioId, sequencial = null) => {
+  const gerarNumeroLote = () => {
     const data = new Date();
     const ano = data.getFullYear().toString().slice(-2);
     const mes = (data.getMonth() + 1).toString().padStart(2, '0');
     const dia = data.getDate().toString().padStart(2, '0');
-    const seq = (sequencial || Math.floor(Math.random() * 10000)).toString().padStart(6, '0');
+    const seq = sequencialTransacao.toString().padStart(6, '0');
     return `${ano}${mes}${dia}${seq}`;
   };
 
@@ -216,7 +216,6 @@ export default function Faturamento() {
       toast.error('Selecione pelo menos uma guia para faturar');
       return;
     }
-    // Atualizar base de cálculo e impostos
     const valorTotal = previewData?.valorTotal || 0;
     const impostos = calcularImpostos(
       valorTotal,
@@ -288,10 +287,10 @@ export default function Faturamento() {
 
     setGerando(true);
     setShowPreviaModal(false);
+    let seq = 1;
 
     try {
       const atendimentosPorConvenio = previewData.conveniosAgrupados;
-      let sequencialTransacao = 1;
       
       for (const [convenioId, data] of Object.entries(atendimentosPorConvenio)) {
         const convenio = data.convenio;
@@ -301,7 +300,8 @@ export default function Faturamento() {
           continue;
         }
 
-        const numeroLote = gerarNumeroLote(convenioId, sequencialTransacao);
+        setSequencialTransacao(seq);
+        const numeroLote = gerarNumeroLote();
         
         const guias = data.atendimentos.map(atendimento => ({
           ...converterAtendimentoParaTISS(atendimento, convenio),
@@ -311,7 +311,7 @@ export default function Faturamento() {
 
         const xml = gerarXMLTISS({
           versao: versaoTISS,
-          sequencialTransacao: sequencialTransacao.toString().padStart(4, '0'),
+          sequencialTransacao: seq.toString().padStart(4, '0'),
           codigoPrestadorNaOperadora: convenio.codigo_prestador,
           registroANS: convenio.registro_ans,
           numeroLote: numeroLote,
@@ -322,7 +322,7 @@ export default function Faturamento() {
         const nomeArquivo = `${numeroLote}_${convenio.registro_ans}_${format(new Date(), 'yyyyMMdd_HHmmss')}.xml`;
 
         const novoLote = {
-          convenio_id: convenioId,
+          convenio_id: parseInt(convenioId),
           convenio_nome: convenio.razao_social,
           numero_lote: numeroLote,
           data_envio: format(new Date(), 'yyyy-MM-dd'),
@@ -366,7 +366,7 @@ export default function Faturamento() {
         a.click();
         URL.revokeObjectURL(url);
 
-        sequencialTransacao++;
+        seq++;
       }
 
       await carregarLotes();
@@ -524,6 +524,7 @@ export default function Faturamento() {
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen p-6">
       <div className="max-w-7xl mx-auto">
+        {/* Cabeçalho */}
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
@@ -600,7 +601,7 @@ export default function Faturamento() {
           })}
         </div>
 
-        {/* Lista de atendimentos por convênio */}
+        {/* Lista de atendimentos por convênio com todos os dados das guias */}
         <div className="space-y-4">
           {Object.entries(pendentesPorConvenio)
             .filter(([convenioId]) => filtroConvenio === 'todos' || filtroConvenio === convenioId)
@@ -608,54 +609,85 @@ export default function Faturamento() {
               const convenio = convenios.find(c => c.id === parseInt(convenioId));
               if (!convenio) return null;
               const selecionadosCount = selecionadosPorConvenio(parseInt(convenioId));
+              const totalConvenio = convenioAtendimentos.reduce((sum, a) => sum + (a.valor_total || 0), 0);
               
               return (
-                <div key={convenioId} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-                  <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex justify-between items-center flex-wrap gap-2">
+                <div key={convenioId} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-sm">
+                  <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700/50 flex justify-between items-center flex-wrap gap-2">
                     <div className="flex items-center gap-3">
-                      <input type="checkbox" checked={selecionadosCount === convenioAtendimentos.length && convenioAtendimentos.length > 0} onChange={() => handleSelectAll(parseInt(convenioId), convenioAtendimentos)} className="rounded w-4 h-4 text-blue-600 focus:ring-blue-500" />
-                      <BuildingOfficeIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                      <span className="font-semibold text-sm text-gray-800 dark:text-white">{convenio.razao_social}</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">Código: {convenio.codigo_prestador || 'Não configurado'}</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">ANS: {convenio.registro_ans || 'Não configurado'}</span>
+                      <input 
+                        type="checkbox" 
+                        checked={selecionadosCount === convenioAtendimentos.length && convenioAtendimentos.length > 0}
+                        onChange={() => handleSelectAll(parseInt(convenioId), convenioAtendimentos)}
+                        className="rounded w-4 h-4 text-blue-600 focus:ring-blue-500"
+                      />
+                      <BuildingOfficeIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      <span className="font-semibold text-gray-800 dark:text-white">{convenio.razao_social}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full">
+                        Código: {convenio.codigo_prestador || 'Não configurado'}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full">
+                        ANS: {convenio.registro_ans || 'Não configurado'}
+                      </span>
                     </div>
-                    <div className="flex gap-2">
-                      <span className="text-xs text-gray-500 dark:text-gray-400">{selecionadosCount} selecionados</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                        Total: R$ {totalConvenio.toFixed(2)}
+                      </span>
+                      <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-1 rounded-full">
+                        {selecionadosCount} selecionados
+                      </span>
                     </div>
                   </div>
+                  
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 dark:bg-gray-700/50">
                         <tr>
                           <th className="px-4 py-3 text-left w-8"></th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nº Guia</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Data</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Data Atendimento</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Paciente</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Carteira</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Guia Operadora</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Senha</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Valor</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Valor Total</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                         {convenioAtendimentos.map((a) => (
                           <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                             <td className="px-4 py-3">
-                              <input type="checkbox" checked={selecionados.includes(a.id)} onChange={() => handleSelectItem(a.id)} disabled={!selecionados.includes(a.id) && selecionados.length >= MAX_GUIAS_POR_LOTE} className="rounded w-4 h-4 text-blue-600 focus:ring-blue-500" />
-                             </td>
-                            <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{a.numero_guia_prestador}</td>
-                            <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{a.data_atendimento || (a.itens && a.itens[0]?.data_execucao) || '-'}</td>
-                            <td className="px-4 py-3 text-xs text-gray-800 dark:text-gray-200">{a.paciente_nome}</td>
+                              <input 
+                                type="checkbox" 
+                                checked={selecionados.includes(a.id)}
+                                onChange={() => handleSelectItem(a.id)}
+                                disabled={!selecionados.includes(a.id) && selecionados.length >= MAX_GUIAS_POR_LOTE}
+                                className="rounded w-4 h-4 text-blue-600 focus:ring-blue-500"
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-xs font-mono text-blue-600 dark:text-blue-400 font-medium">
+                              {a.numero_guia_prestador}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
+                              {a.data_atendimento || (a.itens && a.itens[0]?.data_execucao) || '-'}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-gray-800 dark:text-gray-200 font-medium">{a.paciente_nome}
+                            </td>
                             <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{a.numero_carteira}</td>
                             <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{a.numero_guia_operadora || '-'}</td>
                             <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{a.senha_autorizacao || '-'}</td>
-                            <td className="px-4 py-3 text-xs font-semibold text-right text-gray-700 dark:text-gray-300">R$ {a.valor_total?.toFixed(2) || '0,00'}</td>
+                            <td className="px-4 py-3 text-xs font-semibold text-right text-gray-700 dark:text-gray-300">
+                              R$ {a.valor_total?.toFixed(2) || '0,00'}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
                       <tfoot className="bg-gray-50 dark:bg-gray-700/50">
-                        <tr className="border-t">
-                          <td colSpan="7" className="px-4 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">Total do Convênio:</td>
+                        <tr className="border-t border-gray-200 dark:border-gray-700">
+                          <td colSpan="7" className="px-4 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">
+                            Total do Convênio:
+                          </td>
                           <td className="px-4 py-3 text-right font-bold text-blue-600 dark:text-blue-400">
                             R$ {convenioAtendimentos.reduce((sum, a) => sum + (a.valor_total || 0), 0).toFixed(2)}
                           </td>
@@ -709,16 +741,25 @@ export default function Faturamento() {
                       <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{g.versao || '4.03.00'}</td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex gap-2 justify-center">
-                          <button onClick={() => visualizarLote(g)} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors" title="Visualizar XML">
+                          <button onClick={() => visualizarLote(g)} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Visualizar XML">
                             <EyeIcon className="w-4 h-4" />
                           </button>
-                          <button onClick={() => { const blob = new Blob([g.xml_content], { type: 'application/xml' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${g.numero_lote}.xml`; a.click(); URL.revokeObjectURL(url); toast.success('XML baixado!'); }} className="p-1 rounded-lg text-green-600 hover:bg-green-50 transition-colors" title="Baixar XML">
+                          <button onClick={() => { 
+                            const blob = new Blob([g.xml_content], { type: 'application/xml' }); 
+                            const url = URL.createObjectURL(blob); 
+                            const a = document.createElement('a'); 
+                            a.href = url; 
+                            a.download = `${g.numero_lote}.xml`; 
+                            a.click(); 
+                            URL.revokeObjectURL(url); 
+                            toast.success('XML baixado!'); 
+                          }} className="p-1 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" title="Baixar XML">
                             <DocumentArrowDownIcon className="w-4 h-4" />
                           </button>
-                          <button onClick={() => regenerarLote(g)} disabled={gerando} className="p-1 rounded-lg text-yellow-600 hover:bg-yellow-50 transition-colors" title="Regenerar Lote">
+                          <button onClick={() => regenerarLote(g)} disabled={gerando} className="p-1 rounded-lg text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors" title="Regenerar Lote">
                             <ArrowPathIcon className="w-4 h-4" />
                           </button>
-                          <button onClick={() => excluirLote(g)} className="p-1 rounded-lg text-red-600 hover:bg-red-50 transition-colors" title="Excluir Lote">
+                          <button onClick={() => excluirLote(g)} className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Excluir Lote">
                             <TrashIcon className="w-4 h-4" />
                           </button>
                         </div>
@@ -726,7 +767,12 @@ export default function Faturamento() {
                     </tr>
                   ))}
                   {guiasGeradas.length === 0 && (
-                    <tr><td colSpan="7" className="px-4 py-12 text-center text-gray-500 text-sm">Nenhum lote gerado ainda</td></tr>
+                    <tr>
+                      <td colSpan="7" className="px-4 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
+                        <DocumentPlusIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                        Nenhum lote gerado ainda
+                      </td>
+                    </tr>
                   )}
                 </tbody>
               </table>
@@ -741,7 +787,9 @@ export default function Faturamento() {
               <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
                 <div className="flex justify-between items-center">
                   <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Prévia do Faturamento</h3>
-                  <button onClick={() => setShowPreviaModal(false)} className="p-2 rounded-lg hover:bg-gray-100"><XMarkIcon className="w-5 h-5" /></button>
+                  <button onClick={() => setShowPreviaModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <XMarkIcon className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
               
@@ -750,10 +798,22 @@ export default function Faturamento() {
                 <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4">
                   <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-3">Resumo dos Agendamentos Selecionados</h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div><p className="text-xs text-gray-500">Total de Guias</p><p className="text-2xl font-bold text-blue-600">{previewData.quantidade}</p></div>
-                    <div><p className="text-xs text-gray-500">Valor Total</p><p className="text-2xl font-bold text-green-600">R$ {previewData.valorTotal.toFixed(2)}</p></div>
-                    <div><p className="text-xs text-gray-500">Convênios</p><p className="text-2xl font-bold text-purple-600">{Object.keys(previewData.conveniosAgrupados).length}</p></div>
-                    <div><p className="text-xs text-gray-500">Limite por Lote</p><p className="text-2xl font-bold text-orange-600">{MAX_GUIAS_POR_LOTE}</p></div>
+                    <div>
+                      <p className="text-xs text-gray-500">Total de Guias</p>
+                      <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{previewData.quantidade}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Valor Total</p>
+                      <p className="text-2xl font-bold text-green-600 dark:text-green-400">R$ {previewData.valorTotal.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Convênios</p>
+                      <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{Object.keys(previewData.conveniosAgrupados).length}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Limite por Lote</p>
+                      <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{MAX_GUIAS_POR_LOTE}</p>
+                    </div>
                   </div>
                 </div>
 
@@ -762,19 +822,27 @@ export default function Faturamento() {
                   <div key={convenioId} className="border rounded-xl overflow-hidden">
                     <div className="bg-gray-50 dark:bg-gray-700/50 p-3 border-b">
                       <div className="flex justify-between items-center">
-                        <span className="font-semibold">{data.convenio?.razao_social}</span>
-                        <span className="text-sm font-bold text-green-600">R$ {data.valorTotal.toFixed(2)}</span>
+                        <span className="font-semibold text-gray-800 dark:text-white">{data.convenio?.razao_social}</span>
+                        <span className="text-sm font-bold text-green-600 dark:text-green-400">R$ {data.valorTotal.toFixed(2)}</span>
                       </div>
                     </div>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead className="bg-gray-50 dark:bg-gray-700/50">
-                          <tr><th className="px-3 py-2 text-left text-xs">Nº Guia</th><th className="px-3 py-2 text-left text-xs">Data</th><th className="px-3 py-2 text-left text-xs">Paciente</th><th className="px-3 py-2 text-left text-xs">Carteira</th><th className="px-3 py-2 text-left text-xs">Guia Operadora</th><th className="px-3 py-2 text-left text-xs">Senha</th><th className="px-3 py-2 text-right text-xs">Valor</th></tr>
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs">Nº Guia</th>
+                            <th className="px-3 py-2 text-left text-xs">Data</th>
+                            <th className="px-3 py-2 text-left text-xs">Paciente</th>
+                            <th className="px-3 py-2 text-left text-xs">Carteira</th>
+                            <th className="px-3 py-2 text-left text-xs">Guia Operadora</th>
+                            <th className="px-3 py-2 text-left text-xs">Senha</th>
+                            <th className="px-3 py-2 text-right text-xs">Valor</th>
+                          </tr>
                         </thead>
                         <tbody className="divide-y">
                           {data.atendimentos.map(a => (
-                            <tr key={a.id} className="hover:bg-gray-50">
-                              <td className="px-3 py-2 text-xs font-mono">{a.numero_guia_prestador}</td>
+                            <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                              <td className="px-3 py-2 text-xs font-mono text-blue-600 dark:text-blue-400">{a.numero_guia_prestador}</td>
                               <td className="px-3 py-2 text-xs">{a.data_atendimento || (a.itens && a.itens[0]?.data_execucao) || '-'}</td>
                               <td className="px-3 py-2 text-xs">{a.paciente_nome}</td>
                               <td className="px-3 py-2 text-xs">{a.numero_carteira}</td>
@@ -791,38 +859,160 @@ export default function Faturamento() {
 
                 {/* Dados da Nota Fiscal */}
                 <div className="border rounded-xl p-4">
-                  <h4 className="font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2"><BanknotesIcon className="w-5 h-5" /> Dados da Nota Fiscal / Faturamento</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label className="block text-sm font-medium mb-1">Competência</label><input type="month" value={dadosFatura.competencia} onChange={e => setDadosFatura({...dadosFatura, competencia: e.target.value})} className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600" /></div>
-                    <div><label className="block text-sm font-medium mb-1">Data de Fechamento</label><input type="date" value={dadosFatura.dataFechamento} onChange={e => setDadosFatura({...dadosFatura, dataFechamento: e.target.value})} className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600" /></div>
-                    <div><label className="block text-sm font-medium mb-1">Previsão de Pagamento</label><input type="date" value={dadosFatura.dataPrevisaoPagamento} onChange={e => setDadosFatura({...dadosFatura, dataPrevisaoPagamento: e.target.value})} className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600" /></div>
+                  <h4 className="font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                    <BanknotesIcon className="w-5 h-5" /> Dados da Nota Fiscal / Faturamento
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Competência</label>
+                      <input 
+                        type="month" 
+                        value={dadosFatura.competencia} 
+                        onChange={e => setDadosFatura({...dadosFatura, competencia: e.target.value})} 
+                        className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data de Fechamento</label>
+                      <input 
+                        type="date" 
+                        value={dadosFatura.dataFechamento} 
+                        onChange={e => setDadosFatura({...dadosFatura, dataFechamento: e.target.value})} 
+                        className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Previsão de Pagamento</label>
+                      <input 
+                        type="date" 
+                        value={dadosFatura.dataPrevisaoPagamento} 
+                        onChange={e => setDadosFatura({...dadosFatura, dataPrevisaoPagamento: e.target.value})} 
+                        className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                      />
+                    </div>
                   </div>
                   
-                  <div className="mt-4"><h5 className="font-medium text-sm mb-2">Impostos e Deduções</h5>
+                  <div className="mt-4">
+                    <h5 className="font-medium text-sm text-gray-700 dark:text-gray-300 mb-2">Impostos e Deduções</h5>
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                      <div><label className="block text-xs text-gray-500">Base de Cálculo</label><input type="number" step="0.01" value={dadosFatura.baseCalculo} onChange={e => { const val = parseFloat(e.target.value); setDadosFatura({...dadosFatura, baseCalculo: val}); const imp = calcularImpostos(val); setDadosFatura(prev => ({...prev, ...imp})); }} className="w-full border rounded-lg px-2 py-1 text-sm" /></div>
-                      <div><label className="block text-xs text-gray-500">ISS (%)</label><input type="number" step="0.01" value={dadosFatura.aliquotaISS} onChange={e => { const val = parseFloat(e.target.value); setDadosFatura({...dadosFatura, aliquotaISS: val}); const imp = calcularImpostos(dadosFatura.baseCalculo); setDadosFatura(prev => ({...prev, ...imp})); }} className="w-full border rounded-lg px-2 py-1 text-sm" /></div>
-                      <div><label className="block text-xs text-gray-500">IR (%)</label><input type="number" step="0.01" value={dadosFatura.aliquotaIR} onChange={e => { const val = parseFloat(e.target.value); setDadosFatura({...dadosFatura, aliquotaIR: val}); const imp = calcularImpostos(dadosFatura.baseCalculo); setDadosFatura(prev => ({...prev, ...imp})); }} className="w-full border rounded-lg px-2 py-1 text-sm" /></div>
-                      <div><label className="block text-xs text-gray-500">CSLL (%)</label><input type="number" step="0.01" value={dadosFatura.aliquotaCSLL} onChange={e => { const val = parseFloat(e.target.value); setDadosFatura({...dadosFatura, aliquotaCSLL: val}); const imp = calcularImpostos(dadosFatura.baseCalculo); setDadosFatura(prev => ({...prev, ...imp})); }} className="w-full border rounded-lg px-2 py-1 text-sm" /></div>
-                      <div><label className="block text-xs text-gray-500">PIS (%)</label><input type="number" step="0.01" value={dadosFatura.aliquotaPIS} onChange={e => { const val = parseFloat(e.target.value); setDadosFatura({...dadosFatura, aliquotaPIS: val}); const imp = calcularImpostos(dadosFatura.baseCalculo); setDadosFatura(prev => ({...prev, ...imp})); }} className="w-full border rounded-lg px-2 py-1 text-sm" /></div>
+                      <div>
+                        <label className="block text-xs text-gray-500">Base de Cálculo</label>
+                        <input 
+                          type="number" 
+                          step="0.01" 
+                          value={dadosFatura.baseCalculo} 
+                          onChange={(e) => atualizarBaseCalculo(e.target.value)} 
+                          className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500">ISS (%)</label>
+                        <input 
+                          type="number" 
+                          step="0.01" 
+                          value={dadosFatura.aliquotaISS} 
+                          onChange={(e) => atualizarAliquota('aliquotaISS', e.target.value)} 
+                          className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500">IR (%)</label>
+                        <input 
+                          type="number" 
+                          step="0.01" 
+                          value={dadosFatura.aliquotaIR} 
+                          onChange={(e) => atualizarAliquota('aliquotaIR', e.target.value)} 
+                          className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500">CSLL (%)</label>
+                        <input 
+                          type="number" 
+                          step="0.01" 
+                          value={dadosFatura.aliquotaCSLL} 
+                          onChange={(e) => atualizarAliquota('aliquotaCSLL', e.target.value)} 
+                          className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500">PIS (%)</label>
+                        <input 
+                          type="number" 
+                          step="0.01" 
+                          value={dadosFatura.aliquotaPIS} 
+                          onChange={(e) => atualizarAliquota('aliquotaPIS', e.target.value)} 
+                          className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500">COFINS (%)</label>
+                        <input 
+                          type="number" 
+                          step="0.01" 
+                          value={dadosFatura.aliquotaCOFINS} 
+                          onChange={(e) => atualizarAliquota('aliquotaCOFINS', e.target.value)} 
+                          className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                        />
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-2">
-                      <div><label className="block text-xs text-gray-500">Valor ISS</label><input type="text" value={dadosFatura.valorISS.toFixed(2)} disabled className="w-full border rounded-lg px-2 py-1 text-sm bg-gray-50" /></div>
-                      <div><label className="block text-xs text-gray-500">Valor IR</label><input type="text" value={dadosFatura.valorIR.toFixed(2)} disabled className="w-full border rounded-lg px-2 py-1 text-sm bg-gray-50" /></div>
-                      <div><label className="block text-xs text-gray-500">Valor CSLL</label><input type="text" value={dadosFatura.valorCSLL.toFixed(2)} disabled className="w-full border rounded-lg px-2 py-1 text-sm bg-gray-50" /></div>
-                      <div><label className="block text-xs text-gray-500">Valor PIS</label><input type="text" value={dadosFatura.valorPIS.toFixed(2)} disabled className="w-full border rounded-lg px-2 py-1 text-sm bg-gray-50" /></div>
-                      <div><label className="block text-xs text-gray-500">Valor COFINS</label><input type="text" value={dadosFatura.valorCOFINS.toFixed(2)} disabled className="w-full border rounded-lg px-2 py-1 text-sm bg-gray-50" /></div>
-                      <div><label className="block text-xs text-gray-500">Valor Líquido</label><input type="text" value={dadosFatura.valorLiquido.toFixed(2)} disabled className="w-full border rounded-lg px-2 py-1 text-sm bg-green-50 font-bold" /></div>
+                      <div>
+                        <label className="block text-xs text-gray-500">Valor ISS</label>
+                        <input type="text" value={dadosFatura.valorISS.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500">Valor IR</label>
+                        <input type="text" value={dadosFatura.valorIR.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500">Valor CSLL</label>
+                        <input type="text" value={dadosFatura.valorCSLL.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500">Valor PIS</label>
+                        <input type="text" value={dadosFatura.valorPIS.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500">Valor COFINS</label>
+                        <input type="text" value={dadosFatura.valorCOFINS.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500">Valor Líquido</label>
+                        <input type="text" value={dadosFatura.valorLiquido.toFixed(2)} disabled className="w-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg px-2 py-1 text-sm font-bold text-green-700 dark:text-green-400" />
+                      </div>
                     </div>
                   </div>
-                  <div className="mt-3"><label className="block text-sm font-medium mb-1">Observações</label><textarea rows="2" value={dadosFatura.observacoes} onChange={e => setDadosFatura({...dadosFatura, observacoes: e.target.value})} className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600" placeholder="Informações adicionais da fatura..." /></div>
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações</label>
+                    <textarea 
+                      rows="2" 
+                      value={dadosFatura.observacoes} 
+                      onChange={e => setDadosFatura({...dadosFatura, observacoes: e.target.value})} 
+                      className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                      placeholder="Informações adicionais da fatura..."
+                    />
+                  </div>
                 </div>
               </div>
               
-              <div className="p-5 border-t flex justify-end gap-3">
-                <button onClick={() => setShowPreviaModal(false)} className="px-4 py-2 border rounded-lg">Cancelar</button>
-                <button onClick={confirmarGeracaoLote} disabled={gerando} className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-medium shadow-md flex items-center gap-2">
-                  {gerando ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <PaperAirplaneIcon className="w-4 h-4" />}
+              <div className="p-5 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+                <button 
+                  onClick={() => setShowPreviaModal(false)} 
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={confirmarGeracaoLote} 
+                  disabled={gerando} 
+                  className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-medium shadow-md flex items-center gap-2 hover:from-green-600 hover:to-emerald-700 transition-all duration-200 disabled:opacity-50"
+                >
+                  {gerando ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    <PaperAirplaneIcon className="w-4 h-4" />
+                  )}
                   Gerar Lote(s) e XML
                 </button>
               </div>
@@ -835,33 +1025,73 @@ export default function Faturamento() {
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-y-auto">
               <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
-                <div className="flex justify-between items-center"><h3 className="text-xl font-semibold">XML do Lote - {selectedLote.numero_lote}</h3><button onClick={() => setShowLoteModal(false)} className="p-2 rounded-lg hover:bg-gray-100"><XMarkIcon className="w-5 h-5" /></button></div>
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white">XML do Lote - {selectedLote.numero_lote}</h3>
+                  <button onClick={() => setShowLoteModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <XMarkIcon className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
               <div className="p-5">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 p-4 bg-gray-50 rounded-xl">
-                  <div><span className="text-xs text-gray-500">Convênio:</span> <span className="text-sm font-medium">{selectedLote.convenio_nome}</span></div>
-                  <div><span className="text-xs text-gray-500">Nº Lote:</span> <span className="text-sm font-mono">{selectedLote.numero_lote}</span></div>
-                  <div><span className="text-xs text-gray-500">Data:</span> <span className="text-sm">{selectedLote.data_envio}</span></div>
-                  <div><span className="text-xs text-gray-500">Guias:</span> <span className="text-sm font-bold">{selectedLote.quantidade_guias}</span></div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Convênio:</span> <span className="text-sm font-medium">{selectedLote.convenio_nome}</span></div>
+                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Nº Lote:</span> <span className="text-sm font-mono">{selectedLote.numero_lote}</span></div>
+                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Data:</span> <span className="text-sm">{selectedLote.data_envio}</span></div>
+                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Guias:</span> <span className="text-sm font-bold">{selectedLote.quantidade_guias}</span></div>
                 </div>
                 {selectedLote.dados_fatura && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 p-4 bg-green-50 rounded-xl">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
                     <div><span className="text-xs text-gray-500">Competência:</span> <span className="text-sm">{selectedLote.dados_fatura.competencia}</span></div>
                     <div><span className="text-xs text-gray-500">Fechamento:</span> <span className="text-sm">{selectedLote.dados_fatura.data_fechamento}</span></div>
                     <div><span className="text-xs text-gray-500">Valor Líquido:</span> <span className="text-sm font-bold text-green-600">R$ {selectedLote.dados_fatura.valor_liquido?.toFixed(2)}</span></div>
                     <div><span className="text-xs text-gray-500">Previsão Pagto:</span> <span className="text-sm">{selectedLote.dados_fatura.data_previsao_pagamento || '-'}</span></div>
                   </div>
                 )}
-                <div className="bg-gray-900 rounded-xl p-4 overflow-auto max-h-96"><pre className="text-xs text-green-400 font-mono whitespace-pre-wrap">{selectedLote.xml_content}</pre></div>
-                <div className="flex justify-end gap-3 mt-5 pt-4 border-t">
-                  <button onClick={() => { const blob = new Blob([selectedLote.xml_content], { type: 'application/xml' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${selectedLote.numero_lote}.xml`; a.click(); URL.revokeObjectURL(url); toast.success('XML baixado!'); }} className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg">Baixar XML</button>
-                  <button onClick={() => setShowLoteModal(false)} className="px-4 py-2 border rounded-lg">Fechar</button>
+                <div className="bg-gray-900 rounded-xl p-4 overflow-auto max-h-96">
+                  <pre className="text-xs text-green-400 font-mono whitespace-pre-wrap">{selectedLote.xml_content}</pre>
+                </div>
+                <div className="flex justify-end gap-3 mt-5 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <button 
+                    onClick={() => {
+                      const blob = new Blob([selectedLote.xml_content], { type: 'application/xml' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `${selectedLote.numero_lote}.xml`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                      toast.success('XML baixado!');
+                    }} 
+                    className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg text-sm font-medium hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-md"
+                  >
+                    <DocumentArrowDownIcon className="w-4 h-4 inline mr-1" />
+                    Baixar XML
+                  </button>
+                  <button 
+                    onClick={() => setShowLoteModal(false)} 
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Fechar
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         )}
+
+        {/* Instruções */}
+        <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+          <h4 className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">📋 Informações</h4>
+          <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-1">
+            <li>• Limite máximo de <strong>{MAX_GUIAS_POR_LOTE} guias por lote</strong></li>
+            <li>• Selecione as guias desejadas e clique em "Faturar Selecionados"</li>
+            <li>• O número do lote será gerado automaticamente com 12 dígitos</li>
+            <li>• O XML será gerado conforme a versão TISS selecionada</li>
+            <li>• Use o botão de regenerar para recriar um lote e corrigir erros</li>
+            <li>• Os lotes ficam salvos no banco de dados para consulta futura</li>
+          </ul>
+        </div>
       </div>
     </div>
   );
-}
+}                              
