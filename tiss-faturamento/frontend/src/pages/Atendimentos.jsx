@@ -11,7 +11,6 @@ import {
   CurrencyDollarIcon, 
   BeakerIcon, 
   CubeIcon,
-  BuildingOfficeIcon,
   UserGroupIcon,
   CalendarIcon,
   IdentificationIcon,
@@ -108,12 +107,12 @@ const SIM_NAO = [
 
 // Tipos de itens para faturamento
 const TIPOS_ITEM = [
-  { value: 'procedimento', label: 'Procedimento', icon: BeakerIcon, tabelas: ['22', '00', '98'] },
-  { value: 'material', label: 'Material/OPME', icon: CubeIcon, tabelas: ['19'] },
-  { value: 'medicamento', label: 'Medicamento', icon: BeakerIcon, tabelas: ['20'] },
-  { value: 'diaria', label: 'Diária/Taxa', icon: BuildingStorefrontIcon, tabelas: ['18'] },
-  { value: 'pacote', label: 'Pacote', icon: PackageIcon, tabelas: ['98'] },
-  { value: 'outros', label: 'Outras Despesas', icon: CurrencyDollarIcon, tabelas: ['00'] }
+  { value: 'procedimento', label: 'Procedimento', tabelas: ['22', '00', '98'] },
+  { value: 'material', label: 'Material/OPME', tabelas: ['19'] },
+  { value: 'medicamento', label: 'Medicamento', tabelas: ['20'] },
+  { value: 'diaria', label: 'Diária/Taxa', tabelas: ['18'] },
+  { value: 'pacote', label: 'Pacote', tabelas: ['98'] },
+  { value: 'outros', label: 'Outras Despesas', tabelas: ['00'] }
 ];
 
 // Tabelas disponíveis
@@ -1316,32 +1315,28 @@ export default function Atendimentos() {
 
                     {/* Seletor de Tipo de Item */}
                     <div className="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700 pb-3">
-                      {TIPOS_ITEM.map(tipo => {
-                        const Icon = tipo.icon;
-                        return (
-                          <button
-                            key={tipo.value}
-                            type="button"
-                            onClick={() => {
-                              setTipoItem(tipo.value);
-                              setTabelaSelecionada(tipo.tabelas[0]);
-                              setCurrentItem({
-                                ...currentItem,
-                                tipo: tipo.value,
-                                tabela_referencia: tipo.tabelas[0]
-                              });
-                            }}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1 ${
-                              tipoItem === tipo.value
-                                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md'
-                                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                            }`}
-                          >
-                            <Icon className="w-3 h-3" />
-                            {tipo.label}
-                          </button>
-                        );
-                      })}
+                    {TIPOS_ITEM.map(tipo => (
+                      <button
+                        key={tipo.value}
+                        type="button"
+                        onClick={() => {
+                          setTipoItem(tipo.value);
+                          setTabelaSelecionada(tipo.tabelas[0]);
+                          setCurrentItem({
+                            ...currentItem,
+                            tipo: tipo.value,
+                            tabela_referencia: tipo.tabelas[0]
+                          });
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
+                          tipoItem === tipo.value
+                            ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        {tipo.label}
+                      </button>
+                    ))}
                     </div>
 
                     {/* Seletor de Tabela */}
