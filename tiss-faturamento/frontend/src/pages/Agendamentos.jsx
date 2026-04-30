@@ -27,6 +27,8 @@ import {
   ArrowPathIcon,
   ChartBarIcon,
   UserIcon,
+  ChevronUpIcon,
+  ChevronDownIcon,
   DocumentTextIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
