@@ -1,5 +1,6 @@
 // src/pages/Agendamentos.jsx
 import { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   PlusIcon, 
   PencilIcon, 
@@ -15,10 +16,16 @@ import {
   VideoCameraIcon,
   BellIcon,
   CheckBadgeIcon,
-  XCircleIcon
+  XCircleIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ViewColumnsIcon,
+  CalendarDaysIcon,
+  ListBulletIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
-import { format, addDays, startOfWeek, endOfWeek } from 'date-fns';
+import { format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, isWithinInterval, parseISO, addWeeks, subWeeks, addMonths, subMonths } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { supabase } from '../lib/supabaseClient';
 
 // Status de agendamento
@@ -44,6 +51,12 @@ const MODALIDADE = [
   { value: 'domicilio', label: 'Domicílio' }
 ];
 
+// Horários disponíveis
+const HORARIOS = [
+  '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+  '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30'
+];
+
 export default function Agendamentos() {
   const [agendamentos, setAgendamentos] = useState([]);
   const [pacientes, setPacientes] = useState([]);
@@ -55,7 +68,9 @@ export default function Agendamentos() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('todos');
   const [filtroTipo, setFiltroTipo] = useState('todos');
-  const [filtroData, setFiltroData] = useState('hoje');
+  const [viewMode, setViewMode] = useState('dia'); // dia, semana, mes
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   const [formData, setFormData] = useState({
     paciente_id: '',
@@ -269,39 +284,337 @@ export default function Agendamentos() {
     setShowModal(true);
   };
 
-  const agendamentosFiltrados = useMemo(() => {
-    let filtrados = [...agendamentos];
-
-    if (filtroStatus !== 'todos') {
-      filtrados = filtrados.filter(a => a.status === filtroStatus);
+  // Navegação do calendário
+  const navegarAnterior = () => {
+    if (viewMode === 'dia') {
+      setCurrentDate(subDays(currentDate, 1));
+    } else if (viewMode === 'semana') {
+      setCurrentDate(subWeeks(currentDate, 1));
+    } else {
+      setCurrentDate(subMonths(currentDate, 1));
     }
+  };
 
-    if (filtroTipo !== 'todos') {
-      filtrados = filtrados.filter(a => a.tipo === filtroTipo);
+  const navegarProximo = () => {
+    if (viewMode === 'dia') {
+      setCurrentDate(addDays(currentDate, 1));
+    } else if (viewMode === 'semana') {
+      setCurrentDate(addWeeks(currentDate, 1));
+    } else {
+      setCurrentDate(addMonths(currentDate, 1));
     }
+  };
 
-    if (filtroData === 'hoje') {
-      const hoje = new Date().toISOString().split('T')[0];
-      filtrados = filtrados.filter(a => a.data_agendamento === hoje);
-    } else if (filtroData === 'amanha') {
-      const amanha = addDays(new Date(), 1).toISOString().split('T')[0];
-      filtrados = filtrados.filter(a => a.data_agendamento === amanha);
-    } else if (filtroData === 'semana') {
-      const inicio = startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().split('T')[0];
-      const fim = endOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().split('T')[0];
-      filtrados = filtrados.filter(a => a.data_agendamento >= inicio && a.data_agendamento <= fim);
+  const irParaHoje = () => {
+    setCurrentDate(new Date());
+    setSelectedDate(new Date());
+  };
+
+  // Obter agendamentos para visualização
+  const getAgendamentosPorData = (data) => {
+    const dataStr = format(data, 'yyyy-MM-dd');
+    return agendamentos.filter(a => a.data_agendamento === dataStr);
+  };
+
+  const getDiasDaSemana = () => {
+    const inicio = startOfWeek(currentDate, { weekStartsOn: 1 });
+    const dias = [];
+    for (let i = 0; i < 7; i++) {
+      dias.push(addDays(inicio, i));
     }
+    return dias;
+  };
 
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtrados = filtrados.filter(a => 
-        a.paciente_nome?.toLowerCase().includes(term) ||
-        a.prestador_nome?.toLowerCase().includes(term)
-      );
+  const isDiaDisponivel = (data) => {
+    return agendamentos.some(a => a.data_agendamento === format(data, 'yyyy-MM-dd'));
+  };
+
+  // Renderizar visualização por dia
+  const renderViewDia = () => {
+    const agendamentosDia = getAgendamentosPorData(currentDate);
+    
+    return (
+      <div className="space-y-4">
+        <div className="text-center py-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+          <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
+            {format(currentDate, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+          </h3>
+        </div>
+        
+        <div className="space-y-2">
+          {HORARIOS.map(hora => {
+            const agendamento = agendamentosDia.find(a => a.hora_inicio === hora);
+            const hasAgendamento = !!agendamento;
+            
+            return (
+              <div
+                key={hora}
+                className={`border rounded-lg p-3 transition-all ${
+                  hasAgendamento 
+                    ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' 
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 font-mono text-sm font-medium text-gray-600 dark:text-gray-400">
+                      {hora}
+                    </div>
+                    {hasAgendamento ? (
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-800 dark:text-white">
+                            {agendamento.paciente_nome}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {agendamento.prestador_nome}
+                          </span>
+                        </div>
+                        <div className="flex gap-2 mt-1">
+                          <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-gray-100 dark:bg-gray-700">
+                            {TIPO_AGENDAMENTO.find(t => t.value === agendamento.tipo)?.label}
+                          </span>
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs ${STATUS_AGENDAMENTO.find(s => s.value === agendamento.status)?.color}`}>
+                            {STATUS_AGENDAMENTO.find(s => s.value === agendamento.status)?.label}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex-1 text-gray-400 text-sm">
+                        Disponível
+                      </div>
+                    )}
+                  </div>
+                  {hasAgendamento && (
+                    <div className="flex gap-1">
+                      <Link
+                        to={`/prontuario/${agendamento.id}`}
+                        className="p-1 rounded-lg text-cyan-600 hover:bg-cyan-50 transition-colors"
+                        title="Atender Paciente"
+                      >
+                        <CheckBadgeIcon className="w-4 h-4" />
+                      </Link>
+                      <button
+                        onClick={() => handleEdit(agendamento)}
+                        className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
+                        title="Editar"
+                      >
+                        <PencilIcon className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => excluirAgendamento(agendamento.id)}
+                        className="p-1 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+                        title="Excluir"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // Renderizar visualização por semana
+  const renderViewSemana = () => {
+    const dias = getDiasDaSemana();
+    
+    return (
+      <div className="overflow-x-auto">
+        <div className="min-w-[800px]">
+          <div className="grid grid-cols-8 gap-2 mb-4">
+            <div className="col-span-1"></div>
+            {dias.map((dia, idx) => (
+              <div key={idx} className="text-center">
+                <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  {format(dia, 'EEE', { locale: ptBR })}
+                </div>
+                <div className={`text-lg font-semibold rounded-full w-10 h-10 flex items-center justify-center mx-auto ${
+                  isSameDay(dia, new Date()) 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-gray-800 dark:text-white'
+                }`}>
+                  {format(dia, 'dd')}
+                </div>
+              </div>
+            ))}
+          </div>
+          
+          {HORARIOS.map(hora => (
+            <div key={hora} className="grid grid-cols-8 gap-2 mb-2">
+              <div className="col-span-1 text-sm font-mono text-gray-500 pt-2">
+                {hora}
+              </div>
+              {dias.map((dia, idx) => {
+                const agendamento = agendamentos.find(a => 
+                  a.data_agendamento === format(dia, 'yyyy-MM-dd') && 
+                  a.hora_inicio === hora
+                );
+                const hasAgendamento = !!agendamento;
+                
+                return (
+                  <div
+                    key={idx}
+                    className={`border rounded-lg p-2 min-h-[80px] transition-all ${
+                      hasAgendamento 
+                        ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' 
+                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                    }`}
+                  >
+                    {hasAgendamento ? (
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-gray-800 dark:text-white truncate">
+                          {agendamento.paciente_nome}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {agendamento.prestador_nome}
+                        </p>
+                        <div className="flex gap-1">
+                          <Link
+                            to={`/prontuario/${agendamento.id}`}
+                            className="p-1 rounded text-cyan-600 hover:bg-cyan-50 inline-flex"
+                            title="Atender"
+                          >
+                            <CheckBadgeIcon className="w-3 h-3" />
+                          </Link>
+                          <button
+                            onClick={() => handleEdit(agendamento)}
+                            className="p-1 rounded text-blue-600 hover:bg-blue-50 inline-flex"
+                            title="Editar"
+                          >
+                            <PencilIcon className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setFormData({
+                            ...formData,
+                            data_agendamento: format(dia, 'yyyy-MM-dd'),
+                            hora_inicio: hora,
+                            hora_fim: HORARIOS[HORARIOS.indexOf(hora) + 1] || HORARIOS[HORARIOS.indexOf(hora)]
+                          });
+                          setShowModal(true);
+                        }}
+                        className="w-full h-full flex items-center justify-center text-gray-400 hover:text-blue-500 transition-colors"
+                        title="Agendar"
+                      >
+                        <PlusIcon className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // Renderizar visualização por mês
+  const renderViewMes = () => {
+    const start = startOfMonth(currentDate);
+    const end = endOfMonth(currentDate);
+    const startDay = start.getDay();
+    const dias = [];
+    
+    // Ajustar para começar na segunda-feira
+    let current = subDays(start, startDay === 0 ? 6 : startDay - 1);
+    
+    for (let i = 0; i < 42; i++) {
+      dias.push(current);
+      current = addDays(current, 1);
     }
-
-    return filtrados;
-  }, [agendamentos, filtroStatus, filtroTipo, filtroData, searchTerm]);
+    
+    return (
+      <div className="overflow-x-auto">
+        <div className="min-w-[800px]">
+          <div className="grid grid-cols-7 gap-1 mb-2">
+            {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((dia, idx) => (
+              <div key={idx} className="text-center py-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+                {dia}
+              </div>
+            ))}
+          </div>
+          
+          <div className="grid grid-cols-7 gap-1">
+            {dias.map((dia, idx) => {
+              const isCurrentMonth = dia.getMonth() === currentDate.getMonth();
+              const agendamentosDia = getAgendamentosPorData(dia);
+              const isToday = isSameDay(dia, new Date());
+              
+              return (
+                <div
+                  key={idx}
+                  className={`border rounded-lg min-h-[120px] p-2 transition-all ${
+                    isCurrentMonth 
+                      ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                      : 'bg-gray-50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-700/50'
+                  } ${isToday ? 'ring-2 ring-blue-500' : ''}`}
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <span className={`text-sm font-medium ${
+                      isCurrentMonth 
+                        ? 'text-gray-800 dark:text-white' 
+                        : 'text-gray-400 dark:text-gray-500'
+                    } ${isToday ? 'text-blue-600 font-bold' : ''}`}>
+                      {format(dia, 'dd')}
+                    </span>
+                    {agendamentosDia.length > 0 && (
+                      <span className="bg-blue-100 text-blue-700 text-xs rounded-full px-1.5 py-0.5">
+                        {agendamentosDia.length}
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    {agendamentosDia.slice(0, 3).map((ag, i) => (
+                      <div key={i} className="text-xs truncate flex items-center justify-between gap-1">
+                        <span className="text-gray-600 dark:text-gray-400 truncate flex-1">
+                          {ag.hora_inicio} - {ag.paciente_nome?.split(' ')[0]}
+                        </span>
+                        <Link
+                          to={`/prontuario/${ag.id}`}
+                          className="text-cyan-600 hover:text-cyan-800"
+                          title="Atender"
+                        >
+                          <CheckBadgeIcon className="w-3 h-3" />
+                        </Link>
+                      </div>
+                    ))}
+                    {agendamentosDia.length > 3 && (
+                      <p className="text-xs text-gray-400">+{agendamentosDia.length - 3}</p>
+                    )}
+                    {agendamentosDia.length === 0 && isCurrentMonth && (
+                      <button
+                        onClick={() => {
+                          setFormData({
+                            ...formData,
+                            data_agendamento: format(dia, 'yyyy-MM-dd'),
+                            hora_inicio: '09:00',
+                            hora_fim: '09:30'
+                          });
+                          setShowModal(true);
+                        }}
+                        className="w-full text-xs text-gray-400 hover:text-blue-500 transition-colors"
+                      >
+                        + Agendar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   const agendamentosHoje = agendamentos.filter(a => a.data_agendamento === new Date().toISOString().split('T')[0] && a.status !== 'cancelado').length;
   const agendamentosSemana = agendamentos.filter(a => {
@@ -322,7 +635,7 @@ export default function Agendamentos() {
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
           <div>
             <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
               Agendamentos
@@ -331,12 +644,49 @@ export default function Agendamentos() {
               Gerenciamento de consultas, exames e procedimentos
             </p>
           </div>
-          <button 
-            onClick={() => { setEditing(null); resetModal(); setShowModal(true); }} 
-            className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg"
-          >
-            <PlusIcon className="w-4 h-4" /> Novo Agendamento
-          </button>
+          <div className="flex gap-2">
+            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-xl p-1">
+              <button
+                onClick={() => setViewMode('dia')}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-1 ${
+                  viewMode === 'dia' 
+                    ? 'bg-white dark:bg-gray-600 shadow-md text-gray-900 dark:text-white' 
+                    : 'text-gray-600 dark:text-gray-400'
+                }`}
+              >
+                <ListBulletIcon className="w-4 h-4" />
+                Dia
+              </button>
+              <button
+                onClick={() => setViewMode('semana')}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-1 ${
+                  viewMode === 'semana' 
+                    ? 'bg-white dark:bg-gray-600 shadow-md text-gray-900 dark:text-white' 
+                    : 'text-gray-600 dark:text-gray-400'
+                }`}
+              >
+                <ViewColumnsIcon className="w-4 h-4" />
+                Semana
+              </button>
+              <button
+                onClick={() => setViewMode('mes')}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-1 ${
+                  viewMode === 'mes' 
+                    ? 'bg-white dark:bg-gray-600 shadow-md text-gray-900 dark:text-white' 
+                    : 'text-gray-600 dark:text-gray-400'
+                }`}
+              >
+                <CalendarDaysIcon className="w-4 h-4" />
+                Mês
+              </button>
+            </div>
+            <button 
+              onClick={() => { setEditing(null); resetModal(); setShowModal(true); }} 
+              className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg"
+            >
+              <PlusIcon className="w-4 h-4" /> Novo Agendamento
+            </button>
+          </div>
         </div>
 
         {/* Cards de resumo */}
@@ -379,143 +729,66 @@ export default function Agendamentos() {
           </div>
         </div>
 
-        {/* Filtros */}
+        {/* Navegação do Calendário */}
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 mb-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div className="relative">
-              <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-              <input 
-                type="text" 
-                placeholder="Buscar por paciente ou profissional..." 
-                value={searchTerm} 
-                onChange={(e) => setSearchTerm(e.target.value)} 
-                className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-              />
+          <div className="flex justify-between items-center flex-wrap gap-4">
+            <div className="flex gap-2">
+              <button
+                onClick={navegarAnterior}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <ChevronLeftIcon className="w-5 h-5" />
+              </button>
+              <button
+                onClick={navegarProximo}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <ChevronRightIcon className="w-5 h-5" />
+              </button>
+              <button
+                onClick={irParaHoje}
+                className="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                Hoje
+              </button>
             </div>
-            <select 
-              value={filtroStatus} 
-              onChange={(e) => setFiltroStatus(e.target.value)} 
-              className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-            >
-              <option value="todos">Todos os status</option>
-              {STATUS_AGENDAMENTO.map(s => (
-                <option key={s.value} value={s.value}>{s.label}</option>
-              ))}
-            </select>
-            <select 
-              value={filtroTipo} 
-              onChange={(e) => setFiltroTipo(e.target.value)} 
-              className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-            >
-              <option value="todos">Todos os tipos</option>
-              {TIPO_AGENDAMENTO.map(t => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
-            </select>
-            <select 
-              value={filtroData} 
-              onChange={(e) => setFiltroData(e.target.value)} 
-              className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-            >
-              <option value="hoje">Hoje</option>
-              <option value="amanha">Amanhã</option>
-              <option value="semana">Esta semana</option>
-              <option value="todos">Todos</option>
-            </select>
+            
+            <div className="text-lg font-semibold text-gray-800 dark:text-white">
+              {viewMode === 'dia' && format(currentDate, "MMMM 'de' yyyy", { locale: ptBR })}
+              {viewMode === 'semana' && `Semana de ${format(startOfWeek(currentDate, { weekStartsOn: 1 }), "dd/MM")} a ${format(endOfWeek(currentDate, { weekStartsOn: 1 }), "dd/MM/yyyy")}`}
+              {viewMode === 'mes' && format(currentDate, "MMMM 'de' yyyy", { locale: ptBR })}
+            </div>
+
+            <div className="flex gap-2">
+              <select 
+                value={filtroStatus} 
+                onChange={(e) => setFiltroStatus(e.target.value)} 
+                className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+              >
+                <option value="todos">Todos os status</option>
+                {STATUS_AGENDAMENTO.map(s => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+              <div className="relative">
+                <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input 
+                  type="text" 
+                  placeholder="Buscar..." 
+                  value={searchTerm} 
+                  onChange={(e) => setSearchTerm(e.target.value)} 
+                  className="w-48 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                />
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Lista de Agendamentos */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 dark:bg-gray-700/50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Data/Hora</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Paciente</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Profissional</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tipo</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Modalidade</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-32">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {agendamentosFiltrados.map((a) => {
-                  const statusInfo = STATUS_AGENDAMENTO.find(s => s.value === a.status);
-                  return (
-                    <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                          {format(new Date(a.data_agendamento), 'dd/MM/yyyy')}
-                        </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          {a.hora_inicio} - {a.hora_fim}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-gray-800 dark:text-gray-200">{a.paciente_nome}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">{a.paciente_carteira}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-gray-800 dark:text-gray-200">{a.prestador_nome}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">{a.prestador_especialidade}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="inline-flex px-2 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-                          {TIPO_AGENDAMENTO.find(t => t.value === a.tipo)?.label || a.tipo}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                        {MODALIDADE.find(m => m.value === a.modalidade)?.label || a.modalidade}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusInfo?.color}`}>
-                          {statusInfo?.label || a.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <div className="flex gap-1 justify-center">
-                          {a.status === 'agendado' && (
-                            <button 
-                              onClick={() => atualizarStatus(a.id, 'confirmado')} 
-                              className="p-1 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" 
-                              title="Confirmar"
-                            >
-                              <CheckBadgeIcon className="w-4 h-4" />
-                            </button>
-                          )}
-                          {(a.status === 'agendado' || a.status === 'confirmado') && (
-                            <button 
-                              onClick={() => atualizarStatus(a.id, 'cancelado')} 
-                              className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" 
-                              title="Cancelar"
-                            >
-                              <XCircleIcon className="w-4 h-4" />
-                            </button>
-                          )}
-                          <button onClick={() => handleEdit(a)} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Editar">
-                            <PencilIcon className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => excluirAgendamento(a.id)} className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Excluir">
-                            <TrashIcon className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-                {agendamentosFiltrados.length === 0 && (
-                  <tr>
-                    <td colSpan="7" className="px-4 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
-                      <CalendarIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                      Nenhum agendamento encontrado
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+        {/* Visualização do Calendário */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden p-4">
+          {viewMode === 'dia' && renderViewDia()}
+          {viewMode === 'semana' && renderViewSemana()}
+          {viewMode === 'mes' && renderViewMes()}
         </div>
 
         {/* Modal de Cadastro/Edição */}
@@ -657,7 +930,7 @@ export default function Agendamentos() {
                       <textarea 
                         rows="3" 
                         value={formData.observacao} 
-                        onChange={e => setFormData({...formData, observacao: e.target.value})} 
+                        onChange={e => setFormData({...formData, observacao: e.target.value})}
                         className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
                         placeholder="Informações adicionais..."
                       />
@@ -687,4 +960,4 @@ export default function Agendamentos() {
       </div>
     </div>
   );
-}
+}                        
