@@ -14,23 +14,15 @@ const localStorageFallback = {
 // Serviço de Convênios
 export const conveniosService = {
   async listar() {
-    // Se Supabase não está disponível, usar localStorage
     if (!isSupabaseAvailable()) {
-      console.log('📦 Usando localStorage para convênios');
       return localStorageFallback.get(TABLES.CONVENIOS);
     }
-    
     try {
       const { data, error } = await supabase
         .from(TABLES.CONVENIOS)
         .select('*')
         .order('razao_social', { ascending: true });
-      
-      if (error) {
-        console.error('Erro Supabase:', error);
-        return localStorageFallback.get(TABLES.CONVENIOS);
-      }
-      
+      if (error) throw error;
       return data || [];
     } catch (err) {
       console.error('Erro ao listar convênios:', err);
@@ -45,14 +37,12 @@ export const conveniosService = {
       localStorageFallback.set(TABLES.CONVENIOS, [...data, newItem]);
       return newItem;
     }
-    
     try {
       const { data, error } = await supabase
         .from(TABLES.CONVENIOS)
         .insert([convenio])
         .select()
         .single();
-      
       if (error) throw error;
       return data;
     } catch (err) {
@@ -74,7 +64,6 @@ export const conveniosService = {
       }
       return { ...convenio, id };
     }
-    
     try {
       const { data, error } = await supabase
         .from(TABLES.CONVENIOS)
@@ -82,17 +71,10 @@ export const conveniosService = {
         .eq('id', id)
         .select()
         .single();
-      
       if (error) throw error;
       return data;
     } catch (err) {
       console.error('Erro ao atualizar convênio:', err);
-      const data = localStorageFallback.get(TABLES.CONVENIOS);
-      const index = data.findIndex(item => item.id === id);
-      if (index !== -1) {
-        data[index] = { ...convenio, id };
-        localStorageFallback.set(TABLES.CONVENIOS, data);
-      }
       return { ...convenio, id };
     }
   },
@@ -104,13 +86,11 @@ export const conveniosService = {
       localStorageFallback.set(TABLES.CONVENIOS, filtered);
       return true;
     }
-    
     try {
       const { error } = await supabase
         .from(TABLES.CONVENIOS)
         .delete()
         .eq('id', id);
-      
       if (error) throw error;
       return true;
     } catch (err) {
@@ -123,78 +103,11 @@ export const conveniosService = {
   }
 };
 
-// Serviço de Notificações
-export const notificacoesService = {
-  async listar() {
-    if (!isSupabaseAvailable()) {
-      return localStorageFallback.get(TABLES.NOTIFICACOES) || [];
-    }
-    
-    try {
-      const { data, error } = await supabase
-        .from(TABLES.NOTIFICACOES)
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      return data || [];
-    } catch (err) {
-      console.error('Erro ao listar notificações:', err);
-      return localStorageFallback.get(TABLES.NOTIFICACOES) || [];
-    }
-  },
-
-  async criar(notificacao) {
-    if (!isSupabaseAvailable()) {
-      const data = localStorageFallback.get(TABLES.NOTIFICACOES) || [];
-      const newItem = { ...notificacao, id: Date.now(), created_at: new Date().toISOString(), lido: false };
-      localStorageFallback.set(TABLES.NOTIFICACOES, [newItem, ...data]);
-      return newItem;
-    }
-    
-    try {
-      const { data, error } = await supabase
-        .from(TABLES.NOTIFICACOES)
-        .insert([notificacao])
-        .select()
-        .single();
-      
-      if (error) throw error;
-      return data;
-    } catch (err) {
-      console.error('Erro ao criar notificação:', err);
-      return null;
-    }
-  },
-
-  async marcarLido(id) {
-    if (!isSupabaseAvailable()) {
-      const data = localStorageFallback.get(TABLES.NOTIFICACOES) || [];
-      const updated = data.map(n => n.id === id ? { ...n, lido: true } : n);
-      localStorageFallback.set(TABLES.NOTIFICACOES, updated);
-      return true;
-    }
-    
-    try {
-      const { error } = await supabase
-        .from(TABLES.NOTIFICACOES)
-        .update({ lido: true })
-        .eq('id', id);
-      
-      if (error) throw error;
-      return true;
-    } catch (err) {
-      console.error('Erro ao marcar notificação como lida:', err);
-      return false;
-    }
-  }
-};
-
-// Exportar outros serviços...
+// Serviço de Pacientes
 export const pacientesService = {
   async listar() {
     if (!isSupabaseAvailable()) {
-      return localStorageFallback.get(TABLES.PACIENTES) || [];
+      return localStorageFallback.get(TABLES.PACIENTES);
     }
     try {
       const { data, error } = await supabase
@@ -205,29 +118,133 @@ export const pacientesService = {
       return data || [];
     } catch (err) {
       console.error('Erro ao listar pacientes:', err);
-      return localStorageFallback.get(TABLES.PACIENTES) || [];
+      return localStorageFallback.get(TABLES.PACIENTES);
+    }
+  },
+
+  async buscar(id) {
+    if (!isSupabaseAvailable()) {
+      const data = localStorageFallback.get(TABLES.PACIENTES);
+      return data.find(item => item.id === id);
+    }
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.PACIENTES)
+        .select('*')
+        .eq('id', id)
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('Erro ao buscar paciente:', err);
+      return null;
+    }
+  },
+
+  async criar(paciente) {
+    console.log('Chamando pacientesService.criar:', paciente);
+    if (!isSupabaseAvailable()) {
+      const data = localStorageFallback.get(TABLES.PACIENTES);
+      const newItem = { ...paciente, id: Date.now(), created_at: new Date().toISOString() };
+      localStorageFallback.set(TABLES.PACIENTES, [...data, newItem]);
+      return newItem;
+    }
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.PACIENTES)
+        .insert([paciente])
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('Erro ao criar paciente no Supabase:', err);
+      // Fallback para localStorage
+      const data = localStorageFallback.get(TABLES.PACIENTES);
+      const newItem = { ...paciente, id: Date.now(), created_at: new Date().toISOString() };
+      localStorageFallback.set(TABLES.PACIENTES, [...data, newItem]);
+      return newItem;
+    }
+  },
+
+  async atualizar(id, paciente) {
+    if (!isSupabaseAvailable()) {
+      const data = localStorageFallback.get(TABLES.PACIENTES);
+      const index = data.findIndex(item => item.id === id);
+      if (index !== -1) {
+        data[index] = { ...paciente, id, updated_at: new Date().toISOString() };
+        localStorageFallback.set(TABLES.PACIENTES, data);
+      }
+      return { ...paciente, id };
+    }
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.PACIENTES)
+        .update(paciente)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('Erro ao atualizar paciente:', err);
+      return { ...paciente, id };
+    }
+  },
+
+  async deletar(id) {
+    if (!isSupabaseAvailable()) {
+      const data = localStorageFallback.get(TABLES.PACIENTES);
+      const filtered = data.filter(item => item.id !== id);
+      localStorageFallback.set(TABLES.PACIENTES, filtered);
+      return true;
+    }
+    try {
+      const { error } = await supabase
+        .from(TABLES.PACIENTES)
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      console.error('Erro ao deletar paciente:', err);
+      const data = localStorageFallback.get(TABLES.PACIENTES);
+      const filtered = data.filter(item => item.id !== id);
+      localStorageFallback.set(TABLES.PACIENTES, filtered);
+      return true;
     }
   }
 };
 
+// Serviço de Atendimentos
 export const atendimentosService = {
-  async listar() {
+  async listar(filtros = {}) {
     if (!isSupabaseAvailable()) {
-      return localStorageFallback.get(TABLES.ATENDIMENTOS) || [];
+      let data = localStorageFallback.get(TABLES.ATENDIMENTOS);
+      if (filtros.status) {
+        data = data.filter(a => a.status === filtros.status);
+      }
+      return data;
     }
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from(TABLES.ATENDIMENTOS)
         .select('*')
         .order('created_at', { ascending: false });
+      
+      if (filtros.status) {
+        query = query.eq('status', filtros.status);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     } catch (err) {
       console.error('Erro ao listar atendimentos:', err);
-      return localStorageFallback.get(TABLES.ATENDIMENTOS) || [];
+      return [];
     }
   },
-  
+
   async getEstatisticas() {
     const data = await this.listar();
     const total = data.length;
