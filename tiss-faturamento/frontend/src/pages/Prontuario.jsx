@@ -851,50 +851,246 @@ export default function Prontuario() {
               </div>
             )}
 
-            {/* Aba Faturamento */}
-            {aba === 'faturamento' && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div><label className="block text-sm font-medium mb-1">Nº Guia Operadora</label><input type="text" value={faturamentoData.numero_guia_operadora} onChange={e => setFaturamentoData({...faturamentoData, numero_guia_operadora: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
-                  <div><label className="block text-sm font-medium mb-1">Data Autorização</label><input type="date" value={faturamentoData.data_autorizacao} onChange={e => setFaturamentoData({...faturamentoData, data_autorizacao: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
-                  <div><label className="block text-sm font-medium mb-1">Senha</label><input type="text" value={faturamentoData.senha_autorizacao} onChange={e => setFaturamentoData({...faturamentoData, senha_autorizacao: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
-                  <div><label className="block text-sm font-medium mb-1">Validade Senha</label><input type="date" value={faturamentoData.data_validade_senha} onChange={e => setFaturamentoData({...faturamentoData, data_validade_senha: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
-                  <div><label className="block text-sm font-medium mb-1">Código Operadora</label><input type="text" value={faturamentoData.codigo_operadora} onChange={e => setFaturamentoData({...faturamentoData, codigo_operadora: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
-                  <div><label className="block text-sm font-medium mb-1">Nome Contratado</label><input type="text" value={faturamentoData.nome_contratado} onChange={e => setFaturamentoData({...faturamentoData, nome_contratado: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <h4 className="font-semibold mb-3">Profissional Solicitante</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div><label className="block text-sm font-medium mb-1">Nome</label><input type="text" value={faturamentoData.profissional_solicitante} onChange={e => setFaturamentoData({...faturamentoData, profissional_solicitante: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
-                    <div><label className="block text-sm font-medium mb-1">Conselho</label><select value={faturamentoData.conselho_solicitante} onChange={e => setFaturamentoData({...faturamentoData, conselho_solicitante: e.target.value})} className="w-full border rounded-lg px-3 py-2"><option value="06">CRM</option><option value="08">CRO</option></select></div>
-                    <div><label className="block text-sm font-medium mb-1">Nº Conselho</label><input type="text" value={faturamentoData.numero_conselho_solicitante} onChange={e => setFaturamentoData({...faturamentoData, numero_conselho_solicitante: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
-                    <div><label className="block text-sm font-medium mb-1">UF</label><select value={faturamentoData.uf_solicitante} onChange={e => setFaturamentoData({...faturamentoData, uf_solicitante: e.target.value})} className="w-full border rounded-lg px-3 py-2"><option value="35">SP</option><option value="33">RJ</option></select></div>
-                    <div><label className="block text-sm font-medium mb-1">CBOS</label><input type="text" value={faturamentoData.cbos_solicitante} onChange={e => setFaturamentoData({...faturamentoData, cbos_solicitante: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <h4 className="font-semibold mb-3">Dados do Atendimento</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div><label className="block text-sm font-medium mb-1">Caráter</label><select value={faturamentoData.carater_atendimento} onChange={e => setFaturamentoData({...faturamentoData, carater_atendimento: e.target.value})} className="w-full border rounded-lg px-3 py-2">{CARATER_ATENDIMENTO.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select></div>
-                    <div><label className="block text-sm font-medium mb-1">Data Solicitação</label><input type="date" value={faturamentoData.data_solicitacao} onChange={e => setFaturamentoData({...faturamentoData, data_solicitacao: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
-                    <div><label className="block text-sm font-medium mb-1">Atendimento RN</label><select value={faturamentoData.atendimento_rn} onChange={e => setFaturamentoData({...faturamentoData, atendimento_rn: e.target.value})} className="w-full border rounded-lg px-3 py-2">{SIM_NAO.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
-                    <div><label className="block text-sm font-medium mb-1">Tipo Atendimento</label><select value={faturamentoData.tipo_atendimento} onChange={e => setFaturamentoData({...faturamentoData, tipo_atendimento: e.target.value})} className="w-full border rounded-lg px-3 py-2">{TIPO_ATENDIMENTO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
-                    <div><label className="block text-sm font-medium mb-1">Indicador Acidente</label><select value={faturamentoData.indicacao_acidente} onChange={e => setFaturamentoData({...faturamentoData, indicacao_acidente: e.target.value})} className="w-full border rounded-lg px-3 py-2">{INDICADOR_ACIDENTE.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}</select></div>
-                    <div><label className="block text-sm font-medium mb-1">Tipo Consulta</label><select value={faturamentoData.tipo_consulta} onChange={e => setFaturamentoData({...faturamentoData, tipo_consulta: e.target.value})} className="w-full border rounded-lg px-3 py-2">{TIPO_CONSULTA.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
-                    <div><label className="block text-sm font-medium mb-1">Regime</label><select value={faturamentoData.regime_atendimento} onChange={e => setFaturamentoData({...faturamentoData, regime_atendimento: e.target.value})} className="w-full border rounded-lg px-3 py-2">{REGIME_ATENDIMENTO.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}</select></div>
-                    <div><label className="block text-sm font-medium mb-1">Cobertura Especial</label><select value={faturamentoData.cobertura_especial} onChange={e => setFaturamentoData({...faturamentoData, cobertura_especial: e.target.value})} className="w-full border rounded-lg px-3 py-2">{COBERTURA_ESPECIAL.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select></div>
-                    <div><label className="block text-sm font-medium mb-1">Saúde Ocupacional</label><select value={faturamentoData.saude_ocupacional} onChange={e => setFaturamentoData({...faturamentoData, saude_ocupacional: e.target.value})} className="w-full border rounded-lg px-3 py-2">{SAUDE_OCUPACIONAL.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
-                    <div><label className="block text-sm font-medium mb-1">Motivo Encerramento</label><select value={faturamentoData.motivo_encerramento} onChange={e => setFaturamentoData({...faturamentoData, motivo_encerramento: e.target.value})} className="w-full border rounded-lg px-3 py-2">{MOTIVO_ENCERRAMENTO.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}</select></div>
-                  </div>
-                  <div className="mt-3"><label className="block text-sm font-medium mb-1">Indicação Clínica</label><textarea rows="2" value={faturamentoData.indicacao_clinica} onChange={e => setFaturamentoData({...faturamentoData, indicacao_clinica: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
-                </div>
+      {/* Aba Faturamento */}
+      {aba === 'faturamento' && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nº Guia Operadora</label>
+              <input 
+                type="text" 
+                value={faturamentoData.numero_guia_operadora} 
+                onChange={e => setFaturamentoData({...faturamentoData, numero_guia_operadora: e.target.value})} 
+                className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data Autorização</label>
+              <input 
+                type="date" 
+                value={faturamentoData.data_autorizacao} 
+                onChange={e => setFaturamentoData({...faturamentoData, data_autorizacao: e.target.value})} 
+                className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Senha</label>
+              <input 
+                type="text" 
+                value={faturamentoData.senha_autorizacao} 
+                onChange={e => setFaturamentoData({...faturamentoData, senha_autorizacao: e.target.value})} 
+                className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Validade Senha</label>
+              <input 
+                type="date" 
+                value={faturamentoData.data_validade_senha} 
+                onChange={e => setFaturamentoData({...faturamentoData, data_validade_senha: e.target.value})} 
+                className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Código Operadora</label>
+              <input 
+                type="text" 
+                value={faturamentoData.codigo_operadora} 
+                onChange={e => setFaturamentoData({...faturamentoData, codigo_operadora: e.target.value})} 
+                className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome Contratado</label>
+              <input 
+                type="text" 
+                value={faturamentoData.nome_contratado} 
+                onChange={e => setFaturamentoData({...faturamentoData, nome_contratado: e.target.value})} 
+                className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+              />
+            </div>
+          </div>
+      
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+            <h4 className="font-semibold text-gray-800 dark:text-white mb-3">Profissional Solicitante</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome</label>
+                <input 
+                  type="text" 
+                  value={faturamentoData.profissional_solicitante} 
+                  onChange={e => setFaturamentoData({...faturamentoData, profissional_solicitante: e.target.value})} 
+                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                />
               </div>
-            )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Conselho</label>
+                <select 
+                  value={faturamentoData.conselho_solicitante} 
+                  onChange={e => setFaturamentoData({...faturamentoData, conselho_solicitante: e.target.value})} 
+                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                >
+                  <option value="06">CRM - Conselho Regional de Medicina</option>
+                  <option value="08">CRO - Conselho Regional de Odontologia</option>
+                  <option value="03">CRF - Conselho Regional de Farmácia</option>
+                  <option value="02">COREN - Conselho de Enfermagem</option>
+                  <option value="05">CREFITO - Conselho de Fisioterapia</option>
+                  <option value="09">CRP - Conselho de Psicologia</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nº Conselho</label>
+                <input 
+                  type="text" 
+                  value={faturamentoData.numero_conselho_solicitante} 
+                  onChange={e => setFaturamentoData({...faturamentoData, numero_conselho_solicitante: e.target.value})} 
+                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UF</label>
+                <select 
+                  value={faturamentoData.uf_solicitante} 
+                  onChange={e => setFaturamentoData({...faturamentoData, uf_solicitante: e.target.value})} 
+                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                >
+                  <option value="35">SP - São Paulo</option>
+                  <option value="33">RJ - Rio de Janeiro</option>
+                  <option value="31">MG - Minas Gerais</option>
+                  <option value="41">PR - Paraná</option>
+                  <option value="42">SC - Santa Catarina</option>
+                  <option value="43">RS - Rio Grande do Sul</option>
+                  <option value="53">DF - Distrito Federal</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CBOS</label>
+                <input 
+                  type="text" 
+                  value={faturamentoData.cbos_solicitante} 
+                  onChange={e => setFaturamentoData({...faturamentoData, cbos_solicitante: e.target.value})} 
+                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                  placeholder="225125" 
+                />
+              </div>
+            </div>
+          </div>
+      
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+            <h4 className="font-semibold text-gray-800 dark:text-white mb-3">Dados do Atendimento</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Caráter</label>
+                <select 
+                  value={faturamentoData.carater_atendimento} 
+                  onChange={e => setFaturamentoData({...faturamentoData, carater_atendimento: e.target.value})} 
+                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                >
+                  {CARATER_ATENDIMENTO.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data Solicitação</label>
+                <input 
+                  type="date" 
+                  value={faturamentoData.data_solicitacao} 
+                  onChange={e => setFaturamentoData({...faturamentoData, data_solicitacao: e.target.value})} 
+                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Atendimento RN</label>
+                <select 
+                  value={faturamentoData.atendimento_rn} 
+                  onChange={e => setFaturamentoData({...faturamentoData, atendimento_rn: e.target.value})} 
+                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                >
+                  {SIM_NAO.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo Atendimento</label>
+                <select 
+                  value={faturamentoData.tipo_atendimento} 
+                  onChange={e => setFaturamentoData({...faturamentoData, tipo_atendimento: e.target.value})} 
+                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                >
+                  {TIPO_ATENDIMENTO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Indicador Acidente</label>
+                <select 
+                  value={faturamentoData.indicacao_acidente} 
+                  onChange={e => setFaturamentoData({...faturamentoData, indicacao_acidente: e.target.value})} 
+                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                >
+                  {INDICADOR_ACIDENTE.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo Consulta</label>
+                <select 
+                  value={faturamentoData.tipo_consulta} 
+                  onChange={e => setFaturamentoData({...faturamentoData, tipo_consulta: e.target.value})} 
+                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                >
+                  {TIPO_CONSULTA.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Regime</label>
+                <select 
+                  value={faturamentoData.regime_atendimento} 
+                  onChange={e => setFaturamentoData({...faturamentoData, regime_atendimento: e.target.value})} 
+                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                >
+                  {REGIME_ATENDIMENTO.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cobertura Especial</label>
+                <select 
+                  value={faturamentoData.cobertura_especial} 
+                  onChange={e => setFaturamentoData({...faturamentoData, cobertura_especial: e.target.value})} 
+                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                >
+                  {COBERTURA_ESPECIAL.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Saúde Ocupacional</label>
+                <select 
+                  value={faturamentoData.saude_ocupacional} 
+                  onChange={e => setFaturamentoData({...faturamentoData, saude_ocupacional: e.target.value})} 
+                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                >
+                  {SAUDE_OCUPACIONAL.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Motivo Encerramento</label>
+                <select 
+                  value={faturamentoData.motivo_encerramento} 
+                  onChange={e => setFaturamentoData({...faturamentoData, motivo_encerramento: e.target.value})} 
+                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                >
+                  {MOTIVO_ENCERRAMENTO.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="mt-3">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Indicação Clínica</label>
+              <textarea 
+                rows="2" 
+                value={faturamentoData.indicacao_clinica} 
+                onChange={e => setFaturamentoData({...faturamentoData, indicacao_clinica: e.target.value})} 
+                className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                placeholder="Descrição da indicação clínica..."
+              />
+            </div>
           </div>
         </div>
-      </div>
 
       {/* Modal Prescrição */}
       {showPrescricaoModal && (
