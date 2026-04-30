@@ -1,3 +1,4 @@
+// src/lib/supabaseClient.js
 import { createClient } from '@supabase/supabase-js';
 
 // Configurações do Supabase
@@ -25,6 +26,7 @@ export const TABLES = {
   ATENDIMENTOS: 'atendimentos',
   GUIAS_GERADAS: 'guias_geradas',
   NOTIFICACOES: 'notificacoes',
+  USUARIOS: 'usuarios',
   CONFIG_SISTEMA: 'config_sistema'
 };
 
