@@ -20,6 +20,7 @@ import Glosas from './pages/Glosas';
 import Relatorios from './pages/Relatorios';
 import Configuracoes from './pages/Configuracoes';
 import NotificationBell from './components/NotificationBell';
+import Agendamentos from './pages/Agendamentos';
 
 import { setConfig } from './lib/tissGenerator';
 import { supabase, isSupabaseAvailable, checkSupabaseConnection, TABLES } from './lib/supabaseClient';
@@ -359,6 +360,7 @@ function MainApp() {
     { id: 'glosas', name: 'Glosas', icon: ExclamationTriangleIcon, color: 'from-red-500 to-red-600' },
     { id: 'relatorios', name: 'Relatórios', icon: ChartBarIcon, color: 'from-indigo-500 to-indigo-600' },
     { id: 'configuracoes', name: 'Configurações', icon: Cog6ToothIcon, color: 'from-gray-500 to-gray-600' },
+    { id: 'agendamentos', name: 'Agendamentos', icon: CalendarIcon, color: 'from-cyan-500 to-cyan-600' },
   ];
 
   const renderContent = () => {
@@ -373,6 +375,7 @@ function MainApp() {
       case 'glosas': return <Glosas />;
       case 'relatorios': return <Relatorios />;
       case 'configuracoes': return <Configuracoes />;
+      case 'agendamentos': return <Agendamentos />;
       default: return <Dashboard />;
     }
   };
