@@ -1276,7 +1276,7 @@ export default function Atendimentos() {
                                   <td className="px-2 py-2 text-xs">{item.data_execucao}</td>
                                   <td className="px-2 py-2 text-xs">{item.hora_inicial}</td>
                                   <td className="px-2 py-2 text-xs">{item.hora_final}</td>
-                                  <td className="px-2 py-2 text-xs font-mono">{item.tabela_referencia}<tr>
+                                  <td className="px-2 py-2 text-xs font-mono">{item.tabela_referencia}</td>
                                   <td className="px-2 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
                                   <td className="px-2 py-2 text-xs">{item.nome}</td>
                                   <td className="px-2 py-2 text-xs text-center">{item.quantidade}</td>
@@ -1294,10 +1294,9 @@ export default function Atendimentos() {
                             <tfoot className="bg-gray-50 dark:bg-gray-700/50">
                               <tr className="border-t">
                                 <td colSpan="10" className="px-2 py-2 text-right font-semibold">Subtotal:</td>
-                                  <td className="px-2 py-2 text-right font-bold text-blue-600">
+                                <td colSpan="2" className="px-2 py-2 text-right font-bold text-blue-600">
                                   R$ {itensGuia.reduce((sum, i) => sum + i.valor_total, 0).toFixed(2)}
                                 </td>
-                                <td></td>
                               </tr>
                             </tfoot>
                           </table>
