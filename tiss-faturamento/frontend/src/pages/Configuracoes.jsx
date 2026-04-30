@@ -4,19 +4,14 @@ import { setConfig as setTissConfig, setVersao, VERSAO_TISS } from '../lib/tissG
 import { supabase } from '../lib/supabaseClient';
 import { 
   BuildingOfficeIcon, 
-  Cog6ToothIcon, 
-  ShieldCheckIcon, 
-  UserIcon, 
-  KeyIcon,
-  ServerIcon,
-  DocumentTextIcon,
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
+  DocumentTextIcon, 
+  CheckCircleIcon, 
   ArrowPathIcon,
   PlusIcon,
   TrashIcon,
   PencilIcon,
-  XMarkIcon
+  XMarkIcon,
+  UserIcon
 } from '@heroicons/react/24/outline';
 
 export default function Configuracoes() {
@@ -45,18 +40,11 @@ export default function Configuracoes() {
     nome: '',
     role: 'usuario'
   });
-  const [sessao, setSessao] = useState(null);
   const [carregandoUsuarios, setCarregandoUsuarios] = useState(false);
 
   useEffect(() => {
     carregarDados();
-    verificarSessao();
   }, []);
-
-  const verificarSessao = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    setSessao(session);
-  };
 
   const carregarDados = async () => {
     setLoading(true);
@@ -148,7 +136,6 @@ export default function Configuracoes() {
 
     setSaving(true);
     try {
-      // Criar usuário no Auth do Supabase
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: userForm.email,
         password: userForm.senha,
@@ -163,7 +150,6 @@ export default function Configuracoes() {
       if (authError) throw authError;
 
       if (authData.user) {
-        // Inserir na tabela de usuários
         const { error: dbError } = await supabase
           .from('usuarios')
           .insert({
@@ -198,7 +184,6 @@ export default function Configuracoes() {
 
     setSaving(true);
     try {
-      // Atualizar na tabela de usuários
       const { error } = await supabase
         .from('usuarios')
         .update({
@@ -210,7 +195,6 @@ export default function Configuracoes() {
 
       if (error) throw error;
 
-      // Se tiver senha, atualizar no Auth
       if (userForm.senha) {
         const { error: authError } = await supabase.auth.updateUser({
           password: userForm.senha
@@ -235,27 +219,14 @@ export default function Configuracoes() {
 
     setSaving(true);
     try {
-      // Desabilitar usuário no Auth
-      const { error: authError } = await supabase.auth.admin.deleteUser(usuario.id);
-      
-      // Se não tiver permissão admin, apenas desativar na tabela
-      if (authError) {
-        const { error } = await supabase
-          .from('usuarios')
-          .update({ ativo: false, updated_at: new Date().toISOString() })
-          .eq('id', usuario.id);
-        
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('usuarios')
-          .delete()
-          .eq('id', usuario.id);
-        
-        if (error) throw error;
-      }
+      const { error } = await supabase
+        .from('usuarios')
+        .update({ ativo: false, updated_at: new Date().toISOString() })
+        .eq('id', usuario.id);
 
-      toast.success('Usuário removido com sucesso!');
+      if (error) throw error;
+
+      toast.success('Usuário desativado com sucesso!');
       await carregarUsuarios();
     } catch (error) {
       console.error('Erro ao excluir usuário:', error);
@@ -346,7 +317,7 @@ export default function Configuracoes() {
                   />
                 </div>
                 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CNPJ</label>
                     <input 
@@ -369,7 +340,7 @@ export default function Configuracoes() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Conselho</label>
                     <select 
@@ -520,7 +491,7 @@ export default function Configuracoes() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Perfil</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Criado em</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Ações</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -549,7 +520,7 @@ export default function Configuracoes() {
                         }`}>
                           {usuario.role === 'admin' ? 'Administrador' : 'Usuário'}
                         </span>
-                       </td>
+                      </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
                           usuario.ativo !== false
@@ -558,7 +529,7 @@ export default function Configuracoes() {
                         }`}>
                           {usuario.ativo !== false ? 'Ativo' : 'Inativo'}
                         </span>
-                       </td>
+                      </td>
                       <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                         {new Date(usuario.created_at).toLocaleDateString('pt-BR')}
                       </td>
@@ -579,8 +550,8 @@ export default function Configuracoes() {
                             <TrashIcon className="w-4 h-4" />
                           </button>
                         </div>
-                       </td>
-                    </table>
+                      </td>
+                    </tr>
                   ))
                 )}
               </tbody>
