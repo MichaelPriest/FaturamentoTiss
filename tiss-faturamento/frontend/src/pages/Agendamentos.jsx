@@ -1,4 +1,4 @@
-// src/pages/Agendamentos.jsx - VERSÃO CORRIGIDA
+// src/pages/Agendamentos.jsx - VERSÃO COMPLETA ATUALIZADA
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -10,7 +10,7 @@ import {
   ChevronUpIcon, ChevronDownIcon, HomeModernIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
-import { format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, addWeeks, subWeeks, addMonths, subMonths, parseISO } from 'date-fns';
+import { format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, addWeeks, subWeeks, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '../lib/supabaseClient';
 
@@ -56,6 +56,8 @@ export default function Agendamentos() {
   const [filtroSala, setFiltroSala] = useState('todos');
   const [viewMode, setViewMode] = useState('semana');
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [tooltipData, setTooltipData] = useState(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
   // Campos do formulário com busca
   const [pacienteBusca, setPacienteBusca] = useState('');
@@ -115,9 +117,6 @@ export default function Agendamentos() {
       setSalas(salasRes.data || []);
       
       console.log('Agendamentos carregados:', agendamentosRes.data?.length);
-      if (agendamentosRes.data?.length > 0) {
-        console.log('Primeiro agendamento:', agendamentosRes.data[0]);
-      }
     } catch (error) {
       console.error('Erro:', error);
       toast.error('Erro ao carregar dados');
@@ -137,7 +136,7 @@ export default function Agendamentos() {
     p.numero_carteira?.includes(pacienteBusca)
   ).slice(0, 15);
 
-  // Filtrar prestadores - incluindo número do conselho
+  // Filtrar prestadores
   const prestadoresFiltrados = prestadores.filter(p => 
     p.nome?.toLowerCase().includes(prestadorBusca.toLowerCase()) ||
     p.especialidade?.toLowerCase().includes(prestadorBusca.toLowerCase()) ||
@@ -149,6 +148,40 @@ export default function Agendamentos() {
   const salasFiltradas = salas.filter(s => 
     s.nome?.toLowerCase().includes(salaBusca.toLowerCase())
   ).slice(0, 15);
+
+  // Validar conflito de horário com o mesmo profissional
+  const verificarConflitoHorario = async (data, horaInicio, horaFim, prestadorId, agendamentoId = null) => {
+    const { data: agendamentosExistentes, error } = await supabase
+      .from('agendamentos')
+      .select('*')
+      .eq('data_agendamento', data)
+      .eq('prestador_id', prestadorId)
+      .neq('status', 'cancelado');
+    
+    if (error) {
+      console.error('Erro ao verificar conflito:', error);
+      return false;
+    }
+
+    const horarioInicioNum = parseFloat(horaInicio.replace(':', '.'));
+    const horarioFimNum = parseFloat(horaFim.replace(':', '.'));
+
+    for (const ag of agendamentosExistentes) {
+      if (agendamentoId && ag.id === parseInt(agendamentoId)) continue;
+      
+      const agInicio = parseFloat(ag.hora_inicio.replace(':', '.'));
+      const agFim = parseFloat(ag.hora_fim.replace(':', '.'));
+      
+      // Verifica se há sobreposição de horários
+      if ((horarioInicioNum >= agInicio && horarioInicioNum < agFim) ||
+          (horarioFimNum > agInicio && horarioFimNum <= agFim) ||
+          (horarioInicioNum <= agInicio && horarioFimNum >= agFim)) {
+        return { conflito: true, agendamento: ag };
+      }
+    }
+    
+    return { conflito: false };
+  };
 
   const abrirModalNovo = () => {
     setEditing(null);
@@ -178,6 +211,20 @@ export default function Agendamentos() {
     }
     if (!formData.prestador_id) {
       toast.error('Selecione um profissional');
+      return;
+    }
+
+    // Verificar conflito de horário
+    const conflito = await verificarConflitoHorario(
+      formData.data_agendamento,
+      formData.hora_inicio,
+      formData.hora_fim,
+      parseInt(formData.prestador_id),
+      editing?.id
+    );
+
+    if (conflito.conflito) {
+      toast.error(`Conflito de horário! O profissional já possui um agendamento das ${conflito.agendamento.hora_inicio} às ${conflito.agendamento.hora_fim} com o paciente ${conflito.agendamento.paciente_nome}`);
       return;
     }
 
@@ -272,14 +319,12 @@ export default function Agendamentos() {
 
   const irParaHoje = () => setCurrentDate(new Date());
 
-  // Função para formatar data do agendamento (vem como string 'YYYY-MM-DD')
+  // Função para formatar data do agendamento
   const formatarDataAgendamento = (dataStr) => {
     if (!dataStr) return '';
-    // Se já vem no formato YYYY-MM-DD, retorna direto
     if (dataStr.includes('-') && dataStr.length === 10) {
       return dataStr;
     }
-    // Se for objeto Date ou ISO string
     try {
       return new Date(dataStr).toISOString().split('T')[0];
     } catch {
@@ -287,7 +332,7 @@ export default function Agendamentos() {
     }
   };
 
-  // Filtros - CORRIGIDO
+  // Filtros
   const getAgendamentosFiltrados = useCallback(() => {
     let filtrados = [...agendamentos];
     
@@ -308,17 +353,14 @@ export default function Agendamentos() {
     return filtrados;
   }, [agendamentos, filtroStatus, filtroSala, searchTerm]);
 
-  // CORRIGIDO: Get agendamentos por data
   const getAgendamentosPorData = useCallback((data) => {
     const dataStr = format(data, 'yyyy-MM-dd');
     const filtrados = getAgendamentosFiltrados();
     
-    const result = filtrados.filter(a => {
+    return filtrados.filter(a => {
       const agendamentoData = formatarDataAgendamento(a.data_agendamento);
       return agendamentoData === dataStr;
     });
-    
-    return result;
   }, [getAgendamentosFiltrados]);
 
   const getDiasDaSemana = () => {
@@ -326,7 +368,6 @@ export default function Agendamentos() {
     return Array.from({ length: 7 }, (_, i) => addDays(inicio, i));
   };
 
-  // Estatísticas corrigidas
   const estatisticas = {
     hoje: getAgendamentosFiltrados().filter(a => {
       const dataAgendamento = formatarDataAgendamento(a.data_agendamento);
@@ -351,11 +392,22 @@ export default function Agendamentos() {
     return agendamento.status !== 'realizado' && agendamento.status !== 'cancelado';
   };
 
-  // Forçar recálculo quando a data mudar
-  useEffect(() => {
-    // Força re-renderização quando a data mudar
-    setCurrentDate(prev => new Date(prev));
-  }, [viewMode]);
+  // Tooltip handlers
+  const handleMouseEnter = (event, dia, agendamentosDia) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setTooltipPosition({
+      x: rect.left + rect.width / 2,
+      y: rect.top - 10
+    });
+    setTooltipData({
+      data: format(dia, "dd 'de' MMMM", { locale: ptBR }),
+      agendamentos: agendamentosDia
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setTooltipData(null);
+  };
 
   if (loading) {
     return (
@@ -364,10 +416,6 @@ export default function Agendamentos() {
       </div>
     );
   }
-
-  // Debug: Mostrar agendamentos do dia atual
-  const agendamentosHojeDebug = getAgendamentosPorData(new Date());
-  console.log('Agendamentos para hoje:', agendamentosHojeDebug.length);
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen p-6">
@@ -649,7 +697,7 @@ export default function Agendamentos() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-x-auto">
             <div className="min-w-[800px]">
               <div className="grid grid-cols-7 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-                {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map(dia => (
+                {['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'].map(dia => (
                   <div key={dia} className="p-3 text-center font-semibold text-gray-600 dark:text-gray-400">{dia}</div>
                 ))}
               </div>
@@ -665,27 +713,40 @@ export default function Agendamentos() {
                     const agendamentosDia = getAgendamentosPorData(current);
                     const isToday = isSameDay(current, new Date());
                     cells.push(
-                      <div key={i} className={`border dark:border-gray-700 min-h-[100px] p-2 ${!isCurrentMonth ? 'bg-gray-50 dark:bg-gray-800/50' : 'bg-white dark:bg-gray-800'}`}>
-                        <div className={`font-medium ${isToday ? 'text-blue-600' : 'text-gray-700 dark:text-gray-300'}`}>
+                      <div 
+                        key={i} 
+                        className={`border dark:border-gray-700 min-h-[100px] p-2 transition-all hover:shadow-lg relative cursor-pointer ${!isCurrentMonth ? 'bg-gray-50 dark:bg-gray-800/50' : 'bg-white dark:bg-gray-800'} ${isToday ? 'ring-2 ring-blue-500 shadow-md' : ''}`}
+                        onMouseEnter={(e) => handleMouseEnter(e, current, agendamentosDia)}
+                        onMouseLeave={handleMouseLeave}
+                      >
+                        <div className={`font-medium ${isToday ? 'text-blue-600 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>
                           {format(current, 'dd')}
                         </div>
-                        <div className="space-y-1 mt-1">
-                          {agendamentosDia.slice(0, 3).map(ag => (
-                            <div key={ag.id} className="text-xs p-1 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-between">
-                              <span className="truncate text-gray-700 dark:text-gray-300">{ag.hora_inicio} {ag.paciente_nome?.split(' ')[0]}</span>
-                              {podeAtender(ag) && (
-                                <Link to={`/prontuario/${ag.id}`} className="text-cyan-600">
-                                  <CheckBadgeIcon className="w-3 h-3" />
-                                </Link>
-                              )}
-                            </div>
-                          ))}
+                        <div className="space-y-1 mt-1 max-h-[70px] overflow-y-auto">
+                          {agendamentosDia.slice(0, 3).map(ag => {
+                            const statusInfo = STATUS_AGENDAMENTO.find(s => s.value === ag.status);
+                            return (
+                              <div key={ag.id} className={`text-xs p-1 rounded flex items-center justify-between ${statusInfo?.color} bg-opacity-50`}>
+                                <span className="truncate flex-1">
+                                  <span className="font-mono">{ag.hora_inicio}</span> {ag.paciente_nome?.split(' ')[0]}
+                                </span>
+                                <div className="flex gap-0.5">
+                                  {podeAtender(ag) && (
+                                    <Link to={`/prontuario/${ag.id}`} className="text-cyan-600 hover:text-cyan-800" onClick={(e) => e.stopPropagation()}>
+                                      <CheckBadgeIcon className="w-3 h-3" />
+                                    </Link>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
                           {agendamentosDia.length > 3 && (
                             <div className="text-xs text-gray-400 dark:text-gray-500 text-center">+{agendamentosDia.length - 3}</div>
                           )}
                           {agendamentosDia.length === 0 && isCurrentMonth && (
                             <button
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setEditing(null);
                                 setFormData({
                                   ...formData,
@@ -695,7 +756,7 @@ export default function Agendamentos() {
                                 });
                                 setShowModal(true);
                               }}
-                              className="w-full text-xs text-gray-400 hover:text-blue-500 py-2 transition-colors"
+                              className="w-full text-xs text-gray-400 hover:text-blue-500 py-1 transition-colors"
                             >
                               + Agendar
                             </button>
@@ -709,6 +770,41 @@ export default function Agendamentos() {
                 })()}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Tooltip */}
+        {tooltipData && (
+          <div 
+            className="fixed z-50 bg-gray-900 text-white rounded-lg shadow-xl p-3 max-w-sm pointer-events-none"
+            style={{
+              left: tooltipPosition.x,
+              top: tooltipPosition.y - 10,
+              transform: 'translateX(-50%) translateY(-100%)'
+            }}
+          >
+            <div className="text-sm font-semibold mb-2 border-b border-gray-700 pb-1">
+              {tooltipData.data}
+            </div>
+            <div className="space-y-1 max-h-48 overflow-y-auto">
+              {tooltipData.agendamentos.map(ag => (
+                <div key={ag.id} className="text-xs flex items-center justify-between gap-2 py-1 border-b border-gray-700 last:border-0">
+                  <div>
+                    <span className="font-mono text-gray-300">{ag.hora_inicio}</span>
+                    <span className="ml-2">{ag.paciente_nome}</span>
+                    <div className="text-gray-400 text-[10px]">{ag.prestador_nome}</div>
+                  </div>
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                    ag.status === 'realizado' ? 'bg-green-600' : 
+                    ag.status === 'cancelado' ? 'bg-red-600' : 
+                    ag.status === 'confirmado' ? 'bg-blue-600' : 'bg-yellow-600'
+                  }`}>
+                    {STATUS_AGENDAMENTO.find(s => s.value === ag.status)?.label || ag.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-gray-900"></div>
           </div>
         )}
       </div>
