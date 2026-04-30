@@ -8,7 +8,7 @@ import {
   Cog6ToothIcon, Bars3Icon, XMarkIcon, ArrowRightOnRectangleIcon,
   ChevronLeftIcon, ChevronRightIcon, SunIcon, MoonIcon,
   CalendarDaysIcon, FolderIcon, ChevronDownIcon, ChevronUpIcon,
-  ClockIcon
+  ClockIcon, HomeModernIcon
 } from '@heroicons/react/24/outline';
 
 import Dashboard from './pages/Dashboard';
@@ -24,6 +24,7 @@ import Configuracoes from './pages/Configuracoes';
 import NotificationBell from './components/NotificationBell';
 import Agendamentos from './pages/Agendamentos';
 import Prontuario from './pages/Prontuario';
+import Salas from './pages/Salas';
 
 import { setConfig } from './lib/tissGenerator';
 import { supabase, isSupabaseAvailable, checkSupabaseConnection, TABLES } from './lib/supabaseClient';
@@ -373,7 +374,8 @@ function MainApp() {
         { id: 'convenios', name: 'Convênios', icon: BuildingOfficeIcon, color: 'from-purple-500 to-purple-600' },
         { id: 'pacientes', name: 'Pacientes', icon: UsersIcon, color: 'from-green-500 to-green-600' },
         { id: 'prestadores', name: 'Prestadores', icon: UserGroupIcon, color: 'from-teal-500 to-teal-600' },
-        { id: 'procedimentos', name: 'Procedimentos', icon: ClipboardDocumentListIcon, color: 'from-orange-500 to-orange-600' }
+        { id: 'procedimentos', name: 'Procedimentos', icon: ClipboardDocumentListIcon, color: 'from-orange-500 to-orange-600' },
+        { id: 'salas', name: 'Salas', icon: HomeModernIcon, color: 'from-teal-500 to-teal-600' }
       ]
     },
     {
@@ -424,6 +426,7 @@ function MainApp() {
       case 'pacientes': return <Pacientes />;
       case 'prestadores': return <Prestadores />;
       case 'procedimentos': return <Procedimentos />;
+      case 'salas': return <Salas />;
       case 'atendimentos': return <Atendimentos />;
       case 'agendamentos': return <Agendamentos />;
       case 'faturamento': return <Faturamento />;
@@ -592,6 +595,7 @@ function MainApp() {
                   {activeTab === 'atendimentos' && 'Registro de atendimentos e guias'}
                   {activeTab === 'agendamentos' && 'Gerenciamento de agenda e consultas'}
                   {activeTab === 'relatorios' && 'Análise de dados e métricas'}
+                  {activeTab === 'salas' && 'Gerenciamento de salas da clínica'}
                   {(activeTab === 'convenios' || activeTab === 'pacientes' || activeTab === 'prestadores' || activeTab === 'procedimentos') && 'Cadastro e gerenciamento de dados'}
                 </p>
               </div>
