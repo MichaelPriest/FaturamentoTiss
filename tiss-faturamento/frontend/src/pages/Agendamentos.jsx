@@ -1,4 +1,4 @@
-// src/pages/Agendamentos.jsx
+// src/pages/Agendamentos.jsx - VERSÃO CORRIGIDA
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -79,17 +79,6 @@ export default function Agendamentos() {
     local: ''
   });
 
-  // Fechar dropdowns ao clicar fora
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (!event.target.closest('.paciente-dropdown')) setShowPacienteList(false);
-      if (!event.target.closest('.prestador-dropdown')) setShowPrestadorList(false);
-      if (!event.target.closest('.sala-dropdown')) setShowSalaList(false);
-    };
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
-
   // Carregar dados
   const carregarDados = async () => {
     setLoading(true);
@@ -134,13 +123,12 @@ export default function Agendamentos() {
     p.numero_carteira?.includes(pacienteBusca)
   ).slice(0, 15);
 
-  // Filtrar prestadores - incluindo número do conselho
+  // Filtrar prestadores
   const prestadoresFiltrados = prestadores.filter(p => 
     p.nome?.toLowerCase().includes(prestadorBusca.toLowerCase()) ||
     p.especialidade?.toLowerCase().includes(prestadorBusca.toLowerCase()) ||
     p.cpf?.includes(prestadorBusca) ||
-    p.numero_conselho?.includes(prestadorBusca) ||
-    p.conselho?.toLowerCase().includes(prestadorBusca.toLowerCase())
+    p.numero_conselho?.includes(prestadorBusca)
   ).slice(0, 15);
 
   // Filtrar salas
@@ -197,12 +185,13 @@ export default function Agendamentos() {
       hora_fim: formData.hora_fim,
       observacao: formData.observacao || null,
       local: formData.local || null,
+      link_teleconsulta: null,
+      lembrete_envio: true,
+      lembrete_antecedencia: 60,
       paciente_nome: paciente?.nome || '',
       paciente_carteira: paciente?.numero_carteira || '',
       prestador_nome: prestador?.nome || '',
       prestador_especialidade: prestador?.especialidade || '',
-      prestador_conselho: prestador?.conselho || '',
-      prestador_numero_conselho: prestador?.numero_conselho || '',
       convenio_id: paciente?.convenio_id || null,
       convenio_nome: convenio?.razao_social || 'Sem convênio',
       created_at: new Date().toISOString(),
@@ -670,7 +659,7 @@ export default function Agendamentos() {
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Paciente com busca */}
-                <div className="relative paciente-dropdown">
+                <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paciente *</label>
                   <input
                     type="text"
@@ -706,11 +695,11 @@ export default function Agendamentos() {
                 </div>
 
                 {/* Profissional com busca */}
-                <div className="relative prestador-dropdown">
+                <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Profissional *</label>
                   <input
                     type="text"
-                    placeholder="Digite nome, especialidade, CPF ou número do conselho..."
+                    placeholder="Digite nome, especialidade ou número do conselho..."
                     value={prestadorBusca}
                     onChange={(e) => {
                       setPrestadorBusca(e.target.value);
@@ -735,7 +724,7 @@ export default function Agendamentos() {
                         >
                           <div className="font-medium text-gray-800 dark:text-white">{p.nome}</div>
                           <div className="text-xs text-gray-500 dark:text-gray-400">
-                            {p.especialidade} | CPF: {p.cpf || '---'} | Conselho: {p.conselho} {p.numero_conselho}
+                            {p.especialidade} | CPF: {p.cpf || '---'} | Conselho: {p.numero_conselho}
                           </div>
                         </div>
                       ))}
@@ -744,7 +733,7 @@ export default function Agendamentos() {
                 </div>
 
                 {/* Sala com busca */}
-                <div className="relative sala-dropdown">
+                <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sala</label>
                   <input
                     type="text"
