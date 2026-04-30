@@ -10,14 +10,16 @@ import {
   XMarkIcon,
   ClockIcon,
   CurrencyDollarIcon,
-  DocumentPlusIcon
+  DocumentPlusIcon,
+  ReceiptPercentIcon,
+  CalendarDaysIcon,
+  BanknotesIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
 import { gerarXMLTISS, converterAtendimentoParaTISS, setVersao, VERSAO_TISS } from '../lib/tissGenerator';
 
-// Constantes para o componente
 const MAX_GUIAS_POR_LOTE = 100;
 
 export default function Faturamento() {
@@ -30,17 +32,37 @@ export default function Faturamento() {
   const [filtroConvenio, setFiltroConvenio] = useState('todos');
   const [versaoTISS, setVersaoTISS] = useState('4.03.00');
   const [showLoteModal, setShowLoteModal] = useState(false);
+  const [showPreviaModal, setShowPreviaModal] = useState(false);
   const [selectedLote, setSelectedLote] = useState(null);
+  const [lotePreview, setLotePreview] = useState(null);
+  const [dadosFatura, setDadosFatura] = useState({
+    competencia: format(new Date(), 'yyyy-MM'),
+    dataFechamento: format(new Date(), 'yyyy-MM-dd'),
+    dataPrevisaoPagamento: '',
+    baseCalculo: 0,
+    aliquotaISS: 5,
+    valorISS: 0,
+    aliquotaIR: 1.5,
+    valorIR: 0,
+    aliquotaCSLL: 1,
+    valorCSLL: 0,
+    aliquotaPIS: 0.65,
+    valorPIS: 0,
+    aliquotaCOFINS: 3,
+    valorCOFINS: 0,
+    valorLiquido: 0,
+    observacoes: ''
+  });
 
   useEffect(() => {
     carregarDados();
     carregarVersao();
+    carregarLotes();
   }, []);
 
   const carregarDados = async () => {
     setLoading(true);
     try {
-      // Carregar atendimentos pendentes
       const { data: atendimentosData, error: atendimentosError } = await supabase
         .from('atendimentos')
         .select('*')
@@ -49,7 +71,6 @@ export default function Faturamento() {
 
       if (atendimentosError) throw atendimentosError;
 
-      // Carregar convênios
       const { data: conveniosData, error: conveniosError } = await supabase
         .from('convenios')
         .select('*')
@@ -130,6 +151,51 @@ export default function Faturamento() {
     }
   };
 
+  // Gerar número do lote (12 dígitos)
+  const gerarNumeroLote = (convenioId, sequencial = null) => {
+    const data = new Date();
+    const ano = data.getFullYear().toString().slice(-2);
+    const mes = (data.getMonth() + 1).toString().padStart(2, '0');
+    const dia = data.getDate().toString().padStart(2, '0');
+    const seq = (sequencial || Math.floor(Math.random() * 10000)).toString().padStart(6, '0');
+    return `${ano}${mes}${dia}${seq}`;
+  };
+
+  // Calcular impostos
+  const calcularImpostos = (baseCalculo) => {
+    const iss = (baseCalculo * dadosFatura.aliquotaISS) / 100;
+    const ir = (baseCalculo * dadosFatura.aliquotaIR) / 100;
+    const csll = (baseCalculo * dadosFatura.aliquotaCSLL) / 100;
+    const pis = (baseCalculo * dadosFatura.aliquotaPIS) / 100;
+    const cofins = (baseCalculo * dadosFatura.aliquotaCOFINS) / 100;
+    const totalImpostos = iss + ir + csll + pis + cofins;
+    const valorLiquido = baseCalculo - totalImpostos;
+
+    return { iss, ir, csll, pis, cofins, totalImpostos, valorLiquido };
+  };
+
+  // Atualizar dados da fatura
+  const atualizarDadosFatura = useCallback(() => {
+    const valorTotal = previewData?.valorTotal || 0;
+    const impostos = calcularImpostos(valorTotal);
+    setDadosFatura(prev => ({
+      ...prev,
+      baseCalculo: valorTotal,
+      valorISS: impostos.iss,
+      valorIR: impostos.ir,
+      valorCSLL: impostos.csll,
+      valorPIS: impostos.pis,
+      valorCOFINS: impostos.cofins,
+      valorLiquido: impostos.valorLiquido
+    }));
+  }, [previewData]);
+
+  useEffect(() => {
+    if (previewData) {
+      atualizarDadosFatura();
+    }
+  }, [previewData, atualizarDadosFatura]);
+
   const pendentes = atendimentos.filter(a => a.status === 'pendente');
   
   const pendentesPorConvenio = useMemo(() => {
@@ -140,6 +206,142 @@ export default function Faturamento() {
       return acc;
     }, {});
   }, [pendentes]);
+
+  const previewData = useMemo(() => {
+    if (selecionados.length === 0) return null;
+    
+    const atendimentosSelecionados = pendentes.filter(a => selecionados.includes(a.id));
+    const valorTotal = atendimentosSelecionados.reduce((sum, a) => sum + (a.valor_total || 0), 0);
+    
+    return {
+      atendimentos: atendimentosSelecionados,
+      valorTotal,
+      quantidade: atendimentosSelecionados.length,
+      conveniosAgrupados: atendimentosSelecionados.reduce((acc, a) => {
+        const convenioId = a.paciente_convenio_id;
+        if (!acc[convenioId]) {
+          acc[convenioId] = {
+            convenio: convenios.find(c => c.id === convenioId),
+            atendimentos: [],
+            valorTotal: 0
+          };
+        }
+        acc[convenioId].atendimentos.push(a);
+        acc[convenioId].valorTotal += (a.valor_total || 0);
+        return acc;
+      }, {})
+    };
+  }, [selecionados, pendentes, convenios]);
+
+  const abrirPreviaFatura = () => {
+    if (selecionados.length === 0) {
+      toast.error('Selecione pelo menos uma guia para faturar');
+      return;
+    }
+    setShowPreviaModal(true);
+  };
+
+  const confirmarGeracaoLote = async () => {
+    if (!previewData) return;
+
+    setGerando(true);
+    setShowPreviaModal(false);
+
+    try {
+      const atendimentosPorConvenio = previewData.conveniosAgrupados;
+      let sequencialTransacao = 1;
+      
+      for (const [convenioId, data] of Object.entries(atendimentosPorConvenio)) {
+        const convenio = data.convenio;
+        
+        if (!convenio.codigo_prestador) {
+          toast.error(`Convênio ${convenio.razao_social} não possui código de prestador configurado`);
+          continue;
+        }
+
+        // Gerar número do lote (12 dígitos, apenas números)
+        const numeroLote = gerarNumeroLote(convenioId, sequencialTransacao);
+        
+        const guias = data.atendimentos.map(atendimento => ({
+          ...converterAtendimentoParaTISS(atendimento, convenio),
+          codigoPrestadorExecutante: convenio.codigo_prestador,
+          versao: versaoTISS
+        }));
+
+        const xml = gerarXMLTISS({
+          versao: versaoTISS,
+          sequencialTransacao: sequencialTransacao.toString().padStart(4, '0'),
+          codigoPrestadorNaOperadora: convenio.codigo_prestador,
+          registroANS: convenio.registro_ans,
+          numeroLote: numeroLote,
+          guias: guias,
+          convenio: convenio
+        });
+
+        const nomeArquivo = `${numeroLote}_${convenio.registro_ans}_${format(new Date(), 'yyyyMMdd_HHmmss')}.xml`;
+
+        const novoLote = {
+          convenio_id: convenioId,
+          convenio_nome: convenio.razao_social,
+          numero_lote: numeroLote,
+          data_envio: format(new Date(), 'yyyy-MM-dd'),
+          quantidade_guias: data.atendimentos.length,
+          guias_ids: data.atendimentos.map(a => a.id),
+          xml_content: xml,
+          status: 'faturado',
+          versao: versaoTISS,
+          dados_fatura: {
+            competencia: dadosFatura.competencia,
+            data_fechamento: dadosFatura.dataFechamento,
+            data_previsao_pagamento: dadosFatura.dataPrevisaoPagamento,
+            base_calculo: dadosFatura.baseCalculo,
+            aliquota_iss: dadosFatura.aliquotaISS,
+            valor_iss: dadosFatura.valorISS,
+            aliquota_ir: dadosFatura.aliquotaIR,
+            valor_ir: dadosFatura.valorIR,
+            aliquota_csll: dadosFatura.aliquotaCSLL,
+            valor_csll: dadosFatura.valorCSLL,
+            aliquota_pis: dadosFatura.aliquotaPIS,
+            valor_pis: dadosFatura.valorPIS,
+            aliquota_cofins: dadosFatura.aliquotaCOFINS,
+            valor_cofins: dadosFatura.valorCOFINS,
+            valor_liquido: dadosFatura.valorLiquido,
+            observacoes: dadosFatura.observacoes
+          },
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        
+        await salvarLote(novoLote);
+
+        // Atualizar status dos atendimentos
+        const ids = data.atendimentos.map(a => a.id);
+        await atualizarStatusAtendimentos(ids, 'faturado');
+
+        // Baixar o arquivo XML
+        const blob = new Blob([xml], { type: 'application/xml' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = nomeArquivo;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        sequencialTransacao++;
+      }
+
+      await carregarLotes();
+      await carregarDados();
+      setSelecionados([]);
+      
+      toast.success(`Lote(s) gerado(s) com sucesso!`);
+    } catch (error) {
+      console.error('Erro ao gerar lote:', error);
+      toast.error('Erro ao gerar lote');
+    } finally {
+      setGerando(false);
+    }
+  };
 
   const handleSelectAll = (convenioId, convenioAtendimentos) => {
     const ids = convenioAtendimentos.map(a => a.id);
@@ -168,97 +370,6 @@ export default function Faturamento() {
     }
   };
 
-  const gerarXMLPorConvenio = async (convenioId, atendimentosList) => {
-    const convenio = convenios.find(c => c.id === convenioId);
-    if (!convenio) {
-      toast.error('Convênio não encontrado');
-      return;
-    }
-
-    if (!convenio.codigo_prestador) {
-      toast.error(`Convênio ${convenio.razao_social} não possui código de prestador configurado`);
-      return;
-    }
-
-    if (atendimentosList.length > MAX_GUIAS_POR_LOTE) {
-      toast.warning(`O lote tem ${atendimentosList.length} guias. O limite é ${MAX_GUIAS_POR_LOTE}. Serão geradas apenas as primeiras ${MAX_GUIAS_POR_LOTE}.`);
-      atendimentosList = atendimentosList.slice(0, MAX_GUIAS_POR_LOTE);
-    }
-
-    setGerando(true);
-
-    const guias = atendimentosList.map(atendimento => ({
-      ...converterAtendimentoParaTISS(atendimento, convenio),
-      codigoPrestadorExecutante: convenio.codigo_prestador,
-      versao: versaoTISS
-    }));
-
-    const xml = gerarXMLTISS({
-      versao: versaoTISS,
-      codigoPrestadorNaOperadora: convenio.codigo_prestador,
-      registroANS: convenio.registro_ans,
-      guias: guias,
-      convenio: convenio
-    });
-
-    const novoLote = {
-      convenio_id: convenioId,
-      convenio_nome: convenio.razao_social,
-      numero_lote: `LOTE-${Date.now()}`,
-      data_envio: new Date().toISOString().split('T')[0],
-      quantidade_guias: atendimentosList.length,
-      guias_ids: atendimentosList.map(a => a.id),
-      xml_content: xml,
-      status: 'gerado',
-      versao: versaoTISS,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    
-    const loteSalvo = await salvarLote(novoLote);
-    if (loteSalvo) {
-      await carregarLotes();
-    }
-
-    // Atualizar status dos atendimentos
-    const ids = atendimentosList.map(a => a.id);
-    await atualizarStatusAtendimentos(ids, 'faturado');
-    
-    // Recarregar atendimentos
-    await carregarDados();
-
-    const blob = new Blob([xml], { type: 'application/xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `lote_${convenio.registro_ans}_${novoLote.numero_lote}.xml`;
-    a.click();
-    URL.revokeObjectURL(url);
-    
-    setSelecionados([]);
-    setGerando(false);
-    toast.success(`${atendimentosList.length} guia(s) do convênio ${convenio.razao_social} gerada(s)!`);
-  };
-
-  const gerarLoteSelecionado = async () => {
-    if (selecionados.length === 0) {
-      toast.error('Selecione pelo menos uma guia para faturar');
-      return;
-    }
-
-    const atendimentosSelecionados = pendentes.filter(a => selecionados.includes(a.id));
-    const agrupadosPorConvenio = atendimentosSelecionados.reduce((acc, a) => {
-      const convenioId = a.paciente_convenio_id;
-      if (!acc[convenioId]) acc[convenioId] = [];
-      acc[convenioId].push(a);
-      return acc;
-    }, {});
-
-    for (const [convenioId, lista] of Object.entries(agrupadosPorConvenio)) {
-      await gerarXMLPorConvenio(parseInt(convenioId), lista);
-    }
-  };
-
   const regenerarLote = async (lote) => {
     if (!confirm(`Deseja regenerar o lote ${lote.numero_lote}? Isso irá recriar o XML.`)) {
       return;
@@ -266,7 +377,6 @@ export default function Faturamento() {
 
     setGerando(true);
     
-    // Buscar atendimentos originais
     const { data: atendimentosOriginais, error } = await supabase
       .from('atendimentos')
       .select('*')
@@ -295,15 +405,17 @@ export default function Faturamento() {
       versao: versaoTISS,
       codigoPrestadorNaOperadora: convenio.codigo_prestador,
       registroANS: convenio.registro_ans,
+      numeroLote: lote.numero_lote,
       guias: novasGuias,
       convenio: convenio
     });
 
+    const nomeArquivo = `${lote.numero_lote}_${convenio.registro_ans}_${format(new Date(), 'yyyyMMdd_HHmmss')}.xml`;
+
     const novoLote = {
       ...lote,
       id: undefined,
-      numero_lote: `LOTE-${Date.now()}`,
-      data_envio: new Date().toISOString().split('T')[0],
+      data_envio: format(new Date(), 'yyyy-MM-dd'),
       xml_content: xml,
       regenerado: true,
       regenerado_de: lote.numero_lote,
@@ -318,7 +430,7 @@ export default function Faturamento() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `lote_${convenio.registro_ans}_${novoLote.numero_lote}.xml`;
+    a.download = nomeArquivo;
     a.click();
     URL.revokeObjectURL(url);
 
@@ -394,11 +506,11 @@ export default function Faturamento() {
             </select>
             {totalSelecionados > 0 && (
               <button 
-                onClick={gerarLoteSelecionado} 
+                onClick={abrirPreviaFatura} 
                 disabled={gerando} 
                 className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg"
               >
-                <PaperAirplaneIcon className="w-4 h-4" />
+                <ReceiptPercentIcon className="w-4 h-4" />
                 Faturar Selecionados ({totalSelecionados}/{MAX_GUIAS_POR_LOTE})
               </button>
             )}
@@ -409,37 +521,25 @@ export default function Faturamento() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Total Pendentes</p>
-                <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{totalPendentes}</p>
-              </div>
+              <div><p className="text-xs text-gray-500 dark:text-gray-400">Total Pendentes</p><p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{totalPendentes}</p></div>
               <ClockIcon className="w-8 h-8 text-yellow-500 opacity-50" />
             </div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Convênios com Pendência</p>
-                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{Object.keys(pendentesPorConvenio).length}</p>
-              </div>
+              <div><p className="text-xs text-gray-500 dark:text-gray-400">Convênios com Pendência</p><p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{Object.keys(pendentesPorConvenio).length}</p></div>
               <BuildingOfficeIcon className="w-8 h-8 text-blue-500 opacity-50" />
             </div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Lotes Gerados</p>
-                <p className="text-2xl font-bold text-green-600 dark:text-green-400">{guiasGeradas.length}</p>
-              </div>
+              <div><p className="text-xs text-gray-500 dark:text-gray-400">Lotes Gerados</p><p className="text-2xl font-bold text-green-600 dark:text-green-400">{guiasGeradas.length}</p></div>
               <DocumentPlusIcon className="w-8 h-8 text-green-500 opacity-50" />
             </div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Valor Pendente</p>
-                <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">R$ {valorTotalPendente.toFixed(2)}</p>
-              </div>
+              <div><p className="text-xs text-gray-500 dark:text-gray-400">Valor Pendente</p><p className="text-2xl font-bold text-purple-600 dark:text-purple-400">R$ {valorTotalPendente.toFixed(2)}</p></div>
               <CurrencyDollarIcon className="w-8 h-8 text-purple-500 opacity-50" />
             </div>
           </div>
@@ -447,29 +547,14 @@ export default function Faturamento() {
 
         {/* Seletor de Convênio */}
         <div className="flex flex-wrap gap-2 mb-4">
-          <button 
-            onClick={() => setFiltroConvenio('todos')} 
-            className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-all duration-200 ${
-              filtroConvenio === 'todos' 
-                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md' 
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-            }`}
-          >
+          <button onClick={() => setFiltroConvenio('todos')} className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-all duration-200 ${filtroConvenio === 'todos' ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
             Todos ({totalPendentes})
           </button>
           {convenios.map(c => {
             const count = pendentes.filter(a => a.paciente_convenio_id === c.id).length;
             if (count === 0) return null;
             return (
-              <button 
-                key={c.id} 
-                onClick={() => setFiltroConvenio(c.id.toString())} 
-                className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-all duration-200 ${
-                  filtroConvenio === c.id.toString() 
-                    ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md' 
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-              >
+              <button key={c.id} onClick={() => setFiltroConvenio(c.id.toString())} className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-all duration-200 ${filtroConvenio === c.id.toString() ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
                 {c.razao_social} ({count})
               </button>
             );
@@ -489,28 +574,14 @@ export default function Faturamento() {
                 <div key={convenioId} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                   <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex justify-between items-center flex-wrap gap-2">
                     <div className="flex items-center gap-3">
-                      <input 
-                        type="checkbox" 
-                        checked={selecionadosCount === convenioAtendimentos.length && convenioAtendimentos.length > 0}
-                        onChange={() => handleSelectAll(parseInt(convenioId), convenioAtendimentos)}
-                        className="rounded w-4 h-4 text-blue-600 focus:ring-blue-500"
-                      />
+                      <input type="checkbox" checked={selecionadosCount === convenioAtendimentos.length && convenioAtendimentos.length > 0} onChange={() => handleSelectAll(parseInt(convenioId), convenioAtendimentos)} className="rounded w-4 h-4 text-blue-600 focus:ring-blue-500" />
                       <BuildingOfficeIcon className="w-5 h-5 text-gray-500 dark:text-gray-400" />
                       <span className="font-semibold text-sm text-gray-800 dark:text-white">{convenio.razao_social}</span>
                       <span className="text-xs text-gray-500 dark:text-gray-400">Código: {convenio.codigo_prestador || 'Não configurado'}</span>
                       <span className="text-xs text-gray-500 dark:text-gray-400">ANS: {convenio.registro_ans || 'Não configurado'}</span>
                     </div>
                     <div className="flex gap-2">
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {selecionadosCount} selecionados
-                      </span>
-                      <button 
-                        onClick={() => gerarXMLPorConvenio(parseInt(convenioId), convenioAtendimentos)} 
-                        disabled={gerando} 
-                        className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs hover:from-green-600 hover:to-emerald-700 transition-all duration-200"
-                      >
-                        Faturar Tudo ({convenioAtendimentos.length})
-                      </button>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{selecionadosCount} selecionados</span>
                     </div>
                   </div>
                   <div className="overflow-x-auto">
@@ -518,39 +589,39 @@ export default function Faturamento() {
                       <thead className="bg-gray-50 dark:bg-gray-700/50">
                         <tr>
                           <th className="px-4 py-3 text-left w-8"></th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nº Guia</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Data</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Paciente</th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Carteira</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Procedimento</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Valor</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Guia Operadora</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Senha</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Valor</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                         {convenioAtendimentos.map((a) => (
                           <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                             <td className="px-4 py-3">
-                              <input 
-                                type="checkbox" 
-                                checked={selecionados.includes(a.id)}
-                                onChange={() => handleSelectItem(a.id)}
-                                disabled={!selecionados.includes(a.id) && selecionados.length >= MAX_GUIAS_POR_LOTE}
-                                className="rounded w-4 h-4 text-blue-600 focus:ring-blue-500"
-                              />
+                              <input type="checkbox" checked={selecionados.includes(a.id)} onChange={() => handleSelectItem(a.id)} disabled={!selecionados.includes(a.id) && selecionados.length >= MAX_GUIAS_POR_LOTE} className="rounded w-4 h-4 text-blue-600 focus:ring-blue-500" />
                              </td>
-                            <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">
-                              {a.data_atendimento || (a.itens && a.itens[0]?.data_execucao) || '-'}
-                            </td>
+                            <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{a.numero_guia_prestador}</td>
+                            <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{a.data_atendimento || (a.itens && a.itens[0]?.data_execucao) || '-'}</td>
                             <td className="px-4 py-3 text-xs text-gray-800 dark:text-gray-200">{a.paciente_nome}</td>
                             <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{a.numero_carteira}</td>
-                            <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">
-                              {a.procedimento_nome || (a.itens && a.itens[0]?.nome) || '-'}
-                            </td>
-                            <td className="px-4 py-3 text-xs font-semibold text-gray-700 dark:text-gray-300">
-                              R$ {a.valor_total?.toFixed(2) || '0,00'}
-                            </td>
+                            <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{a.numero_guia_operadora || '-'}</td>
+                            <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{a.senha_autorizacao || '-'}</td>
+                            <td className="px-4 py-3 text-xs font-semibold text-right text-gray-700 dark:text-gray-300">R$ {a.valor_total?.toFixed(2) || '0,00'}</td>
                           </tr>
                         ))}
                       </tbody>
+                      <tfoot className="bg-gray-50 dark:bg-gray-700/50">
+                        <tr className="border-t">
+                          <td colSpan="7" className="px-4 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">Total do Convênio:</td>
+                          <td className="px-4 py-3 text-right font-bold text-blue-600 dark:text-blue-400">
+                            R$ {convenioAtendimentos.reduce((sum, a) => sum + (a.valor_total || 0), 0).toFixed(2)}
+                          </td>
+                        </tr>
+                      </tfoot>
                     </table>
                   </div>
                 </div>
@@ -561,9 +632,7 @@ export default function Faturamento() {
         {totalPendentes === 0 && (
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center">
             <CheckIcon className="w-12 h-12 mx-auto mb-3 text-green-500 opacity-50" />
-            <p className="text-gray-500 dark:text-gray-400 text-sm">
-              Nenhum atendimento pendente de faturamento
-            </p>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">Nenhum atendimento pendente de faturamento</p>
           </div>
         )}
 
@@ -571,10 +640,7 @@ export default function Faturamento() {
         <div className="mt-8">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Histórico de Lotes Gerados</h3>
-            <button 
-              onClick={carregarLotes}
-              className="text-blue-600 hover:text-blue-700 text-sm flex items-center gap-1"
-            >
+            <button onClick={carregarLotes} className="text-blue-600 hover:text-blue-700 text-sm flex items-center gap-1">
               <ArrowPathIcon className="w-4 h-4" /> Atualizar
             </button>
           </div>
@@ -588,6 +654,7 @@ export default function Faturamento() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nº Lote</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Data</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Guias</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Valor</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Versão</th>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-32">Ações</th>
                   </tr>
@@ -599,45 +666,20 @@ export default function Faturamento() {
                       <td className="px-4 py-3 text-xs font-mono text-gray-500 dark:text-gray-400">{g.numero_lote}</td>
                       <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{g.data_envio}</td>
                       <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{g.quantidade_guias}</td>
+                      <td className="px-4 py-3 text-xs font-semibold text-gray-700 dark:text-gray-300">R$ {(g.dados_fatura?.base_calculo || 0).toFixed(2)}</td>
                       <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{g.versao || '4.03.00'}</td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex gap-2 justify-center">
-                          <button 
-                            onClick={() => visualizarLote(g)} 
-                            className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                            title="Visualizar XML"
-                          >
+                          <button onClick={() => visualizarLote(g)} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors" title="Visualizar XML">
                             <EyeIcon className="w-4 h-4" />
                           </button>
-                          <button 
-                            onClick={() => {
-                              const blob = new Blob([g.xml_content], { type: 'application/xml' });
-                              const url = URL.createObjectURL(blob);
-                              const a = document.createElement('a');
-                              a.href = url;
-                              a.download = `${g.numero_lote}.xml`;
-                              a.click();
-                              URL.revokeObjectURL(url);
-                              toast.success('XML baixado!');
-                            }} 
-                            className="p-1 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
-                            title="Baixar XML"
-                          >
+                          <button onClick={() => { const blob = new Blob([g.xml_content], { type: 'application/xml' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${g.numero_lote}.xml`; a.click(); URL.revokeObjectURL(url); toast.success('XML baixado!'); }} className="p-1 rounded-lg text-green-600 hover:bg-green-50 transition-colors" title="Baixar XML">
                             <DocumentArrowDownIcon className="w-4 h-4" />
                           </button>
-                          <button 
-                            onClick={() => regenerarLote(g)} 
-                            disabled={gerando}
-                            className="p-1 rounded-lg text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors"
-                            title="Regenerar Lote"
-                          >
+                          <button onClick={() => regenerarLote(g)} disabled={gerando} className="p-1 rounded-lg text-yellow-600 hover:bg-yellow-50 transition-colors" title="Regenerar Lote">
                             <ArrowPathIcon className="w-4 h-4" />
                           </button>
-                          <button 
-                            onClick={() => excluirLote(g)} 
-                            className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                            title="Excluir Lote"
-                          >
+                          <button onClick={() => excluirLote(g)} className="p-1 rounded-lg text-red-600 hover:bg-red-50 transition-colors" title="Excluir Lote">
                             <TrashIcon className="w-4 h-4" />
                           </button>
                         </div>
@@ -645,12 +687,7 @@ export default function Faturamento() {
                     </tr>
                   ))}
                   {guiasGeradas.length === 0 && (
-                    <tr>
-                      <td colSpan="6" className="px-4 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
-                        <DocumentPlusIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                        Nenhum lote gerado ainda
-                      </td>
-                    </tr>
+                    <tr><td colSpan="7" className="px-4 py-12 text-center text-gray-500 text-sm">Nenhum lote gerado ainda</td></tr>
                   )}
                 </tbody>
               </table>
@@ -658,78 +695,133 @@ export default function Faturamento() {
           </div>
         </div>
 
-        {/* Modal de Visualização do XML */}
-        {showLoteModal && selectedLote && (
+        {/* Modal de Prévia da Fatura */}
+        {showPreviaModal && previewData && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
               <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
-                    XML do Lote - {selectedLote.numero_lote}
-                  </h3>
-                  <button 
-                    onClick={() => setShowLoteModal(false)} 
-                    className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    <XMarkIcon className="w-5 h-5 text-gray-500" />
-                  </button>
+                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Prévia do Faturamento</h3>
+                  <button onClick={() => setShowPreviaModal(false)} className="p-2 rounded-lg hover:bg-gray-100"><XMarkIcon className="w-5 h-5" /></button>
                 </div>
               </div>
               
-              <div className="p-5">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Convênio:</span> <span className="text-sm font-medium">{selectedLote.convenio_nome}</span></div>
-                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Nº Lote:</span> <span className="text-sm font-mono">{selectedLote.numero_lote}</span></div>
-                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Data:</span> <span className="text-sm">{selectedLote.data_envio}</span></div>
-                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Guias:</span> <span className="text-sm font-bold">{selectedLote.quantidade_guias}</span></div>
+              <div className="p-5 space-y-6">
+                {/* Resumo dos Selecionados */}
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4">
+                  <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-3">Resumo dos Agendamentos Selecionados</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div><p className="text-xs text-gray-500">Total de Guias</p><p className="text-2xl font-bold text-blue-600">{previewData.quantidade}</p></div>
+                    <div><p className="text-xs text-gray-500">Valor Total</p><p className="text-2xl font-bold text-green-600">R$ {previewData.valorTotal.toFixed(2)}</p></div>
+                    <div><p className="text-xs text-gray-500">Convênios</p><p className="text-2xl font-bold text-purple-600">{Object.keys(previewData.conveniosAgrupados).length}</p></div>
+                    <div><p className="text-xs text-gray-500">Limite por Lote</p><p className="text-2xl font-bold text-orange-600">{MAX_GUIAS_POR_LOTE}</p></div>
+                  </div>
                 </div>
-                
-                <div className="bg-gray-900 rounded-xl p-4 overflow-auto max-h-96">
-                  <pre className="text-xs text-green-400 font-mono whitespace-pre-wrap">
-                    {selectedLote.xml_content}
-                  </pre>
+
+                {/* Detalhes por Convênio */}
+                {Object.entries(previewData.conveniosAgrupados).map(([convenioId, data]) => (
+                  <div key={convenioId} className="border rounded-xl overflow-hidden">
+                    <div className="bg-gray-50 dark:bg-gray-700/50 p-3 border-b">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold">{data.convenio?.razao_social}</span>
+                        <span className="text-sm font-bold text-green-600">R$ {data.valorTotal.toFixed(2)}</span>
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 dark:bg-gray-700/50">
+                          <tr><th className="px-3 py-2 text-left text-xs">Nº Guia</th><th className="px-3 py-2 text-left text-xs">Data</th><th className="px-3 py-2 text-left text-xs">Paciente</th><th className="px-3 py-2 text-left text-xs">Carteira</th><th className="px-3 py-2 text-left text-xs">Guia Operadora</th><th className="px-3 py-2 text-left text-xs">Senha</th><th className="px-3 py-2 text-right text-xs">Valor</th></tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {data.atendimentos.map(a => (
+                            <tr key={a.id} className="hover:bg-gray-50">
+                              <td className="px-3 py-2 text-xs font-mono">{a.numero_guia_prestador}</td>
+                              <td className="px-3 py-2 text-xs">{a.data_atendimento || (a.itens && a.itens[0]?.data_execucao) || '-'}</td>
+                              <td className="px-3 py-2 text-xs">{a.paciente_nome}</td>
+                              <td className="px-3 py-2 text-xs">{a.numero_carteira}</td>
+                              <td className="px-3 py-2 text-xs">{a.numero_guia_operadora || '-'}</td>
+                              <td className="px-3 py-2 text-xs">{a.senha_autorizacao || '-'}</td>
+                              <td className="px-3 py-2 text-xs text-right font-semibold">R$ {a.valor_total?.toFixed(2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Dados da Nota Fiscal */}
+                <div className="border rounded-xl p-4">
+                  <h4 className="font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2"><BanknotesIcon className="w-5 h-5" /> Dados da Nota Fiscal / Faturamento</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label className="block text-sm font-medium mb-1">Competência</label><input type="month" value={dadosFatura.competencia} onChange={e => setDadosFatura({...dadosFatura, competencia: e.target.value})} className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600" /></div>
+                    <div><label className="block text-sm font-medium mb-1">Data de Fechamento</label><input type="date" value={dadosFatura.dataFechamento} onChange={e => setDadosFatura({...dadosFatura, dataFechamento: e.target.value})} className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600" /></div>
+                    <div><label className="block text-sm font-medium mb-1">Previsão de Pagamento</label><input type="date" value={dadosFatura.dataPrevisaoPagamento} onChange={e => setDadosFatura({...dadosFatura, dataPrevisaoPagamento: e.target.value})} className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600" /></div>
+                  </div>
+                  
+                  <div className="mt-4"><h5 className="font-medium text-sm mb-2">Impostos e Deduções</h5>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                      <div><label className="block text-xs text-gray-500">Base de Cálculo</label><input type="number" step="0.01" value={dadosFatura.baseCalculo} onChange={e => { const val = parseFloat(e.target.value); setDadosFatura({...dadosFatura, baseCalculo: val}); const imp = calcularImpostos(val); setDadosFatura(prev => ({...prev, ...imp})); }} className="w-full border rounded-lg px-2 py-1 text-sm" /></div>
+                      <div><label className="block text-xs text-gray-500">ISS (%)</label><input type="number" step="0.01" value={dadosFatura.aliquotaISS} onChange={e => { const val = parseFloat(e.target.value); setDadosFatura({...dadosFatura, aliquotaISS: val}); const imp = calcularImpostos(dadosFatura.baseCalculo); setDadosFatura(prev => ({...prev, ...imp})); }} className="w-full border rounded-lg px-2 py-1 text-sm" /></div>
+                      <div><label className="block text-xs text-gray-500">IR (%)</label><input type="number" step="0.01" value={dadosFatura.aliquotaIR} onChange={e => { const val = parseFloat(e.target.value); setDadosFatura({...dadosFatura, aliquotaIR: val}); const imp = calcularImpostos(dadosFatura.baseCalculo); setDadosFatura(prev => ({...prev, ...imp})); }} className="w-full border rounded-lg px-2 py-1 text-sm" /></div>
+                      <div><label className="block text-xs text-gray-500">CSLL (%)</label><input type="number" step="0.01" value={dadosFatura.aliquotaCSLL} onChange={e => { const val = parseFloat(e.target.value); setDadosFatura({...dadosFatura, aliquotaCSLL: val}); const imp = calcularImpostos(dadosFatura.baseCalculo); setDadosFatura(prev => ({...prev, ...imp})); }} className="w-full border rounded-lg px-2 py-1 text-sm" /></div>
+                      <div><label className="block text-xs text-gray-500">PIS (%)</label><input type="number" step="0.01" value={dadosFatura.aliquotaPIS} onChange={e => { const val = parseFloat(e.target.value); setDadosFatura({...dadosFatura, aliquotaPIS: val}); const imp = calcularImpostos(dadosFatura.baseCalculo); setDadosFatura(prev => ({...prev, ...imp})); }} className="w-full border rounded-lg px-2 py-1 text-sm" /></div>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-2">
+                      <div><label className="block text-xs text-gray-500">Valor ISS</label><input type="text" value={dadosFatura.valorISS.toFixed(2)} disabled className="w-full border rounded-lg px-2 py-1 text-sm bg-gray-50" /></div>
+                      <div><label className="block text-xs text-gray-500">Valor IR</label><input type="text" value={dadosFatura.valorIR.toFixed(2)} disabled className="w-full border rounded-lg px-2 py-1 text-sm bg-gray-50" /></div>
+                      <div><label className="block text-xs text-gray-500">Valor CSLL</label><input type="text" value={dadosFatura.valorCSLL.toFixed(2)} disabled className="w-full border rounded-lg px-2 py-1 text-sm bg-gray-50" /></div>
+                      <div><label className="block text-xs text-gray-500">Valor PIS</label><input type="text" value={dadosFatura.valorPIS.toFixed(2)} disabled className="w-full border rounded-lg px-2 py-1 text-sm bg-gray-50" /></div>
+                      <div><label className="block text-xs text-gray-500">Valor COFINS</label><input type="text" value={dadosFatura.valorCOFINS.toFixed(2)} disabled className="w-full border rounded-lg px-2 py-1 text-sm bg-gray-50" /></div>
+                      <div><label className="block text-xs text-gray-500">Valor Líquido</label><input type="text" value={dadosFatura.valorLiquido.toFixed(2)} disabled className="w-full border rounded-lg px-2 py-1 text-sm bg-green-50 font-bold" /></div>
+                    </div>
+                  </div>
+                  <div className="mt-3"><label className="block text-sm font-medium mb-1">Observações</label><textarea rows="2" value={dadosFatura.observacoes} onChange={e => setDadosFatura({...dadosFatura, observacoes: e.target.value})} className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600" placeholder="Informações adicionais da fatura..." /></div>
                 </div>
-                
-                <div className="flex justify-end gap-3 mt-5 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <button
-                    onClick={() => {
-                      const blob = new Blob([selectedLote.xml_content], { type: 'application/xml' });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = `${selectedLote.numero_lote}.xml`;
-                      a.click();
-                      URL.revokeObjectURL(url);
-                      toast.success('XML baixado!');
-                    }}
-                    className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg text-sm font-medium hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-md"
-                  >
-                    <DocumentArrowDownIcon className="w-4 h-4 inline mr-1" />
-                    Baixar XML
-                  </button>
-                  <button
-                    onClick={() => setShowLoteModal(false)}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    Fechar
-                  </button>
-                </div>
+              </div>
+              
+              <div className="p-5 border-t flex justify-end gap-3">
+                <button onClick={() => setShowPreviaModal(false)} className="px-4 py-2 border rounded-lg">Cancelar</button>
+                <button onClick={confirmarGeracaoLote} disabled={gerando} className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-medium shadow-md flex items-center gap-2">
+                  {gerando ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <PaperAirplaneIcon className="w-4 h-4" />}
+                  Gerar Lote(s) e XML
+                </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Instruções */}
-        <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
-          <h4 className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">📋 Informações</h4>
-          <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-1">
-            <li>• Limite máximo de <strong>{MAX_GUIAS_POR_LOTE} guias por lote</strong></li>
-            <li>• Selecione as guias desejadas e clique em "Faturar Selecionados"</li>
-            <li>• O XML será gerado conforme a versão TISS selecionada</li>
-            <li>• Use o botão de regenerar para recriar um lote e corrigir erros</li>
-            <li>• Os lotes ficam salvos no banco de dados para consulta futura</li>
-          </ul>
-        </div>
+        {/* Modal de Visualização do XML */}
+        {showLoteModal && selectedLote && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
+                <div className="flex justify-between items-center"><h3 className="text-xl font-semibold">XML do Lote - {selectedLote.numero_lote}</h3><button onClick={() => setShowLoteModal(false)} className="p-2 rounded-lg hover:bg-gray-100"><XMarkIcon className="w-5 h-5" /></button></div>
+              </div>
+              <div className="p-5">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 p-4 bg-gray-50 rounded-xl">
+                  <div><span className="text-xs text-gray-500">Convênio:</span> <span className="text-sm font-medium">{selectedLote.convenio_nome}</span></div>
+                  <div><span className="text-xs text-gray-500">Nº Lote:</span> <span className="text-sm font-mono">{selectedLote.numero_lote}</span></div>
+                  <div><span className="text-xs text-gray-500">Data:</span> <span className="text-sm">{selectedLote.data_envio}</span></div>
+                  <div><span className="text-xs text-gray-500">Guias:</span> <span className="text-sm font-bold">{selectedLote.quantidade_guias}</span></div>
+                </div>
+                {selectedLote.dados_fatura && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 p-4 bg-green-50 rounded-xl">
+                    <div><span className="text-xs text-gray-500">Competência:</span> <span className="text-sm">{selectedLote.dados_fatura.competencia}</span></div>
+                    <div><span className="text-xs text-gray-500">Fechamento:</span> <span className="text-sm">{selectedLote.dados_fatura.data_fechamento}</span></div>
+                    <div><span className="text-xs text-gray-500">Valor Líquido:</span> <span className="text-sm font-bold text-green-600">R$ {selectedLote.dados_fatura.valor_liquido?.toFixed(2)}</span></div>
+                    <div><span className="text-xs text-gray-500">Previsão Pagto:</span> <span className="text-sm">{selectedLote.dados_fatura.data_previsao_pagamento || '-'}</span></div>
+                  </div>
+                )}
+                <div className="bg-gray-900 rounded-xl p-4 overflow-auto max-h-96"><pre className="text-xs text-green-400 font-mono whitespace-pre-wrap">{selectedLote.xml_content}</pre></div>
+                <div className="flex justify-end gap-3 mt-5 pt-4 border-t">
+                  <button onClick={() => { const blob = new Blob([selectedLote.xml_content], { type: 'application/xml' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${selectedLote.numero_lote}.xml`; a.click(); URL.revokeObjectURL(url); toast.success('XML baixado!'); }} className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg">Baixar XML</button>
+                  <button onClick={() => setShowLoteModal(false)} className="px-4 py-2 border rounded-lg">Fechar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
