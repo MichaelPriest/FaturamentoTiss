@@ -1,4 +1,4 @@
-// src/pages/Agendamentos.jsx
+// src/pages/Agendamentos.jsx - VERSÃO COMPLETA
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -7,7 +7,8 @@ import {
   VideoCameraIcon, BellIcon, CheckBadgeIcon, XCircleIcon,
   ChevronLeftIcon, ChevronRightIcon, ViewColumnsIcon, CalendarDaysIcon,
   ListBulletIcon, EyeIcon, FunnelIcon,
-  ChevronUpIcon, ChevronDownIcon, HomeModernIcon
+  ChevronUpIcon, ChevronDownIcon, HomeModernIcon,
+  DocumentArrowDownIcon, PrinterIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, addWeeks, subWeeks, addMonths, subMonths } from 'date-fns';
@@ -15,11 +16,11 @@ import { ptBR } from 'date-fns/locale';
 import { supabase } from '../lib/supabaseClient';
 
 const STATUS_AGENDAMENTO = [
-  { value: 'agendado', label: 'Agendado', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-  { value: 'confirmado', label: 'Confirmado', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
-  { value: 'cancelado', label: 'Cancelado', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
-  { value: 'realizado', label: 'Realizado', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
-  { value: 'aguardando', label: 'Aguardando', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' }
+  { value: 'agendado', label: 'Agendado', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', bgCard: 'border-l-4 border-l-blue-500' },
+  { value: 'confirmado', label: 'Confirmado', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', bgCard: 'border-l-4 border-l-green-500' },
+  { value: 'cancelado', label: 'Cancelado', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', bgCard: 'border-l-4 border-l-red-500 opacity-60' },
+  { value: 'realizado', label: 'Realizado', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400', bgCard: 'border-l-4 border-l-purple-500' },
+  { value: 'aguardando', label: 'Aguardando', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400', bgCard: 'border-l-4 border-l-yellow-500' }
 ];
 
 const TIPO_AGENDAMENTO = [
@@ -50,14 +51,17 @@ export default function Agendamentos() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showFiltros, setShowFiltros] = useState(false);
+  const [showRelatorioModal, setShowRelatorioModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('todos');
   const [filtroSala, setFiltroSala] = useState('todos');
-  const [viewMode, setViewMode] = useState('dia');
+  const [filtroPrestador, setFiltroPrestador] = useState('todos');
+  const [viewMode, setViewMode] = useState('semana');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [tooltipData, setTooltipData] = useState(null);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  const [relatorioPeriodo, setRelatorioPeriodo] = useState('semana');
 
   const [pacienteBusca, setPacienteBusca] = useState('');
   const [prestadorBusca, setPrestadorBusca] = useState('');
@@ -84,11 +88,11 @@ export default function Agendamentos() {
     setLoading(true);
     try {
       const [agendamentosRes, pacientesRes, prestadoresRes, conveniosRes, salasRes] = await Promise.all([
-        supabase.from('agendamentos').select('*'),
-        supabase.from('pacientes').select('*'),
-        supabase.from('prestadores').select('*'),
-        supabase.from('convenios').select('*'),
-        supabase.from('salas').select('*')
+        supabase.from('agendamentos').select('*').order('data_agendamento', { ascending: true }),
+        supabase.from('pacientes').select('*').order('nome'),
+        supabase.from('prestadores').select('*').order('nome'),
+        supabase.from('convenios').select('*').order('razao_social'),
+        supabase.from('salas').select('*').eq('ativo', true).order('nome')
       ]);
 
       if (agendamentosRes.error) throw agendamentosRes.error;
@@ -157,6 +161,9 @@ export default function Agendamentos() {
     }
     if (filtroSala !== 'todos') {
       filtrados = filtrados.filter(a => a.sala_id === parseInt(filtroSala));
+    }
+    if (filtroPrestador !== 'todos') {
+      filtrados = filtrados.filter(a => a.prestador_id === parseInt(filtroPrestador));
     }
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
@@ -316,7 +323,7 @@ export default function Agendamentos() {
     if (error) {
       toast.error('Erro ao atualizar status');
     } else {
-      toast.success('Status atualizado!');
+      toast.success(`Status atualizado para ${STATUS_AGENDAMENTO.find(s => s.value === status)?.label}`);
       carregarDados();
     }
   };
@@ -341,9 +348,150 @@ export default function Agendamentos() {
     setTooltipData(null);
   };
 
+  // Exportar para CSV
+  const exportarCSV = () => {
+    let dados = [];
+    if (relatorioPeriodo === 'hoje') {
+      dados = getAgendamentosPorData(new Date());
+    } else if (relatorioPeriodo === 'semana') {
+      const dias = getDiasDaSemana();
+      dados = dias.flatMap(dia => getAgendamentosPorData(dia));
+    } else {
+      dados = getAgendamentosFiltrados();
+    }
+
+    if (dados.length === 0) {
+      toast.error('Nenhum dado para exportar');
+      return;
+    }
+
+    const csvRows = [
+      ['Data', 'Hora', 'Paciente', 'Carteira', 'Profissional', 'Especialidade', 'Tipo', 'Modalidade', 'Sala', 'Status', 'Observações']
+    ];
+
+    dados.forEach(ag => {
+      csvRows.push([
+        normalizarData(ag.data_agendamento),
+        `${formatarHora(ag.hora_inicio)} - ${formatarHora(ag.hora_fim)}`,
+        ag.paciente_nome,
+        ag.paciente_carteira,
+        ag.prestador_nome,
+        ag.prestador_especialidade || '',
+        TIPO_AGENDAMENTO.find(t => t.value === ag.tipo)?.label || ag.tipo,
+        MODALIDADE.find(m => m.value === ag.modalidade)?.label || ag.modalidade,
+        ag.sala_nome || '',
+        STATUS_AGENDAMENTO.find(s => s.value === ag.status)?.label || ag.status,
+        ag.observacao || ''
+      ]);
+    });
+
+    const csvContent = csvRows.map(row => row.join(';')).join('\n');
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.setAttribute('download', `agendamentos_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success('CSV exportado com sucesso!');
+  };
+
+  // Imprimir relatório
+  const imprimirRelatorio = () => {
+    let dados = [];
+    let titulo = '';
+    
+    if (relatorioPeriodo === 'hoje') {
+      dados = getAgendamentosPorData(new Date());
+      titulo = `Relatório de Agendamentos - ${format(new Date(), "dd/MM/yyyy")}`;
+    } else if (relatorioPeriodo === 'semana') {
+      const dias = getDiasDaSemana();
+      dados = dias.flatMap(dia => getAgendamentosPorData(dia));
+      titulo = `Relatório de Agendamentos - Semana de ${format(startOfWeek(new Date(), { weekStartsOn: 1 }), "dd/MM")} a ${format(endOfWeek(new Date(), { weekStartsOn: 1 }), "dd/MM/yyyy")}`;
+    } else {
+      dados = getAgendamentosFiltrados();
+      titulo = 'Relatório de Agendamentos - Geral';
+    }
+
+    if (dados.length === 0) {
+      toast.error('Nenhum dado para imprimir');
+      return;
+    }
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Relatório de Agendamentos</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 40px; }
+          h1 { color: #2563eb; text-align: center; }
+          .header { text-align: center; margin-bottom: 30px; }
+          .info { margin-bottom: 20px; }
+          table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+          th { background-color: #2563eb; color: white; padding: 10px; text-align: left; }
+          td { border: 1px solid #ddd; padding: 8px; }
+          tr:nth-child(even) { background-color: #f9fafb; }
+          .status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+          .status-agendado { background-color: #dbeafe; color: #1e40af; }
+          .status-confirmado { background-color: #dcfce7; color: #166534; }
+          .status-realizado { background-color: #f3e8ff; color: #6b21a5; }
+          .status-cancelado { background-color: #fee2e2; color: #991b1b; }
+          .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
+          @media print {
+            body { margin: 0; padding: 10px; }
+            button { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Sistema de Faturamento TISS</h1>
+          <h2>${titulo}</h2>
+          <p>Gerado em: ${new Date().toLocaleString()}</p>
+        </div>
+        <div class="info">
+          <p><strong>Total de agendamentos:</strong> ${dados.length}</p>
+          <p><strong>Filtros aplicados:</strong> ${filtroStatus !== 'todos' ? `Status: ${STATUS_AGENDAMENTO.find(s => s.value === filtroStatus)?.label} | ` : ''}${filtroSala !== 'todos' ? `Sala: ${salas.find(s => s.id === parseInt(filtroSala))?.nome} | ` : ''}</p>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th><th>Hora</th><th>Paciente</th><th>Carteira</th><th>Profissional</th><th>Tipo</th><th>Sala</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${dados.map(ag => `
+              <tr>
+                <td>${normalizarData(ag.data_agendamento)}</td>
+                <td>${formatarHora(ag.hora_inicio)} - ${formatarHora(ag.hora_fim)}</td>
+                <td>${ag.paciente_nome}</td>
+                <td>${ag.paciente_carteira}</td>
+                <td>${ag.prestador_nome}</td>
+                <td>${TIPO_AGENDAMENTO.find(t => t.value === ag.tipo)?.label || ag.tipo}</td>
+                <td>${ag.sala_nome || '-'}</td>
+                <td><span class="status status-${ag.status}">${STATUS_AGENDAMENTO.find(s => s.value === ag.status)?.label}</span></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="footer">
+          <p>Sistema de Faturamento TISS - Relatório gerado automaticamente</p>
+        </div>
+        <script>window.onload = function() { window.print(); window.close(); };</script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
   const agendamentosFiltrados = getAgendamentosFiltrados();
   const estatisticas = {
     hoje: getAgendamentosPorData(new Date()).filter(a => a.status !== 'cancelado').length,
+    semana: getAgendamentosPorData(new Date()).length + getAgendamentosPorData(addDays(new Date(), 1)).length,
     total: agendamentosFiltrados.length,
     pendentes: agendamentosFiltrados.filter(a => a.status === 'agendado' || a.status === 'aguardando').length,
     realizados: agendamentosFiltrados.filter(a => a.status === 'realizado').length
@@ -366,43 +514,56 @@ export default function Agendamentos() {
             <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Agendamentos</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">Gerencie consultas, exames e procedimentos</p>
           </div>
-          <button
-            onClick={() => {
-              setEditing(null);
-              setFormData({
-                paciente_id: '',
-                prestador_id: '',
-                sala_id: '',
-                tipo: 'consulta',
-                status: 'agendado',
-                modalidade: 'presencial',
-                data_agendamento: new Date().toISOString().split('T')[0],
-                hora_inicio: '09:00',
-                hora_fim: '09:30',
-                observacao: '',
-                local: ''
-              });
-              setPacienteBusca('');
-              setPrestadorBusca('');
-              setSalaBusca('');
-              setShowModal(true);
-            }}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
-          >
-            <PlusIcon className="w-5 h-5" />
-            Novo Agendamento
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowRelatorioModal(true)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+            >
+              <DocumentArrowDownIcon className="w-5 h-5" />
+              Relatório
+            </button>
+            <button
+              onClick={() => {
+                setEditing(null);
+                setFormData({
+                  paciente_id: '',
+                  prestador_id: '',
+                  sala_id: '',
+                  tipo: 'consulta',
+                  status: 'agendado',
+                  modalidade: 'presencial',
+                  data_agendamento: new Date().toISOString().split('T')[0],
+                  hora_inicio: '09:00',
+                  hora_fim: '09:30',
+                  observacao: '',
+                  local: ''
+                });
+                setPacienteBusca('');
+                setPrestadorBusca('');
+                setSalaBusca('');
+                setShowModal(true);
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+            >
+              <PlusIcon className="w-5 h-5" />
+              Novo Agendamento
+            </button>
+          </div>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-5 gap-4 mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-blue-500">
             <p className="text-sm text-gray-500 dark:text-gray-400">Hoje</p>
             <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{estatisticas.hoje}</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-green-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Esta Semana</p>
+            <p className="text-2xl font-bold text-green-600 dark:text-green-400">{estatisticas.semana}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-purple-500">
             <p className="text-sm text-gray-500 dark:text-gray-400">Total</p>
-            <p className="text-2xl font-bold text-green-600 dark:text-green-400">{estatisticas.total}</p>
+            <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{estatisticas.total}</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-yellow-500">
             <p className="text-sm text-gray-500 dark:text-gray-400">Pendentes</p>
@@ -424,12 +585,12 @@ export default function Agendamentos() {
             </button>
           </div>
           <div className="p-4">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-4 gap-3">
               <div className="relative">
                 <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Buscar paciente, profissional ou sala..."
+                  placeholder="Buscar paciente, profissional..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
@@ -450,6 +611,14 @@ export default function Agendamentos() {
               >
                 <option value="todos">Todas as salas</option>
                 {salas.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+              </select>
+              <select
+                value={filtroPrestador}
+                onChange={(e) => setFiltroPrestador(e.target.value)}
+                className="border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              >
+                <option value="todos">Todos os profissionais</option>
+                {prestadores.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
               </select>
             </div>
           </div>
@@ -504,7 +673,7 @@ export default function Agendamentos() {
                 getAgendamentosPorData(currentDate).map(ag => {
                   const statusInfo = STATUS_AGENDAMENTO.find(s => s.value === ag.status);
                   return (
-                    <div key={ag.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <div key={ag.id} className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${statusInfo?.bgCard}`}>
                       <div className="flex items-center justify-between flex-wrap gap-4">
                         <div className="flex items-center gap-4">
                           <div className="w-24 font-mono font-bold text-lg text-gray-700 dark:text-gray-300">
@@ -525,8 +694,18 @@ export default function Agendamentos() {
                           </div>
                         </div>
                         <div className="flex gap-1">
+                          {ag.status === 'agendado' && (
+                            <button onClick={() => atualizarStatus(ag.id, 'confirmado')} className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg" title="Confirmar">
+                              <CheckBadgeIcon className="w-5 h-5" />
+                            </button>
+                          )}
+                          {(ag.status === 'agendado' || ag.status === 'confirmado') && (
+                            <button onClick={() => atualizarStatus(ag.id, 'cancelado')} className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg" title="Cancelar">
+                              <XCircleIcon className="w-5 h-5" />
+                            </button>
+                          )}
                           {podeAtender(ag) && (
-                            <Link to={`/prontuario/${ag.id}`} className="p-2 text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 rounded-lg transition-colors" title="Atender">
+                            <Link to={`/prontuario/${ag.id}`} className="p-2 text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 rounded-lg" title="Atender">
                               <CheckBadgeIcon className="w-5 h-5" />
                             </Link>
                           )}
@@ -549,10 +728,10 @@ export default function Agendamentos() {
                             setPrestadorBusca(ag.prestador_nome || '');
                             setSalaBusca(ag.sala_nome || '');
                             setShowModal(true);
-                          }} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
+                          }} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg">
                             <PencilIcon className="w-5 h-5" />
                           </button>
-                          <button onClick={() => excluirAgendamento(ag.id)} className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                          <button onClick={() => excluirAgendamento(ag.id)} className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg">
                             <TrashIcon className="w-5 h-5" />
                           </button>
                         </div>
@@ -565,7 +744,7 @@ export default function Agendamentos() {
           </div>
         )}
 
-        {/* VISUALIZAÇÃO SEMANA */}
+        {/* VISUALIZAÇÃO SEMANA - CORRIGIDA */}
         {viewMode === 'semana' && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-x-auto">
             <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-3 rounded-t-lg">
@@ -583,69 +762,80 @@ export default function Agendamentos() {
                   </div>
                 ))}
               </div>
-              {HORARIOS.map(hora => (
-                <div key={hora} className="grid grid-cols-8 gap-2 mb-2">
-                  <div className="col-span-1 text-sm font-mono font-bold text-gray-500 dark:text-gray-400 pt-2">{hora}</div>
-                  {getDiasDaSemana().map((dia, idx) => {
-                    const ag = getAgendamentosPorData(dia).find(a => a.hora_inicio === hora);
-                    return (
-                      <div key={idx} className={`border rounded-lg p-2 min-h-[80px] transition-all ${ag ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>
-                        {ag ? (
-                          <div className="space-y-1">
-                            <p className="text-xs font-bold text-gray-800 dark:text-white truncate">{ag.paciente_nome}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{ag.prestador_nome}</p>
-                            <div className="flex gap-1 mt-1">
-                              {podeAtender(ag) && (
-                                <Link to={`/prontuario/${ag.id}`} className="p-1 rounded text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20" title="Atender">
-                                  <CheckBadgeIcon className="w-4 h-4" />
-                                </Link>
-                              )}
-                              <button onClick={() => {
-                                setEditing(ag);
-                                setFormData({
-                                  paciente_id: ag.paciente_id?.toString() || '',
-                                  prestador_id: ag.prestador_id?.toString() || '',
-                                  sala_id: ag.sala_id?.toString() || '',
-                                  tipo: ag.tipo,
-                                  status: ag.status,
-                                  modalidade: ag.modalidade,
-                                  data_agendamento: ag.data_agendamento,
-                                  hora_inicio: ag.hora_inicio,
-                                  hora_fim: ag.hora_fim,
-                                  observacao: ag.observacao || '',
-                                  local: ag.local || ''
-                                });
-                                setPacienteBusca(ag.paciente_nome || '');
-                                setPrestadorBusca(ag.prestador_nome || '');
-                                setSalaBusca(ag.sala_nome || '');
-                                setShowModal(true);
-                              }} className="p-1 rounded text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20">
-                                <PencilIcon className="w-4 h-4" />
-                              </button>
+              {HORARIOS.map(hora => {
+                const agendamentosPorHorario = {};
+                getDiasDaSemana().forEach(dia => {
+                  agendamentosPorHorario[format(dia, 'yyyy-MM-dd')] = getAgendamentosPorData(dia).find(a => a.hora_inicio === hora);
+                });
+                return (
+                  <div key={hora} className="grid grid-cols-8 gap-2 mb-2">
+                    <div className="col-span-1 text-sm font-mono font-bold text-gray-500 dark:text-gray-400 pt-2">{hora}</div>
+                    {getDiasDaSemana().map((dia, idx) => {
+                      const ag = agendamentosPorHorario[format(dia, 'yyyy-MM-dd')];
+                      return (
+                        <div key={idx} className={`border rounded-lg p-2 min-h-[80px] transition-all ${ag ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>
+                          {ag ? (
+                            <div className="space-y-1">
+                              <p className="text-xs font-bold text-gray-800 dark:text-white truncate">{ag.paciente_nome}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{ag.prestador_nome}</p>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {ag.status === 'agendado' && (
+                                  <button onClick={() => atualizarStatus(ag.id, 'confirmado')} className="p-1 rounded text-green-600 hover:bg-green-50" title="Confirmar">
+                                    <CheckBadgeIcon className="w-3 h-3" />
+                                  </button>
+                                )}
+                                {podeAtender(ag) && (
+                                  <Link to={`/prontuario/${ag.id}`} className="p-1 rounded text-cyan-600 hover:bg-cyan-50" title="Atender">
+                                    <CheckBadgeIcon className="w-3 h-3" />
+                                  </Link>
+                                )}
+                                <button onClick={() => {
+                                  setEditing(ag);
+                                  setFormData({
+                                    paciente_id: ag.paciente_id?.toString() || '',
+                                    prestador_id: ag.prestador_id?.toString() || '',
+                                    sala_id: ag.sala_id?.toString() || '',
+                                    tipo: ag.tipo,
+                                    status: ag.status,
+                                    modalidade: ag.modalidade,
+                                    data_agendamento: ag.data_agendamento,
+                                    hora_inicio: ag.hora_inicio,
+                                    hora_fim: ag.hora_fim,
+                                    observacao: ag.observacao || '',
+                                    local: ag.local || ''
+                                  });
+                                  setPacienteBusca(ag.paciente_nome || '');
+                                  setPrestadorBusca(ag.prestador_nome || '');
+                                  setSalaBusca(ag.sala_nome || '');
+                                  setShowModal(true);
+                                }} className="p-1 rounded text-blue-600 hover:bg-blue-50">
+                                  <PencilIcon className="w-3 h-3" />
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => {
-                              setEditing(null);
-                              setFormData({
-                                ...formData,
-                                data_agendamento: format(dia, 'yyyy-MM-dd'),
-                                hora_inicio: hora,
-                                hora_fim: HORARIOS[HORARIOS.indexOf(hora) + 1] || hora
-                              });
-                              setShowModal(true);
-                            }}
-                            className="w-full h-full flex items-center justify-center text-gray-400 hover:text-blue-500 transition-colors"
-                          >
-                            <PlusIcon className="w-5 h-5" />
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setEditing(null);
+                                setFormData({
+                                  ...formData,
+                                  data_agendamento: format(dia, 'yyyy-MM-dd'),
+                                  hora_inicio: hora,
+                                  hora_fim: HORARIOS[HORARIOS.indexOf(hora) + 1] || hora
+                                });
+                                setShowModal(true);
+                              }}
+                              className="w-full h-full flex items-center justify-center text-gray-400 hover:text-blue-500 transition-colors"
+                            >
+                              <PlusIcon className="w-5 h-5" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -764,7 +954,68 @@ export default function Agendamentos() {
         )}
       </div>
 
-      {/* MODAL */}
+      {/* MODAL DE RELATÓRIO */}
+      {showRelatorioModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md">
+            <div className="p-6 border-b dark:border-gray-700 flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Exportar Relatório</h2>
+              <button onClick={() => setShowRelatorioModal(false)} className="p-1 hover:bg-gray-100 rounded">
+                <XMarkIcon className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Período</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => setRelatorioPeriodo('hoje')}
+                    className={`px-3 py-2 rounded-lg text-sm ${relatorioPeriodo === 'hoje' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
+                  >
+                    Hoje
+                  </button>
+                  <button
+                    onClick={() => setRelatorioPeriodo('semana')}
+                    className={`px-3 py-2 rounded-lg text-sm ${relatorioPeriodo === 'semana' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
+                  >
+                    Esta Semana
+                  </button>
+                  <button
+                    onClick={() => setRelatorioPeriodo('todos')}
+                    className={`px-3 py-2 rounded-lg text-sm ${relatorioPeriodo === 'todos' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
+                  >
+                    Todos
+                  </button>
+                </div>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => {
+                    exportarCSV();
+                    setShowRelatorioModal(false);
+                  }}
+                  className="flex-1 bg-green-600 text-white py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-green-700"
+                >
+                  <DocumentArrowDownIcon className="w-5 h-5" />
+                  Exportar CSV
+                </button>
+                <button
+                  onClick={() => {
+                    imprimirRelatorio();
+                    setShowRelatorioModal(false);
+                  }}
+                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-700"
+                >
+                  <PrinterIcon className="w-5 h-5" />
+                  Imprimir
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE AGENDAMENTO */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
