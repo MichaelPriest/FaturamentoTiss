@@ -53,6 +53,7 @@ export default function Agendamentos() {
   const [editing, setEditing] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('todos');
+  const [filtroSala, setFiltroSala] = useState('todos');
   const [viewMode, setViewMode] = useState('semana');
   const [currentDate, setCurrentDate] = useState(new Date());
 
@@ -77,6 +78,17 @@ export default function Agendamentos() {
     observacao: '',
     local: ''
   });
+
+  // Fechar dropdowns ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.paciente-dropdown')) setShowPacienteList(false);
+      if (!event.target.closest('.prestador-dropdown')) setShowPrestadorList(false);
+      if (!event.target.closest('.sala-dropdown')) setShowSalaList(false);
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
 
   // Carregar dados
   const carregarDados = async () => {
@@ -103,7 +115,6 @@ export default function Agendamentos() {
       setSalas(salasRes.data || []);
       
       console.log('Agendamentos carregados:', agendamentosRes.data?.length);
-      console.log('Primeiro agendamento:', agendamentosRes.data?.[0]);
     } catch (error) {
       console.error('Erro:', error);
       toast.error('Erro ao carregar dados');
@@ -268,6 +279,9 @@ export default function Agendamentos() {
     if (filtroStatus !== 'todos') {
       filtrados = filtrados.filter(a => a.status === filtroStatus);
     }
+    if (filtroSala !== 'todos') {
+      filtrados = filtrados.filter(a => a.sala_id === parseInt(filtroSala));
+    }
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtrados = filtrados.filter(a => 
@@ -277,7 +291,7 @@ export default function Agendamentos() {
       );
     }
     return filtrados;
-  }, [agendamentos, filtroStatus, searchTerm]);
+  }, [agendamentos, filtroStatus, filtroSala, searchTerm]);
 
   const getAgendamentosPorData = (data) => {
     const dataStr = format(data, 'yyyy-MM-dd');
@@ -333,7 +347,7 @@ export default function Agendamentos() {
           </button>
         </div>
 
-        {/* Stats com dark mode */}
+        {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-blue-500">
             <p className="text-sm text-gray-500 dark:text-gray-400">Hoje</p>
@@ -357,7 +371,7 @@ export default function Agendamentos() {
           </div>
         </div>
 
-        {/* Filtros com dark mode */}
+        {/* Filtros */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
           <div className="p-4 border-b dark:border-gray-700">
             <button onClick={() => setShowFiltros(!showFiltros)} className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
@@ -367,8 +381,8 @@ export default function Agendamentos() {
             </button>
           </div>
           <div className="p-4">
-            <div className="flex gap-3">
-              <div className="relative flex-1">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="relative">
                 <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
@@ -386,11 +400,19 @@ export default function Agendamentos() {
                 <option value="todos">Todos os status</option>
                 {STATUS_AGENDAMENTO.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
+              <select
+                value={filtroSala}
+                onChange={(e) => setFiltroSala(e.target.value)}
+                className="border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              >
+                <option value="todos">Todas as salas</option>
+                {salas.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+              </select>
             </div>
           </div>
         </div>
 
-        {/* Navegação com dark mode */}
+        {/* Navegação */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
           <div className="flex justify-between items-center flex-wrap gap-4">
             <div className="flex gap-2">
@@ -634,7 +656,7 @@ export default function Agendamentos() {
         )}
       </div>
 
-      {/* MODAL com dark mode */}
+      {/* MODAL */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -648,7 +670,7 @@ export default function Agendamentos() {
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Paciente com busca */}
-                <div className="relative">
+                <div className="relative paciente-dropdown">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paciente *</label>
                   <input
                     type="text"
@@ -683,8 +705,8 @@ export default function Agendamentos() {
                   )}
                 </div>
 
-                {/* Profissional com busca - incluindo número do conselho */}
-                <div className="relative">
+                {/* Profissional com busca */}
+                <div className="relative prestador-dropdown">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Profissional *</label>
                   <input
                     type="text"
@@ -722,7 +744,7 @@ export default function Agendamentos() {
                 </div>
 
                 {/* Sala com busca */}
-                <div className="relative">
+                <div className="relative sala-dropdown">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sala</label>
                   <input
                     type="text"
