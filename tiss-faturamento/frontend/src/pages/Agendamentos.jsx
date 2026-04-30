@@ -1,5 +1,5 @@
-// src/pages/Agendamentos.jsx - VERSÃO FUNCIONAL
-import { useState, useEffect, useCallback } from 'react';
+// src/pages/Agendamentos.jsx
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, XMarkIcon,
@@ -49,12 +49,23 @@ export default function Agendamentos() {
   const [salas, setSalas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showFiltros, setShowFiltros] = useState(false);
   const [editing, setEditing] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('todos');
+  const [filtroSala, setFiltroSala] = useState('todos');
   const [viewMode, setViewMode] = useState('dia');
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [tooltipData, setTooltipData] = useState(null);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
+  const [pacienteBusca, setPacienteBusca] = useState('');
+  const [prestadorBusca, setPrestadorBusca] = useState('');
+  const [salaBusca, setSalaBusca] = useState('');
+  const [showPacienteList, setShowPacienteList] = useState(false);
+  const [showPrestadorList, setShowPrestadorList] = useState(false);
+  const [showSalaList, setShowSalaList] = useState(false);
+  
   const [formData, setFormData] = useState({
     paciente_id: '',
     prestador_id: '',
@@ -91,8 +102,6 @@ export default function Agendamentos() {
       setPrestadores(prestadoresRes.data || []);
       setConvenios(conveniosRes.data || []);
       setSalas(salasRes.data || []);
-      
-      console.log('Agendamentos carregados:', agendamentosRes.data);
     } catch (error) {
       console.error('Erro:', error);
       toast.error('Erro ao carregar dados');
@@ -105,7 +114,27 @@ export default function Agendamentos() {
     carregarDados();
   }, []);
 
-  // Função para normalizar data (garantir formato YYYY-MM-DD)
+  // Filtrar pacientes
+  const pacientesFiltrados = pacientes.filter(p => 
+    p.nome?.toLowerCase().includes(pacienteBusca.toLowerCase()) ||
+    p.cpf?.includes(pacienteBusca) ||
+    p.numero_carteira?.includes(pacienteBusca)
+  ).slice(0, 15);
+
+  // Filtrar prestadores
+  const prestadoresFiltrados = prestadores.filter(p => 
+    p.nome?.toLowerCase().includes(prestadorBusca.toLowerCase()) ||
+    p.especialidade?.toLowerCase().includes(prestadorBusca.toLowerCase()) ||
+    p.cpf?.includes(prestadorBusca) ||
+    p.numero_conselho?.includes(prestadorBusca)
+  ).slice(0, 15);
+
+  // Filtrar salas
+  const salasFiltradas = salas.filter(s => 
+    s.nome?.toLowerCase().includes(salaBusca.toLowerCase())
+  ).slice(0, 15);
+
+  // Normalizar data
   const normalizarData = (data) => {
     if (!data) return '';
     if (typeof data === 'string' && data.includes('-')) {
@@ -114,27 +143,38 @@ export default function Agendamentos() {
     return data;
   };
 
-  // Agendamentos filtrados
-  const agendamentosFiltrados = agendamentos.filter(a => {
-    if (filtroStatus !== 'todos' && a.status !== filtroStatus) return false;
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      return (a.paciente_nome?.toLowerCase().includes(term) ||
-              a.prestador_nome?.toLowerCase().includes(term));
-    }
-    return true;
-  });
-
-  // Agendamentos para uma data específica
-  const getAgendamentosPorData = (data) => {
-    const dataStr = format(data, 'yyyy-MM-dd');
-    return agendamentosFiltrados.filter(a => {
-      const dataAgendamento = normalizarData(a.data_agendamento);
-      return dataAgendamento === dataStr;
-    });
+  const formatarHora = (hora) => {
+    if (!hora) return '';
+    return hora.substring(0, 5);
   };
 
-  const diasDaSemana = () => {
+  // Agendamentos filtrados
+  const getAgendamentosFiltrados = () => {
+    let filtrados = [...agendamentos];
+    
+    if (filtroStatus !== 'todos') {
+      filtrados = filtrados.filter(a => a.status === filtroStatus);
+    }
+    if (filtroSala !== 'todos') {
+      filtrados = filtrados.filter(a => a.sala_id === parseInt(filtroSala));
+    }
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtrados = filtrados.filter(a => 
+        a.paciente_nome?.toLowerCase().includes(term) ||
+        a.prestador_nome?.toLowerCase().includes(term) ||
+        a.sala_nome?.toLowerCase().includes(term)
+      );
+    }
+    return filtrados;
+  };
+
+  const getAgendamentosPorData = (data) => {
+    const dataStr = format(data, 'yyyy-MM-dd');
+    return getAgendamentosFiltrados().filter(a => normalizarData(a.data_agendamento) === dataStr);
+  };
+
+  const getDiasDaSemana = () => {
     const inicio = startOfWeek(currentDate, { weekStartsOn: 1 });
     return Array.from({ length: 7 }, (_, i) => addDays(inicio, i));
   };
@@ -153,6 +193,35 @@ export default function Agendamentos() {
 
   const irParaHoje = () => setCurrentDate(new Date());
 
+  const verificarConflitoHorario = async (data, horaInicio, horaFim, prestadorId, agendamentoId = null) => {
+    const { data: agendamentosExistentes } = await supabase
+      .from('agendamentos')
+      .select('*')
+      .eq('data_agendamento', data)
+      .eq('prestador_id', prestadorId)
+      .neq('status', 'cancelado');
+    
+    if (!agendamentosExistentes) return false;
+
+    const horarioInicioNum = parseFloat(horaInicio.replace(':', '.'));
+    const horarioFimNum = parseFloat(horaFim.replace(':', '.'));
+
+    for (const ag of agendamentosExistentes) {
+      if (agendamentoId && ag.id === parseInt(agendamentoId)) continue;
+      
+      const agInicio = parseFloat(ag.hora_inicio.replace(':', '.'));
+      const agFim = parseFloat(ag.hora_fim.replace(':', '.'));
+      
+      if ((horarioInicioNum >= agInicio && horarioInicioNum < agFim) ||
+          (horarioFimNum > agInicio && horarioFimNum <= agFim) ||
+          (horarioInicioNum <= agInicio && horarioFimNum >= agFim)) {
+        return { conflito: true, agendamento: ag };
+      }
+    }
+    
+    return { conflito: false };
+  };
+
   const salvarAgendamento = async () => {
     if (!formData.paciente_id) {
       toast.error('Selecione um paciente');
@@ -160,6 +229,19 @@ export default function Agendamentos() {
     }
     if (!formData.prestador_id) {
       toast.error('Selecione um profissional');
+      return;
+    }
+
+    const conflito = await verificarConflitoHorario(
+      formData.data_agendamento,
+      formData.hora_inicio,
+      formData.hora_fim,
+      parseInt(formData.prestador_id),
+      editing?.id
+    );
+
+    if (conflito.conflito) {
+      toast.error(`Conflito! O profissional já tem agendamento das ${conflito.agendamento.hora_inicio} às ${conflito.agendamento.hora_fim}`);
       return;
     }
 
@@ -226,21 +308,42 @@ export default function Agendamentos() {
     }
   };
 
+  const atualizarStatus = async (id, status) => {
+    const { error } = await supabase
+      .from('agendamentos')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) {
+      toast.error('Erro ao atualizar status');
+    } else {
+      toast.success('Status atualizado!');
+      carregarDados();
+    }
+  };
+
   const podeAtender = (agendamento) => {
     return agendamento.status !== 'realizado' && agendamento.status !== 'cancelado';
   };
 
-  const formatarHora = (hora) => {
-    if (!hora) return '';
-    return hora.substring(0, 5);
+  const handleMouseEnter = (event, dia, agendamentosDia) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setTooltipPosition({
+      x: rect.left + rect.width / 2,
+      y: rect.top - 10
+    });
+    setTooltipData({
+      data: format(dia, "dd 'de' MMMM", { locale: ptBR }),
+      agendamentos: agendamentosDia
+    });
   };
 
+  const handleMouseLeave = () => {
+    setTooltipData(null);
+  };
+
+  const agendamentosFiltrados = getAgendamentosFiltrados();
   const estatisticas = {
-    hoje: agendamentosFiltrados.filter(a => {
-      const dataAgendamento = normalizarData(a.data_agendamento);
-      const hoje = format(new Date(), 'yyyy-MM-dd');
-      return dataAgendamento === hoje && a.status !== 'cancelado';
-    }).length,
+    hoje: getAgendamentosPorData(new Date()).filter(a => a.status !== 'cancelado').length,
     total: agendamentosFiltrados.length,
     pendentes: agendamentosFiltrados.filter(a => a.status === 'agendado' || a.status === 'aguardando').length,
     realizados: agendamentosFiltrados.filter(a => a.status === 'realizado').length
@@ -253,12 +356,6 @@ export default function Agendamentos() {
       </div>
     );
   }
-
-  // Log para debug
-  console.log('Modo:', viewMode);
-  console.log('Data atual:', format(currentDate, 'yyyy-MM-dd'));
-  console.log('Agendamentos hoje:', getAgendamentosPorData(new Date()).length);
-  console.log('Agendamentos na data atual:', getAgendamentosPorData(currentDate).length);
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen p-6">
@@ -285,6 +382,9 @@ export default function Agendamentos() {
                 observacao: '',
                 local: ''
               });
+              setPacienteBusca('');
+              setPrestadorBusca('');
+              setSalaBusca('');
               setShowModal(true);
             }}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
@@ -298,43 +398,60 @@ export default function Agendamentos() {
         <div className="grid grid-cols-4 gap-4 mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-blue-500">
             <p className="text-sm text-gray-500 dark:text-gray-400">Hoje</p>
-            <p className="text-2xl font-bold text-blue-600">{estatisticas.hoje}</p>
+            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{estatisticas.hoje}</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-green-500">
             <p className="text-sm text-gray-500 dark:text-gray-400">Total</p>
-            <p className="text-2xl font-bold text-green-600">{estatisticas.total}</p>
+            <p className="text-2xl font-bold text-green-600 dark:text-green-400">{estatisticas.total}</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-yellow-500">
             <p className="text-sm text-gray-500 dark:text-gray-400">Pendentes</p>
-            <p className="text-2xl font-bold text-yellow-600">{estatisticas.pendentes}</p>
+            <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{estatisticas.pendentes}</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-purple-500">
             <p className="text-sm text-gray-500 dark:text-gray-400">Realizados</p>
-            <p className="text-2xl font-bold text-purple-600">{estatisticas.realizados}</p>
+            <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{estatisticas.realizados}</p>
           </div>
         </div>
 
         {/* Filtros */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
-          <div className="flex gap-3">
-            <div className="relative flex-1">
-              <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Buscar paciente ou profissional..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              />
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
+          <div className="p-4 border-b dark:border-gray-700">
+            <button onClick={() => setShowFiltros(!showFiltros)} className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+              <FunnelIcon className="w-5 h-5" />
+              Filtros
+              {showFiltros ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
+            </button>
+          </div>
+          <div className="p-4">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="relative">
+                <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar paciente, profissional ou sala..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                />
+              </div>
+              <select
+                value={filtroStatus}
+                onChange={(e) => setFiltroStatus(e.target.value)}
+                className="border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              >
+                <option value="todos">Todos os status</option>
+                {STATUS_AGENDAMENTO.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+              <select
+                value={filtroSala}
+                onChange={(e) => setFiltroSala(e.target.value)}
+                className="border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              >
+                <option value="todos">Todas as salas</option>
+                {salas.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+              </select>
             </div>
-            <select
-              value={filtroStatus}
-              onChange={(e) => setFiltroStatus(e.target.value)}
-              className="border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-            >
-              <option value="todos">Todos os status</option>
-              {STATUS_AGENDAMENTO.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
           </div>
         </div>
 
@@ -343,27 +460,27 @@ export default function Agendamentos() {
           <div className="flex justify-between items-center">
             <div className="flex gap-2">
               <button onClick={navegarAnterior} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                <ChevronLeftIcon className="w-5 h-5" />
+                <ChevronLeftIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               </button>
-              <button onClick={irParaHoje} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Hoje</button>
+              <button onClick={irParaHoje} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Hoje</button>
               <button onClick={navegarProximo} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                <ChevronRightIcon className="w-5 h-5" />
+                <ChevronRightIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
               </button>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setViewMode('dia')} className={`px-4 py-2 rounded-lg flex items-center gap-2 ${viewMode === 'dia' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700'}`}>
+              <button onClick={() => setViewMode('dia')} className={`px-4 py-2 rounded-lg flex items-center gap-2 ${viewMode === 'dia' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
                 <ListBulletIcon className="w-4 h-4" /> Dia
               </button>
-              <button onClick={() => setViewMode('semana')} className={`px-4 py-2 rounded-lg flex items-center gap-2 ${viewMode === 'semana' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700'}`}>
+              <button onClick={() => setViewMode('semana')} className={`px-4 py-2 rounded-lg flex items-center gap-2 ${viewMode === 'semana' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
                 <ViewColumnsIcon className="w-4 h-4" /> Semana
               </button>
-              <button onClick={() => setViewMode('mes')} className={`px-4 py-2 rounded-lg flex items-center gap-2 ${viewMode === 'mes' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700'}`}>
+              <button onClick={() => setViewMode('mes')} className={`px-4 py-2 rounded-lg flex items-center gap-2 ${viewMode === 'mes' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
                 <CalendarDaysIcon className="w-4 h-4" /> Mês
               </button>
             </div>
           </div>
           <div className="text-center mt-3">
-            <h2 className="text-xl font-semibold">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
               {viewMode === 'dia' && format(currentDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
               {viewMode === 'semana' && `Semana de ${format(startOfWeek(currentDate, { weekStartsOn: 1 }), "dd/MM")} a ${format(endOfWeek(currentDate, { weekStartsOn: 1 }), "dd/MM/yyyy")}`}
               {viewMode === 'mes' && format(currentDate, "MMMM 'de' yyyy", { locale: ptBR })}
@@ -373,37 +490,35 @@ export default function Agendamentos() {
 
         {/* VISUALIZAÇÃO DIA */}
         {viewMode === 'dia' && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-            <div className="bg-blue-600 text-white p-3">
-              <h3 className="text-center font-semibold">
-                {format(currentDate, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-              </h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-3 rounded-t-lg">
+              <h3 className="text-center font-semibold">Agenda do Dia</h3>
             </div>
             <div className="divide-y dark:divide-gray-700">
               {getAgendamentosPorData(currentDate).length === 0 ? (
-                <div className="p-12 text-center text-gray-500">
+                <div className="p-12 text-center text-gray-500 dark:text-gray-400">
                   <CalendarIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                  Nenhum agendamento para este dia
+                  Nenhum agendamento para {format(currentDate, "dd 'de' MMMM", { locale: ptBR })}
                 </div>
               ) : (
                 getAgendamentosPorData(currentDate).map(ag => {
                   const statusInfo = STATUS_AGENDAMENTO.find(s => s.value === ag.status);
                   return (
-                    <div key={ag.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                      <div className="flex items-center justify-between">
+                    <div key={ag.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                      <div className="flex items-center justify-between flex-wrap gap-4">
                         <div className="flex items-center gap-4">
-                          <div className="w-24 font-mono font-bold text-lg">
+                          <div className="w-24 font-mono font-bold text-lg text-gray-700 dark:text-gray-300">
                             {formatarHora(ag.hora_inicio)} - {formatarHora(ag.hora_fim)}
                           </div>
                           <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-lg">{ag.paciente_nome}</span>
-                              <span className="text-sm text-gray-500">{ag.paciente_carteira}</span>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-lg text-gray-800 dark:text-white">{ag.paciente_nome}</span>
+                              <span className="text-sm text-gray-500 dark:text-gray-400">{ag.paciente_carteira}</span>
                               <span className={`px-2 py-0.5 rounded-full text-xs ${statusInfo?.color}`}>
                                 {statusInfo?.label}
                               </span>
                             </div>
-                            <div className="text-sm text-gray-500">
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
                               {ag.prestador_nome}
                               {ag.sala_nome && <span className="ml-2">🏥 {ag.sala_nome}</span>}
                             </div>
@@ -411,7 +526,7 @@ export default function Agendamentos() {
                         </div>
                         <div className="flex gap-1">
                           {podeAtender(ag) && (
-                            <Link to={`/prontuario/${ag.id}`} className="p-2 text-cyan-600 hover:bg-cyan-50 rounded-lg" title="Atender">
+                            <Link to={`/prontuario/${ag.id}`} className="p-2 text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 rounded-lg transition-colors" title="Atender">
                               <CheckBadgeIcon className="w-5 h-5" />
                             </Link>
                           )}
@@ -430,11 +545,14 @@ export default function Agendamentos() {
                               observacao: ag.observacao || '',
                               local: ag.local || ''
                             });
+                            setPacienteBusca(ag.paciente_nome || '');
+                            setPrestadorBusca(ag.prestador_nome || '');
+                            setSalaBusca(ag.sala_nome || '');
                             setShowModal(true);
-                          }} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg">
+                          }} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
                             <PencilIcon className="w-5 h-5" />
                           </button>
-                          <button onClick={() => excluirAgendamento(ag.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
+                          <button onClick={() => excluirAgendamento(ag.id)} className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
                             <TrashIcon className="w-5 h-5" />
                           </button>
                         </div>
@@ -450,16 +568,16 @@ export default function Agendamentos() {
         {/* VISUALIZAÇÃO SEMANA */}
         {viewMode === 'semana' && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-x-auto">
-            <div className="bg-green-600 text-white p-3">
+            <div className="bg-gradient-to-r from-green-500 to-green-600 text-white p-3 rounded-t-lg">
               <h3 className="text-center font-semibold">Agenda Semanal</h3>
             </div>
-            <div className="p-4 min-w-[800px]">
+            <div className="p-4 min-w-[1000px]">
               <div className="grid grid-cols-8 gap-2 mb-3">
                 <div className="col-span-1"></div>
-                {diasDaSemana().map((dia, idx) => (
-                  <div key={idx} className="text-center">
-                    <div className="font-bold">{format(dia, 'EEE', { locale: ptBR })}</div>
-                    <div className={`text-lg font-bold ${isSameDay(dia, new Date()) ? 'text-blue-600' : ''}`}>
+                {getDiasDaSemana().map((dia, idx) => (
+                  <div key={idx} className="text-center p-2 rounded-lg bg-gray-100 dark:bg-gray-700">
+                    <div className="font-bold text-gray-600 dark:text-gray-300">{format(dia, 'EEE', { locale: ptBR })}</div>
+                    <div className={`text-lg font-bold ${isSameDay(dia, new Date()) ? 'text-blue-600' : 'text-gray-800 dark:text-white'}`}>
                       {format(dia, 'dd/MM')}
                     </div>
                   </div>
@@ -467,18 +585,18 @@ export default function Agendamentos() {
               </div>
               {HORARIOS.map(hora => (
                 <div key={hora} className="grid grid-cols-8 gap-2 mb-2">
-                  <div className="col-span-1 text-sm font-mono font-bold pt-2">{hora}</div>
-                  {diasDaSemana().map((dia, idx) => {
+                  <div className="col-span-1 text-sm font-mono font-bold text-gray-500 dark:text-gray-400 pt-2">{hora}</div>
+                  {getDiasDaSemana().map((dia, idx) => {
                     const ag = getAgendamentosPorData(dia).find(a => a.hora_inicio === hora);
                     return (
-                      <div key={idx} className={`border rounded-lg p-2 min-h-[80px] ${ag ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 hover:bg-gray-100'}`}>
+                      <div key={idx} className={`border rounded-lg p-2 min-h-[80px] transition-all ${ag ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>
                         {ag ? (
-                          <div className="text-sm">
-                            <p className="font-medium truncate">{ag.paciente_nome}</p>
-                            <p className="text-xs text-gray-500 truncate">{ag.prestador_nome}</p>
+                          <div className="space-y-1">
+                            <p className="text-xs font-bold text-gray-800 dark:text-white truncate">{ag.paciente_nome}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{ag.prestador_nome}</p>
                             <div className="flex gap-1 mt-1">
                               {podeAtender(ag) && (
-                                <Link to={`/prontuario/${ag.id}`} className="text-cyan-600">
+                                <Link to={`/prontuario/${ag.id}`} className="p-1 rounded text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20" title="Atender">
                                   <CheckBadgeIcon className="w-4 h-4" />
                                 </Link>
                               )}
@@ -497,8 +615,11 @@ export default function Agendamentos() {
                                   observacao: ag.observacao || '',
                                   local: ag.local || ''
                                 });
+                                setPacienteBusca(ag.paciente_nome || '');
+                                setPrestadorBusca(ag.prestador_nome || '');
+                                setSalaBusca(ag.sala_nome || '');
                                 setShowModal(true);
-                              }} className="text-blue-600">
+                              }} className="p-1 rounded text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20">
                                 <PencilIcon className="w-4 h-4" />
                               </button>
                             </div>
@@ -515,7 +636,7 @@ export default function Agendamentos() {
                               });
                               setShowModal(true);
                             }}
-                            className="w-full h-full flex items-center justify-center text-gray-400 hover:text-blue-500"
+                            className="w-full h-full flex items-center justify-center text-gray-400 hover:text-blue-500 transition-colors"
                           >
                             <PlusIcon className="w-5 h-5" />
                           </button>
@@ -529,16 +650,16 @@ export default function Agendamentos() {
           </div>
         )}
 
-        {/* VISUALIZAÇÃO MÊS */}
+        {/* VISUALIZAÇÃO MÊS COM TOOLTIP */}
         {viewMode === 'mes' && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-x-auto">
-            <div className="bg-purple-600 text-white p-3">
+            <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white p-3 rounded-t-lg">
               <h3 className="text-center font-semibold">Calendário Mensal</h3>
             </div>
-            <div className="p-4 min-w-[800px]">
+            <div className="p-4 min-w-[900px]">
               <div className="grid grid-cols-7 gap-1 mb-2">
-                {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map(dia => (
-                  <div key={dia} className="text-center font-semibold text-gray-500">{dia}</div>
+                {['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'].map(dia => (
+                  <div key={dia} className="text-center py-2 text-sm font-semibold text-gray-500 dark:text-gray-400">{dia}</div>
                 ))}
               </div>
               <div className="grid grid-cols-7 gap-1">
@@ -552,27 +673,45 @@ export default function Agendamentos() {
                     const isCurrentMonth = current.getMonth() === currentDate.getMonth();
                     const ags = getAgendamentosPorData(current);
                     cells.push(
-                      <div key={i} className={`border rounded-lg p-1 min-h-[90px] ${!isCurrentMonth ? 'bg-gray-50' : 'bg-white'} ${isSameDay(current, new Date()) ? 'ring-2 ring-blue-500' : ''}`}>
-                        <div className={`font-semibold text-sm p-1 ${isSameDay(current, new Date()) ? 'text-blue-600' : ''}`}>
+                      <div 
+                        key={i} 
+                        className={`border dark:border-gray-700 rounded-lg min-h-[100px] p-2 transition-all hover:shadow-md cursor-pointer ${!isCurrentMonth ? 'bg-gray-50 dark:bg-gray-800/50' : 'bg-white dark:bg-gray-800'} ${isSameDay(current, new Date()) ? 'ring-2 ring-blue-500 shadow-lg' : ''}`}
+                        onMouseEnter={(e) => handleMouseEnter(e, current, ags)}
+                        onMouseLeave={handleMouseLeave}
+                      >
+                        <div className={`font-semibold text-sm p-1 ${isSameDay(current, new Date()) ? 'text-blue-600 font-bold' : 'text-gray-700 dark:text-gray-300'}`}>
                           {format(current, 'dd')}
                         </div>
-                        <div className="space-y-1">
-                          {ags.slice(0, 2).map(ag => (
-                            <div key={ag.id} className="text-xs p-1 rounded bg-gray-100 truncate">
-                              {formatarHora(ag.hora_inicio)} {ag.paciente_nome?.split(' ')[0]}
-                            </div>
-                          ))}
+                        <div className="space-y-1 mt-1 max-h-[70px] overflow-y-auto">
+                          {ags.slice(0, 3).map(ag => {
+                            const statusInfo = STATUS_AGENDAMENTO.find(s => s.value === ag.status);
+                            return (
+                              <div key={ag.id} className={`text-xs p-1 rounded flex items-center justify-between gap-1 ${statusInfo?.color} bg-opacity-50`}>
+                                <span className="truncate flex-1">
+                                  <span className="font-mono">{formatarHora(ag.hora_inicio)}</span> {ag.paciente_nome?.split(' ')[0]}
+                                </span>
+                                {podeAtender(ag) && (
+                                  <Link to={`/prontuario/${ag.id}`} className="text-cyan-600" onClick={(e) => e.stopPropagation()}>
+                                    <CheckBadgeIcon className="w-3 h-3" />
+                                  </Link>
+                                )}
+                              </div>
+                            );
+                          })}
                           {ags.length === 0 && isCurrentMonth && (
                             <button
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setEditing(null);
                                 setFormData({
                                   ...formData,
-                                  data_agendamento: format(current, 'yyyy-MM-dd')
+                                  data_agendamento: format(current, 'yyyy-MM-dd'),
+                                  hora_inicio: '09:00',
+                                  hora_fim: '09:30'
                                 });
                                 setShowModal(true);
                               }}
-                              className="w-full text-xs text-gray-400 hover:text-blue-500 text-center py-1"
+                              className="w-full text-xs text-gray-400 hover:text-blue-500 py-1 transition-colors"
                             >
                               + Agendar
                             </button>
@@ -588,131 +727,235 @@ export default function Agendamentos() {
             </div>
           </div>
         )}
+
+        {/* TOOLTIP */}
+        {tooltipData && (
+          <div 
+            className="fixed z-50 bg-gray-900 text-white rounded-lg shadow-xl p-3 max-w-sm pointer-events-none"
+            style={{
+              left: tooltipPosition.x,
+              top: tooltipPosition.y - 10,
+              transform: 'translateX(-50%) translateY(-100%)'
+            }}
+          >
+            <div className="text-sm font-semibold mb-2 border-b border-gray-700 pb-1">
+              {tooltipData.data}
+            </div>
+            <div className="space-y-1 max-h-48 overflow-y-auto">
+              {tooltipData.agendamentos.map(ag => (
+                <div key={ag.id} className="text-xs flex items-center justify-between gap-2 py-1 border-b border-gray-700 last:border-0">
+                  <div>
+                    <span className="font-mono text-gray-300">{formatarHora(ag.hora_inicio)}</span>
+                    <span className="ml-2">{ag.paciente_nome}</span>
+                    <div className="text-gray-400 text-[10px]">{ag.prestador_nome}</div>
+                  </div>
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                    ag.status === 'realizado' ? 'bg-green-600' : 
+                    ag.status === 'cancelado' ? 'bg-red-600' : 
+                    ag.status === 'confirmado' ? 'bg-blue-600' : 'bg-yellow-600'
+                  }`}>
+                    {STATUS_AGENDAMENTO.find(s => s.value === ag.status)?.label || ag.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-gray-900"></div>
+          </div>
+        )}
       </div>
 
       {/* MODAL */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white dark:bg-gray-800">
-              <h2 className="text-xl font-semibold">{editing ? 'Editar' : 'Novo'} Agendamento</h2>
-              <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded">
-                <XMarkIcon className="w-6 h-6" />
+            <div className="p-6 border-b dark:border-gray-700 flex justify-between items-center sticky top-0 bg-white dark:bg-gray-800">
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-white">{editing ? 'Editar' : 'Novo'} Agendamento</h2>
+              <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                <XMarkIcon className="w-6 h-6 text-gray-600 dark:text-gray-400" />
               </button>
             </div>
             
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Paciente *</label>
-                  <select
-                    value={formData.paciente_id}
-                    onChange={(e) => setFormData({...formData, paciente_id: e.target.value})}
-                    className="w-full border rounded-lg px-3 py-2"
-                    required
-                  >
-                    <option value="">Selecione</option>
-                    {pacientes.map(p => <option key={p.id} value={p.id}>{p.nome} - {p.numero_carteira}</option>)}
-                  </select>
+                <div className="relative paciente-dropdown">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paciente *</label>
+                  <input
+                    type="text"
+                    placeholder="Digite nome, CPF ou carteira..."
+                    value={pacienteBusca}
+                    onChange={(e) => {
+                      setPacienteBusca(e.target.value);
+                      setShowPacienteList(true);
+                      if (e.target.value === '') setFormData({...formData, paciente_id: ''});
+                    }}
+                    onFocus={() => setShowPacienteList(true)}
+                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    autoComplete="off"
+                  />
+                  {showPacienteList && pacientesFiltrados.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {pacientesFiltrados.map(p => (
+                        <div
+                          key={p.id}
+                          className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b dark:border-gray-700 last:border-b-0"
+                          onClick={() => {
+                            setFormData({...formData, paciente_id: p.id.toString()});
+                            setPacienteBusca(`${p.nome} - ${p.numero_carteira}`);
+                            setShowPacienteList(false);
+                          }}
+                        >
+                          <div className="font-medium text-gray-800 dark:text-white">{p.nome}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">CPF: {p.cpf || '---'} | Carteira: {p.numero_carteira}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="relative prestador-dropdown">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Profissional *</label>
+                  <input
+                    type="text"
+                    placeholder="Digite nome, especialidade ou número do conselho..."
+                    value={prestadorBusca}
+                    onChange={(e) => {
+                      setPrestadorBusca(e.target.value);
+                      setShowPrestadorList(true);
+                      if (e.target.value === '') setFormData({...formData, prestador_id: ''});
+                    }}
+                    onFocus={() => setShowPrestadorList(true)}
+                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    autoComplete="off"
+                  />
+                  {showPrestadorList && prestadoresFiltrados.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {prestadoresFiltrados.map(p => (
+                        <div
+                          key={p.id}
+                          className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b dark:border-gray-700 last:border-b-0"
+                          onClick={() => {
+                            setFormData({...formData, prestador_id: p.id.toString()});
+                            setPrestadorBusca(`${p.nome} - ${p.especialidade}`);
+                            setShowPrestadorList(false);
+                          }}
+                        >
+                          <div className="font-medium text-gray-800 dark:text-white">{p.nome}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {p.especialidade} | CPF: {p.cpf || '---'} | Conselho: {p.numero_conselho}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="relative sala-dropdown">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sala</label>
+                  <input
+                    type="text"
+                    placeholder="Digite o nome da sala..."
+                    value={salaBusca}
+                    onChange={(e) => {
+                      setSalaBusca(e.target.value);
+                      setShowSalaList(true);
+                      if (e.target.value === '') setFormData({...formData, sala_id: ''});
+                    }}
+                    onFocus={() => setShowSalaList(true)}
+                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    autoComplete="off"
+                  />
+                  {showSalaList && salasFiltradas.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {salasFiltradas.map(s => (
+                        <div
+                          key={s.id}
+                          className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b dark:border-gray-700 last:border-b-0 flex items-center gap-2"
+                          onClick={() => {
+                            setFormData({...formData, sala_id: s.id.toString()});
+                            setSalaBusca(s.nome);
+                            setShowSalaList(false);
+                          }}
+                        >
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.cor }}></div>
+                          <span className="text-gray-800 dark:text-white">{s.nome}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">({s.tipo})</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Profissional *</label>
-                  <select
-                    value={formData.prestador_id}
-                    onChange={(e) => setFormData({...formData, prestador_id: e.target.value})}
-                    className="w-full border rounded-lg px-3 py-2"
-                    required
-                  >
-                    <option value="">Selecione</option>
-                    {prestadores.map(p => <option key={p.id} value={p.id}>{p.nome} - {p.especialidade}</option>)}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">Sala</label>
-                  <select
-                    value={formData.sala_id}
-                    onChange={(e) => setFormData({...formData, sala_id: e.target.value})}
-                    className="w-full border rounded-lg px-3 py-2"
-                  >
-                    <option value="">Nenhuma</option>
-                    {salas.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">Tipo</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
                   <select
                     value={formData.tipo}
                     onChange={(e) => setFormData({...formData, tipo: e.target.value})}
-                    className="w-full border rounded-lg px-3 py-2"
+                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                   >
                     {TIPO_AGENDAMENTO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Modalidade</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Modalidade</label>
                   <select
                     value={formData.modalidade}
                     onChange={(e) => setFormData({...formData, modalidade: e.target.value})}
-                    className="w-full border rounded-lg px-3 py-2"
+                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                   >
                     {MODALIDADE.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Data</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data</label>
                   <input
                     type="date"
                     value={formData.data_agendamento}
                     onChange={(e) => setFormData({...formData, data_agendamento: e.target.value})}
-                    className="w-full border rounded-lg px-3 py-2"
-                    required
+                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-sm font-medium mb-1">Hora Início</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hora Início</label>
                     <input
                       type="time"
                       value={formData.hora_inicio}
                       onChange={(e) => setFormData({...formData, hora_inicio: e.target.value})}
-                      className="w-full border rounded-lg px-3 py-2"
+                      className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">Hora Fim</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hora Fim</label>
                     <input
                       type="time"
                       value={formData.hora_fim}
                       onChange={(e) => setFormData({...formData, hora_fim: e.target.value})}
-                      className="w-full border rounded-lg px-3 py-2"
+                      className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     />
                   </div>
                 </div>
 
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium mb-1">Observações</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações</label>
                   <textarea
                     rows="3"
                     value={formData.observacao}
                     onChange={(e) => setFormData({...formData, observacao: e.target.value})}
-                    className="w-full border rounded-lg px-3 py-2"
+                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     placeholder="Informações adicionais..."
                   />
                 </div>
               </div>
             </div>
 
-            <div className="p-6 border-t flex justify-end gap-3 sticky bottom-0 bg-white dark:bg-gray-800">
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg">
+            <div className="p-6 border-t dark:border-gray-700 flex justify-end gap-3 sticky bottom-0 bg-white dark:bg-gray-800">
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:border-gray-600 text-gray-700 dark:text-gray-300">
                 Cancelar
               </button>
-              <button onClick={salvarAgendamento} className="px-4 py-2 bg-blue-600 text-white rounded-lg">
+              <button onClick={salvarAgendamento} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                 {editing ? 'Atualizar' : 'Salvar'}
               </button>
             </div>
