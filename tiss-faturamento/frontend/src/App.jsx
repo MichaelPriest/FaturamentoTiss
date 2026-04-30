@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, createContext, useContext } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
 import { 
@@ -22,12 +22,51 @@ import Configuracoes from './pages/Configuracoes';
 import NotificationBell from './components/NotificationBell';
 
 import { setConfig } from './lib/tissGenerator';
-import { supabase, isSupabaseAvailable, checkSupabaseConnection } from './lib/supabaseClient';
+import { supabase, isSupabaseAvailable } from './lib/supabaseClient';
+
+// Context para o tema
+const ThemeContext = createContext({ darkMode: false, toggleDarkMode: () => {} });
+export const useTheme = () => useContext(ThemeContext);
+
+// Componente Provider do Tema
+function ThemeProvider({ children }) {
+  const [darkMode, setDarkMode] = useState(false);
+
+  useEffect(() => {
+    const savedDarkMode = localStorage.getItem('darkMode');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const shouldBeDark = savedDarkMode === 'true' || (savedDarkMode === null && prefersDark);
+    
+    setDarkMode(shouldBeDark);
+    aplicarTema(shouldBeDark);
+  }, []);
+
+  const aplicarTema = (isDark) => {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
+
+  const toggleDarkMode = () => {
+    const newDarkMode = !darkMode;
+    setDarkMode(newDarkMode);
+    localStorage.setItem('darkMode', newDarkMode);
+    aplicarTema(newDarkMode);
+    toast.success(newDarkMode ? 'Modo escuro ativado' : 'Modo claro ativado');
+  };
+
+  return (
+    <ThemeContext.Provider value={{ darkMode, toggleDarkMode }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
 
 // Serviço de autenticação
 const authService = {
   async login(email, senha) {
-    // Se Supabase estiver disponível, busca na tabela usuarios
     if (isSupabaseAvailable()) {
       try {
         const { data, error } = await supabase
@@ -39,9 +78,7 @@ const authService = {
         
         if (error) throw error;
         
-        // Verificar senha (em produção, use hash)
         if (data && data.senha === senha) {
-          // Atualizar último acesso
           await supabase
             .from('usuarios')
             .update({ ultimo_acesso: new Date().toISOString() })
@@ -52,11 +89,9 @@ const authService = {
         return { success: false, error: 'Credenciais inválidas' };
       } catch (error) {
         console.error('Erro no login Supabase:', error);
-        // Fallback para credencial fixa
         return verificarCredencialFixa(email, senha);
       }
     } else {
-      // Fallback para credencial fixa
       return verificarCredencialFixa(email, senha);
     }
   }
@@ -82,15 +117,10 @@ function MainApp() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [usuario, setUsuario] = useState(null);
-  const [darkMode, setDarkMode] = useState(false);
+  const { darkMode, toggleDarkMode } = useTheme();
   const navigate = useNavigate();
 
   useEffect(() => {
-    carregarConfiguracoes();
-    aplicarTema();
-  }, []);
-
-  const carregarConfiguracoes = () => {
     const storedConfig = localStorage.getItem('config_sistema');
     if (storedConfig) {
       setConfig(JSON.parse(storedConfig));
@@ -103,33 +133,7 @@ function MainApp() {
         setUsuario(sessaoData.usuario);
       }
     }
-  };
-
-  const aplicarTema = () => {
-    const savedDarkMode = localStorage.getItem('darkMode');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const shouldBeDark = savedDarkMode === 'true' || (savedDarkMode === null && prefersDark);
-    
-    setDarkMode(shouldBeDark);
-    if (shouldBeDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  };
-
-  const toggleDarkMode = () => {
-    const newDarkMode = !darkMode;
-    setDarkMode(newDarkMode);
-    localStorage.setItem('darkMode', newDarkMode);
-    if (newDarkMode) {
-      document.documentElement.classList.add('dark');
-      toast.success('Modo escuro ativado');
-    } else {
-      document.documentElement.classList.remove('dark');
-      toast.success('Modo claro ativado');
-    }
-  };
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('tiss_sessao');
@@ -170,7 +174,7 @@ function MainApp() {
   const currentMenuItem = menuItems.find(i => i.id === activeTab);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
       <Toaster position="top-right" richColors />
       
       {/* Sidebar Desktop */}
@@ -277,7 +281,6 @@ function MainApp() {
             </div>
 
             <div className="flex items-center gap-3">
-              {/* Dark Mode Toggle */}
               <button
                 onClick={toggleDarkMode}
                 className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
@@ -313,7 +316,9 @@ function MainApp() {
           </div>
         </header>
         
-        <div className="p-6">{renderContent()}</div>
+        <div className="p-6">
+          {renderContent()}
+        </div>
       </main>
 
       {/* Mobile Sidebar */}
@@ -384,32 +389,15 @@ function LoginPage({ onLogin }) {
   const [senha, setSenha] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+  const { darkMode, toggleDarkMode } = useTheme();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const savedDarkMode = localStorage.getItem('darkMode');
-    const shouldBeDark = savedDarkMode === 'true';
-    setDarkMode(shouldBeDark);
-    if (shouldBeDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-
     const result = await authService.login(email, senha);
-
     if (result.success) {
-      const sessao = {
-        usuario: result.usuario,
-        logado: true,
-        data_hora: new Date().toISOString()
-      };
+      const sessao = { usuario: result.usuario, logado: true, data_hora: new Date().toISOString() };
       localStorage.setItem('tiss_sessao', JSON.stringify(sessao));
       toast.success(`Bem-vindo, ${result.usuario.nome}!`);
       if (onLogin) onLogin(true);
@@ -418,17 +406,6 @@ function LoginPage({ onLogin }) {
       toast.error(result.error || 'Email ou senha incorretos!');
     }
     setLoading(false);
-  };
-
-  const toggleDarkMode = () => {
-    const newDarkMode = !darkMode;
-    setDarkMode(newDarkMode);
-    localStorage.setItem('darkMode', newDarkMode);
-    if (newDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
   };
 
   return (
@@ -556,12 +533,14 @@ function App() {
   }, []);
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<LoginPage onLogin={setIsLoggedIn} />} />
-        <Route path="/*" element={isLoggedIn ? <MainApp /> : <Navigate to="/login" replace />} />
-      </Routes>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage onLogin={setIsLoggedIn} />} />
+          <Route path="/*" element={isLoggedIn ? <MainApp /> : <Navigate to="/login" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 
