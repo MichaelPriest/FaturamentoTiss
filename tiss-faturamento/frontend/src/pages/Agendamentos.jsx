@@ -15,11 +15,11 @@ import { ptBR } from 'date-fns/locale';
 import { supabase } from '../lib/supabaseClient';
 
 const STATUS_AGENDAMENTO = [
-  { value: 'agendado', label: 'Agendado', color: 'bg-blue-100 text-blue-700' },
-  { value: 'confirmado', label: 'Confirmado', color: 'bg-green-100 text-green-700' },
-  { value: 'cancelado', label: 'Cancelado', color: 'bg-red-100 text-red-700' },
-  { value: 'realizado', label: 'Realizado', color: 'bg-purple-100 text-purple-700' },
-  { value: 'aguardando', label: 'Aguardando', color: 'bg-yellow-100 text-yellow-700' }
+  { value: 'agendado', label: 'Agendado', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  { value: 'confirmado', label: 'Confirmado', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  { value: 'cancelado', label: 'Cancelado', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+  { value: 'realizado', label: 'Realizado', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
+  { value: 'aguardando', label: 'Aguardando', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' }
 ];
 
 const TIPO_AGENDAMENTO = [
@@ -102,12 +102,8 @@ export default function Agendamentos() {
       setConvenios(conveniosRes.data || []);
       setSalas(salasRes.data || []);
       
-      console.log('Dados carregados:', {
-        agendamentos: agendamentosRes.data?.length,
-        pacientes: pacientesRes.data?.length,
-        prestadores: prestadoresRes.data?.length,
-        salas: salasRes.data?.length
-      });
+      console.log('Agendamentos carregados:', agendamentosRes.data?.length);
+      console.log('Primeiro agendamento:', agendamentosRes.data?.[0]);
     } catch (error) {
       console.error('Erro:', error);
       toast.error('Erro ao carregar dados');
@@ -127,11 +123,13 @@ export default function Agendamentos() {
     p.numero_carteira?.includes(pacienteBusca)
   ).slice(0, 15);
 
-  // Filtrar prestadores
+  // Filtrar prestadores - incluindo número do conselho
   const prestadoresFiltrados = prestadores.filter(p => 
     p.nome?.toLowerCase().includes(prestadorBusca.toLowerCase()) ||
     p.especialidade?.toLowerCase().includes(prestadorBusca.toLowerCase()) ||
-    p.cpf?.includes(prestadorBusca)
+    p.cpf?.includes(prestadorBusca) ||
+    p.numero_conselho?.includes(prestadorBusca) ||
+    p.conselho?.toLowerCase().includes(prestadorBusca.toLowerCase())
   ).slice(0, 15);
 
   // Filtrar salas
@@ -192,6 +190,8 @@ export default function Agendamentos() {
       paciente_carteira: paciente?.numero_carteira || '',
       prestador_nome: prestador?.nome || '',
       prestador_especialidade: prestador?.especialidade || '',
+      prestador_conselho: prestador?.conselho || '',
+      prestador_numero_conselho: prestador?.numero_conselho || '',
       convenio_id: paciente?.convenio_id || null,
       convenio_nome: convenio?.razao_social || 'Sem convênio',
       created_at: new Date().toISOString(),
@@ -272,7 +272,8 @@ export default function Agendamentos() {
       const term = searchTerm.toLowerCase();
       filtrados = filtrados.filter(a => 
         a.paciente_nome?.toLowerCase().includes(term) ||
-        a.prestador_nome?.toLowerCase().includes(term)
+        a.prestador_nome?.toLowerCase().includes(term) ||
+        a.sala_nome?.toLowerCase().includes(term)
       );
     }
     return filtrados;
@@ -290,6 +291,13 @@ export default function Agendamentos() {
 
   const estatisticas = {
     hoje: getAgendamentosFiltrados().filter(a => a.data_agendamento === format(new Date(), 'yyyy-MM-dd') && a.status !== 'cancelado').length,
+    semana: getAgendamentosFiltrados().filter(a => {
+      const data = new Date(a.data_agendamento);
+      const hoje = new Date();
+      const inicioSemana = startOfWeek(hoje, { weekStartsOn: 1 });
+      const fimSemana = endOfWeek(hoje, { weekStartsOn: 1 });
+      return data >= inicioSemana && data <= fimSemana && a.status !== 'cancelado';
+    }).length,
     total: getAgendamentosFiltrados().length,
     pendentes: getAgendamentosFiltrados().filter(a => a.status === 'agendado' || a.status === 'aguardando').length,
     realizados: getAgendamentosFiltrados().filter(a => a.status === 'realizado').length
@@ -314,41 +322,45 @@ export default function Agendamentos() {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Agendamentos</h1>
-            <p className="text-sm text-gray-500">Gerencie consultas, exames e procedimentos</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Gerencie consultas, exames e procedimentos</p>
           </div>
           <button
             onClick={abrirModalNovo}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
           >
             <PlusIcon className="w-5 h-5" />
             Novo Agendamento
           </button>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
-            <p className="text-sm text-gray-500">Hoje</p>
-            <p className="text-2xl font-bold">{estatisticas.hoje}</p>
+        {/* Stats com dark mode */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-blue-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Hoje</p>
+            <p className="text-2xl font-bold text-gray-800 dark:text-white">{estatisticas.hoje}</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
-            <p className="text-sm text-gray-500">Total</p>
-            <p className="text-2xl font-bold">{estatisticas.total}</p>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-green-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Esta Semana</p>
+            <p className="text-2xl font-bold text-gray-800 dark:text-white">{estatisticas.semana}</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-4 border-l-4 border-yellow-500">
-            <p className="text-sm text-gray-500">Pendentes</p>
-            <p className="text-2xl font-bold">{estatisticas.pendentes}</p>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-purple-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Total</p>
+            <p className="text-2xl font-bold text-gray-800 dark:text-white">{estatisticas.total}</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-4 border-l-4 border-purple-500">
-            <p className="text-sm text-gray-500">Realizados</p>
-            <p className="text-2xl font-bold">{estatisticas.realizados}</p>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-yellow-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Pendentes</p>
+            <p className="text-2xl font-bold text-gray-800 dark:text-white">{estatisticas.pendentes}</p>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-purple-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Realizados</p>
+            <p className="text-2xl font-bold text-gray-800 dark:text-white">{estatisticas.realizados}</p>
           </div>
         </div>
 
-        {/* Filtros */}
-        <div className="bg-white rounded-lg shadow mb-6">
-          <div className="p-4 border-b">
-            <button onClick={() => setShowFiltros(!showFiltros)} className="flex items-center gap-2 text-gray-600">
+        {/* Filtros com dark mode */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
+          <div className="p-4 border-b dark:border-gray-700">
+            <button onClick={() => setShowFiltros(!showFiltros)} className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
               <FunnelIcon className="w-5 h-5" />
               Filtros
               {showFiltros ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
@@ -360,16 +372,16 @@ export default function Agendamentos() {
                 <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Buscar paciente ou profissional..."
+                  placeholder="Buscar paciente, profissional ou sala..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2 border rounded-lg"
+                  className="w-full pl-10 pr-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 />
               </div>
               <select
                 value={filtroStatus}
                 onChange={(e) => setFiltroStatus(e.target.value)}
-                className="border rounded-lg px-3 py-2"
+                className="border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
               >
                 <option value="todos">Todos os status</option>
                 {STATUS_AGENDAMENTO.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
@@ -378,28 +390,32 @@ export default function Agendamentos() {
           </div>
         </div>
 
-        {/* Navegação */}
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="flex justify-between items-center">
+        {/* Navegação com dark mode */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
+          <div className="flex justify-between items-center flex-wrap gap-4">
             <div className="flex gap-2">
-              <button onClick={navegarAnterior} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronLeftIcon className="w-5 h-5" /></button>
-              <button onClick={irParaHoje} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Hoje</button>
-              <button onClick={navegarProximo} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronRightIcon className="w-5 h-5" /></button>
+              <button onClick={navegarAnterior} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                <ChevronLeftIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              </button>
+              <button onClick={irParaHoje} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Hoje</button>
+              <button onClick={navegarProximo} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
+                <ChevronRightIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              </button>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => setViewMode('dia')} className={`px-4 py-2 rounded-lg flex items-center gap-2 ${viewMode === 'dia' ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}>
+              <button onClick={() => setViewMode('dia')} className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${viewMode === 'dia' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
                 <ListBulletIcon className="w-4 h-4" /> Dia
               </button>
-              <button onClick={() => setViewMode('semana')} className={`px-4 py-2 rounded-lg flex items-center gap-2 ${viewMode === 'semana' ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}>
+              <button onClick={() => setViewMode('semana')} className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${viewMode === 'semana' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
                 <ViewColumnsIcon className="w-4 h-4" /> Semana
               </button>
-              <button onClick={() => setViewMode('mes')} className={`px-4 py-2 rounded-lg flex items-center gap-2 ${viewMode === 'mes' ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}>
+              <button onClick={() => setViewMode('mes')} className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${viewMode === 'mes' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}>
                 <CalendarDaysIcon className="w-4 h-4" /> Mês
               </button>
             </div>
           </div>
           <div className="text-center mt-3">
-            <h2 className="text-xl font-semibold">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
               {viewMode === 'dia' && format(currentDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
               {viewMode === 'semana' && `Semana de ${format(startOfWeek(currentDate, { weekStartsOn: 1 }), "dd/MM")} a ${format(endOfWeek(currentDate, { weekStartsOn: 1 }), "dd/MM/yyyy")}`}
               {viewMode === 'mes' && format(currentDate, "MMMM 'de' yyyy", { locale: ptBR })}
@@ -409,33 +425,43 @@ export default function Agendamentos() {
 
         {/* VISUALIZAÇÃO DIA */}
         {viewMode === 'dia' && (
-          <div className="bg-white rounded-lg shadow">
-            <div className="divide-y">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+            <div className="divide-y dark:divide-gray-700">
+              {getAgendamentosPorData(currentDate).length === 0 && (
+                <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                  Nenhum agendamento para este dia
+                </div>
+              )}
               {HORARIOS.map(hora => {
                 const agendamento = getAgendamentosPorData(currentDate).find(a => a.hora_inicio === hora);
                 const statusInfo = agendamento ? STATUS_AGENDAMENTO.find(s => s.value === agendamento.status) : null;
                 return (
-                  <div key={hora} className="p-3 hover:bg-gray-50">
+                  <div key={hora} className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
-                        <div className="w-20 font-mono font-bold">{hora}</div>
+                        <div className="w-20 font-mono font-bold text-gray-700 dark:text-gray-300">{hora}</div>
                         {agendamento ? (
                           <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold">{agendamento.paciente_nome}</span>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-gray-800 dark:text-white">{agendamento.paciente_nome}</span>
+                              <span className="text-xs text-gray-500">{agendamento.paciente_carteira}</span>
                               <span className={`px-2 py-0.5 rounded-full text-xs ${statusInfo?.color}`}>{statusInfo?.label}</span>
                             </div>
-                            <div className="text-sm text-gray-500">{agendamento.prestador_nome}</div>
-                            {agendamento.sala_nome && <div className="text-xs text-gray-400">Sala: {agendamento.sala_nome}</div>}
+                            <div className="text-sm text-gray-500 dark:text-gray-400">{agendamento.prestador_nome}</div>
+                            {agendamento.sala_nome && (
+                              <div className="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
+                                <HomeModernIcon className="w-3 h-3" /> {agendamento.sala_nome}
+                              </div>
+                            )}
                           </div>
                         ) : (
-                          <div className="flex-1 text-gray-400">Disponível</div>
+                          <div className="flex-1 text-gray-400 dark:text-gray-500">Disponível</div>
                         )}
                       </div>
                       {agendamento && (
                         <div className="flex gap-1">
                           {podeAtender(agendamento) && (
-                            <Link to={`/prontuario/${agendamento.id}`} className="p-2 text-cyan-600 hover:bg-cyan-50 rounded-lg">
+                            <Link to={`/prontuario/${agendamento.id}`} className="p-2 text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 rounded-lg transition-colors">
                               <CheckBadgeIcon className="w-5 h-5" />
                             </Link>
                           )}
@@ -458,10 +484,10 @@ export default function Agendamentos() {
                             setPrestadorBusca(agendamento.prestador_nome || '');
                             setSalaBusca(agendamento.sala_nome || '');
                             setShowModal(true);
-                          }} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg">
+                          }} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
                             <PencilIcon className="w-5 h-5" />
                           </button>
-                          <button onClick={() => excluirAgendamento(agendamento.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg">
+                          <button onClick={() => excluirAgendamento(agendamento.id)} className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
                             <TrashIcon className="w-5 h-5" />
                           </button>
                         </div>
@@ -476,28 +502,30 @@ export default function Agendamentos() {
 
         {/* VISUALIZAÇÃO SEMANA */}
         {viewMode === 'semana' && (
-          <div className="bg-white rounded-lg shadow overflow-x-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-x-auto">
             <div className="min-w-[900px]">
-              <div className="grid grid-cols-8 border-b bg-gray-50">
-                <div className="p-3 font-semibold">Horário</div>
+              <div className="grid grid-cols-8 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                <div className="p-3 font-semibold text-gray-700 dark:text-gray-300">Horário</div>
                 {getDiasDaSemana().map((dia, idx) => (
                   <div key={idx} className="p-3 text-center font-semibold">
-                    <div>{format(dia, 'EEE', { locale: ptBR })}</div>
-                    <div className={`text-lg ${isSameDay(dia, new Date()) ? 'text-blue-600' : ''}`}>{format(dia, 'dd/MM')}</div>
+                    <div className="text-gray-600 dark:text-gray-400">{format(dia, 'EEE', { locale: ptBR })}</div>
+                    <div className={`text-lg ${isSameDay(dia, new Date()) ? 'text-blue-600' : 'text-gray-800 dark:text-white'}`}>
+                      {format(dia, 'dd/MM')}
+                    </div>
                   </div>
                 ))}
               </div>
               {HORARIOS.map(hora => (
-                <div key={hora} className="grid grid-cols-8 border-b">
-                  <div className="p-3 font-mono font-bold bg-gray-50">{hora}</div>
+                <div key={hora} className="grid grid-cols-8 border-b dark:border-gray-700">
+                  <div className="p-3 font-mono font-bold bg-gray-50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300">{hora}</div>
                   {getDiasDaSemana().map((dia, idx) => {
                     const agendamento = getAgendamentosPorData(dia).find(a => a.hora_inicio === hora);
                     return (
-                      <div key={idx} className="p-2 border-l min-h-[80px]">
+                      <div key={idx} className="p-2 border-l dark:border-gray-700 min-h-[80px]">
                         {agendamento ? (
                           <div className="text-sm">
-                            <p className="font-medium truncate">{agendamento.paciente_nome}</p>
-                            <p className="text-xs text-gray-500 truncate">{agendamento.prestador_nome}</p>
+                            <p className="font-medium truncate text-gray-800 dark:text-white">{agendamento.paciente_nome}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{agendamento.prestador_nome}</p>
                             <div className="flex gap-1 mt-1">
                               {podeAtender(agendamento) && (
                                 <Link to={`/prontuario/${agendamento.id}`} className="text-cyan-600">
@@ -540,7 +568,7 @@ export default function Agendamentos() {
                               });
                               setShowModal(true);
                             }}
-                            className="w-full h-full flex items-center justify-center text-gray-400 hover:text-blue-500"
+                            className="w-full h-full flex items-center justify-center text-gray-400 hover:text-blue-500 transition-colors"
                           >
                             <PlusIcon className="w-5 h-5" />
                           </button>
@@ -556,11 +584,11 @@ export default function Agendamentos() {
 
         {/* VISUALIZAÇÃO MÊS */}
         {viewMode === 'mes' && (
-          <div className="bg-white rounded-lg shadow overflow-x-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-x-auto">
             <div className="min-w-[800px]">
-              <div className="grid grid-cols-7 border-b bg-gray-50">
+              <div className="grid grid-cols-7 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
                 {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map(dia => (
-                  <div key={dia} className="p-3 text-center font-semibold">{dia}</div>
+                  <div key={dia} className="p-3 text-center font-semibold text-gray-600 dark:text-gray-400">{dia}</div>
                 ))}
               </div>
               <div className="grid grid-cols-7">
@@ -573,15 +601,16 @@ export default function Agendamentos() {
                   for (let i = 0; i < 42; i++) {
                     const isCurrentMonth = current.getMonth() === currentDate.getMonth();
                     const agendamentosDia = getAgendamentosPorData(current);
+                    const isToday = isSameDay(current, new Date());
                     cells.push(
-                      <div key={i} className={`border min-h-[100px] p-2 ${!isCurrentMonth ? 'bg-gray-50' : ''}`}>
-                        <div className={`font-medium ${isSameDay(current, new Date()) ? 'text-blue-600' : ''}`}>
+                      <div key={i} className={`border dark:border-gray-700 min-h-[100px] p-2 ${!isCurrentMonth ? 'bg-gray-50 dark:bg-gray-800/50' : 'bg-white dark:bg-gray-800'}`}>
+                        <div className={`font-medium ${isToday ? 'text-blue-600' : 'text-gray-700 dark:text-gray-300'}`}>
                           {format(current, 'dd')}
                         </div>
                         <div className="space-y-1 mt-1">
                           {agendamentosDia.slice(0, 2).map(ag => (
-                            <div key={ag.id} className="text-xs p-1 rounded bg-gray-100 flex items-center justify-between">
-                              <span className="truncate">{ag.hora_inicio} {ag.paciente_nome?.split(' ')[0]}</span>
+                            <div key={ag.id} className="text-xs p-1 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-between">
+                              <span className="truncate text-gray-700 dark:text-gray-300">{ag.hora_inicio} {ag.paciente_nome?.split(' ')[0]}</span>
                               {podeAtender(ag) && (
                                 <Link to={`/prontuario/${ag.id}`} className="text-cyan-600">
                                   <CheckBadgeIcon className="w-3 h-3" />
@@ -589,7 +618,9 @@ export default function Agendamentos() {
                               )}
                             </div>
                           ))}
-                          {agendamentosDia.length > 2 && <div className="text-xs text-gray-400">+{agendamentosDia.length - 2}</div>}
+                          {agendamentosDia.length > 2 && (
+                            <div className="text-xs text-gray-400 dark:text-gray-500 text-center">+{agendamentosDia.length - 2}</div>
+                          )}
                         </div>
                       </div>
                     );
@@ -603,22 +634,22 @@ export default function Agendamentos() {
         )}
       </div>
 
-      {/* MODAL */}
+      {/* MODAL com dark mode */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white">
-              <h2 className="text-xl font-semibold">{editing ? 'Editar' : 'Novo'} Agendamento</h2>
-              <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded">
-                <XMarkIcon className="w-6 h-6" />
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b dark:border-gray-700 flex justify-between items-center sticky top-0 bg-white dark:bg-gray-800">
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-white">{editing ? 'Editar' : 'Novo'} Agendamento</h2>
+              <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+                <XMarkIcon className="w-6 h-6 text-gray-600 dark:text-gray-400" />
               </button>
             </div>
             
             <div className="p-6">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Paciente com busca */}
                 <div className="relative">
-                  <label className="block text-sm font-medium mb-1">Paciente *</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paciente *</label>
                   <input
                     type="text"
                     placeholder="Digite nome, CPF ou carteira..."
@@ -629,35 +660,35 @@ export default function Agendamentos() {
                       if (e.target.value === '') setFormData({...formData, paciente_id: ''});
                     }}
                     onFocus={() => setShowPacienteList(true)}
-                    className="w-full border rounded-lg px-3 py-2"
+                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     autoComplete="off"
                   />
                   {showPacienteList && pacientesFiltrados.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                       {pacientesFiltrados.map(p => (
                         <div
                           key={p.id}
-                          className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
+                          className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b dark:border-gray-700 last:border-b-0"
                           onClick={() => {
                             setFormData({...formData, paciente_id: p.id.toString()});
                             setPacienteBusca(`${p.nome} - ${p.numero_carteira}`);
                             setShowPacienteList(false);
                           }}
                         >
-                          <div className="font-medium">{p.nome}</div>
-                          <div className="text-xs text-gray-500">CPF: {p.cpf || '---'} | Carteira: {p.numero_carteira}</div>
+                          <div className="font-medium text-gray-800 dark:text-white">{p.nome}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">CPF: {p.cpf || '---'} | Carteira: {p.numero_carteira}</div>
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
 
-                {/* Profissional com busca */}
+                {/* Profissional com busca - incluindo número do conselho */}
                 <div className="relative">
-                  <label className="block text-sm font-medium mb-1">Profissional *</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Profissional *</label>
                   <input
                     type="text"
-                    placeholder="Digite nome ou especialidade..."
+                    placeholder="Digite nome, especialidade, CPF ou número do conselho..."
                     value={prestadorBusca}
                     onChange={(e) => {
                       setPrestadorBusca(e.target.value);
@@ -665,23 +696,25 @@ export default function Agendamentos() {
                       if (e.target.value === '') setFormData({...formData, prestador_id: ''});
                     }}
                     onFocus={() => setShowPrestadorList(true)}
-                    className="w-full border rounded-lg px-3 py-2"
+                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     autoComplete="off"
                   />
                   {showPrestadorList && prestadoresFiltrados.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                       {prestadoresFiltrados.map(p => (
                         <div
                           key={p.id}
-                          className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
+                          className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b dark:border-gray-700 last:border-b-0"
                           onClick={() => {
                             setFormData({...formData, prestador_id: p.id.toString()});
                             setPrestadorBusca(`${p.nome} - ${p.especialidade}`);
                             setShowPrestadorList(false);
                           }}
                         >
-                          <div className="font-medium">{p.nome}</div>
-                          <div className="text-xs text-gray-500">{p.especialidade} | CPF: {p.cpf || '---'}</div>
+                          <div className="font-medium text-gray-800 dark:text-white">{p.nome}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {p.especialidade} | CPF: {p.cpf || '---'} | Conselho: {p.conselho} {p.numero_conselho}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -690,7 +723,7 @@ export default function Agendamentos() {
 
                 {/* Sala com busca */}
                 <div className="relative">
-                  <label className="block text-sm font-medium mb-1">Sala</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sala</label>
                   <input
                     type="text"
                     placeholder="Digite o nome da sala..."
@@ -701,15 +734,15 @@ export default function Agendamentos() {
                       if (e.target.value === '') setFormData({...formData, sala_id: ''});
                     }}
                     onFocus={() => setShowSalaList(true)}
-                    className="w-full border rounded-lg px-3 py-2"
+                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     autoComplete="off"
                   />
                   {showSalaList && salasFiltradas.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                       {salasFiltradas.map(s => (
                         <div
                           key={s.id}
-                          className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0 flex items-center gap-2"
+                          className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b dark:border-gray-700 last:border-b-0 flex items-center gap-2"
                           onClick={() => {
                             setFormData({...formData, sala_id: s.id.toString()});
                             setSalaBusca(s.nome);
@@ -717,8 +750,8 @@ export default function Agendamentos() {
                           }}
                         >
                           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.cor }}></div>
-                          <span>{s.nome}</span>
-                          <span className="text-xs text-gray-500">({s.tipo})</span>
+                          <span className="text-gray-800 dark:text-white">{s.nome}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">({s.tipo})</span>
                         </div>
                       ))}
                     </div>
@@ -726,75 +759,76 @@ export default function Agendamentos() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Tipo</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
                   <select
                     value={formData.tipo}
                     onChange={(e) => setFormData({...formData, tipo: e.target.value})}
-                    className="w-full border rounded-lg px-3 py-2"
+                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                   >
                     {TIPO_AGENDAMENTO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Modalidade</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Modalidade</label>
                   <select
                     value={formData.modalidade}
                     onChange={(e) => setFormData({...formData, modalidade: e.target.value})}
-                    className="w-full border rounded-lg px-3 py-2"
+                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                   >
                     {MODALIDADE.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Data</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data</label>
                   <input
                     type="date"
                     value={formData.data_agendamento}
                     onChange={(e) => setFormData({...formData, data_agendamento: e.target.value})}
-                    className="w-full border rounded-lg px-3 py-2"
+                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-sm font-medium mb-1">Hora Início</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hora Início</label>
                     <input
                       type="time"
                       value={formData.hora_inicio}
                       onChange={(e) => setFormData({...formData, hora_inicio: e.target.value})}
-                      className="w-full border rounded-lg px-3 py-2"
+                      className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">Hora Fim</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hora Fim</label>
                     <input
                       type="time"
                       value={formData.hora_fim}
                       onChange={(e) => setFormData({...formData, hora_fim: e.target.value})}
-                      className="w-full border rounded-lg px-3 py-2"
+                      className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     />
                   </div>
                 </div>
 
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium mb-1">Observações</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações</label>
                   <textarea
                     rows="3"
                     value={formData.observacao}
                     onChange={(e) => setFormData({...formData, observacao: e.target.value})}
-                    className="w-full border rounded-lg px-3 py-2"
+                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    placeholder="Informações adicionais..."
                   />
                 </div>
               </div>
             </div>
 
-            <div className="p-6 border-t flex justify-end gap-3 sticky bottom-0 bg-white">
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg">
+            <div className="p-6 border-t dark:border-gray-700 flex justify-end gap-3 sticky bottom-0 bg-white dark:bg-gray-800">
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:border-gray-600 text-gray-700 dark:text-gray-300">
                 Cancelar
               </button>
-              <button onClick={salvarAgendamento} className="px-4 py-2 bg-blue-600 text-white rounded-lg">
+              <button onClick={salvarAgendamento} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                 {editing ? 'Atualizar' : 'Salvar'}
               </button>
             </div>
