@@ -6,7 +6,8 @@ import {
   ClipboardDocumentListIcon, CalendarIcon, CurrencyDollarIcon,
   ChartBarIcon, ExclamationTriangleIcon, DocumentTextIcon,
   Cog6ToothIcon, Bars3Icon, XMarkIcon, ArrowRightOnRectangleIcon,
-  ChevronLeftIcon, ChevronRightIcon, SunIcon, MoonIcon
+  ChevronLeftIcon, ChevronRightIcon, SunIcon, MoonIcon,
+  CalendarDaysIcon, FolderIcon, ChevronDownIcon, ChevronUpIcon
 } from '@heroicons/react/24/outline';
 
 import Dashboard from './pages/Dashboard';
@@ -321,11 +322,83 @@ function LoginPage() {
   );
 }
 
+// Componente de Item do Menu com Submenu
+function MenuItem({ item, isActive, isOpen, onClick, sidebarOpen, hasSubmenu, isSubmenuOpen, onToggleSubmenu }) {
+  const Icon = item.icon;
+  
+  if (hasSubmenu) {
+    return (
+      <div>
+        <button
+          onClick={onToggleSubmenu}
+          className={`
+            w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group
+            ${isActive ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-gray-800/50'}
+            ${!sidebarOpen ? 'justify-center' : ''}
+          `}
+          title={!sidebarOpen ? item.name : ''}
+        >
+          <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'group-hover:text-white'}`} />
+          {sidebarOpen && (
+            <>
+              <span className="text-sm font-medium flex-1 text-left">{item.name}</span>
+              {isSubmenuOpen ? (
+                <ChevronUpIcon className="w-4 h-4" />
+              ) : (
+                <ChevronDownIcon className="w-4 h-4" />
+              )}
+            </>
+          )}
+        </button>
+        {sidebarOpen && isSubmenuOpen && (
+          <div className="ml-8 mt-1 space-y-1">
+            {item.subItems.map((subItem) => (
+              <button
+                key={subItem.id}
+                onClick={() => onClick(subItem.id)}
+                className={`
+                  w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200
+                  ${activeTab === subItem.id ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white hover:bg-gray-800/50'}
+                `}
+              >
+                <subItem.icon className="w-4 h-4" />
+                <span className="text-xs">{subItem.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+  
+  return (
+    <button
+      onClick={() => onClick(item.id)}
+      className={`
+        w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group
+        ${isActive ? `bg-gradient-to-r ${item.color} text-white shadow-lg` : 'text-gray-400 hover:text-white hover:bg-gray-800/50'}
+        ${!sidebarOpen ? 'justify-center' : ''}
+      `}
+      title={!sidebarOpen ? item.name : ''}
+    >
+      <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'group-hover:text-white'}`} />
+      {sidebarOpen && <span className="text-sm font-medium">{item.name}</span>}
+      {isActive && sidebarOpen && <div className="ml-auto w-1.5 h-6 bg-white rounded-full opacity-60"></div>}
+    </button>
+  );
+}
+
 // Componente Principal do App (logado)
 function MainApp() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [openGroups, setOpenGroups] = useState({
+    cadastros: true,
+    faturamento: true,
+    agenda: true,
+    relatorios: true
+  });
   const { darkMode, toggleDarkMode } = useTheme();
   const { user, signOut, loading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -349,18 +422,65 @@ function MainApp() {
     navigate('/login');
   };
 
-  const menuItems = [
-    { id: 'dashboard', name: 'Dashboard', icon: HomeIcon, color: 'from-blue-500 to-blue-600' },
-    { id: 'convenios', name: 'Convênios', icon: BuildingOfficeIcon, color: 'from-purple-500 to-purple-600' },
-    { id: 'pacientes', name: 'Pacientes', icon: UsersIcon, color: 'from-green-500 to-green-600' },
-    { id: 'prestadores', name: 'Prestadores', icon: UserGroupIcon, color: 'from-teal-500 to-teal-600' },
-    { id: 'procedimentos', name: 'Procedimentos', icon: ClipboardDocumentListIcon, color: 'from-orange-500 to-orange-600' },
-    { id: 'atendimentos', name: 'Atendimentos', icon: CalendarIcon, color: 'from-pink-500 to-pink-600' },
-    { id: 'faturamento', name: 'Faturamento', icon: CurrencyDollarIcon, color: 'from-emerald-500 to-emerald-600' },
-    { id: 'glosas', name: 'Glosas', icon: ExclamationTriangleIcon, color: 'from-red-500 to-red-600' },
-    { id: 'relatorios', name: 'Relatórios', icon: ChartBarIcon, color: 'from-indigo-500 to-indigo-600' },
-    { id: 'configuracoes', name: 'Configurações', icon: Cog6ToothIcon, color: 'from-gray-500 to-gray-600' },
-    { id: 'agendamentos', name: 'Agendamentos', icon: CalendarIcon, color: 'from-cyan-500 to-cyan-600' },
+  const toggleGroup = (group) => {
+    setOpenGroups(prev => ({ ...prev, [group]: !prev[group] }));
+  };
+
+  // Menu organizado por grupos
+  const menuGroups = [
+    {
+      id: 'principal',
+      name: 'Principal',
+      icon: HomeIcon,
+      items: [
+        { id: 'dashboard', name: 'Dashboard', icon: HomeIcon, color: 'from-blue-500 to-blue-600' }
+      ]
+    },
+    {
+      id: 'cadastros',
+      name: 'Cadastros',
+      icon: FolderIcon,
+      items: [
+        { id: 'convenios', name: 'Convênios', icon: BuildingOfficeIcon, color: 'from-purple-500 to-purple-600' },
+        { id: 'pacientes', name: 'Pacientes', icon: UsersIcon, color: 'from-green-500 to-green-600' },
+        { id: 'prestadores', name: 'Prestadores', icon: UserGroupIcon, color: 'from-teal-500 to-teal-600' },
+        { id: 'procedimentos', name: 'Procedimentos', icon: ClipboardDocumentListIcon, color: 'from-orange-500 to-orange-600' }
+      ]
+    },
+    {
+      id: 'agenda',
+      name: 'Agenda',
+      icon: CalendarDaysIcon,
+      items: [
+        { id: 'agendamentos', name: 'Agendamentos', icon: CalendarIcon, color: 'from-cyan-500 to-cyan-600' },
+        { id: 'atendimentos', name: 'Atendimentos', icon: ClipboardDocumentListIcon, color: 'from-pink-500 to-pink-600' }
+      ]
+    },
+    {
+      id: 'faturamento',
+      name: 'Faturamento',
+      icon: CurrencyDollarIcon,
+      items: [
+        { id: 'faturamento', name: 'Lotes TISS', icon: CurrencyDollarIcon, color: 'from-emerald-500 to-emerald-600' },
+        { id: 'glosas', name: 'Glosas', icon: ExclamationTriangleIcon, color: 'from-red-500 to-red-600' }
+      ]
+    },
+    {
+      id: 'relatorios',
+      name: 'Relatórios',
+      icon: ChartBarIcon,
+      items: [
+        { id: 'relatorios', name: 'Relatórios', icon: ChartBarIcon, color: 'from-indigo-500 to-indigo-600' }
+      ]
+    },
+    {
+      id: 'configuracoes',
+      name: 'Configurações',
+      icon: Cog6ToothIcon,
+      items: [
+        { id: 'configuracoes', name: 'Configurações', icon: Cog6ToothIcon, color: 'from-gray-500 to-gray-600' }
+      ]
+    }
   ];
 
   const renderContent = () => {
@@ -371,16 +491,15 @@ function MainApp() {
       case 'prestadores': return <Prestadores />;
       case 'procedimentos': return <Procedimentos />;
       case 'atendimentos': return <Atendimentos />;
+      case 'agendamentos': return <Agendamentos />;
       case 'faturamento': return <Faturamento />;
       case 'glosas': return <Glosas />;
       case 'relatorios': return <Relatorios />;
       case 'configuracoes': return <Configuracoes />;
-      case 'agendamentos': return <Agendamentos />;
       default: return <Dashboard />;
     }
   };
 
-  const currentMenuItem = menuItems.find(i => i.id === activeTab);
   const nomeUsuario = user?.nome || 'Usuário';
   const perfilUsuario = user?.perfil || 'Perfil';
 
@@ -442,30 +561,57 @@ function MainApp() {
           </div>
         )}
 
-        <nav className="p-4 space-y-1.5 mt-4">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`
-                  w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group
-                  ${isActive 
-                    ? `bg-gradient-to-r ${item.color} text-white shadow-lg` 
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
-                  }
-                  ${!sidebarOpen ? 'justify-center' : ''}
-                `}
-                title={!sidebarOpen ? item.name : ''}
-              >
-                <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'group-hover:text-white'}`} />
-                {sidebarOpen && <span className="text-sm font-medium">{item.name}</span>}
-                {isActive && sidebarOpen && <div className="ml-auto w-1.5 h-6 bg-white rounded-full opacity-60"></div>}
-              </button>
-            );
-          })}
+        <nav className="p-4 space-y-2 mt-4 overflow-y-auto max-h-[calc(100vh-180px)]">
+          {menuGroups.map((group) => (
+            <div key={group.id} className="space-y-1">
+              {/* Cabeçalho do grupo */}
+              {sidebarOpen && (
+                <button
+                  onClick={() => toggleGroup(group.id)}
+                  className="w-full flex items-center justify-between px-2 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-300 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <group.icon className="w-3 h-3" />
+                    <span>{group.name}</span>
+                  </div>
+                  {openGroups[group.id] ? (
+                    <ChevronUpIcon className="w-3 h-3" />
+                  ) : (
+                    <ChevronDownIcon className="w-3 h-3" />
+                  )}
+                </button>
+              )}
+              
+              {/* Itens do grupo */}
+              {(sidebarOpen ? openGroups[group.id] : true) && (
+                <div className="space-y-1">
+                  {group.items.map((item) => {
+                    const isActive = activeTab === item.id;
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setActiveTab(item.id)}
+                        className={`
+                          w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group
+                          ${isActive 
+                            ? `bg-gradient-to-r ${item.color} text-white shadow-lg` 
+                            : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                          }
+                          ${!sidebarOpen ? 'justify-center' : ''}
+                        `}
+                        title={!sidebarOpen ? item.name : ''}
+                      >
+                        <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'group-hover:text-white'}`} />
+                        {sidebarOpen && <span className="text-sm font-medium">{item.name}</span>}
+                        {isActive && sidebarOpen && <div className="ml-auto w-1.5 h-6 bg-white rounded-full opacity-60"></div>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-700/50">
@@ -492,13 +638,21 @@ function MainApp() {
               </button>
               <div>
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-                  {menuItems.find(i => i.id === activeTab)?.name}
+                  {(() => {
+                    for (const group of menuGroups) {
+                      const found = group.items.find(i => i.id === activeTab);
+                      if (found) return found.name;
+                    }
+                    return 'Dashboard';
+                  })()}
                 </h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  {currentMenuItem?.name === 'Dashboard' && 'Visão geral do sistema'}
-                  {currentMenuItem?.name === 'Faturamento' && 'Geração e envio de lotes TISS'}
-                  {currentMenuItem?.name === 'Atendimentos' && 'Registro de atendimentos e guias'}
-                  {currentMenuItem?.name === 'Relatórios' && 'Análise de dados e métricas'}
+                  {activeTab === 'dashboard' && 'Visão geral do sistema'}
+                  {activeTab === 'faturamento' && 'Geração e envio de lotes TISS'}
+                  {activeTab === 'atendimentos' && 'Registro de atendimentos e guias'}
+                  {activeTab === 'agendamentos' && 'Gerenciamento de agenda e consultas'}
+                  {activeTab === 'relatorios' && 'Análise de dados e métricas'}
+                  {(activeTab === 'convenios' || activeTab === 'pacientes' || activeTab === 'prestadores' || activeTab === 'procedimentos') && 'Cadastro e gerenciamento de dados'}
                 </p>
               </div>
             </div>
@@ -576,21 +730,33 @@ function MainApp() {
           </div>
         </div>
 
-        <nav className="p-4 space-y-1.5 mt-4">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => { setActiveTab(item.id); setMobileSidebarOpen(false); }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive ? `bg-gradient-to-r ${item.color} text-white shadow-lg` : 'text-gray-400 hover:text-white hover:bg-gray-800/50'}`}
-              >
-                <Icon className="w-5 h-5" />
-                <span className="text-sm font-medium">{item.name}</span>
-              </button>
-            );
-          })}
+        <nav className="p-4 space-y-2 mt-4 overflow-y-auto max-h-[calc(100vh-180px)]">
+          {menuGroups.map((group) => (
+            <div key={group.id} className="space-y-1">
+              <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <div className="flex items-center gap-2">
+                  <group.icon className="w-3 h-3" />
+                  <span>{group.name}</span>
+                </div>
+              </div>
+              <div className="space-y-1">
+                {group.items.map((item) => {
+                  const isActive = activeTab === item.id;
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => { setActiveTab(item.id); setMobileSidebarOpen(false); }}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 ${isActive ? `bg-gradient-to-r ${item.color} text-white shadow-lg` : 'text-gray-400 hover:text-white hover:bg-gray-800/50'}`}
+                    >
+                      <Icon className="w-5 h-5" />
+                      <span className="text-sm font-medium">{item.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-700/50">
