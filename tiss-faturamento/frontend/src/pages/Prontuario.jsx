@@ -226,6 +226,7 @@ export default function Prontuario() {
       // Buscar o convênio do paciente
       const convenio = convenios.find(c => c.id === paciente?.convenio_id);
       
+      // Gerar número da guia (apenas números)
       let numeroGuiaPrestador;
       if (convenio && convenio.proximo_numero_guia) {
         numeroGuiaPrestador = convenio.proximo_numero_guia.toString();
@@ -235,19 +236,22 @@ export default function Prontuario() {
           .update({ proximo_numero_guia: convenio.proximo_numero_guia + 1, updated_at: new Date().toISOString() })
           .eq('id', convenio.id);
       } else {
-        numeroGuiaPrestador = `GUI${Date.now()}`;
+        // Gerar número sequencial baseado no timestamp
+        numeroGuiaPrestador = Math.floor(Date.now() / 1000).toString();
       }
   
       const valorTotal = procedimentosSelecionados.reduce((sum, p) => sum + (p.valor_sugerido || 0), 0);
+      const dataAtual = new Date().toISOString().split('T')[0];
+      const horaAtual = new Date().toLocaleTimeString('pt-BR', { hour12: false });
       
       const atendimento = {
-        numero_guia_prestador: numeroGuiaPrestador,
-        observacao: formData.conduta,
+        numero_guia_prestador: numeroGuiaPrestador, // Apenas números
+        observacao: formData.conduta || '',
         status: 'pendente',
         numero_guia_operadora: '',
-        data_autorizacao: '',
+        data_autorizacao: null,
         senha_autorizacao: '',
-        data_validade_senha: '',
+        data_validade_senha: null,
         codigo_operadora: convenio?.codigo_prestador || '',
         nome_contratado: '',
         profissional_solicitante: agendamento?.prestador_nome || '',
@@ -256,9 +260,9 @@ export default function Prontuario() {
         numero_conselho_solicitante: '',
         cbos_solicitante: '225125',
         carater_atendimento: '1',
-        data_solicitacao: agendamento?.data_agendamento,
+        data_solicitacao: agendamento?.data_agendamento || dataAtual,
         atendimento_rn: 'N',
-        indicacao_clinica: formData.conduta,
+        indicacao_clinica: formData.conduta || '',
         tipo_atendimento: '04',
         indicacao_acidente: '9',
         tipo_consulta: '1',
@@ -272,11 +276,11 @@ export default function Prontuario() {
           quantidade: 1,
           valor_unitario: p.valor_sugerido || 0,
           valor_total: p.valor_sugerido || 0,
-          data_execucao: agendamento?.data_agendamento,
-          hora_inicial: agendamento?.hora_inicio,
-          hora_final: agendamento?.hora_fim,
+          data_execucao: agendamento?.data_agendamento || dataAtual,
+          hora_inicial: agendamento?.hora_inicio || horaAtual,
+          hora_final: agendamento?.hora_fim || '',
           tabela_referencia: '22',
-          prestador_nome: agendamento?.prestador_nome,
+          prestador_nome: agendamento?.prestador_nome || '',
           prestador_id: agendamento?.prestador_id,
           prestador_cpf: '',
           prestador_conselho: '06',
@@ -287,15 +291,17 @@ export default function Prontuario() {
         })),
         valor_total: valorTotal,
         paciente_id: agendamento?.paciente_id,
-        paciente_nome: paciente?.nome,
-        numero_carteira: paciente?.numero_carteira,
+        paciente_nome: paciente?.nome || '',
+        numero_carteira: paciente?.numero_carteira || '',
         paciente_convenio_id: paciente?.convenio_id,
         paciente_convenio_nome: convenio?.razao_social || 'Sem convênio',
-        convenio_registro_ans: convenio?.registro_ans,
-        convenio_codigo_prestador: convenio?.codigo_prestador,
+        convenio_registro_ans: convenio?.registro_ans || '',
+        convenio_codigo_prestador: convenio?.codigo_prestador || '',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
+  
+      console.log('Enviando atendimento:', atendimento);
   
       const { error: atendimentoError } = await supabase.from('atendimentos').insert([atendimento]);
       if (atendimentoError) throw atendimentoError;
@@ -304,7 +310,7 @@ export default function Prontuario() {
       navigate('/atendimentos');
     } catch (error) {
       console.error('Erro ao finalizar atendimento:', error);
-      toast.error('Erro ao finalizar atendimento');
+      toast.error('Erro ao finalizar atendimento: ' + error.message);
     } finally {
       setSaving(false);
     }
