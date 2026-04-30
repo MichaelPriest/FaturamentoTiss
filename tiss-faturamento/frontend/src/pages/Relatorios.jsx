@@ -9,7 +9,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format, subDays, subMonths, startOfMonth, endOfMonth, parseISO } from 'date-fns';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabaseClient';
 
 // Funções auxiliares para exportação
 const exportToCSV = (data, filename) => {
