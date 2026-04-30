@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, CheckCircleIcon, XCircleIcon, ClockIcon, UsersIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { pacientesService, conveniosService } from '../services/supabaseService';
@@ -96,7 +96,6 @@ export default function Pacientes() {
     }
   };
 
-  // Buscar endereço pelo CEP usando ViaCEP
   const buscarEnderecoPorCEP = async (cep) => {
     const cepLimpo = cep.replace(/\D/g, '');
     if (cepLimpo.length !== 8) return;
@@ -265,9 +264,7 @@ export default function Pacientes() {
               <p className="text-2xl font-bold text-gray-800 dark:text-white">{estatisticas.total}</p>
             </div>
             <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-              <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
+              <UsersIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
           </div>
         </div>
@@ -300,9 +297,7 @@ export default function Pacientes() {
               <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{convenios.length}</p>
             </div>
             <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
-              <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
+              <BuildingOfficeIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
             </div>
           </div>
         </div>
@@ -394,31 +389,33 @@ export default function Pacientes() {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{p.telefone ? aplicarMascaraTelefone(p.telefone) : (p.celular ? aplicarMascaraTelefone(p.celular) : '-')}</td>
                     <td className="px-4 py-3 text-center">
-                      <button 
-                        onClick={() => { 
-                          setEditing(p); 
-                          setFormData({
-                            ...p,
-                            cpf: p.cpf ? aplicarMascaraCPF(p.cpf) : '',
-                            rg: p.rg || '',
-                            telefone: p.telefone ? aplicarMascaraTelefone(p.telefone) : '',
-                            celular: p.celular ? aplicarMascaraTelefone(p.celular) : '',
-                            cep: p.cep ? aplicarMascaraCEP(p.cep) : ''
-                          }); 
-                          setShowModal(true); 
-                        }} 
-                        className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" 
-                        title="Editar"
-                      >
-                        <PencilIcon className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(p.id)} 
-                        className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" 
-                        title="Excluir"
-                      >
-                        <TrashIcon className="w-4 h-4" />
-                      </button>
+                      <div className="flex gap-1 justify-center">
+                        <button 
+                          onClick={() => { 
+                            setEditing(p); 
+                            setFormData({
+                              ...p,
+                              cpf: p.cpf ? aplicarMascaraCPF(p.cpf) : '',
+                              rg: p.rg || '',
+                              telefone: p.telefone ? aplicarMascaraTelefone(p.telefone) : '',
+                              celular: p.celular ? aplicarMascaraTelefone(p.celular) : '',
+                              cep: p.cep ? aplicarMascaraCEP(p.cep) : ''
+                            }); 
+                            setShowModal(true); 
+                          }} 
+                          className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" 
+                          title="Editar"
+                        >
+                          <PencilIcon className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(p.id)} 
+                          className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" 
+                          title="Excluir"
+                        >
+                          <TrashIcon className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -428,7 +425,7 @@ export default function Pacientes() {
                   <td colSpan="7" className="px-4 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
                     <UsersIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
                     Nenhum paciente encontrado
-                  </tr>
+                  </td>
                 </tr>
               )}
             </tbody>
@@ -539,7 +536,6 @@ export default function Pacientes() {
                       className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
                     />
                   </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telefone Fixo</label>
                     <input 
@@ -571,7 +567,6 @@ export default function Pacientes() {
                       className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
                     />
                   </div>
-
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CEP</label>
                     <div className="relative">
