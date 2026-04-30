@@ -851,341 +851,240 @@ export default function Prontuario() {
               </div>
             )}
 
-      {/* Aba Faturamento */}
-      {aba === 'faturamento' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nº Guia Operadora</label>
-              <input 
-                type="text" 
-                value={faturamentoData.numero_guia_operadora} 
-                onChange={e => setFaturamentoData({...faturamentoData, numero_guia_operadora: e.target.value})} 
-                className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data Autorização</label>
-              <input 
-                type="date" 
-                value={faturamentoData.data_autorizacao} 
-                onChange={e => setFaturamentoData({...faturamentoData, data_autorizacao: e.target.value})} 
-                className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Senha</label>
-              <input 
-                type="text" 
-                value={faturamentoData.senha_autorizacao} 
-                onChange={e => setFaturamentoData({...faturamentoData, senha_autorizacao: e.target.value})} 
-                className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Validade Senha</label>
-              <input 
-                type="date" 
-                value={faturamentoData.data_validade_senha} 
-                onChange={e => setFaturamentoData({...faturamentoData, data_validade_senha: e.target.value})} 
-                className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Código Operadora</label>
-              <input 
-                type="text" 
-                value={faturamentoData.codigo_operadora} 
-                onChange={e => setFaturamentoData({...faturamentoData, codigo_operadora: e.target.value})} 
-                className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome Contratado</label>
-              <input 
-                type="text" 
-                value={faturamentoData.nome_contratado} 
-                onChange={e => setFaturamentoData({...faturamentoData, nome_contratado: e.target.value})} 
-                className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-              />
-            </div>
-          </div>
-      
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-            <h4 className="font-semibold text-gray-800 dark:text-white mb-3">Profissional Solicitante</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome</label>
-                <input 
-                  type="text" 
-                  value={faturamentoData.profissional_solicitante} 
-                  onChange={e => setFaturamentoData({...faturamentoData, profissional_solicitante: e.target.value})} 
-                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Conselho</label>
-                <select 
-                  value={faturamentoData.conselho_solicitante} 
-                  onChange={e => setFaturamentoData({...faturamentoData, conselho_solicitante: e.target.value})} 
-                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                >
-                  <option value="06">CRM - Conselho Regional de Medicina</option>
-                  <option value="08">CRO - Conselho Regional de Odontologia</option>
-                  <option value="03">CRF - Conselho Regional de Farmácia</option>
-                  <option value="02">COREN - Conselho de Enfermagem</option>
-                  <option value="05">CREFITO - Conselho de Fisioterapia</option>
-                  <option value="09">CRP - Conselho de Psicologia</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nº Conselho</label>
-                <input 
-                  type="text" 
-                  value={faturamentoData.numero_conselho_solicitante} 
-                  onChange={e => setFaturamentoData({...faturamentoData, numero_conselho_solicitante: e.target.value})} 
-                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UF</label>
-                <select 
-                  value={faturamentoData.uf_solicitante} 
-                  onChange={e => setFaturamentoData({...faturamentoData, uf_solicitante: e.target.value})} 
-                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                >
-                  <option value="35">SP - São Paulo</option>
-                  <option value="33">RJ - Rio de Janeiro</option>
-                  <option value="31">MG - Minas Gerais</option>
-                  <option value="41">PR - Paraná</option>
-                  <option value="42">SC - Santa Catarina</option>
-                  <option value="43">RS - Rio Grande do Sul</option>
-                  <option value="53">DF - Distrito Federal</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CBOS</label>
-                <input 
-                  type="text" 
-                  value={faturamentoData.cbos_solicitante} 
-                  onChange={e => setFaturamentoData({...faturamentoData, cbos_solicitante: e.target.value})} 
-                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                  placeholder="225125" 
-                />
-              </div>
-            </div>
-          </div>
-      
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-            <h4 className="font-semibold text-gray-800 dark:text-white mb-3">Dados do Atendimento</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Caráter</label>
-                <select 
-                  value={faturamentoData.carater_atendimento} 
-                  onChange={e => setFaturamentoData({...faturamentoData, carater_atendimento: e.target.value})} 
-                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                >
-                  {CARATER_ATENDIMENTO.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data Solicitação</label>
-                <input 
-                  type="date" 
-                  value={faturamentoData.data_solicitacao} 
-                  onChange={e => setFaturamentoData({...faturamentoData, data_solicitacao: e.target.value})} 
-                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Atendimento RN</label>
-                <select 
-                  value={faturamentoData.atendimento_rn} 
-                  onChange={e => setFaturamentoData({...faturamentoData, atendimento_rn: e.target.value})} 
-                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                >
-                  {SIM_NAO.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo Atendimento</label>
-                <select 
-                  value={faturamentoData.tipo_atendimento} 
-                  onChange={e => setFaturamentoData({...faturamentoData, tipo_atendimento: e.target.value})} 
-                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                >
-                  {TIPO_ATENDIMENTO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Indicador Acidente</label>
-                <select 
-                  value={faturamentoData.indicacao_acidente} 
-                  onChange={e => setFaturamentoData({...faturamentoData, indicacao_acidente: e.target.value})} 
-                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                >
-                  {INDICADOR_ACIDENTE.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo Consulta</label>
-                <select 
-                  value={faturamentoData.tipo_consulta} 
-                  onChange={e => setFaturamentoData({...faturamentoData, tipo_consulta: e.target.value})} 
-                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                >
-                  {TIPO_CONSULTA.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Regime</label>
-                <select 
-                  value={faturamentoData.regime_atendimento} 
-                  onChange={e => setFaturamentoData({...faturamentoData, regime_atendimento: e.target.value})} 
-                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                >
-                  {REGIME_ATENDIMENTO.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cobertura Especial</label>
-                <select 
-                  value={faturamentoData.cobertura_especial} 
-                  onChange={e => setFaturamentoData({...faturamentoData, cobertura_especial: e.target.value})} 
-                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                >
-                  {COBERTURA_ESPECIAL.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Saúde Ocupacional</label>
-                <select 
-                  value={faturamentoData.saude_ocupacional} 
-                  onChange={e => setFaturamentoData({...faturamentoData, saude_ocupacional: e.target.value})} 
-                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                >
-                  {SAUDE_OCUPACIONAL.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Motivo Encerramento</label>
-                <select 
-                  value={faturamentoData.motivo_encerramento} 
-                  onChange={e => setFaturamentoData({...faturamentoData, motivo_encerramento: e.target.value})} 
-                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                >
-                  {MOTIVO_ENCERRAMENTO.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-                </select>
-              </div>
-            </div>
-            <div className="mt-3">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Indicação Clínica</label>
-              <textarea 
-                rows="2" 
-                value={faturamentoData.indicacao_clinica} 
-                onChange={e => setFaturamentoData({...faturamentoData, indicacao_clinica: e.target.value})} 
-                className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                placeholder="Descrição da indicação clínica..."
-              />
-            </div>
-          </div>
-        </div>
-      )}
-            
-      {/* Modal Prescrição */}
-      {showPrescricaoModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl w-full max-w-lg p-5">
-            <h3 className="text-xl font-semibold mb-4">{editingPrescricao ? 'Editar' : 'Nova'} Prescrição</h3>
-            <div className="space-y-3">
-              <select value={prescricaoForm.tipo} onChange={e => setPrescricaoForm({...prescricaoForm, tipo: e.target.value})} className="w-full border rounded-lg px-3 py-2"><option value="medicamento">Medicamento</option><option value="exame">Exame</option><option value="procedimento">Procedimento</option></select>
-              <textarea rows="3" value={prescricaoForm.descricao} onChange={e => setPrescricaoForm({...prescricaoForm, descricao: e.target.value})} className="w-full border rounded-lg px-3 py-2" placeholder="Descrição" />
-              <div className="grid grid-cols-2 gap-3">
-                <input type="text" placeholder="Dosagem" value={prescricaoForm.dosagem} onChange={e => setPrescricaoForm({...prescricaoForm, dosagem: e.target.value})} className="border rounded-lg px-3 py-2" />
-                <select value={prescricaoForm.via_administracao} onChange={e => setPrescricaoForm({...prescricaoForm, via_administracao: e.target.value})} className="border rounded-lg px-3 py-2"><option value="">Via</option><option value="oral">Oral</option><option value="intravenosa">IV</option></select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <input type="text" placeholder="Frequência" value={prescricaoForm.frequencia} onChange={e => setPrescricaoForm({...prescricaoForm, frequencia: e.target.value})} className="border rounded-lg px-3 py-2" />
-                <input type="text" placeholder="Duração" value={prescricaoForm.duracao} onChange={e => setPrescricaoForm({...prescricaoForm, duracao: e.target.value})} className="border rounded-lg px-3 py-2" />
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 mt-5">
-              <button onClick={() => setShowPrescricaoModal(false)} className="px-4 py-2 border rounded-lg">Cancelar</button>
-              <button onClick={adicionarPrescricao} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Salvar</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Receita */}
-      {showReceitaModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto p-5">
-            <h3 className="text-xl font-semibold mb-4">{editingReceita ? 'Editar' : 'Nova'} Receita</h3>
-            <div className="space-y-3">
-              <select value={receitaForm.tipo} onChange={e => setReceitaForm({...receitaForm, tipo: e.target.value})} className="w-full border rounded-lg px-3 py-2"><option value="medicamento">Medicamento</option><option value="especial">Especial</option></select>
-              {receitaForm.medicamentos.map((med, idx) => (
-                <div key={idx} className="border rounded-lg p-3">
-                  <div className="grid grid-cols-3 gap-2">
-                    <input placeholder="Medicamento" value={med.nome} onChange={e => atualizarMedicamentoReceita(idx, 'nome', e.target.value)} className="border rounded-lg px-2 py-1" />
-                    <input placeholder="Dosagem" value={med.dosagem} onChange={e => atualizarMedicamentoReceita(idx, 'dosagem', e.target.value)} className="border rounded-lg px-2 py-1" />
-                    <input placeholder="Quantidade" value={med.quantidade} onChange={e => atualizarMedicamentoReceita(idx, 'quantidade', e.target.value)} className="border rounded-lg px-2 py-1" />
+            {/* Aba Faturamento */}
+            {aba === 'faturamento' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nº Guia Operadora</label>
+                    <input type="text" value={faturamentoData.numero_guia_operadora} onChange={e => setFaturamentoData({...faturamentoData, numero_guia_operadora: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data Autorização</label>
+                    <input type="date" value={faturamentoData.data_autorizacao} onChange={e => setFaturamentoData({...faturamentoData, data_autorizacao: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Senha</label>
+                    <input type="text" value={faturamentoData.senha_autorizacao} onChange={e => setFaturamentoData({...faturamentoData, senha_autorizacao: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Validade Senha</label>
+                    <input type="date" value={faturamentoData.data_validade_senha} onChange={e => setFaturamentoData({...faturamentoData, data_validade_senha: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Código Operadora</label>
+                    <input type="text" value={faturamentoData.codigo_operadora} onChange={e => setFaturamentoData({...faturamentoData, codigo_operadora: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome Contratado</label>
+                    <input type="text" value={faturamentoData.nome_contratado} onChange={e => setFaturamentoData({...faturamentoData, nome_contratado: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
                   </div>
                 </div>
-              ))}
-              <button onClick={adicionarMedicamentoReceita} className="text-blue-600 text-sm">+ Adicionar</button>
-              <input type="date" placeholder="Validade" value={receitaForm.validade} onChange={e => setReceitaForm({...receitaForm, validade: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
-            </div>
-            <div className="flex justify-end gap-3 mt-5">
-              <button onClick={() => setShowReceitaModal(false)} className="px-4 py-2 border rounded-lg">Cancelar</button>
-              <button onClick={adicionarReceita} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Gerar</button>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Modal Atestado */}
-      {showAtestadoModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl w-full max-w-lg p-5">
-            <h3 className="text-xl font-semibold mb-4">{editingAtestado ? 'Editar' : 'Novo'} Atestado</h3>
-            <div className="space-y-3">
-              <select value={atestadoForm.tipo} onChange={e => setAtestadoForm({...atestadoForm, tipo: e.target.value})} className="w-full border rounded-lg px-3 py-2"><option value="saude">Saúde</option><option value="acompanhamento">Acompanhamento</option></select>
-              <input type="number" placeholder="Dias de afastamento" value={atestadoForm.dias_afastamento} onChange={e => setAtestadoForm({...atestadoForm, dias_afastamento: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
-              <div className="grid grid-cols-2 gap-3">
-                <input type="date" value={atestadoForm.data_inicio} onChange={e => setAtestadoForm({...atestadoForm, data_inicio: e.target.value})} className="border rounded-lg px-3 py-2" />
-                <input type="date" value={atestadoForm.data_fim} onChange={e => setAtestadoForm({...atestadoForm, data_fim: e.target.value})} className="border rounded-lg px-3 py-2" />
-              </div>
-              <input type="text" placeholder="CID" value={atestadoForm.cid} onChange={e => setAtestadoForm({...atestadoForm, cid: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
-              <textarea rows="2" placeholder="Recomendações" value={atestadoForm.recomendacoes} onChange={e => setAtestadoForm({...atestadoForm, recomendacoes: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
-            </div>
-            <div className="flex justify-end gap-3 mt-5">
-              <button onClick={() => setShowAtestadoModal(false)} className="px-4 py-2 border rounded-lg">Cancelar</button>
-              <button onClick={adicionarAtestado} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Gerar</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Procedimentos */}
-      {showProcedimentosModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto p-5">
-            <h3 className="text-xl font-semibold mb-4">Adicionar Procedimentos</h3>
-            <div className="relative mb-4"><MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-3 text-gray-400" /><input type="text" placeholder="Buscar..." value={buscaProcedimento} onChange={e => setBuscaProcedimento(e.target.value)} className="w-full border rounded-lg pl-8 pr-3 py-2" /></div>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {procedimentosFiltrados.map(proc => (
-                <div key={proc.id} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-lg">
-                  <div><p className="text-sm font-medium">{proc.nome}</p><p className="text-xs text-gray-500">{proc.codigo_tuss} - R$ {proc.valor_sugerido?.toFixed(2)}</p></div>
-                  <button onClick={() => { if (!procedimentosSelecionados.find(p => p.id === proc.id)) { setProcedimentosSelecionados([...procedimentosSelecionados, proc]); toast.success(`${proc.nome} adicionado!`); } }} className="p-1 rounded-lg text-green-600"><PlusIcon className="w-5 h-5" /></button>
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                  <h4 className="font-semibold text-gray-800 dark:text-white mb-3">Profissional Solicitante</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome</label>
+                      <input type="text" value={faturamentoData.profissional_solicitante} onChange={e => setFaturamentoData({...faturamentoData, profissional_solicitante: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Conselho</label>
+                      <select value={faturamentoData.conselho_solicitante} onChange={e => setFaturamentoData({...faturamentoData, conselho_solicitante: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
+                        <option value="06">CRM - Conselho Regional de Medicina</option>
+                        <option value="08">CRO - Conselho Regional de Odontologia</option>
+                        <option value="03">CRF - Conselho Regional de Farmácia</option>
+                        <option value="02">COREN - Conselho de Enfermagem</option>
+                        <option value="05">CREFITO - Conselho de Fisioterapia</option>
+                        <option value="09">CRP - Conselho de Psicologia</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nº Conselho</label>
+                      <input type="text" value={faturamentoData.numero_conselho_solicitante} onChange={e => setFaturamentoData({...faturamentoData, numero_conselho_solicitante: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UF</label>
+                      <select value={faturamentoData.uf_solicitante} onChange={e => setFaturamentoData({...faturamentoData, uf_solicitante: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
+                        <option value="35">SP - São Paulo</option>
+                        <option value="33">RJ - Rio de Janeiro</option>
+                        <option value="31">MG - Minas Gerais</option>
+                        <option value="41">PR - Paraná</option>
+                        <option value="42">SC - Santa Catarina</option>
+                        <option value="43">RS - Rio Grande do Sul</option>
+                        <option value="53">DF - Distrito Federal</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CBOS</label>
+                      <input type="text" value={faturamentoData.cbos_solicitante} onChange={e => setFaturamentoData({...faturamentoData, cbos_solicitante: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" placeholder="225125" />
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
-            <div className="flex justify-end mt-4"><button onClick={() => setShowProcedimentosModal(false)} className="px-4 py-2 border rounded-lg">Fechar</button></div>
+
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                  <h4 className="font-semibold text-gray-800 dark:text-white mb-3">Dados do Atendimento</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Caráter</label>
+                      <select value={faturamentoData.carater_atendimento} onChange={e => setFaturamentoData({...faturamentoData, carater_atendimento: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
+                        {CARATER_ATENDIMENTO.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data Solicitação</label>
+                      <input type="date" value={faturamentoData.data_solicitacao} onChange={e => setFaturamentoData({...faturamentoData, data_solicitacao: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Atendimento RN</label>
+                      <select value={faturamentoData.atendimento_rn} onChange={e => setFaturamentoData({...faturamentoData, atendimento_rn: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
+                        {SIM_NAO.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo Atendimento</label>
+                      <select value={faturamentoData.tipo_atendimento} onChange={e => setFaturamentoData({...faturamentoData, tipo_atendimento: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
+                        {TIPO_ATENDIMENTO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Indicador Acidente</label>
+                      <select value={faturamentoData.indicacao_acidente} onChange={e => setFaturamentoData({...faturamentoData, indicacao_acidente: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
+                        {INDICADOR_ACIDENTE.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo Consulta</label>
+                      <select value={faturamentoData.tipo_consulta} onChange={e => setFaturamentoData({...faturamentoData, tipo_consulta: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
+                        {TIPO_CONSULTA.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Regime</label>
+                      <select value={faturamentoData.regime_atendimento} onChange={e => setFaturamentoData({...faturamentoData, regime_atendimento: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
+                        {REGIME_ATENDIMENTO.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cobertura Especial</label>
+                      <select value={faturamentoData.cobertura_especial} onChange={e => setFaturamentoData({...faturamentoData, cobertura_especial: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
+                        {COBERTURA_ESPECIAL.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Saúde Ocupacional</label>
+                      <select value={faturamentoData.saude_ocupacional} onChange={e => setFaturamentoData({...faturamentoData, saude_ocupacional: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
+                        {SAUDE_OCUPACIONAL.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Motivo Encerramento</label>
+                      <select value={faturamentoData.motivo_encerramento} onChange={e => setFaturamentoData({...faturamentoData, motivo_encerramento: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
+                        {MOTIVO_ENCERRAMENTO.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Indicação Clínica</label>
+                    <textarea rows="2" value={faturamentoData.indicacao_clinica} onChange={e => setFaturamentoData({...faturamentoData, indicacao_clinica: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" placeholder="Descrição da indicação clínica..." />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-      )}
+
+        {/* Modais */}
+        {showPrescricaoModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl w-full max-w-lg p-5">
+              <h3 className="text-xl font-semibold mb-4">{editingPrescricao ? 'Editar' : 'Nova'} Prescrição</h3>
+              <div className="space-y-3">
+                <select value={prescricaoForm.tipo} onChange={e => setPrescricaoForm({...prescricaoForm, tipo: e.target.value})} className="w-full border rounded-lg px-3 py-2"><option value="medicamento">Medicamento</option><option value="exame">Exame</option><option value="procedimento">Procedimento</option></select>
+                <textarea rows="3" value={prescricaoForm.descricao} onChange={e => setPrescricaoForm({...prescricaoForm, descricao: e.target.value})} className="w-full border rounded-lg px-3 py-2" placeholder="Descrição" />
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="text" placeholder="Dosagem" value={prescricaoForm.dosagem} onChange={e => setPrescricaoForm({...prescricaoForm, dosagem: e.target.value})} className="border rounded-lg px-3 py-2" />
+                  <select value={prescricaoForm.via_administracao} onChange={e => setPrescricaoForm({...prescricaoForm, via_administracao: e.target.value})} className="border rounded-lg px-3 py-2"><option value="">Via</option><option value="oral">Oral</option><option value="intravenosa">IV</option></select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="text" placeholder="Frequência" value={prescricaoForm.frequencia} onChange={e => setPrescricaoForm({...prescricaoForm, frequencia: e.target.value})} className="border rounded-lg px-3 py-2" />
+                  <input type="text" placeholder="Duração" value={prescricaoForm.duracao} onChange={e => setPrescricaoForm({...prescricaoForm, duracao: e.target.value})} className="border rounded-lg px-3 py-2" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 mt-5">
+                <button onClick={() => setShowPrescricaoModal(false)} className="px-4 py-2 border rounded-lg">Cancelar</button>
+                <button onClick={adicionarPrescricao} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Salvar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showReceitaModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto p-5">
+              <h3 className="text-xl font-semibold mb-4">{editingReceita ? 'Editar' : 'Nova'} Receita</h3>
+              <div className="space-y-3">
+                <select value={receitaForm.tipo} onChange={e => setReceitaForm({...receitaForm, tipo: e.target.value})} className="w-full border rounded-lg px-3 py-2"><option value="medicamento">Medicamento</option><option value="especial">Especial</option></select>
+                {receitaForm.medicamentos.map((med, idx) => (
+                  <div key={idx} className="border rounded-lg p-3">
+                    <div className="grid grid-cols-3 gap-2">
+                      <input placeholder="Medicamento" value={med.nome} onChange={e => atualizarMedicamentoReceita(idx, 'nome', e.target.value)} className="border rounded-lg px-2 py-1" />
+                      <input placeholder="Dosagem" value={med.dosagem} onChange={e => atualizarMedicamentoReceita(idx, 'dosagem', e.target.value)} className="border rounded-lg px-2 py-1" />
+                      <input placeholder="Quantidade" value={med.quantidade} onChange={e => atualizarMedicamentoReceita(idx, 'quantidade', e.target.value)} className="border rounded-lg px-2 py-1" />
+                    </div>
+                  </div>
+                ))}
+                <button onClick={adicionarMedicamentoReceita} className="text-blue-600 text-sm">+ Adicionar</button>
+                <input type="date" placeholder="Validade" value={receitaForm.validade} onChange={e => setReceitaForm({...receitaForm, validade: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
+              </div>
+              <div className="flex justify-end gap-3 mt-5">
+                <button onClick={() => setShowReceitaModal(false)} className="px-4 py-2 border rounded-lg">Cancelar</button>
+                <button onClick={adicionarReceita} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Gerar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showAtestadoModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl w-full max-w-lg p-5">
+              <h3 className="text-xl font-semibold mb-4">{editingAtestado ? 'Editar' : 'Novo'} Atestado</h3>
+              <div className="space-y-3">
+                <select value={atestadoForm.tipo} onChange={e => setAtestadoForm({...atestadoForm, tipo: e.target.value})} className="w-full border rounded-lg px-3 py-2"><option value="saude">Saúde</option><option value="acompanhamento">Acompanhamento</option></select>
+                <input type="number" placeholder="Dias de afastamento" value={atestadoForm.dias_afastamento} onChange={e => setAtestadoForm({...atestadoForm, dias_afastamento: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="date" value={atestadoForm.data_inicio} onChange={e => setAtestadoForm({...atestadoForm, data_inicio: e.target.value})} className="border rounded-lg px-3 py-2" />
+                  <input type="date" value={atestadoForm.data_fim} onChange={e => setAtestadoForm({...atestadoForm, data_fim: e.target.value})} className="border rounded-lg px-3 py-2" />
+                </div>
+                <input type="text" placeholder="CID" value={atestadoForm.cid} onChange={e => setAtestadoForm({...atestadoForm, cid: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
+                <textarea rows="2" placeholder="Recomendações" value={atestadoForm.recomendacoes} onChange={e => setAtestadoForm({...atestadoForm, recomendacoes: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
+              </div>
+              <div className="flex justify-end gap-3 mt-5">
+                <button onClick={() => setShowAtestadoModal(false)} className="px-4 py-2 border rounded-lg">Cancelar</button>
+                <button onClick={adicionarAtestado} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Gerar</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showProcedimentosModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto p-5">
+              <h3 className="text-xl font-semibold mb-4">Adicionar Procedimentos</h3>
+              <div className="relative mb-4"><MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-3 text-gray-400" /><input type="text" placeholder="Buscar..." value={buscaProcedimento} onChange={e => setBuscaProcedimento(e.target.value)} className="w-full border rounded-lg pl-8 pr-3 py-2" /></div>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {procedimentosFiltrados.map(proc => (
+                  <div key={proc.id} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-lg">
+                    <div><p className="text-sm font-medium">{proc.nome}</p><p className="text-xs text-gray-500">{proc.codigo_tuss} - R$ {proc.valor_sugerido?.toFixed(2)}</p></div>
+                    <button onClick={() => { if (!procedimentosSelecionados.find(p => p.id === proc.id)) { setProcedimentosSelecionados([...procedimentosSelecionados, proc]); toast.success(`${proc.nome} adicionado!`); } }} className="p-1 rounded-lg text-green-600"><PlusIcon className="w-5 h-5" /></button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-end mt-4"><button onClick={() => setShowProcedimentosModal(false)} className="px-4 py-2 border rounded-lg">Fechar</button></div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
