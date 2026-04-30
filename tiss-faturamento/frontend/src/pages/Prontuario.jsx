@@ -206,56 +206,100 @@ export default function Prontuario() {
 
   const finalizarAtendimento = async () => {
     if (!confirm('Deseja finalizar este atendimento? Isso irá gerar uma guia de atendimento.')) return;
-
+  
     setSaving(true);
     try {
+      // Atualizar status do agendamento
       await supabase
         .from('agendamentos')
         .update({ status: 'realizado', updated_at: new Date().toISOString() })
         .eq('id', id);
-
+  
+      // Atualizar status do prontuário
       if (prontuario) {
         await supabase
           .from('prontuario')
           .update({ status: 'finalizado', updated_at: new Date().toISOString() })
           .eq('id', prontuario.id);
       }
-
+  
+      // Buscar o convênio do paciente
+      const convenio = convenios.find(c => c.id === paciente?.convenio_id);
+      
+      let numeroGuiaPrestador;
+      if (convenio && convenio.proximo_numero_guia) {
+        numeroGuiaPrestador = convenio.proximo_numero_guia.toString();
+        // Atualizar o próximo número da guia no convênio
+        await supabase
+          .from('convenios')
+          .update({ proximo_numero_guia: convenio.proximo_numero_guia + 1, updated_at: new Date().toISOString() })
+          .eq('id', convenio.id);
+      } else {
+        numeroGuiaPrestador = `GUI${Date.now()}`;
+      }
+  
       const valorTotal = procedimentosSelecionados.reduce((sum, p) => sum + (p.valor_sugerido || 0), 0);
       
       const atendimento = {
-        numero_guia_prestador: `GUI${Date.now()}`,
-        paciente_id: agendamento.paciente_id,
-        paciente_nome: paciente?.nome,
-        numero_carteira: paciente?.numero_carteira,
-        paciente_convenio_id: paciente?.convenio_id,
-        paciente_convenio_nome: convenios.find(c => c.id === paciente?.convenio_id)?.razao_social || 'Sem convênio',
-        prestador_id: agendamento.prestador_id,
-        prestador_nome: agendamento.prestador_nome,
-        data_atendimento: agendamento.data_agendamento,
+        numero_guia_prestador: numeroGuiaPrestador,
+        observacao: formData.conduta,
         status: 'pendente',
+        numero_guia_operadora: '',
+        data_autorizacao: '',
+        senha_autorizacao: '',
+        data_validade_senha: '',
+        codigo_operadora: convenio?.codigo_prestador || '',
+        nome_contratado: '',
+        profissional_solicitante: agendamento?.prestador_nome || '',
+        conselho_solicitante: '06',
+        uf_solicitante: '35',
+        numero_conselho_solicitante: '',
+        cbos_solicitante: '225125',
+        carater_atendimento: '1',
+        data_solicitacao: agendamento?.data_agendamento,
+        atendimento_rn: 'N',
+        indicacao_clinica: formData.conduta,
+        tipo_atendimento: '04',
+        indicacao_acidente: '9',
+        tipo_consulta: '1',
+        motivo_encerramento: '',
+        cobertura_especial: '',
+        regime_atendimento: '01',
+        saude_ocupacional: '',
         itens: procedimentosSelecionados.map(p => ({
           codigo: p.codigo_tuss,
           nome: p.nome,
           quantidade: 1,
           valor_unitario: p.valor_sugerido || 0,
           valor_total: p.valor_sugerido || 0,
-          data_execucao: agendamento.data_agendamento,
-          hora_inicial: agendamento.hora_inicio,
-          hora_final: agendamento.hora_fim,
+          data_execucao: agendamento?.data_agendamento,
+          hora_inicial: agendamento?.hora_inicio,
+          hora_final: agendamento?.hora_fim,
           tabela_referencia: '22',
-          prestador_nome: agendamento.prestador_nome,
-          prestador_id: agendamento.prestador_id
+          prestador_nome: agendamento?.prestador_nome,
+          prestador_id: agendamento?.prestador_id,
+          prestador_cpf: '',
+          prestador_conselho: '06',
+          prestador_numero_conselho: '',
+          prestador_uf_conselho: '35',
+          prestador_cbos: '225125',
+          grau_participacao: '12'
         })),
         valor_total: valorTotal,
-        observacao: formData.conduta,
+        paciente_id: agendamento?.paciente_id,
+        paciente_nome: paciente?.nome,
+        numero_carteira: paciente?.numero_carteira,
+        paciente_convenio_id: paciente?.convenio_id,
+        paciente_convenio_nome: convenio?.razao_social || 'Sem convênio',
+        convenio_registro_ans: convenio?.registro_ans,
+        convenio_codigo_prestador: convenio?.codigo_prestador,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
-
+  
       const { error: atendimentoError } = await supabase.from('atendimentos').insert([atendimento]);
       if (atendimentoError) throw atendimentoError;
-
+  
       toast.success('Atendimento finalizado e guia gerada com sucesso!');
       navigate('/atendimentos');
     } catch (error) {
