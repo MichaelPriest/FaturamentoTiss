@@ -1091,7 +1091,8 @@ export default function Prontuario() {
             </div>
           </div>
         </div>
-
+      )}
+            
       {/* Modal Prescrição */}
       {showPrescricaoModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
