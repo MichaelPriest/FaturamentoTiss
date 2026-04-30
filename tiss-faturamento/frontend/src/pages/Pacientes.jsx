@@ -6,8 +6,9 @@ import {
 import { toast } from 'sonner';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { pacientesService, conveniosService } from '../services/supabaseService';
+import SearchableSelect from '../components/SearchableSelect';
 
-// Funções de máscara (manter as mesmas)
+// Funções de máscara
 const aplicarMascaraCPF = (valor) => {
   const cpf = valor.replace(/\D/g, '');
   if (cpf.length <= 3) return cpf;
@@ -43,6 +44,12 @@ const ESTADOS = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 
   'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 
   'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
+];
+
+// Opções de sexo
+const SEXO_OPCOES = [
+  { value: 'M', label: 'Masculino' },
+  { value: 'F', label: 'Feminino' }
 ];
 
 export default function Pacientes() {
@@ -487,37 +494,32 @@ export default function Pacientes() {
                       className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sexo</label>
-                    <select 
-                      value={formData.sexo} 
-                      onChange={e => setFormData({...formData, sexo: e.target.value})} 
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    >
-                      <option value="M">Masculino</option>
-                      <option value="F">Feminino</option>
-                    </select>
-                  </div>
+                  
+                  {/* Sexo - SearchableSelect */}
+                  <SearchableSelect
+                    label="Sexo"
+                    options={SEXO_OPCOES}
+                    value={formData.sexo}
+                    onChange={e => setFormData({...formData, sexo: e.target.value})}
+                    placeholder="Selecione o sexo"
+                  />
 
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Convênio *</label>
-                    <select 
-                      value={formData.convenio_id} 
-                      onChange={e => setFormData({...formData, convenio_id: e.target.value})} 
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
-                      required
-                    >
-                      <option value="">Selecione o convênio</option>
-                      {convenios.filter(c => c.ativo !== false).map(c => (
-                        <option key={c.id} value={c.id}>
-                          {c.razao_social} {c.codigo_prestador ? `(Cód: ${c.codigo_prestador})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                      ✓ O convênio será usado no faturamento
-                    </p>
-                  </div>
+                  {/* Convênio - SearchableSelect */}
+                  <SearchableSelect
+                    label="Convênio"
+                    options={convenios.filter(c => c.ativo !== false).map(c => ({
+                      value: c.id,
+                      label: `${c.razao_social} ${c.codigo_prestador ? `(Cód: ${c.codigo_prestador})` : ''}`
+                    }))}
+                    value={formData.convenio_id}
+                    onChange={e => setFormData({...formData, convenio_id: e.target.value})}
+                    placeholder="Selecione o convênio"
+                    required={true}
+                  />
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1 -mt-2">
+                    ✓ O convênio será usado no faturamento
+                  </p>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número da Carteira *</label>
                     <input 
@@ -631,16 +633,16 @@ export default function Pacientes() {
                       className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Estado</label>
-                    <select 
-                      value={formData.estado} 
-                      onChange={e => setFormData({...formData, estado: e.target.value})} 
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    >
-                      {ESTADOS.map(uf => <option key={uf} value={uf}>{uf}</option>)}
-                    </select>
-                  </div>
+                  
+                  {/* Estado - SearchableSelect */}
+                  <SearchableSelect
+                    label="Estado"
+                    options={ESTADOS.map(uf => ({ value: uf, label: uf }))}
+                    value={formData.estado}
+                    onChange={e => setFormData({...formData, estado: e.target.value})}
+                    placeholder="Selecione o estado"
+                  />
+                  
                   <div className="md:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações</label>
                     <textarea 
