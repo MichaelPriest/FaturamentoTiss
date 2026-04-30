@@ -9,7 +9,7 @@ import {
   CheckIcon, 
   XMarkIcon, 
   CalendarIcon,
-  ClockIcon,
+  ClockIcon,  // <-- Este ícone estava faltando
   UserGroupIcon,
   BuildingOfficeIcon,
   BeakerIcon,
