@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   DocumentArrowDownIcon, 
   PaperAirplaneIcon, 
@@ -34,7 +34,7 @@ export default function Faturamento() {
   const [showLoteModal, setShowLoteModal] = useState(false);
   const [showPreviaModal, setShowPreviaModal] = useState(false);
   const [selectedLote, setSelectedLote] = useState(null);
-  const [lotePreview, setLotePreview] = useState(null);
+  
   const [dadosFatura, setDadosFatura] = useState({
     competencia: format(new Date(), 'yyyy-MM'),
     dataFechamento: format(new Date(), 'yyyy-MM-dd'),
@@ -162,39 +162,17 @@ export default function Faturamento() {
   };
 
   // Calcular impostos
-  const calcularImpostos = (baseCalculo) => {
-    const iss = (baseCalculo * dadosFatura.aliquotaISS) / 100;
-    const ir = (baseCalculo * dadosFatura.aliquotaIR) / 100;
-    const csll = (baseCalculo * dadosFatura.aliquotaCSLL) / 100;
-    const pis = (baseCalculo * dadosFatura.aliquotaPIS) / 100;
-    const cofins = (baseCalculo * dadosFatura.aliquotaCOFINS) / 100;
+  const calcularImpostos = (baseCalculo, aliquotaISS, aliquotaIR, aliquotaCSLL, aliquotaPIS, aliquotaCOFINS) => {
+    const iss = (baseCalculo * aliquotaISS) / 100;
+    const ir = (baseCalculo * aliquotaIR) / 100;
+    const csll = (baseCalculo * aliquotaCSLL) / 100;
+    const pis = (baseCalculo * aliquotaPIS) / 100;
+    const cofins = (baseCalculo * aliquotaCOFINS) / 100;
     const totalImpostos = iss + ir + csll + pis + cofins;
     const valorLiquido = baseCalculo - totalImpostos;
 
     return { iss, ir, csll, pis, cofins, totalImpostos, valorLiquido };
   };
-
-  // Atualizar dados da fatura
-  const atualizarDadosFatura = useCallback(() => {
-    const valorTotal = previewData?.valorTotal || 0;
-    const impostos = calcularImpostos(valorTotal);
-    setDadosFatura(prev => ({
-      ...prev,
-      baseCalculo: valorTotal,
-      valorISS: impostos.iss,
-      valorIR: impostos.ir,
-      valorCSLL: impostos.csll,
-      valorPIS: impostos.pis,
-      valorCOFINS: impostos.cofins,
-      valorLiquido: impostos.valorLiquido
-    }));
-  }, [previewData]);
-
-  useEffect(() => {
-    if (previewData) {
-      atualizarDadosFatura();
-    }
-  }, [previewData, atualizarDadosFatura]);
 
   const pendentes = atendimentos.filter(a => a.status === 'pendente');
   
@@ -238,7 +216,71 @@ export default function Faturamento() {
       toast.error('Selecione pelo menos uma guia para faturar');
       return;
     }
+    // Atualizar base de cálculo e impostos
+    const valorTotal = previewData?.valorTotal || 0;
+    const impostos = calcularImpostos(
+      valorTotal,
+      dadosFatura.aliquotaISS,
+      dadosFatura.aliquotaIR,
+      dadosFatura.aliquotaCSLL,
+      dadosFatura.aliquotaPIS,
+      dadosFatura.aliquotaCOFINS
+    );
+    setDadosFatura(prev => ({
+      ...prev,
+      baseCalculo: valorTotal,
+      valorISS: impostos.iss,
+      valorIR: impostos.ir,
+      valorCSLL: impostos.csll,
+      valorPIS: impostos.pis,
+      valorCOFINS: impostos.cofins,
+      valorLiquido: impostos.valorLiquido
+    }));
     setShowPreviaModal(true);
+  };
+
+  const atualizarAliquota = (campo, valor) => {
+    const novaAliquota = parseFloat(valor) || 0;
+    const novosDados = { ...dadosFatura, [campo]: novaAliquota };
+    const impostos = calcularImpostos(
+      dadosFatura.baseCalculo,
+      campo === 'aliquotaISS' ? novaAliquota : dadosFatura.aliquotaISS,
+      campo === 'aliquotaIR' ? novaAliquota : dadosFatura.aliquotaIR,
+      campo === 'aliquotaCSLL' ? novaAliquota : dadosFatura.aliquotaCSLL,
+      campo === 'aliquotaPIS' ? novaAliquota : dadosFatura.aliquotaPIS,
+      campo === 'aliquotaCOFINS' ? novaAliquota : dadosFatura.aliquotaCOFINS
+    );
+    setDadosFatura({
+      ...novosDados,
+      valorISS: impostos.iss,
+      valorIR: impostos.ir,
+      valorCSLL: impostos.csll,
+      valorPIS: impostos.pis,
+      valorCOFINS: impostos.cofins,
+      valorLiquido: impostos.valorLiquido
+    });
+  };
+
+  const atualizarBaseCalculo = (valor) => {
+    const novaBase = parseFloat(valor) || 0;
+    const impostos = calcularImpostos(
+      novaBase,
+      dadosFatura.aliquotaISS,
+      dadosFatura.aliquotaIR,
+      dadosFatura.aliquotaCSLL,
+      dadosFatura.aliquotaPIS,
+      dadosFatura.aliquotaCOFINS
+    );
+    setDadosFatura({
+      ...dadosFatura,
+      baseCalculo: novaBase,
+      valorISS: impostos.iss,
+      valorIR: impostos.ir,
+      valorCSLL: impostos.csll,
+      valorPIS: impostos.pis,
+      valorCOFINS: impostos.cofins,
+      valorLiquido: impostos.valorLiquido
+    });
   };
 
   const confirmarGeracaoLote = async () => {
@@ -259,7 +301,6 @@ export default function Faturamento() {
           continue;
         }
 
-        // Gerar número do lote (12 dígitos, apenas números)
         const numeroLote = gerarNumeroLote(convenioId, sequencialTransacao);
         
         const guias = data.atendimentos.map(atendimento => ({
@@ -314,11 +355,9 @@ export default function Faturamento() {
         
         await salvarLote(novoLote);
 
-        // Atualizar status dos atendimentos
         const ids = data.atendimentos.map(a => a.id);
         await atualizarStatusAtendimentos(ids, 'faturado');
 
-        // Baixar o arquivo XML
         const blob = new Blob([xml], { type: 'application/xml' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
