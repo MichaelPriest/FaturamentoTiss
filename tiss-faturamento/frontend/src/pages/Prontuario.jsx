@@ -230,46 +230,37 @@ export default function Prontuario() {
       let numeroGuiaPrestador;
       if (convenio && convenio.proximo_numero_guia) {
         numeroGuiaPrestador = convenio.proximo_numero_guia.toString();
-        // Atualizar o próximo número da guia no convênio
         await supabase
           .from('convenios')
-          .update({ proximo_numero_guia: convenio.proximo_numero_guia + 1, updated_at: new Date().toISOString() })
+          .update({ proximo_numero_guia: convenio.proximo_numero_guia + 1 })
           .eq('id', convenio.id);
       } else {
-        // Gerar número sequencial baseado no timestamp
-        numeroGuiaPrestador = Math.floor(Date.now() / 1000).toString();
+        numeroGuiaPrestador = String(Date.now());
       }
   
       const valorTotal = procedimentosSelecionados.reduce((sum, p) => sum + (p.valor_sugerido || 0), 0);
       const dataAtual = new Date().toISOString().split('T')[0];
-      const horaAtual = new Date().toLocaleTimeString('pt-BR', { hour12: false });
+      const agora = new Date().toISOString();
       
+      // Criar objeto apenas com os campos que existem na tabela
       const atendimento = {
-        numero_guia_prestador: numeroGuiaPrestador, // Apenas números
-        observacao: formData.conduta || '',
+        numero_guia_prestador: numeroGuiaPrestador,
+        data_atendimento: agendamento?.data_agendamento || dataAtual,
+        hora_atendimento: agendamento?.hora_inicio || '00:00:00',
+        observacao: formData.conduta || null,
         status: 'pendente',
-        numero_guia_operadora: '',
+        numero_guia_operadora: null,
         data_autorizacao: null,
-        senha_autorizacao: '',
+        senha_autorizacao: null,
         data_validade_senha: null,
-        codigo_operadora: convenio?.codigo_prestador || '',
-        nome_contratado: '',
-        profissional_solicitante: agendamento?.prestador_nome || '',
-        conselho_solicitante: '06',
-        uf_solicitante: '35',
-        numero_conselho_solicitante: '',
-        cbos_solicitante: '225125',
-        carater_atendimento: '1',
-        data_solicitacao: agendamento?.data_agendamento || dataAtual,
-        atendimento_rn: 'N',
-        indicacao_clinica: formData.conduta || '',
-        tipo_atendimento: '04',
-        indicacao_acidente: '9',
-        tipo_consulta: '1',
-        motivo_encerramento: '',
-        cobertura_especial: '',
-        regime_atendimento: '01',
-        saude_ocupacional: '',
+        valor_total: valorTotal,
+        paciente_id: agendamento?.paciente_id,
+        paciente_nome: paciente?.nome || '',
+        numero_carteira: paciente?.numero_carteira || '',
+        paciente_convenio_id: paciente?.convenio_id || null,
+        paciente_convenio_nome: convenio?.razao_social || 'Sem convênio',
+        prestador_id: agendamento?.prestador_id,
+        prestador_nome: agendamento?.prestador_nome,
         itens: procedimentosSelecionados.map(p => ({
           codigo: p.codigo_tuss,
           nome: p.nome,
@@ -277,133 +268,60 @@ export default function Prontuario() {
           valor_unitario: p.valor_sugerido || 0,
           valor_total: p.valor_sugerido || 0,
           data_execucao: agendamento?.data_agendamento || dataAtual,
-          hora_inicial: agendamento?.hora_inicio || horaAtual,
-          hora_final: agendamento?.hora_fim || '',
+          hora_inicial: agendamento?.hora_inicio || '00:00:00',
+          hora_final: agendamento?.hora_fim || '00:00:00',
           tabela_referencia: '22',
-          prestador_nome: agendamento?.prestador_nome || '',
-          prestador_id: agendamento?.prestador_id,
-          prestador_cpf: '',
-          prestador_conselho: '06',
-          prestador_numero_conselho: '',
-          prestador_uf_conselho: '35',
-          prestador_cbos: '225125',
-          grau_participacao: '12'
+          prestador_nome: agendamento?.prestador_nome,
+          prestador_id: agendamento?.prestador_id
         })),
-        valor_total: valorTotal,
-        paciente_id: agendamento?.paciente_id,
-        paciente_nome: paciente?.nome || '',
-        numero_carteira: paciente?.numero_carteira || '',
-        paciente_convenio_id: paciente?.convenio_id,
-        paciente_convenio_nome: convenio?.razao_social || 'Sem convênio',
-        convenio_registro_ans: convenio?.registro_ans || '',
-        convenio_codigo_prestador: convenio?.codigo_prestador || '',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        created_at: agora,
+        updated_at: agora,
+        codigo_operadora: convenio?.codigo_prestador || null,
+        nome_contratado: null,
+        profissional_solicitante: agendamento?.prestador_nome || null,
+        conselho_solicitante: '06',
+        uf_solicitante: '35',
+        numero_conselho_solicitante: null,
+        cbos_solicitante: '225125',
+        carater_atendimento: '1',
+        data_solicitacao: agendamento?.data_agendamento || dataAtual,
+        atendimento_rn: 'N',
+        indicacao_clinica: formData.conduta || null,
+        tipo_atendimento: '04',
+        indicacao_acidente: '9',
+        tipo_consulta: '1',
+        motivo_encerramento: null,
+        cobertura_especial: null,
+        regime_atendimento: '01',
+        saude_ocupacional: null,
+        convenio_registro_ans: convenio?.registro_ans || null,
+        convenio_codigo_prestador: convenio?.codigo_prestador || null
       };
   
-      console.log('Enviando atendimento:', atendimento);
+      // Remover campos undefined e null desnecessários
+      Object.keys(atendimento).forEach(key => {
+        if (atendimento[key] === undefined) {
+          delete atendimento[key];
+        }
+      });
   
-      const { error: atendimentoError } = await supabase.from('atendimentos').insert([atendimento]);
-      if (atendimentoError) throw atendimentoError;
+      console.log('Enviando atendimento:', JSON.stringify(atendimento, null, 2));
+  
+      const { data, error } = await supabase
+        .from('atendimentos')
+        .insert([atendimento])
+        .select();
+  
+      if (error) {
+        console.error('Erro detalhado:', error);
+        throw error;
+      }
   
       toast.success('Atendimento finalizado e guia gerada com sucesso!');
       navigate('/atendimentos');
     } catch (error) {
       console.error('Erro ao finalizar atendimento:', error);
-      toast.error('Erro ao finalizar atendimento: ' + error.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const adicionarPrescricao = async () => {
-    if (!prescricaoForm.descricao) {
-      toast.error('Descrição da prescrição é obrigatória');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      let prontuarioId = prontuario?.id;
-      if (!prontuarioId) {
-        await salvarProntuario();
-        prontuarioId = prontuario?.id;
-      }
-
-      const { data, error } = await supabase
-        .from('prescricoes')
-        .insert({
-          prontuario_id: prontuarioId,
-          ...prescricaoForm,
-          created_at: new Date().toISOString()
-        })
-        .select();
-
-      if (error) throw error;
-
-      setPrescricoes([data[0], ...prescricoes]);
-      setShowPrescricaoModal(false);
-      setPrescricaoForm({
-        tipo: 'medicamento',
-        descricao: '',
-        dosagem: '',
-        via_administracao: '',
-        frequencia: '',
-        duracao: '',
-        observacoes: ''
-      });
-      toast.success('Prescrição adicionada com sucesso!');
-    } catch (error) {
-      console.error('Erro ao adicionar prescrição:', error);
-      toast.error('Erro ao adicionar prescrição');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const adicionarReceita = async () => {
-    if (!receitaForm.medicamentos.some(m => m.nome)) {
-      toast.error('Adicione pelo menos um medicamento');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      let prontuarioId = prontuario?.id;
-      if (!prontuarioId) {
-        await salvarProntuario();
-        prontuarioId = prontuario?.id;
-      }
-
-      const numeroReceita = `REC${Date.now()}`;
-
-      const { data, error } = await supabase
-        .from('receitas')
-        .insert({
-          prontuario_id: prontuarioId,
-          numero_receita: numeroReceita,
-          tipo: receitaForm.tipo,
-          medicamentos: receitaForm.medicamentos,
-          validade: receitaForm.validade,
-          observacoes: receitaForm.observacoes,
-          created_at: new Date().toISOString()
-        })
-        .select();
-
-      if (error) throw error;
-
-      setReceitas([data[0], ...receitas]);
-      setShowReceitaModal(false);
-      setReceitaForm({
-        tipo: 'medicamento',
-        medicamentos: [{ nome: '', dosagem: '', quantidade: '' }],
-        validade: '',
-        observacoes: ''
-      });
-      toast.success('Receita gerada com sucesso!');
-    } catch (error) {
-      console.error('Erro ao adicionar receita:', error);
-      toast.error('Erro ao adicionar receita');
+      toast.error('Erro ao finalizar atendimento: ' + (error.message || 'Erro desconhecido'));
     } finally {
       setSaving(false);
     }
