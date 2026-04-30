@@ -1,5 +1,5 @@
 // src/pages/Agendamentos.jsx
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   PlusIcon, 
   PencilIcon, 
@@ -7,49 +7,41 @@ import {
   MagnifyingGlassIcon, 
   CheckIcon, 
   XMarkIcon, 
-  EyeIcon, 
   CalendarIcon,
   ClockIcon,
   UserGroupIcon,
   BuildingOfficeIcon,
   BeakerIcon,
-  EnvelopeIcon,
-  PhoneIcon,
-  MapPinIcon,
   VideoCameraIcon,
-  ArrowPathIcon,
   BellIcon,
   CheckBadgeIcon,
   XCircleIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
-import { format, addDays, subDays, startOfWeek, endOfWeek, parseISO, isSameDay } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { format, addDays, startOfWeek, endOfWeek } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
 
 // Status de agendamento
 const STATUS_AGENDAMENTO = [
-  { value: 'agendado', label: 'Agendado', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', icon: ClockIcon },
-  { value: 'confirmado', label: 'Confirmado', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', icon: CheckBadgeIcon },
-  { value: 'cancelado', label: 'Cancelado', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', icon: XCircleIcon },
-  { value: 'realizado', label: 'Realizado', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400', icon: CheckIcon },
-  { value: 'aguardando', label: 'Aguardando', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400', icon: BellIcon }
+  { value: 'agendado', label: 'Agendado', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  { value: 'confirmado', label: 'Confirmado', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  { value: 'cancelado', label: 'Cancelado', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+  { value: 'realizado', label: 'Realizado', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
+  { value: 'aguardando', label: 'Aguardando', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' }
 ];
 
-// Tipos de agendamento
 const TIPO_AGENDAMENTO = [
-  { value: 'consulta', label: 'Consulta', icon: UserGroupIcon },
-  { value: 'exame', label: 'Exame', icon: BeakerIcon },
-  { value: 'procedimento', label: 'Procedimento', icon: BeakerIcon },
-  { value: 'retorno', label: 'Retorno', icon: ArrowPathIcon },
-  { value: 'teleconsulta', label: 'Teleconsulta', icon: VideoCameraIcon }
+  { value: 'consulta', label: 'Consulta' },
+  { value: 'exame', label: 'Exame' },
+  { value: 'procedimento', label: 'Procedimento' },
+  { value: 'retorno', label: 'Retorno' },
+  { value: 'teleconsulta', label: 'Teleconsulta' }
 ];
 
-// Modalidades de atendimento
 const MODALIDADE = [
-  { value: 'presencial', label: 'Presencial', icon: MapPinIcon },
-  { value: 'teleconsulta', label: 'Teleconsulta', icon: VideoCameraIcon },
-  { value: 'domicilio', label: 'Domicílio', icon: BuildingOfficeIcon }
+  { value: 'presencial', label: 'Presencial' },
+  { value: 'teleconsulta', label: 'Teleconsulta' },
+  { value: 'domicilio', label: 'Domicílio' }
 ];
 
 export default function Agendamentos() {
@@ -64,8 +56,6 @@ export default function Agendamentos() {
   const [filtroStatus, setFiltroStatus] = useState('todos');
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [filtroData, setFiltroData] = useState('hoje');
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState('lista'); // lista, calendario
 
   const [formData, setFormData] = useState({
     paciente_id: '',
@@ -81,17 +71,13 @@ export default function Agendamentos() {
     local: '',
     link_teleconsulta: '',
     lembrete_envio: true,
-    lembrete_antecedencia: 60, // minutos
+    lembrete_antecedencia: 60,
     paciente_nome: '',
     paciente_carteira: '',
     prestador_nome: '',
     prestador_especialidade: '',
     convenio_nome: ''
   });
-
-  // ============================================
-  // CARREGAR DADOS DO SUPABASE
-  // ============================================
 
   const carregarDados = async () => {
     setLoading(true);
@@ -124,7 +110,6 @@ export default function Agendamentos() {
     carregarDados();
   }, []);
 
-  // Salvar agendamento
   const salvarAgendamento = async (agendamento) => {
     try {
       if (editing) {
@@ -153,7 +138,6 @@ export default function Agendamentos() {
     }
   };
 
-  // Excluir agendamento
   const excluirAgendamento = async (id) => {
     if (!confirm('Tem certeza que deseja excluir este agendamento?')) return;
     
@@ -173,7 +157,6 @@ export default function Agendamentos() {
     }
   };
 
-  // Atualizar status
   const atualizarStatus = async (id, status) => {
     try {
       const { error } = await supabase
@@ -286,7 +269,6 @@ export default function Agendamentos() {
     setShowModal(true);
   };
 
-  // Filtrar agendamentos
   const agendamentosFiltrados = useMemo(() => {
     let filtrados = [...agendamentos];
 
@@ -349,36 +331,12 @@ export default function Agendamentos() {
               Gerenciamento de consultas, exames e procedimentos
             </p>
           </div>
-          <div className="flex gap-2">
-            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-xl p-1">
-              <button
-                onClick={() => setViewMode('lista')}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  viewMode === 'lista' 
-                    ? 'bg-white dark:bg-gray-600 shadow-md text-gray-900 dark:text-white' 
-                    : 'text-gray-600 dark:text-gray-400'
-                }`}
-              >
-                Lista
-              </button>
-              <button
-                onClick={() => setViewMode('calendario')}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  viewMode === 'calendario' 
-                    ? 'bg-white dark:bg-gray-600 shadow-md text-gray-900 dark:text-white' 
-                    : 'text-gray-600 dark:text-gray-400'
-                }`}
-              >
-                Calendário
-              </button>
-            </div>
-            <button 
-              onClick={() => { setEditing(null); resetModal(); setShowModal(true); }} 
-              className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg"
-            >
-              <PlusIcon className="w-4 h-4" /> Novo Agendamento
-            </button>
-          </div>
+          <button 
+            onClick={() => { setEditing(null); resetModal(); setShowModal(true); }} 
+            className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg"
+          >
+            <PlusIcon className="w-4 h-4" /> Novo Agendamento
+          </button>
         </div>
 
         {/* Cards de resumo */}
@@ -485,7 +443,6 @@ export default function Agendamentos() {
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {agendamentosFiltrados.map((a) => {
                   const statusInfo = STATUS_AGENDAMENTO.find(s => s.value === a.status);
-                  const StatusIcon = statusInfo?.icon;
                   return (
                     <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                       <td className="px-4 py-3">
@@ -514,7 +471,6 @@ export default function Agendamentos() {
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusInfo?.color}`}>
-                          {StatusIcon && <StatusIcon className="w-3 h-3" />}
                           {statusInfo?.label || a.status}
                         </span>
                       </td>
@@ -546,7 +502,7 @@ export default function Agendamentos() {
                           </button>
                         </div>
                       </td>
-                    </table>
+                    </tr>
                   );
                 })}
                 {agendamentosFiltrados.length === 0 && (
@@ -611,7 +567,7 @@ export default function Agendamentos() {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Agendamento *</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo *</label>
                       <select 
                         value={formData.tipo} 
                         onChange={e => setFormData({...formData, tipo: e.target.value})} 
