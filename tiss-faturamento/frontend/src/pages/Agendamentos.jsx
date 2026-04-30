@@ -1,4 +1,4 @@
-// src/pages/Agendamentos.jsx
+// src/pages/Agendamentos.jsx - VERSÃO CORRIGIDA E COMPLETA
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -6,7 +6,6 @@ import {
   PencilIcon, 
   TrashIcon, 
   MagnifyingGlassIcon, 
-  CheckIcon, 
   XMarkIcon, 
   CalendarIcon,
   ClockIcon,
@@ -24,12 +23,9 @@ import {
   ListBulletIcon,
   EyeIcon,
   FunnelIcon,
-  ArrowPathIcon,
   ChartBarIcon,
-  UserIcon,
   ChevronUpIcon,
-  ChevronDownIcon,
-  DocumentTextIcon
+  ChevronDownIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, addWeeks, subWeeks, addMonths, subMonths } from 'date-fns';
@@ -111,6 +107,9 @@ export default function Agendamentos() {
       if (prestadoresRes.error) throw prestadoresRes.error;
       if (conveniosRes.error) throw conveniosRes.error;
 
+      console.log('Agendamentos carregados:', agendamentosRes.data?.length || 0);
+      console.log('Primeiro agendamento:', agendamentosRes.data?.[0]);
+      
       setAgendamentos(agendamentosRes.data || []);
       setPacientes(pacientesRes.data || []);
       setPrestadores(prestadoresRes.data || []);
@@ -186,10 +185,6 @@ export default function Agendamentos() {
       updated_at: new Date().toISOString()
     };
 
-    if (editing) {
-      novoAgendamento.id = editing.id;
-    }
-
     try {
       let error;
       if (editing) {
@@ -259,11 +254,23 @@ export default function Agendamentos() {
 
   const getAgendamentosFiltrados = () => {
     let filtrados = [...agendamentos];
-    if (filtroStatus !== 'todos') filtrados = filtrados.filter(a => a.status === filtroStatus);
-    if (filtroTipo !== 'todos') filtrados = filtrados.filter(a => a.tipo === filtroTipo);
-    if (filtroModalidade !== 'todos') filtrados = filtrados.filter(a => a.modalidade === filtroModalidade);
-    if (filtroPrestador !== 'todos') filtrados = filtrados.filter(a => a.prestador_id === parseInt(filtroPrestador));
-    if (filtroConvenio !== 'todos') filtrados = filtrados.filter(a => a.convenio_id === parseInt(filtroConvenio));
+    console.log('Filtrando agendamentos, total:', filtrados.length);
+    
+    if (filtroStatus !== 'todos') {
+      filtrados = filtrados.filter(a => a.status === filtroStatus);
+    }
+    if (filtroTipo !== 'todos') {
+      filtrados = filtrados.filter(a => a.tipo === filtroTipo);
+    }
+    if (filtroModalidade !== 'todos') {
+      filtrados = filtrados.filter(a => a.modalidade === filtroModalidade);
+    }
+    if (filtroPrestador !== 'todos') {
+      filtrados = filtrados.filter(a => a.prestador_id === parseInt(filtroPrestador));
+    }
+    if (filtroConvenio !== 'todos') {
+      filtrados = filtrados.filter(a => a.convenio_id === parseInt(filtroConvenio));
+    }
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtrados = filtrados.filter(a => 
@@ -271,12 +278,16 @@ export default function Agendamentos() {
         a.prestador_nome?.toLowerCase().includes(term)
       );
     }
+    console.log('Após filtros:', filtrados.length);
     return filtrados;
   };
 
   const getAgendamentosPorData = (data) => {
     const dataStr = format(data, 'yyyy-MM-dd');
-    return getAgendamentosFiltrados().filter(a => a.data_agendamento === dataStr);
+    const todosFiltrados = getAgendamentosFiltrados();
+    const resultado = todosFiltrados.filter(a => a.data_agendamento === dataStr);
+    console.log(`Agendamentos para ${dataStr}: ${resultado.length}`);
+    return resultado;
   };
 
   const getDiasDaSemana = () => {
@@ -305,6 +316,10 @@ export default function Agendamentos() {
 
   const estatisticas = getEstatisticas();
   const diasDaSemana = getDiasDaSemana();
+
+  // Debug: Mostrar agendamentos por data
+  console.log('Data atual:', format(currentDate, 'yyyy-MM-dd'));
+  console.log('Agendamentos hoje (view):', getAgendamentosPorData(currentDate).length);
 
   if (loading) {
     return (
@@ -430,7 +445,7 @@ export default function Agendamentos() {
 
         {/* Calendar Navigation */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center flex-wrap gap-4">
             <div className="flex gap-2">
               <button onClick={navegarAnterior} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
                 <ChevronLeftIcon className="w-5 h-5" />
@@ -476,6 +491,11 @@ export default function Agendamentos() {
         {viewMode === 'dia' && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
             <div className="divide-y dark:divide-gray-700">
+              {getAgendamentosPorData(currentDate).length === 0 && (
+                <div className="p-8 text-center text-gray-500">
+                  Nenhum agendamento para este dia
+                </div>
+              )}
               {HORARIOS.map(hora => {
                 const agendamento = getAgendamentosPorData(currentDate).find(a => a.hora_inicio === hora);
                 const statusInfo = agendamento ? STATUS_AGENDAMENTO.find(s => s.value === agendamento.status) : null;
@@ -500,7 +520,7 @@ export default function Agendamentos() {
                       {agendamento && (
                         <div className="flex gap-1">
                           {podeAtender(agendamento) && (
-                            <Link to={`/prontuario/${agendamento.id}`} className="p-2 text-cyan-600 hover:bg-cyan-50 rounded-lg">
+                            <Link to={`/prontuario/${agendamento.id}`} className="p-2 text-cyan-600 hover:bg-cyan-50 rounded-lg" title="Atender Paciente">
                               <CheckBadgeIcon className="w-5 h-5" />
                             </Link>
                           )}
@@ -563,7 +583,7 @@ export default function Agendamentos() {
                             <p className="text-xs text-gray-500">{agendamento.prestador_nome}</p>
                             <div className="flex gap-1 mt-1">
                               {podeAtender(agendamento) && (
-                                <Link to={`/prontuario/${agendamento.id}`} className="text-cyan-600">
+                                <Link to={`/prontuario/${agendamento.id}`} className="text-cyan-600" title="Atender">
                                   <CheckBadgeIcon className="w-4 h-4" />
                                 </Link>
                               )}
@@ -641,12 +661,17 @@ export default function Agendamentos() {
                         </div>
                         <div className="space-y-1 mt-1">
                           {agendamentosDia.slice(0, 2).map(ag => (
-                            <div key={ag.id} className="text-xs p-1 rounded bg-gray-100 dark:bg-gray-700">
-                              <span className="font-mono">{ag.hora_inicio}</span> {ag.paciente_nome?.split(' ')[0]}
+                            <div key={ag.id} className="text-xs p-1 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-between">
+                              <span><span className="font-mono">{ag.hora_inicio}</span> {ag.paciente_nome?.split(' ')[0]}</span>
+                              {podeAtender(ag) && (
+                                <Link to={`/prontuario/${ag.id}`} className="text-cyan-600">
+                                  <CheckBadgeIcon className="w-3 h-3" />
+                                </Link>
+                              )}
                             </div>
                           ))}
                           {agendamentosDia.length > 2 && (
-                            <div className="text-xs text-gray-500">+{agendamentosDia.length - 2}</div>
+                            <div className="text-xs text-gray-500 text-center">+{agendamentosDia.length - 2}</div>
                           )}
                         </div>
                       </div>
