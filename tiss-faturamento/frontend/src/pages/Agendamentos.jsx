@@ -1,4 +1,4 @@
-// src/pages/Agendamentos.jsx
+// src/pages/Agendamentos.jsx - VERSÃO CORRIGIDA
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -10,7 +10,7 @@ import {
   ChevronUpIcon, ChevronDownIcon, HomeModernIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
-import { format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, addWeeks, subWeeks, addMonths, subMonths } from 'date-fns';
+import { format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, addWeeks, subWeeks, addMonths, subMonths, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '../lib/supabaseClient';
 
@@ -115,6 +115,9 @@ export default function Agendamentos() {
       setSalas(salasRes.data || []);
       
       console.log('Agendamentos carregados:', agendamentosRes.data?.length);
+      if (agendamentosRes.data?.length > 0) {
+        console.log('Primeiro agendamento:', agendamentosRes.data[0]);
+      }
     } catch (error) {
       console.error('Erro:', error);
       toast.error('Erro ao carregar dados');
@@ -139,8 +142,7 @@ export default function Agendamentos() {
     p.nome?.toLowerCase().includes(prestadorBusca.toLowerCase()) ||
     p.especialidade?.toLowerCase().includes(prestadorBusca.toLowerCase()) ||
     p.cpf?.includes(prestadorBusca) ||
-    p.numero_conselho?.includes(prestadorBusca) ||
-    p.conselho?.toLowerCase().includes(prestadorBusca.toLowerCase())
+    p.numero_conselho?.includes(prestadorBusca)
   ).slice(0, 15);
 
   // Filtrar salas
@@ -201,8 +203,6 @@ export default function Agendamentos() {
       paciente_carteira: paciente?.numero_carteira || '',
       prestador_nome: prestador?.nome || '',
       prestador_especialidade: prestador?.especialidade || '',
-      prestador_conselho: prestador?.conselho || '',
-      prestador_numero_conselho: prestador?.numero_conselho || '',
       convenio_id: paciente?.convenio_id || null,
       convenio_nome: convenio?.razao_social || 'Sem convênio',
       created_at: new Date().toISOString(),
@@ -272,7 +272,22 @@ export default function Agendamentos() {
 
   const irParaHoje = () => setCurrentDate(new Date());
 
-  // Filtros
+  // Função para formatar data do agendamento (vem como string 'YYYY-MM-DD')
+  const formatarDataAgendamento = (dataStr) => {
+    if (!dataStr) return '';
+    // Se já vem no formato YYYY-MM-DD, retorna direto
+    if (dataStr.includes('-') && dataStr.length === 10) {
+      return dataStr;
+    }
+    // Se for objeto Date ou ISO string
+    try {
+      return new Date(dataStr).toISOString().split('T')[0];
+    } catch {
+      return '';
+    }
+  };
+
+  // Filtros - CORRIGIDO
   const getAgendamentosFiltrados = useCallback(() => {
     let filtrados = [...agendamentos];
     
@@ -293,24 +308,35 @@ export default function Agendamentos() {
     return filtrados;
   }, [agendamentos, filtroStatus, filtroSala, searchTerm]);
 
-    const getAgendamentosPorData = (data) => {
-        const dataStr = format(data, 'yyyy-MM-dd');
-        return getAgendamentosFiltrados().filter(a => {
-          // Normalize the date from database to handle timezone issues
-          const agendamentoDate = a.data_agendamento?.split('T')[0] || '';
-          return agendamentoDate === dataStr;
-        });
-      };
+  // CORRIGIDO: Get agendamentos por data
+  const getAgendamentosPorData = useCallback((data) => {
+    const dataStr = format(data, 'yyyy-MM-dd');
+    const filtrados = getAgendamentosFiltrados();
+    
+    const result = filtrados.filter(a => {
+      const agendamentoData = formatarDataAgendamento(a.data_agendamento);
+      return agendamentoData === dataStr;
+    });
+    
+    return result;
+  }, [getAgendamentosFiltrados]);
 
   const getDiasDaSemana = () => {
     const inicio = startOfWeek(currentDate, { weekStartsOn: 1 });
     return Array.from({ length: 7 }, (_, i) => addDays(inicio, i));
   };
 
+  // Estatísticas corrigidas
   const estatisticas = {
-    hoje: getAgendamentosFiltrados().filter(a => a.data_agendamento === format(new Date(), 'yyyy-MM-dd') && a.status !== 'cancelado').length,
+    hoje: getAgendamentosFiltrados().filter(a => {
+      const dataAgendamento = formatarDataAgendamento(a.data_agendamento);
+      const hoje = format(new Date(), 'yyyy-MM-dd');
+      return dataAgendamento === hoje && a.status !== 'cancelado';
+    }).length,
     semana: getAgendamentosFiltrados().filter(a => {
-      const data = new Date(a.data_agendamento);
+      const dataAgendamento = formatarDataAgendamento(a.data_agendamento);
+      if (!dataAgendamento) return false;
+      const data = new Date(dataAgendamento);
       const hoje = new Date();
       const inicioSemana = startOfWeek(hoje, { weekStartsOn: 1 });
       const fimSemana = endOfWeek(hoje, { weekStartsOn: 1 });
@@ -325,6 +351,12 @@ export default function Agendamentos() {
     return agendamento.status !== 'realizado' && agendamento.status !== 'cancelado';
   };
 
+  // Forçar recálculo quando a data mudar
+  useEffect(() => {
+    // Força re-renderização quando a data mudar
+    setCurrentDate(prev => new Date(prev));
+  }, [viewMode]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -332,6 +364,10 @@ export default function Agendamentos() {
       </div>
     );
   }
+
+  // Debug: Mostrar agendamentos do dia atual
+  const agendamentosHojeDebug = getAgendamentosPorData(new Date());
+  console.log('Agendamentos para hoje:', agendamentosHojeDebug.length);
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen p-6">
@@ -634,7 +670,7 @@ export default function Agendamentos() {
                           {format(current, 'dd')}
                         </div>
                         <div className="space-y-1 mt-1">
-                          {agendamentosDia.slice(0, 2).map(ag => (
+                          {agendamentosDia.slice(0, 3).map(ag => (
                             <div key={ag.id} className="text-xs p-1 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-between">
                               <span className="truncate text-gray-700 dark:text-gray-300">{ag.hora_inicio} {ag.paciente_nome?.split(' ')[0]}</span>
                               {podeAtender(ag) && (
@@ -644,8 +680,25 @@ export default function Agendamentos() {
                               )}
                             </div>
                           ))}
-                          {agendamentosDia.length > 2 && (
-                            <div className="text-xs text-gray-400 dark:text-gray-500 text-center">+{agendamentosDia.length - 2}</div>
+                          {agendamentosDia.length > 3 && (
+                            <div className="text-xs text-gray-400 dark:text-gray-500 text-center">+{agendamentosDia.length - 3}</div>
+                          )}
+                          {agendamentosDia.length === 0 && isCurrentMonth && (
+                            <button
+                              onClick={() => {
+                                setEditing(null);
+                                setFormData({
+                                  ...formData,
+                                  data_agendamento: format(current, 'yyyy-MM-dd'),
+                                  hora_inicio: '09:00',
+                                  hora_fim: '09:30'
+                                });
+                                setShowModal(true);
+                              }}
+                              className="w-full text-xs text-gray-400 hover:text-blue-500 py-2 transition-colors"
+                            >
+                              + Agendar
+                            </button>
                           )}
                         </div>
                       </div>
@@ -714,7 +767,7 @@ export default function Agendamentos() {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Profissional *</label>
                   <input
                     type="text"
-                    placeholder="Digite nome, especialidade, CPF ou número do conselho..."
+                    placeholder="Digite nome, especialidade ou número do conselho..."
                     value={prestadorBusca}
                     onChange={(e) => {
                       setPrestadorBusca(e.target.value);
@@ -739,7 +792,7 @@ export default function Agendamentos() {
                         >
                           <div className="font-medium text-gray-800 dark:text-white">{p.nome}</div>
                           <div className="text-xs text-gray-500 dark:text-gray-400">
-                            {p.especialidade} | CPF: {p.cpf || '---'} | Conselho: {p.conselho} {p.numero_conselho}
+                            {p.especialidade} | CPF: {p.cpf || '---'} | Conselho: {p.numero_conselho}
                           </div>
                         </div>
                       ))}
