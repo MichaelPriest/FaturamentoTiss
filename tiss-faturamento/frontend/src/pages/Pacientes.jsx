@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, CheckCircleIcon, XCircleIcon, ClockIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format, differenceInDays, parseISO } from 'date-fns';
+import { pacientesService, conveniosService } from '../services/supabaseService';
 
 // Funções de máscara
 const aplicarMascaraCPF = (valor) => {
@@ -44,6 +45,7 @@ const ESTADOS = [
 export default function Pacientes() {
   const [pacientes, setPacientes] = useState([]);
   const [convenios, setConvenios] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -75,32 +77,23 @@ export default function Pacientes() {
     carregarDados();
   }, []);
 
-  const carregarDados = () => {
-    const storedPacientes = localStorage.getItem('pacientes');
-    const storedConvenios = localStorage.getItem('convenios');
-    
-    console.log('=== CARREGANDO DADOS ===');
-    console.log('Convênios raw:', storedConvenios);
-    console.log('Pacientes raw:', storedPacientes);
-    
-    if (storedPacientes) {
-      const parsedPacientes = JSON.parse(storedPacientes);
-      setPacientes(parsedPacientes);
-      console.log('Pacientes carregados:', parsedPacientes);
+  const carregarDados = async () => {
+    setLoading(true);
+    try {
+      const [pacientesData, conveniosData] = await Promise.all([
+        pacientesService.listar(),
+        conveniosService.listar()
+      ]);
+      setPacientes(pacientesData);
+      setConvenios(conveniosData);
+      console.log('Pacientes carregados:', pacientesData);
+      console.log('Convênios carregados:', conveniosData);
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+      toast.error('Erro ao carregar dados');
+    } finally {
+      setLoading(false);
     }
-    if (storedConvenios) {
-      const parsedConvenios = JSON.parse(storedConvenios);
-      setConvenios(parsedConvenios);
-      console.log('Convênios carregados:', parsedConvenios);
-    }
-  };
-
-  const salvarPacientes = (lista) => {
-    console.log('=== SALVANDO PACIENTES ===');
-    console.log('Lista a ser salva:', lista);
-    localStorage.setItem('pacientes', JSON.stringify(lista));
-    setPacientes(lista);
-    console.log('Pacientes salvos com sucesso!');
   };
 
   // Buscar endereço pelo CEP usando ViaCEP
@@ -142,51 +135,52 @@ export default function Pacientes() {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    console.log('=== SUBMETENDO FORMULÁRIO ===');
-    console.log('FormData:', formData);
-    console.log('convenio_id selecionado:', formData.convenio_id);
     
     if (!formData.nome || !formData.numero_carteira || !formData.convenio_id) {
       toast.error('Nome, número da carteira e convênio são obrigatórios');
       return;
     }
 
-    // Verificar se o convênio existe
-    const convenioExists = convenios.some(c => c.id === parseInt(formData.convenio_id));
-    if (!convenioExists) {
-      toast.error('Convênio selecionado não existe!');
-      console.error('Convênio não encontrado para ID:', formData.convenio_id);
-      return;
-    }
-
     const pacienteData = {
-      ...formData,
-      convenio_id: parseInt(formData.convenio_id), // Garantir que é número
+      nome: formData.nome.toUpperCase(),
+      numero_carteira: formData.numero_carteira,
+      convenio_id: parseInt(formData.convenio_id),
       cpf: formData.cpf.replace(/\D/g, ''),
       rg: formData.rg.replace(/\D/g, ''),
+      data_nascimento: formData.data_nascimento || null,
+      sexo: formData.sexo,
       telefone: formData.telefone.replace(/\D/g, ''),
       celular: formData.celular.replace(/\D/g, ''),
-      cep: formData.cep.replace(/\D/g, '')
+      email: formData.email,
+      endereco: formData.endereco,
+      numero: formData.numero,
+      complemento: formData.complemento,
+      bairro: formData.bairro,
+      cep: formData.cep.replace(/\D/g, ''),
+      cidade: formData.cidade,
+      estado: formData.estado,
+      data_validade_carteira: formData.data_validade_carteira || null,
+      observacao: formData.observacao
     };
 
-    console.log('PacienteData a ser salvo:', pacienteData);
-
-    if (editing) {
-      const updated = pacientes.map(p => p.id === editing.id ? { ...pacienteData, id: p.id, updated_at: new Date().toISOString() } : p);
-      salvarPacientes(updated);
-      toast.success('Paciente atualizado com sucesso!');
-    } else {
-      const novoPaciente = { ...pacienteData, id: Date.now(), created_at: new Date().toISOString(), status: 'ATIVO' };
-      salvarPacientes([...pacientes, novoPaciente]);
-      toast.success('Paciente cadastrado com sucesso!');
+    try {
+      if (editing) {
+        await pacientesService.atualizar(editing.id, pacienteData);
+        toast.success('Paciente atualizado com sucesso!');
+      } else {
+        await pacientesService.criar(pacienteData);
+        toast.success('Paciente cadastrado com sucesso!');
+      }
+      await carregarDados();
+      setShowModal(false);
+      setEditing(null);
+      resetForm();
+    } catch (error) {
+      console.error('Erro ao salvar paciente:', error);
+      toast.error('Erro ao salvar paciente');
     }
-
-    setShowModal(false);
-    setEditing(null);
-    resetForm();
   };
 
   const resetForm = () => {
@@ -197,10 +191,16 @@ export default function Pacientes() {
     });
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (confirm('Tem certeza que deseja excluir este paciente?')) {
-      salvarPacientes(pacientes.filter(p => p.id !== id));
-      toast.success('Paciente excluído com sucesso!');
+      try {
+        await pacientesService.deletar(id);
+        toast.success('Paciente excluído com sucesso!');
+        await carregarDados();
+      } catch (error) {
+        console.error('Erro ao excluir paciente:', error);
+        toast.error('Erro ao excluir paciente');
+      }
     }
   };
 
@@ -210,13 +210,6 @@ export default function Pacientes() {
     if (diasRestantes < 0) return { text: 'Vencida', color: 'red' };
     if (diasRestantes < 30) return { text: `Vence em ${diasRestantes} dias`, color: 'yellow' };
     return { text: `Válida até ${format(parseISO(validade), 'dd/MM/yyyy')}`, color: 'green' };
-  };
-
-  // Função para encontrar o convênio com debug
-  const getConvenioById = (convenioId) => {
-    const convenio = convenios.find(c => c.id === convenioId);
-    console.log(`Buscando convênio ID ${convenioId} encontrado:`, convenio);
-    return convenio;
   };
 
   const filteredPacientes = pacientes.filter(p => {
@@ -229,49 +222,109 @@ export default function Pacientes() {
 
   const estatisticas = {
     total: pacientes.length,
-    porConvenio: convenios.map(c => ({
-      ...c,
-      quantidade: pacientes.filter(p => p.convenio_id === c.id).length
-    }))
+    comConvenio: pacientes.filter(p => p.convenio_id).length,
+    semConvenio: pacientes.filter(p => !p.convenio_id).length
   };
 
-  console.log('=== RENDER PÁGINA PACIENTES ===');
-  console.log('Pacientes state:', pacientes);
-  console.log('Convênios state:', convenios);
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-500 dark:text-gray-400">Carregando pacientes...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-semibold text-gray-800">Pacientes / Beneficiários</h2>
-        <button onClick={() => { setEditing(null); resetForm(); setShowModal(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-blue-700">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+            Pacientes / Beneficiários
+          </h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            Cadastro de pacientes e beneficiários
+          </p>
+        </div>
+        <button 
+          onClick={() => { setEditing(null); resetForm(); setShowModal(true); }} 
+          className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg"
+        >
           <PlusIcon className="w-4 h-4" /> Novo Paciente
         </button>
       </div>
 
       {/* Cards de estatísticas */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-lg border p-4">
-          <p className="text-xs text-gray-500">Total de Pacientes</p>
-          <p className="text-2xl font-bold text-gray-800">{estatisticas.total}</p>
-        </div>
-        {estatisticas.porConvenio.filter(c => c.quantidade > 0).slice(0, 3).map(c => (
-          <div key={c.id} className="bg-white rounded-lg border p-4">
-            <p className="text-xs text-gray-500">{c.razao_social}</p>
-            <p className="text-2xl font-bold text-blue-600">{c.quantidade}</p>
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Total de Pacientes</p>
+              <p className="text-2xl font-bold text-gray-800 dark:text-white">{estatisticas.total}</p>
+            </div>
+            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+              <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
           </div>
-        ))}
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Com Convênio</p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">{estatisticas.comConvenio}</p>
+            </div>
+            <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+              <CheckCircleIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
+            </div>
+          </div>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Sem Convênio</p>
+              <p className="text-2xl font-bold text-red-600 dark:text-red-400">{estatisticas.semConvenio}</p>
+            </div>
+            <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+              <XCircleIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
+            </div>
+          </div>
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Convênios</p>
+              <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{convenios.length}</p>
+            </div>
+            <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
+              <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Filtros */}
       <div className="flex flex-wrap gap-2 mb-4">
-        <button onClick={() => setFiltroConvenio('todos')} className={`px-3 py-1 rounded-lg text-xs ${filtroConvenio === 'todos' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}>
+        <button 
+          onClick={() => setFiltroConvenio('todos')} 
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filtroConvenio === 'todos' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+        >
           Todos ({pacientes.length})
         </button>
         {convenios.map(c => {
           const count = pacientes.filter(p => p.convenio_id === c.id).length;
           if (count === 0) return null;
           return (
-            <button key={c.id} onClick={() => setFiltroConvenio(c.id.toString())} className={`px-3 py-1 rounded-lg text-xs ${filtroConvenio === c.id.toString() ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}>
+            <button 
+              key={c.id} 
+              onClick={() => setFiltroConvenio(c.id.toString())} 
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${filtroConvenio === c.id.toString() ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
+            >
               {c.nome_fantasia || c.razao_social} ({count})
             </button>
           );
@@ -279,68 +332,68 @@ export default function Pacientes() {
       </div>
 
       {/* Busca */}
-      <div className="bg-white rounded-lg border p-3 mb-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 mb-4">
         <div className="relative">
-          <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
           <input 
             type="text" 
             placeholder="Buscar por nome, carteira ou CPF..." 
             value={searchTerm} 
             onChange={(e) => setSearchTerm(e.target.value)} 
-            className="w-full border rounded-lg px-8 py-1.5 text-sm" 
+            className="w-full border-0 bg-transparent rounded-lg px-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
           />
         </div>
       </div>
 
       {/* Tabela de Pacientes */}
-      <div className="bg-white rounded-lg border overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 dark:bg-gray-700/50">
               <tr>
-                <th className="px-4 py-2 text-left text-xs text-gray-500">Nome</th>
-                <th className="px-4 py-2 text-left text-xs text-gray-500">Carteira</th>
-                <th className="px-4 py-2 text-left text-xs text-gray-500">Convênio</th>
-                <th className="px-4 py-2 text-left text-xs text-gray-500">CPF</th>
-                <th className="px-4 py-2 text-left text-xs text-gray-500">Validade</th>
-                <th className="px-4 py-2 text-left text-xs text-gray-500">Telefone</th>
-                <th className="px-4 py-2 text-center text-xs text-gray-500 w-24">Ações</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nome</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Carteira</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Convênio</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">CPF</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Validade</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Telefone</th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {filteredPacientes.map((p) => {
-                const convenio = getConvenioById(p.convenio_id);
+                const convenio = convenios.find(c => c.id === p.convenio_id);
                 const status = getStatusCarteira(p.data_validade_carteira);
                 return (
-                  <tr key={p.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 text-xs text-gray-800">{p.nome}</td>
-                    <td className="px-4 py-2 text-xs font-mono text-gray-600">{p.numero_carteira}</td>
-                    <td className="px-4 py-2 text-xs">
+                  <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    <td className="px-4 py-3 text-sm text-gray-800 dark:text-gray-200">{p.nome}</td>
+                    <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">{p.numero_carteira}</td>
+                    <td className="px-4 py-3">
                       {convenio ? (
-                        <span className="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700">
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
                           {convenio.razao_social}
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700">
-                          Sem convênio (ID: {p.convenio_id})
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
+                          Sem convênio
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-xs text-gray-500">{p.cpf ? aplicarMascaraCPF(p.cpf) : '-'}</td>
-                    <td className="px-4 py-2">
+                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{p.cpf ? aplicarMascaraCPF(p.cpf) : '-'}</td>
+                    <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
                         {status.color === 'green' && <CheckCircleIcon className="w-3 h-3 text-green-500" />}
                         {status.color === 'yellow' && <ClockIcon className="w-3 h-3 text-yellow-500" />}
                         {status.color === 'red' && <XCircleIcon className="w-3 h-3 text-red-500" />}
                         <span className={`text-xs ${
-                          status.color === 'green' ? 'text-green-600' : 
-                          status.color === 'yellow' ? 'text-yellow-600' : 
-                          status.color === 'red' ? 'text-red-600' : 'text-gray-500'
+                          status.color === 'green' ? 'text-green-600 dark:text-green-400' : 
+                          status.color === 'yellow' ? 'text-yellow-600 dark:text-yellow-400' : 
+                          status.color === 'red' ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'
                         }`}>{status.text}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-2 text-xs text-gray-500">{p.telefone ? aplicarMascaraTelefone(p.telefone) : (p.celular ? aplicarMascaraTelefone(p.celular) : '-')}</td>
-                    <td className="px-4 py-2 text-center">
+                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{p.telefone ? aplicarMascaraTelefone(p.telefone) : (p.celular ? aplicarMascaraTelefone(p.celular) : '-')}</td>
+                    <td className="px-4 py-3 text-center">
                       <button 
                         onClick={() => { 
                           setEditing(p); 
@@ -354,195 +407,272 @@ export default function Pacientes() {
                           }); 
                           setShowModal(true); 
                         }} 
-                        className="text-blue-600 hover:text-blue-800 mx-1" 
+                        className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" 
                         title="Editar"
                       >
-                        <PencilIcon className="w-4 h-4 inline" />
+                        <PencilIcon className="w-4 h-4" />
                       </button>
                       <button 
                         onClick={() => handleDelete(p.id)} 
-                        className="text-red-600 hover:text-red-800 mx-1" 
+                        className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" 
                         title="Excluir"
                       >
-                        <TrashIcon className="w-4 h-4 inline" />
+                        <TrashIcon className="w-4 h-4" />
                       </button>
                     </td>
                   </tr>
                 );
               })}
+              {filteredPacientes.length === 0 && (
+                <tr>
+                  <td colSpan="7" className="px-4 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
+                    <UsersIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    Nenhum paciente encontrado
+                  </tr>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
-        {filteredPacientes.length === 0 && (
-          <div className="px-4 py-8 text-center text-gray-500 text-sm">
-            Nenhum paciente encontrado
-          </div>
-        )}
       </div>
 
       {/* Modal de Cadastro/Edição */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6">
-            <h3 className="text-xl font-semibold mb-4">{editing ? 'Editar' : 'Novo'} Paciente</h3>
-            <form onSubmit={handleSubmit}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Dados Pessoais */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nome Completo *</label>
-                  <input type="text" value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value.toUpperCase()})} className="w-full border rounded-lg px-3 py-2 text-sm" required />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">CPF</label>
-                  <input 
-                    type="text" 
-                    value={formData.cpf} 
-                    onChange={e => setFormData({...formData, cpf: aplicarMascaraCPF(e.target.value)})} 
-                    maxLength={14}
-                    placeholder="000.000.000-00"
-                    className="w-full border rounded-lg px-3 py-2 text-sm" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">RG</label>
-                  <input 
-                    type="text" 
-                    value={formData.rg} 
-                    onChange={e => setFormData({...formData, rg: aplicarMascaraRG(e.target.value)})} 
-                    placeholder="00.000.000-0"
-                    className="w-full border rounded-lg px-3 py-2 text-sm" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Data Nascimento</label>
-                  <input type="date" value={formData.data_nascimento} onChange={e => setFormData({...formData, data_nascimento: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Sexo</label>
-                  <select value={formData.sexo} onChange={e => setFormData({...formData, sexo: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm">
-                    <option value="M">Masculino</option>
-                    <option value="F">Feminino</option>
-                  </select>
-                </div>
-
-                {/* Dados do Convênio */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Convênio *</label>
-                  <select 
-                    value={formData.convenio_id} 
-                    onChange={e => {
-                      const selectedId = e.target.value;
-                      console.log('Convênio selecionado:', selectedId);
-                      setFormData({...formData, convenio_id: selectedId});
-                    }} 
-                    className="w-full border rounded-lg px-3 py-2 text-sm" 
-                    required
-                  >
-                    <option value="">Selecione o convênio</option>
-                    {convenios.filter(c => c.ativo !== false).map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.razao_social} {c.codigo_prestador ? `(Cód: ${c.codigo_prestador})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                  {formData.convenio_id && (
-                    <p className="text-xs text-green-600 mt-1">
-                      ✓ Convênio ID: {formData.convenio_id} selecionado
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Número da Carteira *</label>
-                  <input type="text" value={formData.numero_carteira} onChange={e => setFormData({...formData, numero_carteira: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm" required />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Data Validade da Carteira</label>
-                  <input type="date" value={formData.data_validade_carteira} onChange={e => setFormData({...formData, data_validade_carteira: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm" />
-                </div>
-
-                {/* Contato */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefone Fixo</label>
-                  <input 
-                    type="text" 
-                    value={formData.telefone} 
-                    onChange={e => setFormData({...formData, telefone: aplicarMascaraTelefone(e.target.value)})} 
-                    maxLength={15}
-                    placeholder="(00) 0000-0000"
-                    className="w-full border rounded-lg px-3 py-2 text-sm" 
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Celular / WhatsApp</label>
-                  <input 
-                    type="text" 
-                    value={formData.celular} 
-                    onChange={e => setFormData({...formData, celular: aplicarMascaraTelefone(e.target.value)})} 
-                    maxLength={15}
-                    placeholder="(00) 00000-0000"
-                    className="w-full border rounded-lg px-3 py-2 text-sm" 
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                  <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm" />
-                </div>
-
-                {/* Endereço */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">CEP</label>
-                  <div className="relative">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
+              <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
+                {editing ? 'Editar Paciente' : 'Novo Paciente'}
+              </h3>
+            </div>
+            
+            <div className="p-5">
+              <form onSubmit={handleSubmit}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome Completo *</label>
                     <input 
                       type="text" 
-                      value={formData.cep} 
-                      onChange={handleCEPChange} 
-                      maxLength={9}
-                      placeholder="00000-000"
-                      className="w-full border rounded-lg px-3 py-2 text-sm" 
+                      value={formData.nome} 
+                      onChange={e => setFormData({...formData, nome: e.target.value.toUpperCase()})} 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
+                      required 
                     />
-                    {buscandoCEP && (
-                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                      </div>
-                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CPF</label>
+                    <input 
+                      type="text" 
+                      value={formData.cpf} 
+                      onChange={e => setFormData({...formData, cpf: aplicarMascaraCPF(e.target.value)})} 
+                      maxLength={14}
+                      placeholder="000.000.000-00"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">RG</label>
+                    <input 
+                      type="text" 
+                      value={formData.rg} 
+                      onChange={e => setFormData({...formData, rg: aplicarMascaraRG(e.target.value)})} 
+                      placeholder="00.000.000-0"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data Nascimento</label>
+                    <input 
+                      type="date" 
+                      value={formData.data_nascimento} 
+                      onChange={e => setFormData({...formData, data_nascimento: e.target.value})} 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sexo</label>
+                    <select 
+                      value={formData.sexo} 
+                      onChange={e => setFormData({...formData, sexo: e.target.value})} 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    >
+                      <option value="M">Masculino</option>
+                      <option value="F">Feminino</option>
+                    </select>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Convênio *</label>
+                    <select 
+                      value={formData.convenio_id} 
+                      onChange={e => setFormData({...formData, convenio_id: e.target.value})} 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
+                      required
+                    >
+                      <option value="">Selecione o convênio</option>
+                      {convenios.filter(c => c.ativo !== false).map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.razao_social} {c.codigo_prestador ? `(Cód: ${c.codigo_prestador})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                      ✓ O convênio será usado no faturamento
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número da Carteira *</label>
+                    <input 
+                      type="text" 
+                      value={formData.numero_carteira} 
+                      onChange={e => setFormData({...formData, numero_carteira: e.target.value})} 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                      required 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data Validade da Carteira</label>
+                    <input 
+                      type="date" 
+                      value={formData.data_validade_carteira} 
+                      onChange={e => setFormData({...formData, data_validade_carteira: e.target.value})} 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telefone Fixo</label>
+                    <input 
+                      type="text" 
+                      value={formData.telefone} 
+                      onChange={e => setFormData({...formData, telefone: aplicarMascaraTelefone(e.target.value)})} 
+                      maxLength={15}
+                      placeholder="(00) 0000-0000"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Celular / WhatsApp</label>
+                    <input 
+                      type="text" 
+                      value={formData.celular} 
+                      onChange={e => setFormData({...formData, celular: aplicarMascaraTelefone(e.target.value)})} 
+                      maxLength={15}
+                      placeholder="(00) 00000-0000"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                    <input 
+                      type="email" 
+                      value={formData.email} 
+                      onChange={e => setFormData({...formData, email: e.target.value})} 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                    />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CEP</label>
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        value={formData.cep} 
+                        onChange={handleCEPChange} 
+                        maxLength={9}
+                        placeholder="00000-000"
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
+                      />
+                      {buscandoCEP && (
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Endereço</label>
+                    <input 
+                      type="text" 
+                      value={formData.endereco} 
+                      onChange={e => setFormData({...formData, endereco: e.target.value})} 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número</label>
+                    <input 
+                      type="text" 
+                      value={formData.numero} 
+                      onChange={e => setFormData({...formData, numero: e.target.value})} 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Complemento</label>
+                    <input 
+                      type="text" 
+                      value={formData.complemento} 
+                      onChange={e => setFormData({...formData, complemento: e.target.value})} 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Bairro</label>
+                    <input 
+                      type="text" 
+                      value={formData.bairro} 
+                      onChange={e => setFormData({...formData, bairro: e.target.value})} 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cidade</label>
+                    <input 
+                      type="text" 
+                      value={formData.cidade} 
+                      onChange={e => setFormData({...formData, cidade: e.target.value})} 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Estado</label>
+                    <select 
+                      value={formData.estado} 
+                      onChange={e => setFormData({...formData, estado: e.target.value})} 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm"
+                    >
+                      {ESTADOS.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+                    </select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações</label>
+                    <textarea 
+                      rows="3" 
+                      value={formData.observacao} 
+                      onChange={e => setFormData({...formData, observacao: e.target.value})} 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
+                      placeholder="Informações adicionais..."
+                    />
                   </div>
                 </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Endereço</label>
-                  <input type="text" value={formData.endereco} onChange={e => setFormData({...formData, endereco: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <button 
+                    type="button" 
+                    onClick={() => setShowModal(false)} 
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-md"
+                  >
+                    {editing ? 'Atualizar' : 'Salvar'} Paciente
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Número</label>
-                  <input type="text" value={formData.numero} onChange={e => setFormData({...formData, numero: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Complemento</label>
-                  <input type="text" value={formData.complemento} onChange={e => setFormData({...formData, complemento: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Bairro</label>
-                  <input type="text" value={formData.bairro} onChange={e => setFormData({...formData, bairro: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Cidade</label>
-                  <input type="text" value={formData.cidade} onChange={e => setFormData({...formData, cidade: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-                  <select value={formData.estado} onChange={e => setFormData({...formData, estado: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm">
-                    {ESTADOS.map(uf => <option key={uf} value={uf}>{uf}</option>)}
-                  </select>
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Observações</label>
-                  <textarea rows="2" value={formData.observacao} onChange={e => setFormData({...formData, observacao: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm"></textarea>
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">Salvar</button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}
