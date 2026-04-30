@@ -1,5 +1,5 @@
-// src/pages/Agendamentos.jsx - VERSÃO CORRIGIDA E COMPLETA
-import { useState, useEffect } from 'react';
+// src/pages/Agendamentos.jsx
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   PlusIcon, 
@@ -25,7 +25,8 @@ import {
   FunnelIcon,
   ChartBarIcon,
   ChevronUpIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  HomeModernIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, addWeeks, subWeeks, addMonths, subMonths } from 'date-fns';
@@ -64,23 +65,38 @@ export default function Agendamentos() {
   const [pacientes, setPacientes] = useState([]);
   const [prestadores, setPrestadores] = useState([]);
   const [convenios, setConvenios] = useState([]);
+  const [salas, setSalas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showFiltros, setShowFiltros] = useState(false);
   const [editing, setEditing] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchPaciente, setSearchPaciente] = useState('');
+  const [searchPrestador, setSearchPrestador] = useState('');
+  const [searchSala, setSearchSala] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('todos');
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [filtroModalidade, setFiltroModalidade] = useState('todos');
   const [filtroPrestador, setFiltroPrestador] = useState('todos');
   const [filtroConvenio, setFiltroConvenio] = useState('todos');
+  const [filtroSala, setFiltroSala] = useState('todos');
   const [viewMode, setViewMode] = useState('semana');
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [showPacienteDropdown, setShowPacienteDropdown] = useState(false);
+  const [showPrestadorDropdown, setShowPrestadorDropdown] = useState(false);
+  const [showSalaDropdown, setShowSalaDropdown] = useState(false);
+  const [showSalaFilterDropdown, setShowSalaFilterDropdown] = useState(false);
+  
+  const pacienteRef = useRef(null);
+  const prestadorRef = useRef(null);
+  const salaRef = useRef(null);
+  const salaFilterRef = useRef(null);
 
   const [formData, setFormData] = useState({
     paciente_id: '',
     prestador_id: '',
     convenio_id: '',
+    sala_id: '',
     tipo: 'consulta',
     status: 'agendado',
     modalidade: 'presencial',
@@ -92,28 +108,48 @@ export default function Agendamentos() {
     link_teleconsulta: ''
   });
 
+  // Fechar dropdowns ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (pacienteRef.current && !pacienteRef.current.contains(event.target)) {
+        setShowPacienteDropdown(false);
+      }
+      if (prestadorRef.current && !prestadorRef.current.contains(event.target)) {
+        setShowPrestadorDropdown(false);
+      }
+      if (salaRef.current && !salaRef.current.contains(event.target)) {
+        setShowSalaDropdown(false);
+      }
+      if (salaFilterRef.current && !salaFilterRef.current.contains(event.target)) {
+        setShowSalaFilterDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const carregarDados = async () => {
     setLoading(true);
     try {
-      const [agendamentosRes, pacientesRes, prestadoresRes, conveniosRes] = await Promise.all([
+      const [agendamentosRes, pacientesRes, prestadoresRes, conveniosRes, salasRes] = await Promise.all([
         supabase.from('agendamentos').select('*').order('data_agendamento', { ascending: true }),
         supabase.from('pacientes').select('*').order('nome'),
         supabase.from('prestadores').select('*').order('nome'),
-        supabase.from('convenios').select('*').order('razao_social')
+        supabase.from('convenios').select('*').order('razao_social'),
+        supabase.from('salas').select('*').eq('ativo', true).order('nome')
       ]);
 
       if (agendamentosRes.error) throw agendamentosRes.error;
       if (pacientesRes.error) throw pacientesRes.error;
       if (prestadoresRes.error) throw prestadoresRes.error;
       if (conveniosRes.error) throw conveniosRes.error;
+      if (salasRes.error) throw salasRes.error;
 
-      console.log('Agendamentos carregados:', agendamentosRes.data?.length || 0);
-      console.log('Primeiro agendamento:', agendamentosRes.data?.[0]);
-      
       setAgendamentos(agendamentosRes.data || []);
       setPacientes(pacientesRes.data || []);
       setPrestadores(prestadoresRes.data || []);
       setConvenios(conveniosRes.data || []);
+      setSalas(salasRes.data || []);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       toast.error('Erro ao carregar dados do Supabase');
@@ -126,12 +162,32 @@ export default function Agendamentos() {
     carregarDados();
   }, []);
 
+  // Filtrar pacientes
+  const pacientesFiltrados = pacientes.filter(p => 
+    p.nome?.toLowerCase().includes(searchPaciente.toLowerCase()) ||
+    p.cpf?.includes(searchPaciente) ||
+    p.numero_carteira?.includes(searchPaciente)
+  ).slice(0, 10);
+
+  // Filtrar prestadores
+  const prestadoresFiltrados = prestadores.filter(p => 
+    p.nome?.toLowerCase().includes(searchPrestador.toLowerCase()) ||
+    p.especialidade?.toLowerCase().includes(searchPrestador.toLowerCase()) ||
+    p.cpf?.includes(searchPrestador)
+  ).slice(0, 10);
+
+  // Filtrar salas
+  const salasFiltradas = salas.filter(s => 
+    s.nome?.toLowerCase().includes(searchSala.toLowerCase())
+  ).slice(0, 10);
+
   const abrirModalNovo = () => {
     setEditing(null);
     setFormData({
       paciente_id: '',
       prestador_id: '',
       convenio_id: '',
+      sala_id: '',
       tipo: 'consulta',
       status: 'agendado',
       modalidade: 'presencial',
@@ -142,6 +198,9 @@ export default function Agendamentos() {
       local: '',
       link_teleconsulta: ''
     });
+    setSearchPaciente('');
+    setSearchPrestador('');
+    setSearchSala('');
     setShowModal(true);
   };
 
@@ -162,11 +221,14 @@ export default function Agendamentos() {
     const paciente = pacientes.find(p => p.id === parseInt(formData.paciente_id));
     const prestador = prestadores.find(p => p.id === parseInt(formData.prestador_id));
     const convenio = convenios.find(c => c.id === paciente?.convenio_id);
+    const sala = salas.find(s => s.id === parseInt(formData.sala_id));
 
     const novoAgendamento = {
       paciente_id: parseInt(formData.paciente_id),
       prestador_id: parseInt(formData.prestador_id),
       convenio_id: paciente?.convenio_id || null,
+      sala_id: formData.sala_id ? parseInt(formData.sala_id) : null,
+      sala_nome: sala?.nome || null,
       tipo: formData.tipo,
       status: formData.status,
       modalidade: formData.modalidade,
@@ -254,7 +316,6 @@ export default function Agendamentos() {
 
   const getAgendamentosFiltrados = () => {
     let filtrados = [...agendamentos];
-    console.log('Filtrando agendamentos, total:', filtrados.length);
     
     if (filtroStatus !== 'todos') {
       filtrados = filtrados.filter(a => a.status === filtroStatus);
@@ -271,23 +332,24 @@ export default function Agendamentos() {
     if (filtroConvenio !== 'todos') {
       filtrados = filtrados.filter(a => a.convenio_id === parseInt(filtroConvenio));
     }
+    if (filtroSala !== 'todos') {
+      filtrados = filtrados.filter(a => a.sala_id === parseInt(filtroSala));
+    }
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtrados = filtrados.filter(a => 
         a.paciente_nome?.toLowerCase().includes(term) ||
-        a.prestador_nome?.toLowerCase().includes(term)
+        a.prestador_nome?.toLowerCase().includes(term) ||
+        a.sala_nome?.toLowerCase().includes(term)
       );
     }
-    console.log('Após filtros:', filtrados.length);
+    
     return filtrados;
   };
 
   const getAgendamentosPorData = (data) => {
     const dataStr = format(data, 'yyyy-MM-dd');
-    const todosFiltrados = getAgendamentosFiltrados();
-    const resultado = todosFiltrados.filter(a => a.data_agendamento === dataStr);
-    console.log(`Agendamentos para ${dataStr}: ${resultado.length}`);
-    return resultado;
+    return getAgendamentosFiltrados().filter(a => a.data_agendamento === dataStr);
   };
 
   const getDiasDaSemana = () => {
@@ -316,10 +378,6 @@ export default function Agendamentos() {
 
   const estatisticas = getEstatisticas();
   const diasDaSemana = getDiasDaSemana();
-
-  // Debug: Mostrar agendamentos por data
-  console.log('Data atual:', format(currentDate, 'yyyy-MM-dd'));
-  console.log('Agendamentos hoje (view):', getAgendamentosPorData(currentDate).length);
 
   if (loading) {
     return (
@@ -389,7 +447,7 @@ export default function Agendamentos() {
                 <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Buscar..."
+                  placeholder="Buscar por paciente, profissional ou sala..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
@@ -421,7 +479,7 @@ export default function Agendamentos() {
               </select>
             </div>
             {showFiltros && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
                 <select
                   value={filtroModalidade}
                   onChange={(e) => setFiltroModalidade(e.target.value)}
@@ -438,6 +496,44 @@ export default function Agendamentos() {
                   <option value="todos">Todos os convênios</option>
                   {convenios.map(c => <option key={c.id} value={c.id}>{c.razao_social}</option>)}
                 </select>
+                <div className="relative" ref={salaFilterRef}>
+                  <input
+                    type="text"
+                    placeholder="Filtrar por sala..."
+                    value={filtroSala !== 'todos' ? salas.find(s => s.id === parseInt(filtroSala))?.nome || '' : ''}
+                    onFocus={() => setShowSalaFilterDropdown(true)}
+                    onChange={(e) => {
+                      setFiltroSala('todos');
+                      setShowSalaFilterDropdown(true);
+                    }}
+                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600"
+                  />
+                  {showSalaFilterDropdown && (
+                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      <div
+                        className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                        onClick={() => {
+                          setFiltroSala('todos');
+                          setShowSalaFilterDropdown(false);
+                        }}
+                      >
+                        Todas as salas
+                      </div>
+                      {salas.map(sala => (
+                        <div
+                          key={sala.id}
+                          className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                          onClick={() => {
+                            setFiltroSala(sala.id.toString());
+                            setShowSalaFilterDropdown(false);
+                          }}
+                        >
+                          {sala.nome}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -512,6 +608,11 @@ export default function Agendamentos() {
                               <span className={`px-2 py-0.5 rounded-full text-xs ${statusInfo?.color}`}>{statusInfo?.label}</span>
                             </div>
                             <div className="text-sm text-gray-500">{agendamento.prestador_nome}</div>
+                            {agendamento.sala_nome && (
+                              <div className="text-xs text-gray-400 flex items-center gap-1">
+                                <HomeModernIcon className="w-3 h-3" /> {agendamento.sala_nome}
+                              </div>
+                            )}
                           </div>
                         ) : (
                           <div className="flex-1 text-gray-400">Disponível</div>
@@ -527,9 +628,10 @@ export default function Agendamentos() {
                           <button onClick={() => {
                             setEditing(agendamento);
                             setFormData({
-                              paciente_id: agendamento.paciente_id.toString(),
-                              prestador_id: agendamento.prestador_id.toString(),
+                              paciente_id: agendamento.paciente_id?.toString() || '',
+                              prestador_id: agendamento.prestador_id?.toString() || '',
                               convenio_id: agendamento.convenio_id?.toString() || '',
+                              sala_id: agendamento.sala_id?.toString() || '',
                               tipo: agendamento.tipo,
                               status: agendamento.status,
                               modalidade: agendamento.modalidade,
@@ -540,6 +642,9 @@ export default function Agendamentos() {
                               local: agendamento.local || '',
                               link_teleconsulta: agendamento.link_teleconsulta || ''
                             });
+                            setSearchPaciente(agendamento.paciente_nome || '');
+                            setSearchPrestador(agendamento.prestador_nome || '');
+                            setSearchSala(agendamento.sala_nome || '');
                             setShowModal(true);
                           }} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg">
                             <PencilIcon className="w-5 h-5" />
@@ -560,8 +665,8 @@ export default function Agendamentos() {
         {/* View: Week */}
         {viewMode === 'semana' && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-x-auto">
-            <div className="min-w-[800px]">
-              <div className="grid grid-cols-8 border-b dark:border-gray-700">
+            <div className="min-w-[1000px]">
+              <div className="grid grid-cols-8 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 sticky top-0">
                 <div className="p-3 font-semibold">Horário</div>
                 {diasDaSemana.map((dia, idx) => (
                   <div key={idx} className="p-3 text-center font-semibold">
@@ -572,15 +677,20 @@ export default function Agendamentos() {
               </div>
               {HORARIOS.map(hora => (
                 <div key={hora} className="grid grid-cols-8 border-b dark:border-gray-700">
-                  <div className="p-3 font-mono">{hora}</div>
+                  <div className="p-3 font-mono font-bold bg-gray-50 dark:bg-gray-700/30">{hora}</div>
                   {diasDaSemana.map((dia, idx) => {
                     const agendamento = getAgendamentosPorData(dia).find(a => a.hora_inicio === hora);
                     return (
-                      <div key={idx} className="p-2 border-l dark:border-gray-700 min-h-[80px]">
+                      <div key={idx} className="p-2 border-l dark:border-gray-700 min-h-[90px]">
                         {agendamento ? (
                           <div className="text-sm">
-                            <p className="font-medium">{agendamento.paciente_nome}</p>
-                            <p className="text-xs text-gray-500">{agendamento.prestador_nome}</p>
+                            <p className="font-medium truncate">{agendamento.paciente_nome}</p>
+                            <p className="text-xs text-gray-500 truncate">{agendamento.prestador_nome}</p>
+                            {agendamento.sala_nome && (
+                              <p className="text-xs text-gray-400 truncate flex items-center gap-1">
+                                <HomeModernIcon className="w-3 h-3" /> {agendamento.sala_nome}
+                              </p>
+                            )}
                             <div className="flex gap-1 mt-1">
                               {podeAtender(agendamento) && (
                                 <Link to={`/prontuario/${agendamento.id}`} className="text-cyan-600" title="Atender">
@@ -590,9 +700,10 @@ export default function Agendamentos() {
                               <button onClick={() => {
                                 setEditing(agendamento);
                                 setFormData({
-                                  paciente_id: agendamento.paciente_id.toString(),
-                                  prestador_id: agendamento.prestador_id.toString(),
+                                  paciente_id: agendamento.paciente_id?.toString() || '',
+                                  prestador_id: agendamento.prestador_id?.toString() || '',
                                   convenio_id: agendamento.convenio_id?.toString() || '',
+                                  sala_id: agendamento.sala_id?.toString() || '',
                                   tipo: agendamento.tipo,
                                   status: agendamento.status,
                                   modalidade: agendamento.modalidade,
@@ -603,6 +714,9 @@ export default function Agendamentos() {
                                   local: agendamento.local || '',
                                   link_teleconsulta: agendamento.link_teleconsulta || ''
                                 });
+                                setSearchPaciente(agendamento.paciente_nome || '');
+                                setSearchPrestador(agendamento.prestador_nome || '');
+                                setSearchSala(agendamento.sala_nome || '');
                                 setShowModal(true);
                               }} className="text-blue-600">
                                 <PencilIcon className="w-4 h-4" />
@@ -639,7 +753,7 @@ export default function Agendamentos() {
         {viewMode === 'mes' && (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-x-auto">
             <div className="min-w-[800px]">
-              <div className="grid grid-cols-7 border-b dark:border-gray-700">
+              <div className="grid grid-cols-7 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 sticky top-0">
                 {['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'].map(dia => (
                   <div key={dia} className="p-3 text-center font-semibold">{dia}</div>
                 ))}
@@ -660,9 +774,11 @@ export default function Agendamentos() {
                           {format(current, 'dd')}
                         </div>
                         <div className="space-y-1 mt-1">
-                          {agendamentosDia.slice(0, 2).map(ag => (
+                          {agendamentosDia.slice(0, 3).map(ag => (
                             <div key={ag.id} className="text-xs p-1 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-between">
-                              <span><span className="font-mono">{ag.hora_inicio}</span> {ag.paciente_nome?.split(' ')[0]}</span>
+                              <span className="truncate">
+                                <span className="font-mono">{ag.hora_inicio}</span> {ag.paciente_nome?.split(' ')[0]}
+                              </span>
                               {podeAtender(ag) && (
                                 <Link to={`/prontuario/${ag.id}`} className="text-cyan-600">
                                   <CheckBadgeIcon className="w-3 h-3" />
@@ -670,8 +786,8 @@ export default function Agendamentos() {
                               )}
                             </div>
                           ))}
-                          {agendamentosDia.length > 2 && (
-                            <div className="text-xs text-gray-500 text-center">+{agendamentosDia.length - 2}</div>
+                          {agendamentosDia.length > 3 && (
+                            <div className="text-xs text-gray-500 text-center">+{agendamentosDia.length - 3}</div>
                           )}
                         </div>
                       </div>
@@ -686,11 +802,11 @@ export default function Agendamentos() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Modal de Cadastro/Edição */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b dark:border-gray-700 flex justify-between items-center">
+            <div className="p-6 border-b dark:border-gray-700 flex justify-between items-center sticky top-0 bg-white dark:bg-gray-800">
               <h2 className="text-xl font-semibold">{editing ? 'Editar Agendamento' : 'Novo Agendamento'}</h2>
               <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
                 <XMarkIcon className="w-6 h-6" />
@@ -698,30 +814,115 @@ export default function Agendamentos() {
             </div>
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
+                {/* Paciente com busca */}
+                <div className="relative" ref={pacienteRef}>
                   <label className="block text-sm font-medium mb-1">Paciente *</label>
-                  <select
-                    value={formData.paciente_id}
-                    onChange={(e) => setFormData({...formData, paciente_id: e.target.value})}
+                  <input
+                    type="text"
+                    placeholder="Digite nome, CPF ou carteira..."
+                    value={searchPaciente}
+                    onChange={(e) => {
+                      setSearchPaciente(e.target.value);
+                      setShowPacienteDropdown(true);
+                      if (e.target.value === '') setFormData({...formData, paciente_id: ''});
+                    }}
+                    onFocus={() => setShowPacienteDropdown(true)}
                     className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600"
-                    required
-                  >
-                    <option value="">Selecione</option>
-                    {pacientes.map(p => <option key={p.id} value={p.id}>{p.nome} - {p.numero_carteira}</option>)}
-                  </select>
+                    autoComplete="off"
+                  />
+                  {showPacienteDropdown && pacientesFiltrados.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {pacientesFiltrados.map(p => (
+                        <div
+                          key={p.id}
+                          className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                          onClick={() => {
+                            setFormData({...formData, paciente_id: p.id.toString()});
+                            setSearchPaciente(`${p.nome} - ${p.numero_carteira}`);
+                            setShowPacienteDropdown(false);
+                          }}
+                        >
+                          <div className="font-medium">{p.nome}</div>
+                          <div className="text-xs text-gray-500">CPF: {p.cpf || '---'} | Carteira: {p.numero_carteira}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div>
+
+                {/* Profissional com busca */}
+                <div className="relative" ref={prestadorRef}>
                   <label className="block text-sm font-medium mb-1">Profissional *</label>
-                  <select
-                    value={formData.prestador_id}
-                    onChange={(e) => setFormData({...formData, prestador_id: e.target.value})}
+                  <input
+                    type="text"
+                    placeholder="Digite nome, especialidade ou CPF..."
+                    value={searchPrestador}
+                    onChange={(e) => {
+                      setSearchPrestador(e.target.value);
+                      setShowPrestadorDropdown(true);
+                      if (e.target.value === '') setFormData({...formData, prestador_id: ''});
+                    }}
+                    onFocus={() => setShowPrestadorDropdown(true)}
                     className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600"
-                    required
-                  >
-                    <option value="">Selecione</option>
-                    {prestadores.map(p => <option key={p.id} value={p.id}>{p.nome} - {p.especialidade}</option>)}
-                  </select>
+                    autoComplete="off"
+                  />
+                  {showPrestadorDropdown && prestadoresFiltrados.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {prestadoresFiltrados.map(p => (
+                        <div
+                          key={p.id}
+                          className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                          onClick={() => {
+                            setFormData({...formData, prestador_id: p.id.toString()});
+                            setSearchPrestador(`${p.nome} - ${p.especialidade}`);
+                            setShowPrestadorDropdown(false);
+                          }}
+                        >
+                          <div className="font-medium">{p.nome}</div>
+                          <div className="text-xs text-gray-500">Especialidade: {p.especialidade} | CPF: {p.cpf || '---'}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
+
+                {/* Sala com busca */}
+                <div className="relative" ref={salaRef}>
+                  <label className="block text-sm font-medium mb-1">Sala</label>
+                  <input
+                    type="text"
+                    placeholder="Digite o nome da sala..."
+                    value={searchSala}
+                    onChange={(e) => {
+                      setSearchSala(e.target.value);
+                      setShowSalaDropdown(true);
+                      if (e.target.value === '') setFormData({...formData, sala_id: ''});
+                    }}
+                    onFocus={() => setShowSalaDropdown(true)}
+                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600"
+                    autoComplete="off"
+                  />
+                  {showSalaDropdown && salasFiltradas.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {salasFiltradas.map(s => (
+                        <div
+                          key={s.id}
+                          className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center gap-2"
+                          onClick={() => {
+                            setFormData({...formData, sala_id: s.id.toString()});
+                            setSearchSala(s.nome);
+                            setShowSalaDropdown(false);
+                          }}
+                        >
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.cor }}></div>
+                          <span>{s.nome}</span>
+                          <span className="text-xs text-gray-500">({s.tipo})</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium mb-1">Tipo</label>
                   <select
@@ -807,7 +1008,7 @@ export default function Agendamentos() {
                 </div>
               </div>
             </div>
-            <div className="p-6 border-t dark:border-gray-700 flex justify-end gap-3">
+            <div className="p-6 border-t dark:border-gray-700 flex justify-end gap-3 sticky bottom-0 bg-white dark:bg-gray-800">
               <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
                 Cancelar
               </button>
