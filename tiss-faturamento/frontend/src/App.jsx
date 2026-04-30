@@ -22,11 +22,15 @@ import Configuracoes from './pages/Configuracoes';
 import NotificationBell from './components/NotificationBell';
 
 import { setConfig } from './lib/tissGenerator';
-import { supabase, isSupabaseAvailable } from './lib/supabaseClient';
+import { supabase } from './lib/supabaseClient';
 
 // Context para o tema
 const ThemeContext = createContext({ darkMode: false, toggleDarkMode: () => {} });
 export const useTheme = () => useContext(ThemeContext);
+
+// Context para autenticação
+const AuthContext = createContext({ user: null, loading: true, signOut: () => {}, isAuthenticated: false });
+export const useAuth = () => useContext(AuthContext);
 
 // Componente Provider do Tema
 function ThemeProvider({ children }) {
@@ -64,60 +68,253 @@ function ThemeProvider({ children }) {
   );
 }
 
-// Serviço de autenticação
-const authService = {
-  async login(email, senha) {
-    if (isSupabaseAvailable()) {
-      try {
-        const { data, error } = await supabase
+// Componente Provider de Autenticação
+function AuthProvider({ children }) {
+  const [user, setUser] = useState(null);
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Verificar sessão atual
+    const getSession = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('Erro ao obter sessão:', error);
+      }
+      
+      if (session?.user) {
+        setUser(session.user);
+        await buscarDadosUsuario(session.user.id);
+      }
+      
+      setLoading(false);
+    };
+
+    getSession();
+
+    // Escutar mudanças na autenticação
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+        await buscarDadosUsuario(session.user.id);
+      } else {
+        setUser(null);
+        setUserData(null);
+      }
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const buscarDadosUsuario = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Erro ao buscar dados do usuário:', error);
+      }
+
+      setUserData(data);
+    } catch (error) {
+      console.error('Erro ao buscar dados do usuário:', error);
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      toast.success('Logout realizado com sucesso');
+      return { success: true };
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+      toast.error(error.message || 'Erro ao fazer logout');
+      return { success: false };
+    }
+  };
+
+  const value = {
+    user,
+    userData,
+    loading,
+    signOut,
+    isAuthenticated: !!user,
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+// Componente de Login
+function LoginPage() {
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const { darkMode, toggleDarkMode } = useTheme();
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password: senha,
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        // Buscar dados adicionais do usuário
+        const { data: userData, error: userError } = await supabase
           .from('usuarios')
           .select('*')
-          .eq('email', email)
-          .eq('ativo', true)
+          .eq('id', data.user.id)
           .single();
-        
-        if (error) throw error;
-        
-        if (data && data.senha === senha) {
-          await supabase
-            .from('usuarios')
-            .update({ ultimo_acesso: new Date().toISOString() })
-            .eq('id', data.id);
-          
-          return { success: true, usuario: { nome: data.nome, perfil: data.perfil, email: data.email } };
+
+        if (userError && userError.code !== 'PGRST116') {
+          console.error('Erro ao buscar dados do usuário:', userError);
         }
-        return { success: false, error: 'Credenciais inválidas' };
-      } catch (error) {
-        console.error('Erro no login Supabase:', error);
-        return verificarCredencialFixa(email, senha);
+
+        toast.success(`Bem-vindo, ${userData?.nome || data.user.email || 'Usuário'}!`);
+        navigate('/');
       }
-    } else {
-      return verificarCredencialFixa(email, senha);
+    } catch (error) {
+      console.error('Erro ao fazer login:', error);
+      toast.error(error.message || 'Email ou senha incorretos!');
+    } finally {
+      setLoading(false);
     }
-  }
-};
-
-const verificarCredencialFixa = (email, senha) => {
-  const USUARIO_VALIDO = {
-    email: 'michael.raimundo@bloomy.com.br',
-    senha: 'C@de367336',
-    nome: 'Michael Raimundo',
-    perfil: 'Administrador'
   };
-  
-  if (email === USUARIO_VALIDO.email && senha === USUARIO_VALIDO.senha) {
-    return { success: true, usuario: { nome: USUARIO_VALIDO.nome, perfil: USUARIO_VALIDO.perfil, email: USUARIO_VALIDO.email } };
-  }
-  return { success: false, error: 'Credenciais inválidas' };
-};
 
-// Componente Principal
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4 transition-colors duration-300">
+      <div className="absolute top-4 right-4">
+        <button
+          onClick={toggleDarkMode}
+          className="p-2 rounded-xl bg-white/10 backdrop-blur-lg hover:bg-white/20 transition-all duration-200"
+        >
+          {darkMode ? (
+            <SunIcon className="w-5 h-5 text-yellow-400" />
+          ) : (
+            <MoonIcon className="w-5 h-5 text-white" />
+          )}
+        </button>
+      </div>
+
+      <div className="w-full max-w-md relative z-10">
+        <div className="text-center mb-8">
+          <div className="w-20 h-20 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-2xl">
+            <CurrencyDollarIcon className="w-10 h-10 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold text-white mb-2">TISS Faturamento</h1>
+          <p className="text-blue-200 text-sm">Sistema de Faturamento TISS 4.03.00</p>
+        </div>
+
+        <div className="bg-white/10 dark:bg-gray-800/50 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-white/20 dark:border-gray-700">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-white dark:text-gray-300 mb-2">Email</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-blue-300 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                  </svg>
+                </div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-10 pr-3 py-3 bg-white/20 dark:bg-gray-700/50 border border-white/30 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent text-white dark:text-white placeholder-blue-200 dark:placeholder-gray-400"
+                  placeholder="seu@email.com"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-white dark:text-gray-300 mb-2">Senha</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-blue-300 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                  className="w-full pl-10 pr-10 py-3 bg-white/20 dark:bg-gray-700/50 border border-white/30 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent text-white dark:text-white placeholder-blue-200 dark:placeholder-gray-400"
+                  placeholder="********"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                >
+                  {showPassword ? (
+                    <svg className="h-5 w-5 text-blue-300 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                    </svg>
+                  ) : (
+                    <svg className="h-5 w-5 text-blue-300 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 rounded-xl font-medium hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
+            >
+              {loading ? (
+                <>
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Entrando...
+                </>
+              ) : (
+                'Entrar no Sistema'
+              )}
+            </button>
+          </form>
+
+          <div className="mt-6 p-3 bg-white/10 dark:bg-gray-700/30 rounded-xl">
+            <p className="text-xs text-blue-200 dark:text-gray-400 text-center">
+              Sistema de Faturamento TISS - Padrão ANS 4.03.00
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Componente Principal do App (logado)
 function MainApp() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [usuario, setUsuario] = useState(null);
   const { darkMode, toggleDarkMode } = useTheme();
+  const { user, userData, signOut, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -125,21 +322,13 @@ function MainApp() {
     if (storedConfig) {
       setConfig(JSON.parse(storedConfig));
     }
-    
-    const sessao = localStorage.getItem('tiss_sessao');
-    if (sessao) {
-      const sessaoData = JSON.parse(sessao);
-      if (sessaoData.logado) {
-        setUsuario(sessaoData.usuario);
-      }
-    }
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('tiss_sessao');
-    setUsuario(null);
-    toast.success('Logout realizado com sucesso!');
-    navigate('/login');
+  const handleLogout = async () => {
+    const result = await signOut();
+    if (result.success) {
+      navigate('/login');
+    }
   };
 
   const menuItems = [
@@ -172,6 +361,16 @@ function MainApp() {
   };
 
   const currentMenuItem = menuItems.find(i => i.id === activeTab);
+  const nomeUsuario = userData?.nome || user?.email?.split('@')[0] || 'Usuário';
+  const perfilUsuario = userData?.role === 'admin' ? 'Administrador' : (userData?.role === 'usuario' ? 'Usuário' : 'Perfil');
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
@@ -203,17 +402,17 @@ function MainApp() {
           </button>
         </div>
 
-        {sidebarOpen && usuario && (
+        {sidebarOpen && (
           <div className="mx-4 mt-6 p-3 bg-gradient-to-r from-gray-800 to-gray-750 rounded-xl">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
                 <span className="text-white font-semibold text-sm">
-                  {usuario.nome?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+                  {nomeUsuario.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) || 'U'}
                 </span>
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium text-white">{usuario.nome}</p>
-                <p className="text-xs text-gray-400">{usuario.perfil}</p>
+                <p className="text-sm font-medium text-white">{nomeUsuario}</p>
+                <p className="text-xs text-gray-400">{perfilUsuario}</p>
               </div>
             </div>
           </div>
@@ -297,12 +496,12 @@ function MainApp() {
               <div className="flex items-center gap-3 pl-3 border-l border-gray-200 dark:border-gray-700">
                 <div className="w-9 h-9 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-md">
                   <span className="text-white font-semibold text-sm">
-                    {usuario?.nome?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+                    {nomeUsuario.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) || 'U'}
                   </span>
                 </div>
                 <div className="hidden sm:block">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{usuario?.nome || 'Usuário'}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{usuario?.perfil || 'Perfil'}</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{nomeUsuario}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{perfilUsuario}</p>
                 </div>
                 <button 
                   onClick={handleLogout}
@@ -339,21 +538,19 @@ function MainApp() {
           </button>
         </div>
 
-        {usuario && (
-          <div className="mx-4 mt-6 p-3 bg-gradient-to-r from-gray-800 to-gray-750 rounded-xl">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
-                <span className="text-white font-semibold text-sm">
-                  {usuario.nome?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
-                </span>
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-white">{usuario.nome}</p>
-                <p className="text-xs text-gray-400">{usuario.perfil}</p>
-              </div>
+        <div className="mx-4 mt-6 p-3 bg-gradient-to-r from-gray-800 to-gray-750 rounded-xl">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+              <span className="text-white font-semibold text-sm">
+                {nomeUsuario.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) || 'U'}
+              </span>
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-white">{nomeUsuario}</p>
+              <p className="text-xs text-gray-400">{perfilUsuario}</p>
             </div>
           </div>
-        )}
+        </div>
 
         <nav className="p-4 space-y-1.5 mt-4">
           {menuItems.map((item) => {
@@ -383,163 +580,18 @@ function MainApp() {
   );
 }
 
-// Componente de Login
-function LoginPage({ onLogin }) {
-  const [email, setEmail] = useState('');
-  const [senha, setSenha] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const { darkMode, toggleDarkMode } = useTheme();
-  const navigate = useNavigate();
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    const result = await authService.login(email, senha);
-    if (result.success) {
-      const sessao = { usuario: result.usuario, logado: true, data_hora: new Date().toISOString() };
-      localStorage.setItem('tiss_sessao', JSON.stringify(sessao));
-      toast.success(`Bem-vindo, ${result.usuario.nome}!`);
-      if (onLogin) onLogin(true);
-      navigate('/');
-    } else {
-      toast.error(result.error || 'Email ou senha incorretos!');
-    }
-    setLoading(false);
-  };
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4 transition-colors duration-300">
-      <div className="absolute top-4 right-4">
-        <button
-          onClick={toggleDarkMode}
-          className="p-2 rounded-xl bg-white/10 backdrop-blur-lg hover:bg-white/20 transition-all duration-200"
-        >
-          {darkMode ? (
-            <SunIcon className="w-5 h-5 text-yellow-400" />
-          ) : (
-            <MoonIcon className="w-5 h-5 text-white" />
-          )}
-        </button>
-      </div>
-
-      <div className="w-full max-w-md relative z-10">
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-2xl">
-            <CurrencyDollarIcon className="w-10 h-10 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-white mb-2">TISS Faturamento</h1>
-          <p className="text-blue-200 text-sm">Sistema de Faturamento TISS 4.03.00</p>
-        </div>
-
-        <div className="bg-white/10 dark:bg-gray-800/50 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-white/20 dark:border-gray-700">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-white dark:text-gray-300 mb-2">Email</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="h-5 w-5 text-blue-300 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-                  </svg>
-                </div>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-3 py-3 bg-white/20 dark:bg-gray-700/50 border border-white/30 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent text-white dark:text-white placeholder-blue-200 dark:placeholder-gray-400"
-                  placeholder="michael.raimundo@bloomy.com.br"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-white dark:text-gray-300 mb-2">Senha</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="h-5 w-5 text-blue-300 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                </div>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={senha}
-                  onChange={(e) => setSenha(e.target.value)}
-                  className="w-full pl-10 pr-10 py-3 bg-white/20 dark:bg-gray-700/50 border border-white/30 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent text-white dark:text-white placeholder-blue-200 dark:placeholder-gray-400"
-                  placeholder="********"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                >
-                  {showPassword ? (
-                    <svg className="h-5 w-5 text-blue-300 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                    </svg>
-                  ) : (
-                    <svg className="h-5 w-5 text-blue-300 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 rounded-xl font-medium hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg"
-            >
-              {loading ? (
-                <>
-                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Entrando...
-                </>
-              ) : (
-                'Entrar no Sistema'
-              )}
-            </button>
-          </form>
-
-          <div className="mt-6 p-3 bg-white/10 dark:bg-gray-700/30 rounded-xl">
-            <p className="text-xs text-blue-200 dark:text-gray-400 text-center">
-              Sistema de Faturamento TISS - Padrão ANS 4.03.00
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // Componente principal com as rotas
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-  useEffect(() => {
-    const sessao = localStorage.getItem('tiss_sessao');
-    if (sessao) {
-      const sessaoData = JSON.parse(sessao);
-      if (sessaoData.logado) {
-        setIsLoggedIn(true);
-      }
-    }
-  }, []);
-
   return (
     <ThemeProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<LoginPage onLogin={setIsLoggedIn} />} />
-          <Route path="/*" element={isLoggedIn ? <MainApp /> : <Navigate to="/login" replace />} />
-        </Routes>
-      </BrowserRouter>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/*" element={<MainApp />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
     </ThemeProvider>
   );
 }
