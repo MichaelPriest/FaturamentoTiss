@@ -22,14 +22,14 @@ import Configuracoes from './pages/Configuracoes';
 import NotificationBell from './components/NotificationBell';
 
 import { setConfig } from './lib/tissGenerator';
-import { supabase } from './lib/supabaseClient';
+import { supabase, isSupabaseAvailable, checkSupabaseConnection } from './lib/supabaseClient';
 
 // Context para o tema
 const ThemeContext = createContext({ darkMode: false, toggleDarkMode: () => {} });
 export const useTheme = () => useContext(ThemeContext);
 
 // Context para autenticação
-const AuthContext = createContext({ user: null, loading: true, signOut: () => {}, isAuthenticated: false });
+const AuthContext = createContext({ user: null, userData: null, loading: true, signOut: () => {}, isAuthenticated: false });
 export const useAuth = () => useContext(AuthContext);
 
 // Componente Provider do Tema
@@ -75,8 +75,17 @@ function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Verificar conexão com Supabase
+    checkSupabaseConnection();
+    
     // Verificar sessão atual
     const getSession = async () => {
+      if (!supabase) {
+        console.error('Supabase não disponível');
+        setLoading(false);
+        return;
+      }
+      
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
@@ -94,21 +103,29 @@ function AuthProvider({ children }) {
     getSession();
 
     // Escutar mudanças na autenticação
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        setUser(session.user);
-        await buscarDadosUsuario(session.user.id);
-      } else {
-        setUser(null);
-        setUserData(null);
-      }
-      setLoading(false);
-    });
+    if (supabase) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        console.log('Auth state change:', _event, session?.user?.email);
+        
+        if (session?.user) {
+          setUser(session.user);
+          await buscarDadosUsuario(session.user.id);
+        } else {
+          setUser(null);
+          setUserData(null);
+        }
+        setLoading(false);
+      });
 
-    return () => subscription.unsubscribe();
+      return () => subscription.unsubscribe();
+    }
+    
+    return () => {};
   }, []);
 
   const buscarDadosUsuario = async (userId) => {
+    if (!supabase) return;
+    
     try {
       const { data, error } = await supabase
         .from('usuarios')
@@ -127,9 +144,13 @@ function AuthProvider({ children }) {
   };
 
   const signOut = async () => {
+    if (!supabase) return { success: false };
+    
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      setUser(null);
+      setUserData(null);
       toast.success('Logout realizado com sucesso');
       return { success: true };
     } catch (error) {
@@ -139,11 +160,39 @@ function AuthProvider({ children }) {
     }
   };
 
+  const signIn = async (email, password) => {
+    if (!supabase) {
+      toast.error('Supabase não disponível');
+      return { success: false };
+    }
+    
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        toast.success(`Bem-vindo, ${data.user.email}!`);
+        return { success: true, user: data.user };
+      }
+      
+      return { success: false, error: 'Erro ao fazer login' };
+    } catch (error) {
+      console.error('Erro ao fazer login:', error);
+      toast.error(error.message || 'Email ou senha incorretos!');
+      return { success: false, error: error.message };
+    }
+  };
+
   const value = {
     user,
     userData,
     loading,
     signOut,
+    signIn,
     isAuthenticated: !!user,
   };
 
@@ -161,41 +210,27 @@ function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { darkMode, toggleDarkMode } = useTheme();
+  const { signIn, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  // Redirecionar se já estiver logado
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password: senha,
-      });
-
-      if (error) throw error;
-
-      if (data.user) {
-        // Buscar dados adicionais do usuário
-        const { data: userData, error: userError } = await supabase
-          .from('usuarios')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
-
-        if (userError && userError.code !== 'PGRST116') {
-          console.error('Erro ao buscar dados do usuário:', userError);
-        }
-
-        toast.success(`Bem-vindo, ${userData?.nome || data.user.email || 'Usuário'}!`);
-        navigate('/');
-      }
-    } catch (error) {
-      console.error('Erro ao fazer login:', error);
-      toast.error(error.message || 'Email ou senha incorretos!');
-    } finally {
-      setLoading(false);
+    const result = await signIn(email, senha);
+    
+    if (result.success) {
+      navigate('/');
     }
+    
+    setLoading(false);
   };
 
   return (
@@ -239,6 +274,7 @@ function LoginPage() {
                   className="w-full pl-10 pr-3 py-3 bg-white/20 dark:bg-gray-700/50 border border-white/30 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent text-white dark:text-white placeholder-blue-200 dark:placeholder-gray-400"
                   placeholder="seu@email.com"
                   required
+                  autoComplete="email"
                 />
               </div>
             </div>
@@ -258,6 +294,7 @@ function LoginPage() {
                   className="w-full pl-10 pr-10 py-3 bg-white/20 dark:bg-gray-700/50 border border-white/30 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-transparent text-white dark:text-white placeholder-blue-200 dark:placeholder-gray-400"
                   placeholder="********"
                   required
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
@@ -314,8 +351,15 @@ function MainApp() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const { darkMode, toggleDarkMode } = useTheme();
-  const { user, userData, signOut, loading } = useAuth();
+  const { user, userData, signOut, loading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  // Redirecionar se não estiver autenticado
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      navigate('/login');
+    }
+  }, [loading, isAuthenticated, navigate]);
 
   useEffect(() => {
     const storedConfig = localStorage.getItem('config_sistema');
@@ -325,10 +369,7 @@ function MainApp() {
   }, []);
 
   const handleLogout = async () => {
-    const result = await signOut();
-    if (result.success) {
-      navigate('/login');
-    }
+    await signOut();
   };
 
   const menuItems = [
@@ -361,7 +402,7 @@ function MainApp() {
   };
 
   const currentMenuItem = menuItems.find(i => i.id === activeTab);
-  const nomeUsuario = userData?.nome || user?.email?.split('@')[0] || 'Usuário';
+  const nomeUsuario = userData?.nome || user?.user_metadata?.nome || user?.email?.split('@')[0] || 'Usuário';
   const perfilUsuario = userData?.role === 'admin' ? 'Administrador' : (userData?.role === 'usuario' ? 'Usuário' : 'Perfil');
 
   if (loading) {
@@ -370,6 +411,10 @@ function MainApp() {
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
+  }
+
+  if (!isAuthenticated) {
+    return null;
   }
 
   return (
