@@ -720,12 +720,12 @@ export default function Atendimentos() {
         </div>
       </div>
 
-      {/* Tabela de Guias */}
+      {/* Tabela de Guias - Versão Corrigida */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-700/50">
-              <table>
+              <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Data</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nº Guia</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Paciente</th>
@@ -752,11 +752,7 @@ export default function Atendimentos() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-sm text-center">
-                    <button 
-                      onClick={() => handleViewItens(a)} 
-                      className="text-blue-600 hover:text-blue-800 flex items-center gap-1 mx-auto" 
-                      title="Ver itens"
-                    >
+                    <button onClick={() => handleViewItens(a)} className="text-blue-600 hover:text-blue-800 flex items-center gap-1 mx-auto" title="Ver itens">
                       <DocumentPlusIcon className="w-4 h-4" />
                       <span className="font-bold">{a.itens?.length || 0}</span>
                     </button>
@@ -769,34 +765,18 @@ export default function Atendimentos() {
                   </td>
                   <td className="px-4 py-3 text-center">
                     <div className="flex gap-1 justify-center">
-                      <button 
-                        onClick={() => handleViewItens(a)} 
-                        className="p-1 rounded-lg text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" 
-                        title="Ver Itens"
-                      >
+                      <button onClick={() => handleViewItens(a)} className="p-1 rounded-lg text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Ver Itens">
                         <EyeIcon className="w-4 h-4" />
                       </button>
                       {a.status === 'pendente' && (
-                        <button 
-                          onClick={() => handleEnviarFaturamento(a.id)} 
-                          className="p-1 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" 
-                          title="Faturar"
-                        >
+                        <button onClick={() => handleEnviarFaturamento(a.id)} className="p-1 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" title="Faturar">
                           <CheckIcon className="w-4 h-4" />
                         </button>
                       )}
-                      <button 
-                        onClick={() => handleEdit(a)} 
-                        className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" 
-                        title="Editar"
-                      >
+                      <button onClick={() => handleEdit(a)} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Editar">
                         <PencilIcon className="w-4 h-4" />
                       </button>
-                      <button 
-                        onClick={() => handleDelete(a.id)} 
-                        className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" 
-                        title="Excluir"
-                      >
+                      <button onClick={() => handleDelete(a.id)} className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Excluir">
                         <TrashIcon className="w-4 h-4" />
                       </button>
                     </div>
