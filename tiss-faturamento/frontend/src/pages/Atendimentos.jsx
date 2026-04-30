@@ -1,13 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, 
-  CheckIcon, XMarkIcon, EyeIcon, DocumentPlusIcon 
+  CheckIcon, XMarkIcon, EyeIcon, DocumentPlusIcon,
+  CurrencyDollarIcon, BeakerIcon, CubeIcon, 
+  TruckIcon, BuildingStorefrontIcon, PackageIcon,
+  CalculatorIcon, UserGroupIcon, CalendarIcon,
+  BuildingOfficeIcon, IdentificationIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
 // ============================================
-// TABELAS PADRÃO TISS 4.03.00
+// CONSTANTES E TABELAS
 // ============================================
 
 const CARATER_ATENDIMENTO = [
@@ -24,7 +28,7 @@ const TIPO_ATENDIMENTO = [
   { value: '09', label: 'Radioterapia' },
   { value: '10', label: 'Terapia Renal Substitutiva (TRS)' },
   { value: '13', label: 'Pequenos atendimentos' },
-  { value: '23', label: 'Exame (englobando exame radiológico)' }
+  { value: '23', label: 'Exame' }
 ];
 
 const INDICADOR_ACIDENTE = [
@@ -46,9 +50,7 @@ const MOTIVO_ENCERRAMENTO = [
   { value: '11', label: 'Alta Curado' },
   { value: '12', label: 'Alta Melhorado' },
   { value: '14', label: 'Alta a pedido' },
-  { value: '15', label: 'Alta com previsão de retorno' },
-  { value: '16', label: 'Alta por Evasão' },
-  { value: '31', label: 'Transferido para outro estabelecimento' },
+  { value: '31', label: 'Transferido' },
   { value: '41', label: 'Óbito' }
 ];
 
@@ -68,7 +70,6 @@ const REGIME_ATENDIMENTO = [
 ];
 
 const SAUDE_OCUPACIONAL = [
-  { value: '', label: 'Selecione' },
   { value: '01', label: 'Admissional' },
   { value: '02', label: 'Demissional' },
   { value: '03', label: 'Periódico' },
@@ -86,10 +87,6 @@ const GRAU_PARTICIPACAO = [
   { value: '05', label: '05 - Instrumentador' },
   { value: '06', label: '06 - Anestesista' },
   { value: '07', label: '07 - Auxiliar de Anestesista' },
-  { value: '08', label: '08 - Consultor' },
-  { value: '09', label: '09 - Perfusionista' },
-  { value: '10', label: '10 - Pediatra na sala de parto' },
-  { value: '11', label: '11 - Auxiliar SADT' },
   { value: '12', label: '12 - Clínico' },
   { value: '13', label: '13 - Intensivista' }
 ];
@@ -99,26 +96,27 @@ const SIM_NAO = [
   { value: 'N', label: 'Não' }
 ];
 
-const UNIDADE_MEDIDA = [
-  { value: '001', label: 'Ampola' },
-  { value: '008', label: 'Comprimido' },
-  { value: '009', label: 'Dose' },
-  { value: '013', label: 'Frasco' },
-  { value: '018', label: 'Grama' },
-  { value: '019', label: 'Litro' },
-  { value: '022', label: 'Miligrama' },
-  { value: '023', label: 'Mililitro' },
-  { value: '036', label: 'Unidade' }
+// Tipos de itens para faturamento
+const TIPOS_ITEM = [
+  { value: 'procedimento', label: 'Procedimento', icon: BeakerIcon, tabelas: ['22', '00', '98'] },
+  { value: 'material', label: 'Material/OPME', icon: CubeIcon, tabelas: ['19'] },
+  { value: 'medicamento', label: 'Medicamento', icon: BeakerIcon, tabelas: ['20'] },
+  { value: 'diaria', label: 'Diária/Taxa', icon: BuildingStorefrontIcon, tabelas: ['18'] },
+  { value: 'pacote', label: 'Pacote', icon: PackageIcon, tabelas: ['98'] },
+  { value: 'outros', label: 'Outras Despesas', icon: CurrencyDollarIcon, tabelas: ['00'] }
 ];
 
-const TABELA_REFERENCIA = [
-  { value: '18', label: '18 - TUSS (Taxas/diárias/gases)' },
-  { value: '19', label: '19 - TUSS (Materiais)' },
-  { value: '20', label: '20 - TUSS (Medicamentos)' },
-  { value: '22', label: '22 - TUSS (Procedimentos)' },
-  { value: '00', label: '00 - Tabela Própria da Operadora' }
-];
+// Tabelas disponíveis
+const TABELAS = {
+  '22': { nome: 'TUSS - Procedimentos', tipo: 'procedimento' },
+  '00': { nome: 'Tabela Própria', tipo: 'procedimento' },
+  '98': { nome: 'Pacotes', tipo: 'pacote' },
+  '19': { nome: 'TUSS - Materiais/OPME', tipo: 'material' },
+  '20': { nome: 'TUSS - Medicamentos', tipo: 'medicamento' },
+  '18': { nome: 'TUSS - Diárias e Taxas', tipo: 'diaria' }
+};
 
+// Códigos de Despesas
 const CODIGO_DESPESA = [
   { value: '01', label: 'Gases medicinais' },
   { value: '02', label: 'Medicamentos' },
@@ -129,52 +127,26 @@ const CODIGO_DESPESA = [
 ];
 
 const UF_OPCOES = [
-  { value: '11', label: 'RO - Rondônia' },
-  { value: '12', label: 'AC - Acre' },
-  { value: '13', label: 'AM - Amazonas' },
-  { value: '14', label: 'RR - Roraima' },
-  { value: '15', label: 'PA - Pará' },
-  { value: '16', label: 'AP - Amapá' },
-  { value: '17', label: 'TO - Tocantins' },
-  { value: '21', label: 'MA - Maranhão' },
-  { value: '22', label: 'PI - Piauí' },
-  { value: '23', label: 'CE - Ceará' },
-  { value: '24', label: 'RN - Rio Grande do Norte' },
-  { value: '25', label: 'PB - Paraíba' },
-  { value: '26', label: 'PE - Pernambuco' },
-  { value: '27', label: 'AL - Alagoas' },
-  { value: '28', label: 'SE - Sergipe' },
-  { value: '29', label: 'BA - Bahia' },
-  { value: '31', label: 'MG - Minas Gerais' },
-  { value: '32', label: 'ES - Espírito Santo' },
-  { value: '33', label: 'RJ - Rio de Janeiro' },
   { value: '35', label: 'SP - São Paulo' },
+  { value: '33', label: 'RJ - Rio de Janeiro' },
+  { value: '31', label: 'MG - Minas Gerais' },
   { value: '41', label: 'PR - Paraná' },
   { value: '42', label: 'SC - Santa Catarina' },
   { value: '43', label: 'RS - Rio Grande do Sul' },
-  { value: '50', label: 'MS - Mato Grosso do Sul' },
-  { value: '51', label: 'MT - Mato Grosso' },
-  { value: '52', label: 'GO - Goiás' },
   { value: '53', label: 'DF - Distrito Federal' },
-  { value: '98', label: 'EX - Países Estrangeiros' }
+  { value: '29', label: 'BA - Bahia' },
+  { value: '26', label: 'PE - Pernambuco' },
+  { value: '23', label: 'CE - Ceará' }
 ];
 
 const CONSELHOS = [
-  { value: '01', label: '01 - CRESS (Serviço Social)' },
-  { value: '02', label: '02 - COREN (Enfermagem)' },
-  { value: '03', label: '03 - CRF (Farmácia)' },
-  { value: '04', label: '04 - CRFA (Fonoaudiologia)' },
-  { value: '05', label: '05 - CREFITO (Fisioterapia)' },
   { value: '06', label: '06 - CRM (Medicina)' },
-  { value: '07', label: '07 - CRN (Nutrição)' },
   { value: '08', label: '08 - CRO (Odontologia)' },
+  { value: '03', label: '03 - CRF (Farmácia)' },
+  { value: '02', label: '02 - COREN (Enfermagem)' },
+  { value: '05', label: '05 - CREFITO (Fisioterapia)' },
   { value: '09', label: '09 - CRP (Psicologia)' },
-  { value: '10', label: '10 - OUT (Outros Conselhos)' },
-  { value: '11', label: '11 - CRBio (Biologia)' },
-  { value: '12', label: '12 - CRBM (Biomedicina)' },
-  { value: '13', label: '13 - CREF (Educação Física)' },
-  { value: '14', label: '14 - CRMV (Medicina Veterinária)' },
-  { value: '15', label: '15 - CRTR (Técnicos em Radiologia)' }
+  { value: '07', label: '07 - CRN (Nutrição)' }
 ];
 
 export default function Atendimentos() {
@@ -188,14 +160,21 @@ export default function Atendimentos() {
   const [selectedGuia, setSelectedGuia] = useState(null);
   const [editing, setEditing] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchItemTerm, setSearchItemTerm] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('todos');
   const [filtroConvenio, setFiltroConvenio] = useState('todos');
-  const [aba, setAba] = useState('procedimentos');
+  const [aba, setAba] = useState('paciente');
+  const [tipoItem, setTipoItem] = useState('procedimento');
+  const [tabelaSelecionada, setTabelaSelecionada] = useState('22');
+  const [buscandoProfissional, setBuscandoProfissional] = useState(false);
+  const [buscaProfissional, setBuscaProfissional] = useState('');
   
+  // Itens da guia
   const [itensGuia, setItensGuia] = useState([]);
   const [currentItem, setCurrentItem] = useState({
-    procedimento_codigo: '',
-    procedimento_nome: '',
+    tipo: 'procedimento',
+    codigo: '',
+    nome: '',
     quantidade: 1,
     valor_unitario: 0,
     valor_total: 0,
@@ -203,8 +182,7 @@ export default function Atendimentos() {
     hora_inicial: '',
     hora_final: '',
     tabela_referencia: '22',
-    unidade_medida: '036',
-    fator_reducao_acrescimo: 1.00,
+    codigo_despesa: '',
     prestador_id: '',
     prestador_nome: '',
     prestador_cpf: '',
@@ -212,16 +190,8 @@ export default function Atendimentos() {
     prestador_numero_conselho: '',
     prestador_uf_conselho: '35',
     prestador_cbos: '225125',
-    grau_participacao: '00'
-  });
-
-  const [outrasDespesas, setOutrasDespesas] = useState({
-    diarias: 0,
-    taxas_alugueis: 0,
-    materiais: 0,
-    medicamentos: 0,
-    gases_medicinais: 0,
-    opme: 0
+    grau_participacao: '12',
+    unidade_medida: '036'
   });
 
   const [formData, setFormData] = useState({
@@ -287,6 +257,33 @@ export default function Atendimentos() {
     if (storedConvenios) setConvenios(JSON.parse(storedConvenios));
   };
 
+  // Buscar profissional por número do conselho
+  const buscarProfissionalPorConselho = useCallback(async (numeroConselho) => {
+    if (!numeroConselho || numeroConselho.length < 3) return;
+    
+    setBuscandoProfissional(true);
+    // Simular busca - em produção, fazer requisição ao backend
+    setTimeout(() => {
+      const encontrado = prestadores.find(p => 
+        p.numero_conselho === numeroConselho || 
+        p.numero_conselho?.includes(numeroConselho)
+      );
+      
+      if (encontrado) {
+        setFormData(prev => ({
+          ...prev,
+          profissional_solicitante: encontrado.nome,
+          conselho_solicitante: encontrado.codigo_conselho_ans || '06',
+          numero_conselho_solicitante: encontrado.numero_conselho,
+          uf_solicitante: encontrado.uf_conselho || '35',
+          cbos_solicitante: encontrado.cbos || '225125'
+        }));
+        toast.success(`Profissional ${encontrado.nome} encontrado!`);
+      }
+      setBuscandoProfissional(false);
+    }, 300);
+  }, [prestadores]);
+
   const handlePacienteChange = (pacienteId) => {
     if (!pacienteId) return;
     const paciente = pacientes.find(p => p.id === parseInt(pacienteId));
@@ -311,38 +308,85 @@ export default function Atendimentos() {
     }
   };
 
+  // Filtrar itens por busca (código ou descrição)
+  const itensFiltrados = useMemo(() => {
+    if (!searchItemTerm) return procedimentos;
+    
+    const term = searchItemTerm.toLowerCase();
+    return procedimentos.filter(p => 
+      p.codigo_tuss?.toLowerCase().includes(term) ||
+      p.nome?.toLowerCase().includes(term)
+    );
+  }, [procedimentos, searchItemTerm]);
+
+  // Calcular valor baseado no tipo de tabela
+  const calcularValor = (item, convenio) => {
+    let valorBase = item.valor_sugerido || 0;
+    const multiplicador = convenio?.multiplicador || 1;
+    
+    // Se for CBHPM, calcular por CH (Custo Hospitalar)
+    if (item.tabela === 'CBHPM' && item.ch_base) {
+      const ch = item.ch_base;
+      const valorCH = convenio?.valor_ch || 100;
+      valorBase = ch * valorCH;
+    }
+    
+    // Se for AMB, calcular por CH/HM/SADT
+    if (item.tabela === 'AMB') {
+      // Regras específicas da AMB
+      if (item.tipo === 'CONSULTA') {
+        valorBase = item.ch_consulta || valorBase;
+      } else if (item.tipo === 'EXAME') {
+        valorBase = item.ch_exame || valorBase;
+      }
+    }
+    
+    return valorBase * multiplicador;
+  };
+
   const handleAdicionarItem = () => {
-    if (!currentItem.procedimento_codigo) {
-      toast.error('Selecione um procedimento');
+    if (!currentItem.codigo) {
+      toast.error('Selecione um item');
       return;
     }
-    if (!currentItem.prestador_id) {
+    
+    if (currentItem.tipo === 'procedimento' && !currentItem.prestador_id) {
       toast.error('Selecione o profissional que executou este procedimento');
       return;
     }
 
-    const valorTotal = currentItem.quantidade * currentItem.valor_unitario;
+    const itemSelecionado = procedimentos.find(p => p.codigo_tuss === currentItem.codigo);
+    const convenio = convenios.find(c => c.id === formData.convenio_id);
+    
+    let valorUnitario = currentItem.valor_unitario;
+    if (!valorUnitario && itemSelecionado) {
+      valorUnitario = calcularValor(itemSelecionado, convenio);
+    }
+    
+    const valorTotal = currentItem.quantidade * valorUnitario;
     const prestador = prestadores.find(p => p.id === parseInt(currentItem.prestador_id));
     
     const novoItem = {
       ...currentItem,
+      nome: currentItem.nome || itemSelecionado?.nome,
+      valor_unitario: valorUnitario,
+      valor_total: valorTotal,
       prestador_id: prestador?.id,
       prestador_nome: prestador?.nome,
       prestador_cpf: prestador?.cpf || '00000000000',
-      prestador_conselho: prestador?.conselho || '06',
+      prestador_conselho: prestador?.codigo_conselho_ans || '06',
       prestador_numero_conselho: prestador?.numero_conselho || '00000',
       prestador_uf_conselho: prestador?.uf_conselho || '35',
       prestador_cbos: prestador?.cbos || '225125',
-      grau_participacao: currentItem.grau_participacao || '00',
-      valor_total: valorTotal,
       id: Date.now() + Math.random()
     };
 
     setItensGuia([...itensGuia, novoItem]);
     
     setCurrentItem({
-      procedimento_codigo: '',
-      procedimento_nome: '',
+      tipo: 'procedimento',
+      codigo: '',
+      nome: '',
       quantidade: 1,
       valor_unitario: 0,
       valor_total: 0,
@@ -350,8 +394,7 @@ export default function Atendimentos() {
       hora_inicial: '',
       hora_final: '',
       tabela_referencia: '22',
-      unidade_medida: '036',
-      fator_reducao_acrescimo: 1.00,
+      codigo_despesa: '',
       prestador_id: '',
       prestador_nome: '',
       prestador_cpf: '',
@@ -359,24 +402,32 @@ export default function Atendimentos() {
       prestador_numero_conselho: '',
       prestador_uf_conselho: '35',
       prestador_cbos: '225125',
-      grau_participacao: '00'
+      grau_participacao: '12',
+      unidade_medida: '036'
     });
+    setSearchItemTerm('');
   };
 
   const removerItem = (itemId) => {
     setItensGuia(itensGuia.filter(item => item.id !== itemId));
   };
 
-  const handleProcedimentoItemChange = (procedimentoCodigo) => {
-    const procedimento = procedimentos.find(p => p.codigo_tuss === procedimentoCodigo);
+  const handleProcedimentoItemChange = (codigo) => {
+    const procedimento = procedimentos.find(p => p.codigo_tuss === codigo);
     if (procedimento) {
+      const convenio = convenios.find(c => c.id === formData.convenio_id);
+      const valorCalculado = calcularValor(procedimento, convenio);
+      
       setCurrentItem({
         ...currentItem,
-        procedimento_codigo: procedimento.codigo_tuss,
-        procedimento_nome: procedimento.nome,
-        valor_unitario: procedimento.valor_sugerido || 0,
-        valor_total: (currentItem.quantidade || 1) * (procedimento.valor_sugerido || 0)
+        codigo: procedimento.codigo_tuss,
+        nome: procedimento.nome,
+        valor_unitario: valorCalculado,
+        valor_total: (currentItem.quantidade || 1) * valorCalculado,
+        tabela_referencia: procedimento.tabela === 'CBHPM' ? '98' : 
+                          procedimento.tabela === 'AMB' ? '90' : '22'
       });
+      setSearchItemTerm('');
     }
   };
 
@@ -388,7 +439,7 @@ export default function Atendimentos() {
       return;
     }
     if (itensGuia.length === 0) {
-      toast.error('Adicione pelo menos um procedimento');
+      toast.error('Adicione pelo menos um item à guia');
       return;
     }
 
@@ -401,10 +452,7 @@ export default function Atendimentos() {
       return;
     }
     
-    const valorProcedimentos = itensGuia.reduce((sum, item) => sum + item.valor_total, 0);
-    const valorTotalGuia = valorProcedimentos + outrasDespesas.diarias + outrasDespesas.taxas_alugueis + 
-                           outrasDespesas.materiais + outrasDespesas.medicamentos + 
-                           outrasDespesas.gases_medicinais + outrasDespesas.opme;
+    const valorTotalGuia = itensGuia.reduce((sum, item) => sum + item.valor_total, 0);
     
     let numeroGuiaPrestador;
     if (convenio.proximo_numero_guia) {
@@ -446,14 +494,6 @@ export default function Atendimentos() {
       regime_atendimento: formData.regime_atendimento,
       saude_ocupacional: formData.saude_ocupacional,
       itens: itensGuia,
-      outras_despesas: outrasDespesas,
-      valor_procedimentos: valorProcedimentos,
-      valor_diarias: outrasDespesas.diarias,
-      valor_taxas_alugueis: outrasDespesas.taxas_alugueis,
-      valor_materiais: outrasDespesas.materiais,
-      valor_medicamentos: outrasDespesas.medicamentos,
-      valor_gases_medicinais: outrasDespesas.gases_medicinais,
-      valor_opme: outrasDespesas.opme,
       valor_total: valorTotalGuia,
       paciente_id: paciente.id,
       paciente_nome: paciente.nome,
@@ -481,9 +521,6 @@ export default function Atendimentos() {
     setShowModal(false);
     setEditing(null);
     setItensGuia([]);
-    setOutrasDespesas({
-      diarias: 0, taxas_alugueis: 0, materiais: 0, medicamentos: 0, gases_medicinais: 0, opme: 0
-    });
     setFormData({
       paciente_id: '',
       observacao: '',
@@ -535,14 +572,6 @@ export default function Atendimentos() {
   const handleEdit = (atendimento) => {
     setEditing(atendimento);
     setItensGuia(atendimento.itens || []);
-    setOutrasDespesas({
-      diarias: atendimento.valor_diarias || 0,
-      taxas_alugueis: atendimento.valor_taxas_alugueis || 0,
-      materiais: atendimento.valor_materiais || 0,
-      medicamentos: atendimento.valor_medicamentos || 0,
-      gases_medicinais: atendimento.valor_gases_medicinais || 0,
-      opme: atendimento.valor_opme || 0
-    });
     setFormData({
       ...atendimento,
       paciente_id: atendimento.paciente_id,
@@ -602,105 +631,172 @@ export default function Atendimentos() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold text-gray-800">Atendimentos / Guias</h2>
-        <button onClick={() => { setEditing(null); resetModal(); setShowModal(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 hover:bg-blue-700">
+        <div>
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+            Atendimentos / Guias
+          </h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            Registro de atendimentos e criação de guias TISS
+          </p>
+        </div>
+        <button 
+          onClick={() => { setEditing(null); resetModal(); setShowModal(true); }} 
+          className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg"
+        >
           <PlusIcon className="w-4 h-4" /> Nova Guia
         </button>
       </div>
 
+      {/* Cards de resumo */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-lg border p-4">
-          <p className="text-xs text-gray-500">Total de Guias</p>
-          <p className="text-2xl font-bold text-gray-800">{atendimentos.length}</p>
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Total de Guias</p>
+              <p className="text-2xl font-bold text-gray-800 dark:text-white">{atendimentos.length}</p>
+            </div>
+            <DocumentPlusIcon className="w-8 h-8 text-blue-500 opacity-50" />
+          </div>
         </div>
-        <div className="bg-white rounded-lg border p-4">
-          <p className="text-xs text-gray-500">Pendentes</p>
-          <p className="text-2xl font-bold text-yellow-600">{pendentes}</p>
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Pendentes</p>
+              <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{pendentes}</p>
+            </div>
+            <ClockIcon className="w-8 h-8 text-yellow-500 opacity-50" />
+          </div>
         </div>
-        <div className="bg-white rounded-lg border p-4">
-          <p className="text-xs text-gray-500">Faturados</p>
-          <p className="text-2xl font-bold text-green-600">{faturados}</p>
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Faturados</p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">{faturados}</p>
+            </div>
+            <CheckIcon className="w-8 h-8 text-green-500 opacity-50" />
+          </div>
         </div>
-        <div className="bg-white rounded-lg border p-4">
-          <p className="text-xs text-gray-500">Valor Pendente</p>
-          <p className="text-2xl font-bold text-blue-600">R$ {valorTotalPendente.toFixed(2)}</p>
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Valor Pendente</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">R$ {valorTotalPendente.toFixed(2)}</p>
+            </div>
+            <CurrencyDollarIcon className="w-8 h-8 text-blue-500 opacity-50" />
+          </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border p-4 mb-4">
+      {/* Filtros */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 mb-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="relative">
-            <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            <input type="text" placeholder="Buscar por paciente, carteira ou guia..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full border rounded-lg pl-8 pr-3 py-1.5 text-sm" />
+            <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+            <input 
+              type="text" 
+              placeholder="Buscar por paciente, carteira ou guia..." 
+              value={searchTerm} 
+              onChange={(e) => setSearchTerm(e.target.value)} 
+              className="w-full border-0 bg-transparent rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+            />
           </div>
-          <select value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)} className="border rounded-lg px-3 py-1.5 text-sm">
+          <select 
+            value={filtroStatus} 
+            onChange={(e) => setFiltroStatus(e.target.value)} 
+            className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+          >
             <option value="todos">Todos os status</option>
             <option value="pendente">Pendentes</option>
             <option value="faturado">Faturados</option>
           </select>
-          <select value={filtroConvenio} onChange={(e) => setFiltroConvenio(e.target.value)} className="border rounded-lg px-3 py-1.5 text-sm">
+          <select 
+            value={filtroConvenio} 
+            onChange={(e) => setFiltroConvenio(e.target.value)} 
+            className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+          >
             <option value="todos">Todos os convênios</option>
             {convenios.map(c => (<option key={c.id} value={c.id}>{c.razao_social}</option>))}
           </select>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border overflow-hidden">
+      {/* Tabela de Guias */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs text-gray-500">Data</th>
-                <th className="px-4 py-3 text-left text-xs text-gray-500">Nº Guia</th>
-                <th className="px-4 py-3 text-left text-xs text-gray-500">Paciente</th>
-                <th className="px-4 py-3 text-left text-xs text-gray-500">Carteira</th>
-                <th className="px-4 py-3 text-left text-xs text-gray-500">Convênio</th>
-                <th className="px-4 py-3 text-center text-xs text-gray-500">Itens</th>
-                <th className="px-4 py-3 text-left text-xs text-gray-500">Valor Total</th>
-                <th className="px-4 py-3 text-left text-xs text-gray-500">Status</th>
-                <th className="px-4 py-3 text-center text-xs text-gray-500 w-32">Ações</th>
+            <thead className="bg-gray-50 dark:bg-gray-700/50">
+              <table>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Data</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nº Guia</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Paciente</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Carteira</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Convênio</th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Itens</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Valor Total</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-32">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {atendimentosFiltrados.map((a) => (
-                <tr key={a.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-xs text-gray-500">
+                <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                     {a.itens && a.itens[0] ? format(new Date(a.itens[0].data_execucao), 'dd/MM/yyyy') : '-'}
                   </td>
-                  <td className="px-4 py-3 text-xs font-mono text-gray-600">{a.numero_guia_prestador}</td>
-                  <td className="px-4 py-3 text-xs text-gray-800">{a.paciente_nome}</td>
-                  <td className="px-4 py-3 text-xs font-mono text-gray-600">{a.numero_carteira}</td>
-                  <td className="px-4 py-3 text-xs">
-                    <span className={`px-2 py-0.5 rounded-full text-xs ${a.paciente_convenio_nome && a.paciente_convenio_nome !== 'Sem convênio' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                  <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">{a.numero_guia_prestador}</td>
+                  <td className="px-4 py-3 text-sm text-gray-800 dark:text-gray-200">{a.paciente_nome}</td>
+                  <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">{a.numero_carteira}</td>
+                  <td className="px-4 py-3 text-sm">
+                    <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${a.paciente_convenio_nome && a.paciente_convenio_nome !== 'Sem convênio' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
                       {a.paciente_convenio_nome || '-'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-xs text-center">
-                    <button onClick={() => handleViewItens(a)} className="text-blue-600 hover:text-blue-800 flex items-center gap-1 mx-auto" title="Ver itens">
+                  <td className="px-4 py-3 text-sm text-center">
+                    <button 
+                      onClick={() => handleViewItens(a)} 
+                      className="text-blue-600 hover:text-blue-800 flex items-center gap-1 mx-auto" 
+                      title="Ver itens"
+                    >
                       <DocumentPlusIcon className="w-4 h-4" />
                       <span className="font-bold">{a.itens?.length || 0}</span>
                     </button>
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-600 font-medium">R$ {a.valor_total?.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300">R$ {a.valor_total?.toFixed(2)}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${a.status === 'faturado' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                    <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${a.status === 'faturado' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'}`}>
                       {a.status === 'faturado' ? 'Faturado' : 'Pendente'}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-center">
                     <div className="flex gap-1 justify-center">
-                      <button onClick={() => handleViewItens(a)} className="text-gray-600 hover:text-gray-800 p-1" title="Ver Itens">
+                      <button 
+                        onClick={() => handleViewItens(a)} 
+                        className="p-1 rounded-lg text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" 
+                        title="Ver Itens"
+                      >
                         <EyeIcon className="w-4 h-4" />
                       </button>
                       {a.status === 'pendente' && (
-                        <button onClick={() => handleEnviarFaturamento(a.id)} className="text-green-600 hover:text-green-800 p-1" title="Faturar">
+                        <button 
+                          onClick={() => handleEnviarFaturamento(a.id)} 
+                          className="p-1 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" 
+                          title="Faturar"
+                        >
                           <CheckIcon className="w-4 h-4" />
                         </button>
                       )}
-                      <button onClick={() => handleEdit(a)} className="text-blue-600 hover:text-blue-800 p-1" title="Editar">
+                      <button 
+                        onClick={() => handleEdit(a)} 
+                        className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" 
+                        title="Editar"
+                      >
                         <PencilIcon className="w-4 h-4" />
                       </button>
-                      <button onClick={() => handleDelete(a.id)} className="text-red-600 hover:text-red-800 p-1" title="Excluir">
+                      <button 
+                        onClick={() => handleDelete(a.id)} 
+                        className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" 
+                        title="Excluir"
+                      >
                         <TrashIcon className="w-4 h-4" />
                       </button>
                     </div>
@@ -708,83 +804,93 @@ export default function Atendimentos() {
                 </tr>
               ))}
               {atendimentosFiltrados.length === 0 && (
-                <tr><td colSpan="9" className="px-4 py-12 text-center text-gray-500 text-sm">Nenhum atendimento encontrado</td></tr>
+                <tr>
+                  <td colSpan="9" className="px-4 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
+                    <DocumentPlusIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                    Nenhum atendimento encontrado
+                  </td>
+                </tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Modal de Itens da Guia */}
+      {/* Modal de Visualização de Itens */}
       {showItensModal && selectedGuia && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl w-full max-w-5xl max-h-[80vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold">Itens da Guia</h3>
-                <button onClick={() => setShowItensModal(false)} className="text-gray-400 hover:text-gray-600">
-                  <XMarkIcon className="w-5 h-5" />
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[80vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Itens da Guia</h3>
+                <button onClick={() => setShowItensModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                  <XMarkIcon className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
-              
-              <div className="mb-4 p-3 bg-gray-50 rounded-lg grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-                <div><strong>Guia:</strong> {selectedGuia.numero_guia_prestador}</div>
-                <div><strong>Paciente:</strong> {selectedGuia.paciente_nome}</div>
-                <div><strong>Carteira:</strong> {selectedGuia.numero_carteira}</div>
-                <div><strong>Convênio:</strong> <span className="text-blue-600 font-medium">{selectedGuia.paciente_convenio_nome || '-'}</span></div>
-                <div><strong>Guia Operadora:</strong> {selectedGuia.numero_guia_operadora || '-'}</div>
-                <div><strong>Data Autorização:</strong> {selectedGuia.data_autorizacao || '-'}</div>
-                <div><strong>Senha:</strong> {selectedGuia.senha_autorizacao || '-'}</div>
-                <div><strong>Status:</strong> {selectedGuia.status}</div>
+            </div>
+            
+            <div className="p-5">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                <div><span className="text-xs text-gray-500 dark:text-gray-400">Guia:</span> <span className="text-sm font-mono font-medium">{selectedGuia.numero_guia_prestador}</span></div>
+                <div><span className="text-xs text-gray-500 dark:text-gray-400">Paciente:</span> <span className="text-sm font-medium">{selectedGuia.paciente_nome}</span></div>
+                <div><span className="text-xs text-gray-500 dark:text-gray-400">Carteira:</span> <span className="text-sm font-mono">{selectedGuia.numero_carteira}</span></div>
+                <div><span className="text-xs text-gray-500 dark:text-gray-400">Convênio:</span> <span className="text-sm font-medium text-blue-600">{selectedGuia.paciente_convenio_nome || '-'}</span></div>
+                <div><span className="text-xs text-gray-500 dark:text-gray-400">Guia Operadora:</span> <span className="text-sm">{selectedGuia.numero_guia_operadora || '-'}</span></div>
+                <div><span className="text-xs text-gray-500 dark:text-gray-400">Data Autorização:</span> <span className="text-sm">{selectedGuia.data_autorizacao || '-'}</span></div>
+                <div><span className="text-xs text-gray-500 dark:text-gray-400">Senha:</span> <span className="text-sm font-mono">{selectedGuia.senha_autorizacao || '-'}</span></div>
+                <div><span className="text-xs text-gray-500 dark:text-gray-400">Status:</span> 
+                  <span className={`inline-flex ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${selectedGuia.status === 'faturado' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                    {selectedGuia.status}
+                  </span>
+                </div>
               </div>
               
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-gray-50 dark:bg-gray-700/50">
                     <tr>
-                      <th className="px-3 py-2 text-left text-xs text-gray-500">Seq</th>
-                      <th className="px-3 py-2 text-left text-xs text-gray-500">Data</th>
-                      <th className="px-3 py-2 text-left text-xs text-gray-500">H.I</th>
-                      <th className="px-3 py-2 text-left text-xs text-gray-500">H.F</th>
-                      <th className="px-3 py-2 text-left text-xs text-gray-500">Código</th>
-                      <th className="px-3 py-2 text-left text-xs text-gray-500">Procedimento</th>
-                      <th className="px-3 py-2 text-center text-xs text-gray-500">Qtd</th>
-                      <th className="px-3 py-2 text-right text-xs text-gray-500">Valor</th>
-                      <th className="px-3 py-2 text-center text-xs text-gray-500">Grau</th>
-                      <th className="px-3 py-2 text-left text-xs text-gray-500">Profissional</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Seq</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">H.I</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">H.F</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Tabela</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Código</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Descrição</th>
+                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Unit.</th>
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Total</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Profissional</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y">
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                     {(selectedGuia.itens || []).map((item, idx) => (
-                      <tr key={idx}>
+                      <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                         <td className="px-3 py-2 text-xs text-center font-medium">{idx + 1}</td>
                         <td className="px-3 py-2 text-xs">{item.data_execucao || '-'}</td>
                         <td className="px-3 py-2 text-xs">{item.hora_inicial || '-'}</td>
                         <td className="px-3 py-2 text-xs">{item.hora_final || '-'}</td>
-                        <td className="px-3 py-2 text-xs font-mono">{item.procedimento_codigo}</td>
-                        <td className="px-3 py-2 text-xs">{item.procedimento_nome}</td>
+                        <td className="px-3 py-2 text-xs font-mono">{item.tabela_referencia}</td>
+                        <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
+                        <td className="px-3 py-2 text-xs">{item.nome}</td>
                         <td className="px-3 py-2 text-xs text-center">{item.quantidade}</td>
-                        <td className="px-3 py-2 text-xs text-right">R$ {item.valor_total?.toFixed(2)}</td>
-                        <td className="px-3 py-2 text-xs text-center">
-                          <span className="px-1 py-0.5 rounded text-xs bg-gray-100">
-                            {item.grau_participacao || '00'}
-                          </span>
-                        </td>
+                        <td className="px-3 py-2 text-xs text-right">R$ {item.valor_unitario?.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-xs text-right font-semibold">R$ {item.valor_total?.toFixed(2)}</td>
                         <td className="px-3 py-2 text-xs text-gray-600">{item.prestador_nome}</td>
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot className="bg-gray-50">
-                    <tr>
-                      <td colSpan="8" className="px-3 py-2 text-right font-semibold">Total da Guia:</td>
-                      <td className="px-3 py-2 text-right font-bold text-blue-600">R$ {selectedGuia.valor_total?.toFixed(2)}</td>
+                  <tfoot className="bg-gray-50 dark:bg-gray-700/50">
+                    <tr className="border-t">
+                      <td colSpan="9" className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">Total da Guia:</td>
+                      <td className="px-3 py-2 text-right font-bold text-blue-600 dark:text-blue-400">R$ {selectedGuia.valor_total?.toFixed(2)}</td>
+                      <td></td>
                     </tr>
                   </tfoot>
                 </table>
               </div>
               
-              <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-                <button onClick={() => setShowItensModal(false)} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
+              <div className="flex justify-end mt-5 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button onClick={() => setShowItensModal(false)} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-md">
                   Fechar
                 </button>
               </div>
@@ -795,51 +901,98 @@ export default function Atendimentos() {
 
       {/* Modal de Cadastro/Edição */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold">{editing ? 'Editar Guia' : 'Nova Guia'}</h3>
-                <button onClick={resetModal} className="text-gray-400 hover:text-gray-600">
-                  <XMarkIcon className="w-5 h-5" />
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
+                  {editing ? 'Editar Guia' : 'Nova Guia'}
+                </h3>
+                <button onClick={resetModal} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                  <XMarkIcon className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
-
+            </div>
+            
+            <div className="p-5">
               {/* Tabs */}
-              <div className="flex border-b mb-4 overflow-x-auto">
-                <button onClick={() => setAba('paciente')} className={`px-4 py-2 text-sm whitespace-nowrap ${aba === 'paciente' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>Paciente</button>
-                <button onClick={() => setAba('autorizacao')} className={`px-4 py-2 text-sm whitespace-nowrap ${aba === 'autorizacao' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>Autorização</button>
-                <button onClick={() => setAba('solicitante')} className={`px-4 py-2 text-sm whitespace-nowrap ${aba === 'solicitante' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>Solicitante</button>
-                <button onClick={() => setAba('solicitacao')} className={`px-4 py-2 text-sm whitespace-nowrap ${aba === 'solicitacao' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>Solicitação</button>
-                <button onClick={() => setAba('atendimento')} className={`px-4 py-2 text-sm whitespace-nowrap ${aba === 'atendimento' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>Atendimento</button>
-                <button onClick={() => setAba('procedimentos')} className={`px-4 py-2 text-sm whitespace-nowrap ${aba === 'procedimentos' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>Procedimentos</button>
+              <div className="flex flex-wrap gap-1 border-b border-gray-200 dark:border-gray-700 mb-5">
+                <button 
+                  onClick={() => setAba('paciente')} 
+                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${aba === 'paciente' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                >
+                  <UserGroupIcon className="w-4 h-4 inline mr-1" /> Paciente
+                </button>
+                <button 
+                  onClick={() => setAba('autorizacao')} 
+                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${aba === 'autorizacao' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                >
+                  <CheckIcon className="w-4 h-4 inline mr-1" /> Autorização
+                </button>
+                <button 
+                  onClick={() => setAba('solicitante')} 
+                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${aba === 'solicitante' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                >
+                  <IdentificationIcon className="w-4 h-4 inline mr-1" /> Solicitante
+                </button>
+                <button 
+                  onClick={() => setAba('atendimento')} 
+                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${aba === 'atendimento' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                >
+                  <CalendarIcon className="w-4 h-4 inline mr-1" /> Atendimento
+                </button>
+                <button 
+                  onClick={() => setAba('procedimentos')} 
+                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${aba === 'procedimentos' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                >
+                  <BeakerIcon className="w-4 h-4 inline mr-1" /> Procedimentos
+                </button>
               </div>
               
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit}>
                 {/* Aba Paciente */}
                 {aba === 'paciente' && (
-                  <div className="border rounded-lg p-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Paciente *</label>
-                    <select value={formData.paciente_id} onChange={e => handlePacienteChange(e.target.value)} className="w-full border rounded-lg px-3 py-2 text-sm" required>
-                      <option value="">Selecione um paciente</option>
-                      {pacientes.map(p => (<option key={p.id} value={p.id}>{p.nome} - {p.numero_carteira}</option>))}
-                    </select>
-                    {formData.paciente_carteira && (
-                      <div className="mt-2 p-2 bg-blue-50 rounded-lg">
-                        <p className="text-xs text-blue-700">
-                          <strong>Carteira:</strong> {formData.paciente_carteira} | 
-                          <strong> Convênio:</strong> {formData.convenio_nome || 'Não definido'}
-                        </p>
-                      </div>
-                    )}
-                    <div className="mt-3">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Observações</label>
-                      <textarea rows="2" value={formData.observacao} onChange={e => setFormData({...formData, observacao: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Informações adicionais..." />
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paciente *</label>
+                      <select 
+                        value={formData.paciente_id} 
+                        onChange={e => handlePacienteChange(e.target.value)} 
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
+                        required
+                      >
+                        <option value="">Selecione um paciente</option>
+                        {pacientes.map(p => (
+                          <option key={p.id} value={p.id}>{p.nome} - {p.numero_carteira}</option>
+                        ))}
+                      </select>
+                      {formData.paciente_carteira && (
+                        <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                          <p className="text-xs text-blue-700 dark:text-blue-300">
+                            <strong>Carteira:</strong> {formData.paciente_carteira} | 
+                            <strong> Convênio:</strong> {formData.convenio_nome || 'Não definido'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações</label>
+                      <textarea 
+                        rows="3" 
+                        value={formData.observacao} 
+                        onChange={e => setFormData({...formData, observacao: e.target.value})} 
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
+                        placeholder="Informações adicionais sobre o atendimento..."
+                      />
                     </div>
                     {editing && (
-                      <div className="mt-3">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                        <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                        <select 
+                          value={formData.status} 
+                          onChange={e => setFormData({...formData, status: e.target.value})} 
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                        >
                           <option value="pendente">Pendente</option>
                           <option value="faturado">Faturado</option>
                         </select>
@@ -850,24 +1003,45 @@ export default function Atendimentos() {
 
                 {/* Aba Autorização */}
                 {aba === 'autorizacao' && (
-                  <div className="border rounded-lg p-4">
-                    <label className="block text-sm font-semibold text-gray-800 mb-3">Dados de Autorização da Operadora</label>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Número da Guia (Operadora)</label>
-                        <input type="text" value={formData.numero_guia_operadora} onChange={e => setFormData({...formData, numero_guia_operadora: e.target.value})} placeholder="Número fornecido pela operadora" className="w-full border rounded-lg px-3 py-2 text-sm font-mono" />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número da Guia (Operadora)</label>
+                        <input 
+                          type="text" 
+                          value={formData.numero_guia_operadora} 
+                          onChange={e => setFormData({...formData, numero_guia_operadora: e.target.value})} 
+                          placeholder="Número fornecido pela operadora" 
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
+                        />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Data da Autorização</label>
-                        <input type="date" value={formData.data_autorizacao} onChange={e => setFormData({...formData, data_autorizacao: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data da Autorização</label>
+                        <input 
+                          type="date" 
+                          value={formData.data_autorizacao} 
+                          onChange={e => setFormData({...formData, data_autorizacao: e.target.value})} 
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
+                        />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Data Validade da Senha</label>
-                        <input type="date" value={formData.data_validade_senha} onChange={e => setFormData({...formData, data_validade_senha: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data Validade da Senha</label>
+                        <input 
+                          type="date" 
+                          value={formData.data_validade_senha} 
+                          onChange={e => setFormData({...formData, data_validade_senha: e.target.value})} 
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                        />
                       </div>
-                      <div className="md:col-span-2">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Senha de Autorização</label>
-                        <input type="text" value={formData.senha_autorizacao} onChange={e => setFormData({...formData, senha_autorizacao: e.target.value})} placeholder="Pode conter letras e números" className="w-full border rounded-lg px-3 py-2 text-sm" />
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Senha de Autorização</label>
+                        <input 
+                          type="text" 
+                          value={formData.senha_autorizacao} 
+                          onChange={e => setFormData({...formData, senha_autorizacao: e.target.value})} 
+                          placeholder="Pode conter letras e números" 
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
+                        />
                       </div>
                     </div>
                   </div>
@@ -875,69 +1049,93 @@ export default function Atendimentos() {
 
                 {/* Aba Solicitante */}
                 {aba === 'solicitante' && (
-                  <div className="border rounded-lg p-4">
-                    <label className="block text-sm font-semibold text-gray-800 mb-3">Dados do Solicitante</label>
+                  <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Código na Operadora</label>
-                        <input type="text" value={formData.codigo_operadora} onChange={e => setFormData({...formData, codigo_operadora: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm font-mono" />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Código na Operadora</label>
+                        <input 
+                          type="text" 
+                          value={formData.codigo_operadora} 
+                          onChange={e => setFormData({...formData, codigo_operadora: e.target.value})} 
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono" 
+                        />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Nome do Contratado</label>
-                        <input type="text" value={formData.nome_contratado} onChange={e => setFormData({...formData, nome_contratado: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome do Contratado</label>
+                        <input 
+                          type="text" 
+                          value={formData.nome_contratado} 
+                          onChange={e => setFormData({...formData, nome_contratado: e.target.value})} 
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Profissional por Número do Conselho</label>
+                        <div className="relative">
+                          <input 
+                            type="text" 
+                            value={buscaProfissional} 
+                            onChange={e => {
+                              setBuscaProfissional(e.target.value);
+                              buscarProfissionalPorConselho(e.target.value);
+                            }}
+                            placeholder="Digite o número do conselho (ex: 124182)" 
+                            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
+                          />
+                          {buscandoProfissional && (
+                            <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Nome do Profissional Solicitante</label>
-                        <input type="text" value={formData.profissional_solicitante} onChange={e => setFormData({...formData, profissional_solicitante: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome do Profissional Solicitante</label>
+                        <input 
+                          type="text" 
+                          value={formData.profissional_solicitante} 
+                          onChange={e => setFormData({...formData, profissional_solicitante: e.target.value})} 
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                        />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Conselho Profissional</label>
-                        <select value={formData.conselho_solicitante} onChange={e => setFormData({...formData, conselho_solicitante: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Conselho Profissional</label>
+                        <select 
+                          value={formData.conselho_solicitante} 
+                          onChange={e => setFormData({...formData, conselho_solicitante: e.target.value})} 
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm"
+                        >
                           {CONSELHOS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Número no Conselho</label>
-                        <input type="text" value={formData.numero_conselho_solicitante} onChange={e => setFormData({...formData, numero_conselho_solicitante: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm" />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número no Conselho</label>
+                        <input 
+                          type="text" 
+                          value={formData.numero_conselho_solicitante} 
+                          onChange={e => setFormData({...formData, numero_conselho_solicitante: e.target.value})} 
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono" 
+                        />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">UF do Conselho</label>
-                        <select value={formData.uf_solicitante} onChange={e => setFormData({...formData, uf_solicitante: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UF do Conselho</label>
+                        <select 
+                          value={formData.uf_solicitante} 
+                          onChange={e => setFormData({...formData, uf_solicitante: e.target.value})} 
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm"
+                        >
                           {UF_OPCOES.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">CBOS (Código CBO)</label>
-                        <input type="text" value={formData.cbos_solicitante} onChange={e => setFormData({...formData, cbos_solicitante: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm font-mono" placeholder="Ex: 225125 - Médico neurologista" />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Aba Solicitação */}
-                {aba === 'solicitacao' && (
-                  <div className="border rounded-lg p-4">
-                    <label className="block text-sm font-semibold text-gray-800 mb-3">Dados da Solicitação</label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Caráter do Atendimento *</label>
-                        <select value={formData.carater_atendimento} onChange={e => setFormData({...formData, carater_atendimento: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm">
-                          {CARATER_ATENDIMENTO.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Data da Solicitação *</label>
-                        <input type="date" value={formData.data_solicitacao} onChange={e => setFormData({...formData, data_solicitacao: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm" required />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Atendimento a RN</label>
-                        <select value={formData.atendimento_rn} onChange={e => setFormData({...formData, atendimento_rn: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm">
-                          {SIM_NAO.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                        </select>
-                      </div>
-                      <div className="md:col-span-2">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Indicação Clínica</label>
-                        <textarea rows="3" value={formData.indicacao_clinica} onChange={e => setFormData({...formData, indicacao_clinica: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm" placeholder="Descrição da indicação clínica..." />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CBOS (Código CBO)</label>
+                        <input 
+                          type="text" 
+                          value={formData.cbos_solicitante} 
+                          onChange={e => setFormData({...formData, cbos_solicitante: e.target.value})} 
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono" 
+                          placeholder="Ex: 225125 - Médico neurologista" 
+                        />
                       </div>
                     </div>
                   </div>
@@ -945,169 +1143,418 @@ export default function Atendimentos() {
 
                 {/* Aba Atendimento */}
                 {aba === 'atendimento' && (
-                  <div className="border rounded-lg p-4">
-                    <label className="block text-sm font-semibold text-gray-800 mb-3">Dados do Atendimento</label>
+                  <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Tipo de Atendimento *</label>
-                        <select value={formData.tipo_atendimento} onChange={e => setFormData({...formData, tipo_atendimento: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Caráter do Atendimento *</label>
+                        <select 
+                          value={formData.carater_atendimento} 
+                          onChange={e => setFormData({...formData, carater_atendimento: e.target.value})} 
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm"
+                        >
+                          {CARATER_ATENDIMENTO.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data da Solicitação *</label>
+                        <input 
+                          type="date" 
+                          value={formData.data_solicitacao} 
+                          onChange={e => setFormData({...formData, data_solicitacao: e.target.value})} 
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                          required 
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Atendimento a RN</label>
+                        <select 
+                          value={formData.atendimento_rn} 
+                          onChange={e => setFormData({...formData, atendimento_rn: e.target.value})} 
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm"
+                        >
+                          {SIM_NAO.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Atendimento *</label>
+                        <select 
+                          value={formData.tipo_atendimento} 
+                          onChange={e => setFormData({...formData, tipo_atendimento: e.target.value})} 
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm"
+                        >
                           {TIPO_ATENDIMENTO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Indicação de Acidente</label>
-                        <select value={formData.indicacao_acidente} onChange={e => setFormData({...formData, indicacao_acidente: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Indicação de Acidente</label>
+                        <select 
+                          value={formData.indicacao_acidente} 
+                          onChange={e => setFormData({...formData, indicacao_acidente: e.target.value})} 
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm"
+                        >
                           {INDICADOR_ACIDENTE.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Tipo de Consulta</label>
-                        <select value={formData.tipo_consulta} onChange={e => setFormData({...formData, tipo_consulta: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Consulta</label>
+                        <select 
+                          value={formData.tipo_consulta} 
+                          onChange={e => setFormData({...formData, tipo_consulta: e.target.value})} 
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm"
+                        >
                           {TIPO_CONSULTA.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Motivo de Encerramento</label>
-                        <select value={formData.motivo_encerramento} onChange={e => setFormData({...formData, motivo_encerramento: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm">
-                          {MOTIVO_ENCERRAMENTO.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Cobertura Especial</label>
-                        <select value={formData.cobertura_especial} onChange={e => setFormData({...formData, cobertura_especial: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm">
-                          {COBERTURA_ESPECIAL.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Regime de Atendimento *</label>
-                        <select value={formData.regime_atendimento} onChange={e => setFormData({...formData, regime_atendimento: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Regime de Atendimento *</label>
+                        <select 
+                          value={formData.regime_atendimento} 
+                          onChange={e => setFormData({...formData, regime_atendimento: e.target.value})} 
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm"
+                        >
                           {REGIME_ATENDIMENTO.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Saúde Ocupacional</label>
-                        <select value={formData.saude_ocupacional} onChange={e => setFormData({...formData, saude_ocupacional: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cobertura Especial</label>
+                        <select 
+                          value={formData.cobertura_especial} 
+                          onChange={e => setFormData({...formData, cobertura_especial: e.target.value})} 
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm"
+                        >
+                          {COBERTURA_ESPECIAL.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Saúde Ocupacional</label>
+                        <select 
+                          value={formData.saude_ocupacional} 
+                          onChange={e => setFormData({...formData, saude_ocupacional: e.target.value})} 
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm"
+                        >
                           {SAUDE_OCUPACIONAL.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                         </select>
                       </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Motivo de Encerramento</label>
+                        <select 
+                          value={formData.motivo_encerramento} 
+                          onChange={e => setFormData({...formData, motivo_encerramento: e.target.value})} 
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm"
+                        >
+                          {MOTIVO_ENCERRAMENTO.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Indicação Clínica</label>
+                      <textarea 
+                        rows="3" 
+                        value={formData.indicacao_clinica} 
+                        onChange={e => setFormData({...formData, indicacao_clinica: e.target.value})} 
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
+                        placeholder="Descrição da indicação clínica..."
+                      />
                     </div>
                   </div>
                 )}
 
                 {/* Aba Procedimentos */}
                 {aba === 'procedimentos' && (
-                  <div className="border rounded-lg p-4">
-                    <label className="block text-sm font-semibold text-gray-800 mb-3">Procedimentos da Guia</label>
-                    
+                  <div className="space-y-4">
+                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
+                      <p className="text-sm text-blue-700 dark:text-blue-300">
+                        <strong>ℹ️ Informações:</strong> Selecione o tipo de item, busque por código ou descrição, e preencha os dados do atendimento.
+                        Os valores podem ser calculados automaticamente com base nas tabelas TUSS, CBHPM ou AMB conforme configuração do convênio.
+                      </p>
+                    </div>
+
                     {itensGuia.length > 0 && (
-                      <div className="mb-3 max-h-40 overflow-y-auto border rounded-lg">
-                        <table className="w-full text-sm">
-                          <thead className="bg-gray-50 sticky top-0">
-                            <tr>
-                              <th className="px-2 py-1 text-left text-xs text-gray-500">Seq</th>
-                              <th className="px-2 py-1 text-left text-xs text-gray-500">Data</th>
-                              <th className="px-2 py-1 text-left text-xs text-gray-500">H.I</th>
-                              <th className="px-2 py-1 text-left text-xs text-gray-500">H.F</th>
-                              <th className="px-2 py-1 text-left text-xs text-gray-500">Código</th>
-                              <th className="px-2 py-1 text-left text-xs text-gray-500">Procedimento</th>
-                              <th className="px-2 py-1 text-center text-xs text-gray-500">Qtd</th>
-                              <th className="px-2 py-1 text-right text-xs text-gray-500">Valor</th>
-                              <th className="px-2 py-1 text-center text-xs text-gray-500">Grau</th>
-                              <th className="px-2 py-1 text-left text-xs text-gray-500">Profissional</th>
-                              <th className="px-2 py-1 text-center w-8"></th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y">
-                            {itensGuia.map((item, idx) => (
-                              <tr key={item.id}>
-                                <td className="px-2 py-1 text-xs text-center">{idx + 1}</td>
-                                <td className="px-2 py-1 text-xs">{item.data_execucao}</td>
-                                <td className="px-2 py-1 text-xs">{item.hora_inicial}</td>
-                                <td className="px-2 py-1 text-xs">{item.hora_final}</td>
-                                <td className="px-2 py-1 text-xs font-mono">{item.procedimento_codigo}</td>
-                                <td className="px-2 py-1 text-xs">{item.procedimento_nome}</td>
-                                <td className="px-2 py-1 text-xs text-center">{item.quantidade}</td>
-                                <td className="px-2 py-1 text-xs text-right">R$ {item.valor_total?.toFixed(2)}</td>
-                                <td className="px-2 py-1 text-xs text-center">{item.grau_participacao || '00'}</td>
-                                <td className="px-2 py-1 text-xs text-gray-600">{item.prestador_nome}</td>
-                                <td className="px-2 py-1 text-center">
-                                  <button type="button" onClick={() => removerItem(item.id)} className="text-red-600 hover:text-red-800">
-                                    <XMarkIcon className="w-3 h-3" />
-                                  </button>
-                                </td>
+                      <div className="border rounded-xl overflow-hidden">
+                        <div className="overflow-x-auto max-h-64">
+                          <table className="w-full text-sm">
+                            <thead className="bg-gray-50 dark:bg-gray-700/50 sticky top-0">
+                              <tr>
+                                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Seq</th>
+                                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data</th>
+                                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">H.I</th>
+                                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">H.F</th>
+                                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Tabela</th>
+                                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Código</th>
+                                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Descrição</th>
+                                <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd</th>
+                                <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Unit.</th>
+                                <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Total</th>
+                                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Profissional</th>
+                                <th className="px-2 py-2 text-center w-8"></th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                              {itensGuia.map((item, idx) => (
+                                <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                  <td className="px-2 py-2 text-xs text-center">{idx + 1}</td>
+                                  <td className="px-2 py-2 text-xs">{item.data_execucao}</td>
+                                  <td className="px-2 py-2 text-xs">{item.hora_inicial}</td>
+                                  <td className="px-2 py-2 text-xs">{item.hora_final}</td>
+                                  <td className="px-2 py-2 text-xs font-mono">{item.tabela_referencia}<tr>
+                                  <td className="px-2 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
+                                  <td className="px-2 py-2 text-xs">{item.nome}</td>
+                                  <td className="px-2 py-2 text-xs text-center">{item.quantidade}</td>
+                                  <td className="px-2 py-2 text-xs text-right">R$ {item.valor_unitario?.toFixed(2)}</td>
+                                  <td className="px-2 py-2 text-xs text-right font-semibold">R$ {item.valor_total?.toFixed(2)}</td>
+                                  <td className="px-2 py-2 text-xs text-gray-600">{item.prestador_nome}</td>
+                                  <td className="px-2 py-2 text-center">
+                                    <button type="button" onClick={() => removerItem(item.id)} className="text-red-600 hover:text-red-800">
+                                      <TrashIcon className="w-3 h-3" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                            <tfoot className="bg-gray-50 dark:bg-gray-700/50">
+                              <tr className="border-t">
+                                <td colSpan="10" className="px-2 py-2 text-right font-semibold">Subtotal:</td>
+                                  <td className="px-2 py-2 text-right font-bold text-blue-600">
+                                  R$ {itensGuia.reduce((sum, i) => sum + i.valor_total, 0).toFixed(2)}
+                                </td>
+                                <td></td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
                       </div>
                     )}
 
-                    <div className="border-t pt-3 mt-2">
-                      <p className="text-xs font-medium text-gray-700 mb-2">Adicionar novo procedimento:</p>
-                      <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-                        <div className="md:col-span-2">
-                          <label className="block text-xs text-gray-500 mb-1">Data</label>
-                          <input type="date" value={currentItem.data_execucao} onChange={e => setCurrentItem({...currentItem, data_execucao: e.target.value})} className="w-full border rounded-lg px-2 py-1.5 text-sm" />
-                        </div>
-                        <div className="md:col-span-1">
-                          <label className="block text-xs text-gray-500 mb-1">H.I</label>
-                          <input type="time" value={currentItem.hora_inicial} onChange={e => setCurrentItem({...currentItem, hora_inicial: e.target.value})} className="w-full border rounded-lg px-2 py-1.5 text-sm" />
-                        </div>
-                        <div className="md:col-span-1">
-                          <label className="block text-xs text-gray-500 mb-1">H.F</label>
-                          <input type="time" value={currentItem.hora_final} onChange={e => setCurrentItem({...currentItem, hora_final: e.target.value})} className="w-full border rounded-lg px-2 py-1.5 text-sm" />
-                        </div>
-                        <div className="md:col-span-3">
-                          <label className="block text-xs text-gray-500 mb-1">Procedimento</label>
-                          <select value={currentItem.procedimento_codigo} onChange={e => handleProcedimentoItemChange(e.target.value)} className="w-full border rounded-lg px-2 py-1.5 text-sm">
-                            <option value="">Selecione</option>
-                            {procedimentos.map(p => (<option key={p.id} value={p.codigo_tuss}>{p.codigo_tuss} - {p.nome}</option>))}
-                          </select>
-                        </div>
-                        <div className="md:col-span-1">
-                          <label className="block text-xs text-gray-500 mb-1">Qtd</label>
-                          <input type="number" min="1" value={currentItem.quantidade} onChange={e => setCurrentItem({...currentItem, quantidade: parseInt(e.target.value) || 1, valor_total: (parseInt(e.target.value) || 1) * currentItem.valor_unitario})} className="w-full border rounded-lg px-2 py-1.5 text-sm text-center" />
-                        </div>
-                        <div className="md:col-span-2">
-                          <label className="block text-xs text-gray-500 mb-1">Valor Unit.</label>
-                          <input type="number" step="0.01" value={currentItem.valor_unitario} onChange={e => setCurrentItem({...currentItem, valor_unitario: parseFloat(e.target.value) || 0, valor_total: currentItem.quantidade * (parseFloat(e.target.value) || 0)})} className="w-full border rounded-lg px-2 py-1.5 text-sm text-right" />
-                        </div>
-                        <div className="md:col-span-1">
-                          <label className="block text-xs text-gray-500 mb-1">Tabela</label>
-                          <select value={currentItem.tabela_referencia} onChange={e => setCurrentItem({...currentItem, tabela_referencia: e.target.value})} className="w-full border rounded-lg px-2 py-1.5 text-sm">
-                            {TABELA_REFERENCIA.map(t => <option key={t.value} value={t.value}>{t.label.substring(0, 15)}</option>)}
-                          </select>
-                        </div>
-                        <div className="md:col-span-1">
-                          <label className="block text-xs text-gray-500 mb-1">Grau Part.</label>
-                          <select value={currentItem.grau_participacao} onChange={e => setCurrentItem({...currentItem, grau_participacao: e.target.value})} className="w-full border rounded-lg px-2 py-1.5 text-sm">
-                            {GRAU_PARTICIPACAO.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
-                          </select>
-                        </div>
-                        <div className="md:col-span-2">
-                          <label className="block text-xs text-gray-500 mb-1">Profissional</label>
-                          <select value={currentItem.prestador_id} onChange={e => {
-                            const prestador = prestadores.find(p => p.id === parseInt(e.target.value));
-                            setCurrentItem({...currentItem, prestador_id: e.target.value, prestador_nome: prestador?.nome || '', prestador_cpf: prestador?.cpf || '', prestador_conselho: prestador?.conselho || '06', prestador_numero_conselho: prestador?.numero_conselho || '', prestador_uf_conselho: prestador?.uf_conselho || '35', prestador_cbos: prestador?.cbos || '225125'});
-                          }} className="w-full border rounded-lg px-2 py-1.5 text-sm">
-                            <option value="">Selecione</option>
-                            {prestadores.map(p => (<option key={p.id} value={p.id}>{p.nome}</option>))}
-                          </select>
-                        </div>
-                        <div className="md:col-span-1">
-                          <button type="button" onClick={handleAdicionarItem} className="w-full bg-green-600 text-white px-2 py-1.5 rounded-lg text-sm hover:bg-green-700">+ Add</button>
-                        </div>
+                    {/* Seletor de Tipo de Item */}
+                    <div className="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700 pb-3">
+                      {TIPOS_ITEM.map(tipo => {
+                        const Icon = tipo.icon;
+                        return (
+                          <button
+                            key={tipo.value}
+                            type="button"
+                            onClick={() => {
+                              setTipoItem(tipo.value);
+                              setTabelaSelecionada(tipo.tabelas[0]);
+                              setCurrentItem({
+                                ...currentItem,
+                                tipo: tipo.value,
+                                tabela_referencia: tipo.tabelas[0]
+                              });
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1 ${
+                              tipoItem === tipo.value
+                                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md'
+                                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                            }`}
+                          >
+                            <Icon className="w-3 h-3" />
+                            {tipo.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Seletor de Tabela */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tabela de Referência</label>
+                      <select
+                        value={currentItem.tabela_referencia}
+                        onChange={e => setCurrentItem({...currentItem, tabela_referencia: e.target.value})}
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      >
+                        {TIPOS_ITEM.find(t => t.value === tipoItem)?.tabelas.map(tabela => (
+                          <option key={tabela} value={tabela}>
+                            {TABELAS[tabela]?.nome || tabela} ({tabela})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Busca de Item */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Item (código ou descrição)</label>
+                      <div className="relative">
+                        <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                        <input
+                          type="text"
+                          value={searchItemTerm}
+                          onChange={e => setSearchItemTerm(e.target.value)}
+                          placeholder="Digite o código ou descrição do procedimento..."
+                          className="w-full border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                          list="itens-suggestions"
+                        />
+                        <datalist id="itens-suggestions">
+                          {itensFiltrados.slice(0, 20).map(item => (
+                            <option key={item.codigo_tuss} value={item.codigo_tuss}>
+                              {item.codigo_tuss} - {item.nome}
+                            </option>
+                          ))}
+                        </datalist>
                       </div>
                     </div>
-                    
-                    {itensGuia.length === 0 && <p className="text-xs text-yellow-600 mt-3">⚠️ Adicione pelo menos um procedimento</p>}
-                    {itensGuia.length > 0 && <div className="text-right mt-3 pt-2 border-t"><p className="text-sm font-semibold">Subtotal: R$ {itensGuia.reduce((sum, i) => sum + i.valor_total, 0).toFixed(2)}</p></div>}
+
+                    {/* Seleção do Item */}
+                    {searchItemTerm && itensFiltrados.length > 0 && (
+                      <div className="border rounded-xl max-h-48 overflow-y-auto">
+                        {itensFiltrados.slice(0, 10).map(item => (
+                          <button
+                            key={item.codigo_tuss}
+                            type="button"
+                            onClick={() => {
+                              handleProcedimentoItemChange(item.codigo_tuss);
+                              setSearchItemTerm('');
+                            }}
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 border-b last:border-b-0 transition-colors"
+                          >
+                            <div className="flex justify-between items-center">
+                              <div>
+                                <span className="font-mono text-sm text-blue-600">{item.codigo_tuss}</span>
+                                <span className="text-sm text-gray-700 dark:text-gray-300 ml-2">{item.nome}</span>
+                              </div>
+                              <span className="text-sm font-semibold text-green-600">
+                                R$ {item.valor_sugerido?.toFixed(2)}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Formulário do Item */}
+                    {currentItem.codigo && (
+                      <div className="border-t pt-4 mt-2">
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+                          <div className="md:col-span-2">
+                            <label className="block text-xs text-gray-500 mb-1">Data Execução</label>
+                            <input
+                              type="date"
+                              value={currentItem.data_execucao}
+                              onChange={e => setCurrentItem({...currentItem, data_execucao: e.target.value})}
+                              className="w-full border rounded-lg px-2 py-1.5 text-sm"
+                            />
+                          </div>
+                          <div className="md:col-span-1">
+                            <label className="block text-xs text-gray-500 mb-1">H.I</label>
+                            <input
+                              type="time"
+                              value={currentItem.hora_inicial}
+                              onChange={e => setCurrentItem({...currentItem, hora_inicial: e.target.value})}
+                              className="w-full border rounded-lg px-2 py-1.5 text-sm"
+                            />
+                          </div>
+                          <div className="md:col-span-1">
+                            <label className="block text-xs text-gray-500 mb-1">H.F</label>
+                            <input
+                              type="time"
+                              value={currentItem.hora_final}
+                              onChange={e => setCurrentItem({...currentItem, hora_final: e.target.value})}
+                              className="w-full border rounded-lg px-2 py-1.5 text-sm"
+                            />
+                          </div>
+                          <div className="md:col-span-3">
+                            <label className="block text-xs text-gray-500 mb-1">Item</label>
+                            <input
+                              type="text"
+                              value={currentItem.nome}
+                              disabled
+                              className="w-full border rounded-lg px-2 py-1.5 text-sm bg-gray-50 dark:bg-gray-700"
+                            />
+                          </div>
+                          <div className="md:col-span-1">
+                            <label className="block text-xs text-gray-500 mb-1">Qtd</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={currentItem.quantidade}
+                              onChange={e => setCurrentItem({
+                                ...currentItem,
+                                quantidade: parseInt(e.target.value) || 1,
+                                valor_total: (parseInt(e.target.value) || 1) * currentItem.valor_unitario
+                              })}
+                              className="w-full border rounded-lg px-2 py-1.5 text-sm text-center"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-xs text-gray-500 mb-1">Valor Unitário</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={currentItem.valor_unitario}
+                              onChange={e => setCurrentItem({
+                                ...currentItem,
+                                valor_unitario: parseFloat(e.target.value) || 0,
+                                valor_total: currentItem.quantidade * (parseFloat(e.target.value) || 0)
+                              })}
+                              className="w-full border rounded-lg px-2 py-1.5 text-sm text-right"
+                            />
+                          </div>
+                          <div className="md:col-span-1">
+                            <label className="block text-xs text-gray-500 mb-1">Grau Part.</label>
+                            <select
+                              value={currentItem.grau_participacao}
+                              onChange={e => setCurrentItem({...currentItem, grau_participacao: e.target.value})}
+                              className="w-full border rounded-lg px-2 py-1.5 text-sm"
+                            >
+                              {GRAU_PARTICIPACAO.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
+                            </select>
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="block text-xs text-gray-500 mb-1">Profissional (executante)</label>
+                            <select
+                              value={currentItem.prestador_id}
+                              onChange={e => {
+                                const prestador = prestadores.find(p => p.id === parseInt(e.target.value));
+                                setCurrentItem({
+                                  ...currentItem,
+                                  prestador_id: e.target.value,
+                                  prestador_nome: prestador?.nome || '',
+                                  prestador_cpf: prestador?.cpf || '',
+                                  prestador_conselho: prestador?.codigo_conselho_ans || '06',
+                                  prestador_numero_conselho: prestador?.numero_conselho || '',
+                                  prestador_uf_conselho: prestador?.uf_conselho || '35',
+                                  prestador_cbos: prestador?.cbos || '225125'
+                                });
+                              }}
+                              className="w-full border rounded-lg px-2 py-1.5 text-sm"
+                            >
+                              <option value="">Selecione</option>
+                              {prestadores.map(p => (
+                                <option key={p.id} value={p.id}>
+                                  {p.nome} - {p.especialidade} ({p.conselho} {p.numero_conselho})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="md:col-span-1">
+                            <button
+                              type="button"
+                              onClick={handleAdicionarItem}
+                              className="w-full bg-green-600 text-white px-2 py-1.5 rounded-lg text-sm hover:bg-green-700 transition-colors"
+                            >
+                              + Add
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
-                <div className="flex justify-end gap-3 pt-4 border-t">
-                  <button type="button" onClick={resetModal} className="px-4 py-2 border rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-                  <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">{editing ? 'Atualizar' : 'Salvar'} Guia</button>
+                <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <button
+                    type="button"
+                    onClick={resetModal}
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-md"
+                  >
+                    {editing ? 'Atualizar' : 'Salvar'} Guia
+                  </button>
                 </div>
               </form>
             </div>
