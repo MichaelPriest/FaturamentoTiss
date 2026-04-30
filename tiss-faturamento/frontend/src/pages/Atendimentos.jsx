@@ -720,7 +720,7 @@ export default function Atendimentos() {
         </div>
       </div>
 
-      {/* Tabela de Guias - Versão Corrigida */}
+      {/* Tabela de Guias - VERSÃO CORRIGIDA */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
