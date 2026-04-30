@@ -3,9 +3,9 @@ import {
   PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, 
   CheckIcon, XMarkIcon, EyeIcon, DocumentPlusIcon,
   CurrencyDollarIcon, BeakerIcon, CubeIcon, 
-  TruckIcon, BuildingStorefrontIcon, PackageIcon,
+  TruckIcon, BuildingStorefrontIcon,
   CalculatorIcon, UserGroupIcon, CalendarIcon,
-  BuildingOfficeIcon, IdentificationIcon
+  BuildingOfficeIcon, IdentificationIcon, ClockIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
