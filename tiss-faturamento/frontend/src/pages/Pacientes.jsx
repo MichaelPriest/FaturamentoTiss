@@ -524,7 +524,7 @@ export default function Pacientes() {
                       type="text" 
                       value={formData.numero_carteira} 
                       onChange={e => setFormData({...formData, numero_carteira: e.target.value})} 
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
                       required 
                     />
                   </div>
@@ -534,7 +534,7 @@ export default function Pacientes() {
                       type="date" 
                       value={formData.data_validade_carteira} 
                       onChange={e => setFormData({...formData, data_validade_carteira: e.target.value})} 
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
                     />
                   </div>
                   <div>
