@@ -29,10 +29,11 @@ import {
   UserIcon,
   ChevronUpIcon,
   ChevronDownIcon,
-  DocumentTextIcon
+  DocumentTextIcon,
+  AcademicCapIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
-import { format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, addWeeks, subWeeks, addMonths, subMonths, parseISO } from 'date-fns';
+import { format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, addWeeks, subWeeks, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '../lib/supabaseClient';
 
@@ -80,6 +81,7 @@ export default function Agendamentos() {
   const [filtroConvenio, setFiltroConvenio] = useState('todos');
   const [viewMode, setViewMode] = useState('semana');
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   const [formData, setFormData] = useState({
     paciente_id: '',
@@ -289,6 +291,12 @@ export default function Agendamentos() {
 
   const irParaHoje = () => setCurrentDate(new Date());
 
+  const handleDateClick = (data) => {
+    setSelectedDate(data);
+    setViewMode('dia');
+    setCurrentDate(data);
+  };
+
   const getAgendamentosFiltrados = () => {
     let filtrados = [...agendamentos];
     
@@ -336,27 +344,30 @@ export default function Agendamentos() {
     const hoje = new Date().toISOString().split('T')[0];
     const inicioSemana = startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().split('T')[0];
     const fimSemana = endOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().split('T')[0];
+    const todosAgendamentos = getAgendamentosFiltrados();
     
-    const agendamentosHoje = getAgendamentosFiltrados().filter(a => a.data_agendamento === hoje && a.status !== 'cancelado').length;
-    const agendamentosSemana = getAgendamentosFiltrados().filter(a => a.data_agendamento >= inicioSemana && a.data_agendamento <= fimSemana && a.status !== 'cancelado').length;
-    const agendamentosMes = getAgendamentosFiltrados().filter(a => {
+    const agendamentosHoje = todosAgendamentos.filter(a => a.data_agendamento === hoje && a.status !== 'cancelado').length;
+    const agendamentosSemana = todosAgendamentos.filter(a => a.data_agendamento >= inicioSemana && a.data_agendamento <= fimSemana && a.status !== 'cancelado').length;
+    const agendamentosMes = todosAgendamentos.filter(a => {
       const data = new Date(a.data_agendamento);
-      const hoje = new Date();
-      return data.getMonth() === hoje.getMonth() && data.getFullYear() === hoje.getFullYear() && a.status !== 'cancelado';
+      const hojeDate = new Date();
+      return data.getMonth() === hojeDate.getMonth() && data.getFullYear() === hojeDate.getFullYear() && a.status !== 'cancelado';
     }).length;
-    const agendamentosPendentes = getAgendamentosFiltrados().filter(a => a.status === 'agendado' || a.status === 'aguardando').length;
-    const agendamentosRealizados = getAgendamentosFiltrados().filter(a => a.status === 'realizado').length;
-    const taxaOcupacao = agendamentos.length > 0 ? Math.round((agendamentosHoje / 18) * 100) : 0;
+    const agendamentosPendentes = todosAgendamentos.filter(a => a.status === 'agendado' || a.status === 'aguardando').length;
+    const agendamentosRealizados = todosAgendamentos.filter(a => a.status === 'realizado').length;
+    const totalAgendamentos = todosAgendamentos.length;
+    const taxaOcupacao = totalAgendamentos > 0 ? Math.round((agendamentosHoje / HORARIOS.length) * 100) : 0;
 
-    return { agendamentosHoje, agendamentosSemana, agendamentosMes, agendamentosPendentes, agendamentosRealizados, taxaOcupacao };
+    return { agendamentosHoje, agendamentosSemana, agendamentosMes, agendamentosPendentes, agendamentosRealizados, totalAgendamentos, taxaOcupacao };
   };
 
   const podeAtender = (agendamento) => {
     return agendamento.status !== 'realizado' && agendamento.status !== 'cancelado';
   };
 
-  const estatisticas = getEstatisticas();
   const agendamentosFiltrados = getAgendamentosFiltrados();
+  const estatisticas = getEstatisticas();
+  const diasDaSemana = getDiasDaSemana();
 
   if (loading) {
     return (
@@ -419,7 +430,7 @@ export default function Agendamentos() {
             <div className="flex justify-between items-start"><div><p className="text-xs opacity-80">Realizados</p><p className="text-2xl font-bold">{estatisticas.agendamentosRealizados}</p></div><CheckBadgeIcon className="w-8 h-8 opacity-50" /></div>
           </div>
           <div className="bg-gradient-to-br from-gray-500 to-gray-600 rounded-xl p-4 text-white shadow-lg">
-            <div className="flex justify-between items-start"><div><p className="text-xs opacity-80">Total</p><p className="text-2xl font-bold">{agendamentosFiltrados.length}</p></div><UserGroupIcon className="w-8 h-8 opacity-50" /></div>
+            <div className="flex justify-between items-start"><div><p className="text-xs opacity-80">Total</p><p className="text-2xl font-bold">{estatisticas.totalAgendamentos}</p></div><UserGroupIcon className="w-8 h-8 opacity-50" /></div>
           </div>
         </div>
 
@@ -454,7 +465,7 @@ export default function Agendamentos() {
               </select>
               <select value={filtroPrestador} onChange={(e) => setFiltroPrestador(e.target.value)} className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
                 <option value="todos">Todos os profissionais</option>
-                {prestadores.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                {prestadores.map(p => <option key={p.id} value={p.id}>{p.nome} - {p.especialidade}</option>)}
               </select>
               <select value={filtroConvenio} onChange={(e) => setFiltroConvenio(e.target.value)} className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">
                 <option value="todos">Todos os convênios</option>
@@ -510,7 +521,9 @@ export default function Agendamentos() {
                             <div className="text-xs text-gray-500 mt-1">{agendamento.prestador_nome} • {MODALIDADE.find(m => m.value === agendamento.modalidade)?.label}</div>
                           </div>
                         ) : (
-                          <div className="flex-1 text-gray-400 text-sm">Disponível para agendamento</div>
+                          <button onClick={() => { setFormData({ ...formData, data_agendamento: format(currentDate, 'yyyy-MM-dd'), hora_inicio: hora, hora_fim: HORARIOS[HORARIOS.indexOf(hora) + 1] || HORARIOS[HORARIOS.indexOf(hora)] }); setShowModal(true); }} className="flex-1 text-left text-gray-400 text-sm hover:text-blue-500 transition-colors">
+                            Disponível para agendamento
+                          </button>
                         )}
                       </div>
                       {agendamento && (
@@ -550,19 +563,23 @@ export default function Agendamentos() {
               <div className="min-w-[1000px]">
                 <div className="grid grid-cols-8 gap-2 mb-3">
                   <div className="col-span-1"></div>
-                  {getDiasDaSemana().map((dia, idx) => (
-                    <div key={idx} className="text-center p-2 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                  {diasDaSemana.map((dia, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleDateClick(dia)}
+                      className="text-center p-2 rounded-lg bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer"
+                    >
                       <div className="text-sm font-bold text-gray-600 dark:text-gray-400">{format(dia, 'EEE', { locale: ptBR })}</div>
                       <div className={`text-lg font-bold rounded-full w-10 h-10 flex items-center justify-center mx-auto mt-1 ${isSameDay(dia, new Date()) ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md' : 'text-gray-800 dark:text-white'}`}>
                         {format(dia, 'dd')}
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
                 {HORARIOS.map(hora => (
                   <div key={hora} className="grid grid-cols-8 gap-2 mb-2">
                     <div className="col-span-1 text-sm font-mono font-bold text-gray-500 pt-2">{hora}</div>
-                    {getDiasDaSemana().map((dia, idx) => {
+                    {diasDaSemana.map((dia, idx) => {
                       const agendamento = getAgendamentosPorData(dia).find(a => a.hora_inicio === hora);
                       const podeAtenderAgendamento = agendamento && podeAtender(agendamento);
                       const statusInfo = agendamento ? STATUS_AGENDAMENTO.find(s => s.value === agendamento.status) : null;
@@ -620,7 +637,11 @@ export default function Agendamentos() {
                       const agendamentosDia = getAgendamentosPorData(dia);
                       const isToday = isSameDay(dia, new Date());
                       return (
-                        <div key={idx} className={`border rounded-lg min-h-[130px] p-2 transition-all hover:shadow-md ${isCurrentMonth ? 'bg-white dark:bg-gray-800 border-gray-200' : 'bg-gray-50 dark:bg-gray-800/50 border-gray-100'} ${isToday ? 'ring-2 ring-blue-500 shadow-lg' : ''}`}>
+                        <div 
+                          key={idx} 
+                          onClick={() => handleDateClick(dia)}
+                          className={`border rounded-lg min-h-[130px] p-2 transition-all hover:shadow-md cursor-pointer ${isCurrentMonth ? 'bg-white dark:bg-gray-800 border-gray-200' : 'bg-gray-50 dark:bg-gray-800/50 border-gray-100'} ${isToday ? 'ring-2 ring-blue-500 shadow-lg' : ''}`}
+                        >
                           <div className="flex justify-between items-start mb-2">
                             <span className={`text-sm font-bold rounded-full w-7 h-7 flex items-center justify-center ${isToday ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md' : isCurrentMonth ? 'text-gray-800 dark:text-white' : 'text-gray-400'}`}>
                               {format(dia, 'dd')}
@@ -635,7 +656,7 @@ export default function Agendamentos() {
                                 <div key={i} className={`text-xs p-1 rounded flex items-center justify-between gap-1 ${statusInfo?.color}`}>
                                   <span className="truncate flex-1"><span className="font-mono">{ag.hora_inicio}</span> - {ag.paciente_nome?.split(' ')[0]}</span>
                                   {podeAtenderAgendamento ? (
-                                    <Link to={`/prontuario/${ag.id}`} className="text-cyan-600 hover:text-cyan-800"><CheckBadgeIcon className="w-3 h-3" /></Link>
+                                    <Link to={`/prontuario/${ag.id}`} onClick={(e) => e.stopPropagation()} className="text-cyan-600 hover:text-cyan-800"><CheckBadgeIcon className="w-3 h-3" /></Link>
                                   ) : (
                                     <EyeIcon className="w-3 h-3 text-gray-400" />
                                   )}
@@ -644,7 +665,7 @@ export default function Agendamentos() {
                             })}
                             {agendamentosDia.length > 3 && <p className="text-xs text-gray-400 text-center">+{agendamentosDia.length - 3}</p>}
                             {agendamentosDia.length === 0 && isCurrentMonth && (
-                              <button onClick={() => { setFormData({ ...formData, data_agendamento: format(dia, 'yyyy-MM-dd'), hora_inicio: '09:00', hora_fim: '09:30' }); setShowModal(true); }} className="w-full text-xs text-gray-400 hover:text-blue-500 py-2 transition-colors">
+                              <button onClick={(e) => { e.stopPropagation(); setFormData({ ...formData, data_agendamento: format(dia, 'yyyy-MM-dd'), hora_inicio: '09:00', hora_fim: '09:30' }); setShowModal(true); }} className="w-full text-xs text-gray-400 hover:text-blue-500 py-2 transition-colors">
                                 + Agendar
                               </button>
                             )}
