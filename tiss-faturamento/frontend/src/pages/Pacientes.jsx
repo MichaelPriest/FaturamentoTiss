@@ -1,20 +1,13 @@
 import { useState, useEffect } from 'react';
 import { 
-  PlusIcon, 
-  PencilIcon, 
-  TrashIcon, 
-  MagnifyingGlassIcon, 
-  CheckCircleIcon, 
-  XCircleIcon, 
-  ClockIcon, 
-  UsersIcon, 
-  BuildingOfficeIcon 
+  PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, 
+  CheckCircleIcon, XCircleIcon, ClockIcon, UsersIcon, BuildingOfficeIcon 
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { pacientesService, conveniosService } from '../services/supabaseService';
 
-// Funções de máscara
+// Funções de máscara (manter as mesmas)
 const aplicarMascaraCPF = (valor) => {
   const cpf = valor.replace(/\D/g, '');
   if (cpf.length <= 3) return cpf;
@@ -96,8 +89,6 @@ export default function Pacientes() {
       ]);
       setPacientes(pacientesData);
       setConvenios(conveniosData);
-      console.log('Pacientes carregados:', pacientesData);
-      console.log('Convênios carregados:', conveniosData);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       toast.error('Erro ao carregar dados');
@@ -484,7 +475,7 @@ export default function Pacientes() {
                       value={formData.rg} 
                       onChange={e => setFormData({...formData, rg: aplicarMascaraRG(e.target.value)})} 
                       placeholder="00.000.000-0"
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
                     />
                   </div>
                   <div>
@@ -493,7 +484,7 @@ export default function Pacientes() {
                       type="date" 
                       value={formData.data_nascimento} 
                       onChange={e => setFormData({...formData, data_nascimento: e.target.value})} 
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
                     />
                   </div>
                   <div>
@@ -554,7 +545,7 @@ export default function Pacientes() {
                       onChange={e => setFormData({...formData, telefone: aplicarMascaraTelefone(e.target.value)})} 
                       maxLength={15}
                       placeholder="(00) 0000-0000"
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
                     />
                   </div>
                   <div>
@@ -565,7 +556,7 @@ export default function Pacientes() {
                       onChange={e => setFormData({...formData, celular: aplicarMascaraTelefone(e.target.value)})} 
                       maxLength={15}
                       placeholder="(00) 00000-0000"
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
                     />
                   </div>
                   <div className="md:col-span-2">
@@ -574,7 +565,7 @@ export default function Pacientes() {
                       type="email" 
                       value={formData.email} 
                       onChange={e => setFormData({...formData, email: e.target.value})} 
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
                     />
                   </div>
                   <div className="md:col-span-2">
@@ -601,7 +592,7 @@ export default function Pacientes() {
                       type="text" 
                       value={formData.endereco} 
                       onChange={e => setFormData({...formData, endereco: e.target.value})} 
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
                     />
                   </div>
                   <div>
@@ -610,7 +601,7 @@ export default function Pacientes() {
                       type="text" 
                       value={formData.numero} 
                       onChange={e => setFormData({...formData, numero: e.target.value})} 
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
                     />
                   </div>
                   <div>
@@ -619,7 +610,7 @@ export default function Pacientes() {
                       type="text" 
                       value={formData.complemento} 
                       onChange={e => setFormData({...formData, complemento: e.target.value})} 
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
                     />
                   </div>
                   <div>
@@ -628,7 +619,7 @@ export default function Pacientes() {
                       type="text" 
                       value={formData.bairro} 
                       onChange={e => setFormData({...formData, bairro: e.target.value})} 
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
                     />
                   </div>
                   <div>
@@ -637,7 +628,7 @@ export default function Pacientes() {
                       type="text" 
                       value={formData.cidade} 
                       onChange={e => setFormData({...formData, cidade: e.target.value})} 
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
                     />
                   </div>
                   <div>
@@ -645,7 +636,7 @@ export default function Pacientes() {
                     <select 
                       value={formData.estado} 
                       onChange={e => setFormData({...formData, estado: e.target.value})} 
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     >
                       {ESTADOS.map(uf => <option key={uf} value={uf}>{uf}</option>)}
                     </select>
