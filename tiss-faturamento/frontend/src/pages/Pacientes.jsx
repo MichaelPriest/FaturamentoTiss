@@ -1,5 +1,15 @@
 import { useState, useEffect } from 'react';
-import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, CheckCircleIcon, XCircleIcon, ClockIcon, UsersIcon } from '@heroicons/react/24/outline';
+import { 
+  PlusIcon, 
+  PencilIcon, 
+  TrashIcon, 
+  MagnifyingGlassIcon, 
+  CheckCircleIcon, 
+  XCircleIcon, 
+  ClockIcon, 
+  UsersIcon, 
+  BuildingOfficeIcon 
+} from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { pacientesService, conveniosService } from '../services/supabaseService';
