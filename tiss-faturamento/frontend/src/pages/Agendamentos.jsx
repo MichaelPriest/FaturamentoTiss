@@ -1,32 +1,13 @@
 // src/pages/Agendamentos.jsx
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  PlusIcon, 
-  PencilIcon, 
-  TrashIcon, 
-  MagnifyingGlassIcon, 
-  XMarkIcon, 
-  CalendarIcon,
-  ClockIcon,
-  UserGroupIcon,
-  BuildingOfficeIcon,
-  BeakerIcon,
-  VideoCameraIcon,
-  BellIcon,
-  CheckBadgeIcon,
-  XCircleIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  ViewColumnsIcon,
-  CalendarDaysIcon,
-  ListBulletIcon,
-  EyeIcon,
-  FunnelIcon,
-  ChartBarIcon,
-  ChevronUpIcon,
-  ChevronDownIcon,
-  HomeModernIcon
+  PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, XMarkIcon,
+  CalendarIcon, ClockIcon, UserGroupIcon, BuildingOfficeIcon, BeakerIcon,
+  VideoCameraIcon, BellIcon, CheckBadgeIcon, XCircleIcon,
+  ChevronLeftIcon, ChevronRightIcon, ViewColumnsIcon, CalendarDaysIcon,
+  ListBulletIcon, EyeIcon, FunnelIcon, ChartBarIcon,
+  ChevronUpIcon, ChevronDownIcon, HomeModernIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, addWeeks, subWeeks, addMonths, subMonths } from 'date-fns';
@@ -34,11 +15,11 @@ import { ptBR } from 'date-fns/locale';
 import { supabase } from '../lib/supabaseClient';
 
 const STATUS_AGENDAMENTO = [
-  { value: 'agendado', label: 'Agendado', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-  { value: 'confirmado', label: 'Confirmado', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
-  { value: 'cancelado', label: 'Cancelado', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
-  { value: 'realizado', label: 'Realizado', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
-  { value: 'aguardando', label: 'Aguardando', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' }
+  { value: 'agendado', label: 'Agendado', color: 'bg-blue-100 text-blue-700' },
+  { value: 'confirmado', label: 'Confirmado', color: 'bg-green-100 text-green-700' },
+  { value: 'cancelado', label: 'Cancelado', color: 'bg-red-100 text-red-700' },
+  { value: 'realizado', label: 'Realizado', color: 'bg-purple-100 text-purple-700' },
+  { value: 'aguardando', label: 'Aguardando', color: 'bg-yellow-100 text-yellow-700' }
 ];
 
 const TIPO_AGENDAMENTO = [
@@ -71,31 +52,21 @@ export default function Agendamentos() {
   const [showFiltros, setShowFiltros] = useState(false);
   const [editing, setEditing] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchPaciente, setSearchPaciente] = useState('');
-  const [searchPrestador, setSearchPrestador] = useState('');
-  const [searchSala, setSearchSala] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('todos');
-  const [filtroTipo, setFiltroTipo] = useState('todos');
-  const [filtroModalidade, setFiltroModalidade] = useState('todos');
-  const [filtroPrestador, setFiltroPrestador] = useState('todos');
-  const [filtroConvenio, setFiltroConvenio] = useState('todos');
-  const [filtroSala, setFiltroSala] = useState('todos');
   const [viewMode, setViewMode] = useState('semana');
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [showPacienteDropdown, setShowPacienteDropdown] = useState(false);
-  const [showPrestadorDropdown, setShowPrestadorDropdown] = useState(false);
-  const [showSalaDropdown, setShowSalaDropdown] = useState(false);
-  const [showSalaFilterDropdown, setShowSalaFilterDropdown] = useState(false);
-  
-  const pacienteRef = useRef(null);
-  const prestadorRef = useRef(null);
-  const salaRef = useRef(null);
-  const salaFilterRef = useRef(null);
 
+  // Campos do formulário com busca
+  const [pacienteBusca, setPacienteBusca] = useState('');
+  const [prestadorBusca, setPrestadorBusca] = useState('');
+  const [salaBusca, setSalaBusca] = useState('');
+  const [showPacienteList, setShowPacienteList] = useState(false);
+  const [showPrestadorList, setShowPrestadorList] = useState(false);
+  const [showSalaList, setShowSalaList] = useState(false);
+  
   const [formData, setFormData] = useState({
     paciente_id: '',
     prestador_id: '',
-    convenio_id: '',
     sala_id: '',
     tipo: 'consulta',
     status: 'agendado',
@@ -104,30 +75,10 @@ export default function Agendamentos() {
     hora_inicio: '09:00',
     hora_fim: '09:30',
     observacao: '',
-    local: '',
-    link_teleconsulta: ''
+    local: ''
   });
 
-  // Fechar dropdowns ao clicar fora
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (pacienteRef.current && !pacienteRef.current.contains(event.target)) {
-        setShowPacienteDropdown(false);
-      }
-      if (prestadorRef.current && !prestadorRef.current.contains(event.target)) {
-        setShowPrestadorDropdown(false);
-      }
-      if (salaRef.current && !salaRef.current.contains(event.target)) {
-        setShowSalaDropdown(false);
-      }
-      if (salaFilterRef.current && !salaFilterRef.current.contains(event.target)) {
-        setShowSalaFilterDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
+  // Carregar dados
   const carregarDados = async () => {
     setLoading(true);
     try {
@@ -150,9 +101,16 @@ export default function Agendamentos() {
       setPrestadores(prestadoresRes.data || []);
       setConvenios(conveniosRes.data || []);
       setSalas(salasRes.data || []);
+      
+      console.log('Dados carregados:', {
+        agendamentos: agendamentosRes.data?.length,
+        pacientes: pacientesRes.data?.length,
+        prestadores: prestadoresRes.data?.length,
+        salas: salasRes.data?.length
+      });
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      toast.error('Erro ao carregar dados do Supabase');
+      console.error('Erro:', error);
+      toast.error('Erro ao carregar dados');
     } finally {
       setLoading(false);
     }
@@ -164,29 +122,28 @@ export default function Agendamentos() {
 
   // Filtrar pacientes
   const pacientesFiltrados = pacientes.filter(p => 
-    p.nome?.toLowerCase().includes(searchPaciente.toLowerCase()) ||
-    p.cpf?.includes(searchPaciente) ||
-    p.numero_carteira?.includes(searchPaciente)
-  ).slice(0, 10);
+    p.nome?.toLowerCase().includes(pacienteBusca.toLowerCase()) ||
+    p.cpf?.includes(pacienteBusca) ||
+    p.numero_carteira?.includes(pacienteBusca)
+  ).slice(0, 15);
 
   // Filtrar prestadores
   const prestadoresFiltrados = prestadores.filter(p => 
-    p.nome?.toLowerCase().includes(searchPrestador.toLowerCase()) ||
-    p.especialidade?.toLowerCase().includes(searchPrestador.toLowerCase()) ||
-    p.cpf?.includes(searchPrestador)
-  ).slice(0, 10);
+    p.nome?.toLowerCase().includes(prestadorBusca.toLowerCase()) ||
+    p.especialidade?.toLowerCase().includes(prestadorBusca.toLowerCase()) ||
+    p.cpf?.includes(prestadorBusca)
+  ).slice(0, 15);
 
   // Filtrar salas
   const salasFiltradas = salas.filter(s => 
-    s.nome?.toLowerCase().includes(searchSala.toLowerCase())
-  ).slice(0, 10);
+    s.nome?.toLowerCase().includes(salaBusca.toLowerCase())
+  ).slice(0, 15);
 
   const abrirModalNovo = () => {
     setEditing(null);
     setFormData({
       paciente_id: '',
       prestador_id: '',
-      convenio_id: '',
       sala_id: '',
       tipo: 'consulta',
       status: 'agendado',
@@ -195,12 +152,11 @@ export default function Agendamentos() {
       hora_inicio: '09:00',
       hora_fim: '09:30',
       observacao: '',
-      local: '',
-      link_teleconsulta: ''
+      local: ''
     });
-    setSearchPaciente('');
-    setSearchPrestador('');
-    setSearchSala('');
+    setPacienteBusca('');
+    setPrestadorBusca('');
+    setSalaBusca('');
     setShowModal(true);
   };
 
@@ -213,20 +169,15 @@ export default function Agendamentos() {
       toast.error('Selecione um profissional');
       return;
     }
-    if (!formData.data_agendamento) {
-      toast.error('Selecione uma data');
-      return;
-    }
 
     const paciente = pacientes.find(p => p.id === parseInt(formData.paciente_id));
     const prestador = prestadores.find(p => p.id === parseInt(formData.prestador_id));
-    const convenio = convenios.find(c => c.id === paciente?.convenio_id);
     const sala = salas.find(s => s.id === parseInt(formData.sala_id));
+    const convenio = convenios.find(c => c.id === paciente?.convenio_id);
 
     const novoAgendamento = {
       paciente_id: parseInt(formData.paciente_id),
       prestador_id: parseInt(formData.prestador_id),
-      convenio_id: paciente?.convenio_id || null,
       sala_id: formData.sala_id ? parseInt(formData.sala_id) : null,
       sala_nome: sala?.nome || null,
       tipo: formData.tipo,
@@ -237,66 +188,62 @@ export default function Agendamentos() {
       hora_fim: formData.hora_fim,
       observacao: formData.observacao || null,
       local: formData.local || null,
-      link_teleconsulta: formData.link_teleconsulta || null,
       paciente_nome: paciente?.nome || '',
       paciente_carteira: paciente?.numero_carteira || '',
       prestador_nome: prestador?.nome || '',
       prestador_especialidade: prestador?.especialidade || '',
+      convenio_id: paciente?.convenio_id || null,
       convenio_nome: convenio?.razao_social || 'Sem convênio',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
 
     try {
-      let error;
+      let result;
       if (editing) {
-        const result = await supabase
+        result = await supabase
           .from('agendamentos')
           .update(novoAgendamento)
           .eq('id', editing.id);
-        error = result.error;
       } else {
-        const result = await supabase
+        result = await supabase
           .from('agendamentos')
           .insert([novoAgendamento]);
-        error = result.error;
       }
 
-      if (error) throw error;
+      if (result.error) throw result.error;
 
-      toast.success(editing ? 'Agendamento atualizado!' : 'Agendamento criado!');
+      toast.success(editing ? 'Atualizado!' : 'Agendamento criado!');
       setShowModal(false);
       carregarDados();
     } catch (error) {
-      console.error('Erro ao salvar:', error);
-      toast.error('Erro ao salvar agendamento');
+      console.error('Erro:', error);
+      toast.error('Erro ao salvar');
     }
   };
 
   const excluirAgendamento = async (id) => {
-    if (confirm('Tem certeza que deseja excluir este agendamento?')) {
-      try {
-        const { error } = await supabase.from('agendamentos').delete().eq('id', id);
-        if (error) throw error;
-        toast.success('Agendamento excluído!');
-        carregarDados();
-      } catch (error) {
+    if (confirm('Excluir este agendamento?')) {
+      const { error } = await supabase.from('agendamentos').delete().eq('id', id);
+      if (error) {
         toast.error('Erro ao excluir');
+      } else {
+        toast.success('Excluído!');
+        carregarDados();
       }
     }
   };
 
   const atualizarStatus = async (id, status) => {
-    try {
-      const { error } = await supabase
-        .from('agendamentos')
-        .update({ status, updated_at: new Date().toISOString() })
-        .eq('id', id);
-      if (error) throw error;
-      toast.success(`Status atualizado para ${STATUS_AGENDAMENTO.find(s => s.value === status)?.label}`);
-      carregarDados();
-    } catch (error) {
+    const { error } = await supabase
+      .from('agendamentos')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) {
       toast.error('Erro ao atualizar status');
+    } else {
+      toast.success('Status atualizado!');
+      carregarDados();
     }
   };
 
@@ -314,38 +261,22 @@ export default function Agendamentos() {
 
   const irParaHoje = () => setCurrentDate(new Date());
 
-  const getAgendamentosFiltrados = () => {
+  // Filtros
+  const getAgendamentosFiltrados = useCallback(() => {
     let filtrados = [...agendamentos];
     
     if (filtroStatus !== 'todos') {
       filtrados = filtrados.filter(a => a.status === filtroStatus);
     }
-    if (filtroTipo !== 'todos') {
-      filtrados = filtrados.filter(a => a.tipo === filtroTipo);
-    }
-    if (filtroModalidade !== 'todos') {
-      filtrados = filtrados.filter(a => a.modalidade === filtroModalidade);
-    }
-    if (filtroPrestador !== 'todos') {
-      filtrados = filtrados.filter(a => a.prestador_id === parseInt(filtroPrestador));
-    }
-    if (filtroConvenio !== 'todos') {
-      filtrados = filtrados.filter(a => a.convenio_id === parseInt(filtroConvenio));
-    }
-    if (filtroSala !== 'todos') {
-      filtrados = filtrados.filter(a => a.sala_id === parseInt(filtroSala));
-    }
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtrados = filtrados.filter(a => 
         a.paciente_nome?.toLowerCase().includes(term) ||
-        a.prestador_nome?.toLowerCase().includes(term) ||
-        a.sala_nome?.toLowerCase().includes(term)
+        a.prestador_nome?.toLowerCase().includes(term)
       );
     }
-    
     return filtrados;
-  };
+  }, [agendamentos, filtroStatus, searchTerm]);
 
   const getAgendamentosPorData = (data) => {
     const dataStr = format(data, 'yyyy-MM-dd');
@@ -357,27 +288,16 @@ export default function Agendamentos() {
     return Array.from({ length: 7 }, (_, i) => addDays(inicio, i));
   };
 
-  const getEstatisticas = () => {
-    const hoje = format(new Date(), 'yyyy-MM-dd');
-    const inicioSemana = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-    const fimSemana = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
-    const filtrados = getAgendamentosFiltrados();
-    
-    return {
-      hoje: filtrados.filter(a => a.data_agendamento === hoje && a.status !== 'cancelado').length,
-      semana: filtrados.filter(a => a.data_agendamento >= inicioSemana && a.data_agendamento <= fimSemana && a.status !== 'cancelado').length,
-      total: filtrados.length,
-      pendentes: filtrados.filter(a => a.status === 'agendado' || a.status === 'aguardando').length,
-      realizados: filtrados.filter(a => a.status === 'realizado').length
-    };
+  const estatisticas = {
+    hoje: getAgendamentosFiltrados().filter(a => a.data_agendamento === format(new Date(), 'yyyy-MM-dd') && a.status !== 'cancelado').length,
+    total: getAgendamentosFiltrados().length,
+    pendentes: getAgendamentosFiltrados().filter(a => a.status === 'agendado' || a.status === 'aguardando').length,
+    realizados: getAgendamentosFiltrados().filter(a => a.status === 'realizado').length
   };
 
   const podeAtender = (agendamento) => {
     return agendamento.status !== 'realizado' && agendamento.status !== 'cancelado';
   };
-
-  const estatisticas = getEstatisticas();
-  const diasDaSemana = getDiasDaSemana();
 
   if (loading) {
     return (
@@ -394,182 +314,86 @@ export default function Agendamentos() {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Agendamentos</h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Gerencie consultas, exames e procedimentos</p>
+            <p className="text-sm text-gray-500">Gerencie consultas, exames e procedimentos</p>
           </div>
           <button
             onClick={abrirModalNovo}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
           >
             <PlusIcon className="w-5 h-5" />
             Novo Agendamento
           </button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-blue-500">
+        {/* Stats */}
+        <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-500">
             <p className="text-sm text-gray-500">Hoje</p>
             <p className="text-2xl font-bold">{estatisticas.hoje}</p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-green-500">
-            <p className="text-sm text-gray-500">Esta Semana</p>
-            <p className="text-2xl font-bold">{estatisticas.semana}</p>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-purple-500">
+          <div className="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
             <p className="text-sm text-gray-500">Total</p>
             <p className="text-2xl font-bold">{estatisticas.total}</p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-yellow-500">
+          <div className="bg-white rounded-lg shadow p-4 border-l-4 border-yellow-500">
             <p className="text-sm text-gray-500">Pendentes</p>
             <p className="text-2xl font-bold">{estatisticas.pendentes}</p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border-l-4 border-emerald-500">
+          <div className="bg-white rounded-lg shadow p-4 border-l-4 border-purple-500">
             <p className="text-sm text-gray-500">Realizados</p>
             <p className="text-2xl font-bold">{estatisticas.realizados}</p>
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
-          <div className="p-4 border-b dark:border-gray-700">
-            <button
-              onClick={() => setShowFiltros(!showFiltros)}
-              className="flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-blue-600"
-            >
+        {/* Filtros */}
+        <div className="bg-white rounded-lg shadow mb-6">
+          <div className="p-4 border-b">
+            <button onClick={() => setShowFiltros(!showFiltros)} className="flex items-center gap-2 text-gray-600">
               <FunnelIcon className="w-5 h-5" />
               Filtros
               {showFiltros ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
             </button>
           </div>
           <div className="p-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              <div className="relative">
+            <div className="flex gap-3">
+              <div className="relative flex-1">
                 <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Buscar por paciente, profissional ou sala..."
+                  placeholder="Buscar paciente ou profissional..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                  className="w-full pl-10 pr-3 py-2 border rounded-lg"
                 />
               </div>
               <select
                 value={filtroStatus}
                 onChange={(e) => setFiltroStatus(e.target.value)}
-                className="border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600"
+                className="border rounded-lg px-3 py-2"
               >
                 <option value="todos">Todos os status</option>
                 {STATUS_AGENDAMENTO.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
               </select>
-              <select
-                value={filtroTipo}
-                onChange={(e) => setFiltroTipo(e.target.value)}
-                className="border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600"
-              >
-                <option value="todos">Todos os tipos</option>
-                {TIPO_AGENDAMENTO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
-              <select
-                value={filtroPrestador}
-                onChange={(e) => setFiltroPrestador(e.target.value)}
-                className="border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600"
-              >
-                <option value="todos">Todos os profissionais</option>
-                {prestadores.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
-              </select>
             </div>
-            {showFiltros && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-                <select
-                  value={filtroModalidade}
-                  onChange={(e) => setFiltroModalidade(e.target.value)}
-                  className="border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600"
-                >
-                  <option value="todos">Todas as modalidades</option>
-                  {MODALIDADE.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-                </select>
-                <select
-                  value={filtroConvenio}
-                  onChange={(e) => setFiltroConvenio(e.target.value)}
-                  className="border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600"
-                >
-                  <option value="todos">Todos os convênios</option>
-                  {convenios.map(c => <option key={c.id} value={c.id}>{c.razao_social}</option>)}
-                </select>
-                <div className="relative" ref={salaFilterRef}>
-                  <input
-                    type="text"
-                    placeholder="Filtrar por sala..."
-                    value={filtroSala !== 'todos' ? salas.find(s => s.id === parseInt(filtroSala))?.nome || '' : ''}
-                    onFocus={() => setShowSalaFilterDropdown(true)}
-                    onChange={(e) => {
-                      setFiltroSala('todos');
-                      setShowSalaFilterDropdown(true);
-                    }}
-                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600"
-                  />
-                  {showSalaFilterDropdown && (
-                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                      <div
-                        className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                        onClick={() => {
-                          setFiltroSala('todos');
-                          setShowSalaFilterDropdown(false);
-                        }}
-                      >
-                        Todas as salas
-                      </div>
-                      {salas.map(sala => (
-                        <div
-                          key={sala.id}
-                          className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                          onClick={() => {
-                            setFiltroSala(sala.id.toString());
-                            setShowSalaFilterDropdown(false);
-                          }}
-                        >
-                          {sala.nome}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Calendar Navigation */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
-          <div className="flex justify-between items-center flex-wrap gap-4">
+        {/* Navegação */}
+        <div className="bg-white rounded-lg shadow p-4 mb-6">
+          <div className="flex justify-between items-center">
             <div className="flex gap-2">
-              <button onClick={navegarAnterior} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                <ChevronLeftIcon className="w-5 h-5" />
-              </button>
-              <button onClick={irParaHoje} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                Hoje
-              </button>
-              <button onClick={navegarProximo} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                <ChevronRightIcon className="w-5 h-5" />
-              </button>
+              <button onClick={navegarAnterior} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronLeftIcon className="w-5 h-5" /></button>
+              <button onClick={irParaHoje} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Hoje</button>
+              <button onClick={navegarProximo} className="p-2 hover:bg-gray-100 rounded-lg"><ChevronRightIcon className="w-5 h-5" /></button>
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={() => setViewMode('dia')}
-                className={`px-4 py-2 rounded-lg flex items-center gap-2 ${viewMode === 'dia' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
-              >
+              <button onClick={() => setViewMode('dia')} className={`px-4 py-2 rounded-lg flex items-center gap-2 ${viewMode === 'dia' ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}>
                 <ListBulletIcon className="w-4 h-4" /> Dia
               </button>
-              <button
-                onClick={() => setViewMode('semana')}
-                className={`px-4 py-2 rounded-lg flex items-center gap-2 ${viewMode === 'semana' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
-              >
+              <button onClick={() => setViewMode('semana')} className={`px-4 py-2 rounded-lg flex items-center gap-2 ${viewMode === 'semana' ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}>
                 <ViewColumnsIcon className="w-4 h-4" /> Semana
               </button>
-              <button
-                onClick={() => setViewMode('mes')}
-                className={`px-4 py-2 rounded-lg flex items-center gap-2 ${viewMode === 'mes' ? 'bg-blue-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
-              >
+              <button onClick={() => setViewMode('mes')} className={`px-4 py-2 rounded-lg flex items-center gap-2 ${viewMode === 'mes' ? 'bg-blue-600 text-white' : 'bg-gray-100'}`}>
                 <CalendarDaysIcon className="w-4 h-4" /> Mês
               </button>
             </div>
@@ -583,36 +407,26 @@ export default function Agendamentos() {
           </div>
         </div>
 
-        {/* View: Day */}
+        {/* VISUALIZAÇÃO DIA */}
         {viewMode === 'dia' && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-            <div className="divide-y dark:divide-gray-700">
-              {getAgendamentosPorData(currentDate).length === 0 && (
-                <div className="p-8 text-center text-gray-500">
-                  Nenhum agendamento para este dia
-                </div>
-              )}
+          <div className="bg-white rounded-lg shadow">
+            <div className="divide-y">
               {HORARIOS.map(hora => {
                 const agendamento = getAgendamentosPorData(currentDate).find(a => a.hora_inicio === hora);
                 const statusInfo = agendamento ? STATUS_AGENDAMENTO.find(s => s.value === agendamento.status) : null;
                 return (
-                  <div key={hora} className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <div key={hora} className="p-3 hover:bg-gray-50">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className="w-20 font-mono font-bold">{hora}</div>
                         {agendamento ? (
                           <div className="flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center gap-2">
                               <span className="font-semibold">{agendamento.paciente_nome}</span>
-                              <span className="text-xs text-gray-500">{agendamento.paciente_carteira}</span>
                               <span className={`px-2 py-0.5 rounded-full text-xs ${statusInfo?.color}`}>{statusInfo?.label}</span>
                             </div>
                             <div className="text-sm text-gray-500">{agendamento.prestador_nome}</div>
-                            {agendamento.sala_nome && (
-                              <div className="text-xs text-gray-400 flex items-center gap-1">
-                                <HomeModernIcon className="w-3 h-3" /> {agendamento.sala_nome}
-                              </div>
-                            )}
+                            {agendamento.sala_nome && <div className="text-xs text-gray-400">Sala: {agendamento.sala_nome}</div>}
                           </div>
                         ) : (
                           <div className="flex-1 text-gray-400">Disponível</div>
@@ -621,7 +435,7 @@ export default function Agendamentos() {
                       {agendamento && (
                         <div className="flex gap-1">
                           {podeAtender(agendamento) && (
-                            <Link to={`/prontuario/${agendamento.id}`} className="p-2 text-cyan-600 hover:bg-cyan-50 rounded-lg" title="Atender Paciente">
+                            <Link to={`/prontuario/${agendamento.id}`} className="p-2 text-cyan-600 hover:bg-cyan-50 rounded-lg">
                               <CheckBadgeIcon className="w-5 h-5" />
                             </Link>
                           )}
@@ -630,7 +444,6 @@ export default function Agendamentos() {
                             setFormData({
                               paciente_id: agendamento.paciente_id?.toString() || '',
                               prestador_id: agendamento.prestador_id?.toString() || '',
-                              convenio_id: agendamento.convenio_id?.toString() || '',
                               sala_id: agendamento.sala_id?.toString() || '',
                               tipo: agendamento.tipo,
                               status: agendamento.status,
@@ -639,12 +452,11 @@ export default function Agendamentos() {
                               hora_inicio: agendamento.hora_inicio,
                               hora_fim: agendamento.hora_fim,
                               observacao: agendamento.observacao || '',
-                              local: agendamento.local || '',
-                              link_teleconsulta: agendamento.link_teleconsulta || ''
+                              local: agendamento.local || ''
                             });
-                            setSearchPaciente(agendamento.paciente_nome || '');
-                            setSearchPrestador(agendamento.prestador_nome || '');
-                            setSearchSala(agendamento.sala_nome || '');
+                            setPacienteBusca(agendamento.paciente_nome || '');
+                            setPrestadorBusca(agendamento.prestador_nome || '');
+                            setSalaBusca(agendamento.sala_nome || '');
                             setShowModal(true);
                           }} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg">
                             <PencilIcon className="w-5 h-5" />
@@ -662,13 +474,13 @@ export default function Agendamentos() {
           </div>
         )}
 
-        {/* View: Week */}
+        {/* VISUALIZAÇÃO SEMANA */}
         {viewMode === 'semana' && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-x-auto">
-            <div className="min-w-[1000px]">
-              <div className="grid grid-cols-8 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 sticky top-0">
+          <div className="bg-white rounded-lg shadow overflow-x-auto">
+            <div className="min-w-[900px]">
+              <div className="grid grid-cols-8 border-b bg-gray-50">
                 <div className="p-3 font-semibold">Horário</div>
-                {diasDaSemana.map((dia, idx) => (
+                {getDiasDaSemana().map((dia, idx) => (
                   <div key={idx} className="p-3 text-center font-semibold">
                     <div>{format(dia, 'EEE', { locale: ptBR })}</div>
                     <div className={`text-lg ${isSameDay(dia, new Date()) ? 'text-blue-600' : ''}`}>{format(dia, 'dd/MM')}</div>
@@ -676,24 +488,19 @@ export default function Agendamentos() {
                 ))}
               </div>
               {HORARIOS.map(hora => (
-                <div key={hora} className="grid grid-cols-8 border-b dark:border-gray-700">
-                  <div className="p-3 font-mono font-bold bg-gray-50 dark:bg-gray-700/30">{hora}</div>
-                  {diasDaSemana.map((dia, idx) => {
+                <div key={hora} className="grid grid-cols-8 border-b">
+                  <div className="p-3 font-mono font-bold bg-gray-50">{hora}</div>
+                  {getDiasDaSemana().map((dia, idx) => {
                     const agendamento = getAgendamentosPorData(dia).find(a => a.hora_inicio === hora);
                     return (
-                      <div key={idx} className="p-2 border-l dark:border-gray-700 min-h-[90px]">
+                      <div key={idx} className="p-2 border-l min-h-[80px]">
                         {agendamento ? (
                           <div className="text-sm">
                             <p className="font-medium truncate">{agendamento.paciente_nome}</p>
                             <p className="text-xs text-gray-500 truncate">{agendamento.prestador_nome}</p>
-                            {agendamento.sala_nome && (
-                              <p className="text-xs text-gray-400 truncate flex items-center gap-1">
-                                <HomeModernIcon className="w-3 h-3" /> {agendamento.sala_nome}
-                              </p>
-                            )}
                             <div className="flex gap-1 mt-1">
                               {podeAtender(agendamento) && (
-                                <Link to={`/prontuario/${agendamento.id}`} className="text-cyan-600" title="Atender">
+                                <Link to={`/prontuario/${agendamento.id}`} className="text-cyan-600">
                                   <CheckBadgeIcon className="w-4 h-4" />
                                 </Link>
                               )}
@@ -702,7 +509,6 @@ export default function Agendamentos() {
                                 setFormData({
                                   paciente_id: agendamento.paciente_id?.toString() || '',
                                   prestador_id: agendamento.prestador_id?.toString() || '',
-                                  convenio_id: agendamento.convenio_id?.toString() || '',
                                   sala_id: agendamento.sala_id?.toString() || '',
                                   tipo: agendamento.tipo,
                                   status: agendamento.status,
@@ -711,12 +517,11 @@ export default function Agendamentos() {
                                   hora_inicio: agendamento.hora_inicio,
                                   hora_fim: agendamento.hora_fim,
                                   observacao: agendamento.observacao || '',
-                                  local: agendamento.local || '',
-                                  link_teleconsulta: agendamento.link_teleconsulta || ''
+                                  local: agendamento.local || ''
                                 });
-                                setSearchPaciente(agendamento.paciente_nome || '');
-                                setSearchPrestador(agendamento.prestador_nome || '');
-                                setSearchSala(agendamento.sala_nome || '');
+                                setPacienteBusca(agendamento.paciente_nome || '');
+                                setPrestadorBusca(agendamento.prestador_nome || '');
+                                setSalaBusca(agendamento.sala_nome || '');
                                 setShowModal(true);
                               }} className="text-blue-600">
                                 <PencilIcon className="w-4 h-4" />
@@ -731,7 +536,7 @@ export default function Agendamentos() {
                                 ...formData,
                                 data_agendamento: format(dia, 'yyyy-MM-dd'),
                                 hora_inicio: hora,
-                                hora_fim: HORARIOS[HORARIOS.indexOf(hora) + 1] || HORARIOS[HORARIOS.indexOf(hora)]
+                                hora_fim: HORARIOS[HORARIOS.indexOf(hora) + 1] || hora
                               });
                               setShowModal(true);
                             }}
@@ -749,12 +554,12 @@ export default function Agendamentos() {
           </div>
         )}
 
-        {/* View: Month */}
+        {/* VISUALIZAÇÃO MÊS */}
         {viewMode === 'mes' && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-x-auto">
+          <div className="bg-white rounded-lg shadow overflow-x-auto">
             <div className="min-w-[800px]">
-              <div className="grid grid-cols-7 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 sticky top-0">
-                {['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'].map(dia => (
+              <div className="grid grid-cols-7 border-b bg-gray-50">
+                {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map(dia => (
                   <div key={dia} className="p-3 text-center font-semibold">{dia}</div>
                 ))}
               </div>
@@ -769,16 +574,14 @@ export default function Agendamentos() {
                     const isCurrentMonth = current.getMonth() === currentDate.getMonth();
                     const agendamentosDia = getAgendamentosPorData(current);
                     cells.push(
-                      <div key={i} className={`border dark:border-gray-700 min-h-[100px] p-2 ${!isCurrentMonth ? 'bg-gray-50 dark:bg-gray-800/50' : ''}`}>
+                      <div key={i} className={`border min-h-[100px] p-2 ${!isCurrentMonth ? 'bg-gray-50' : ''}`}>
                         <div className={`font-medium ${isSameDay(current, new Date()) ? 'text-blue-600' : ''}`}>
                           {format(current, 'dd')}
                         </div>
                         <div className="space-y-1 mt-1">
-                          {agendamentosDia.slice(0, 3).map(ag => (
-                            <div key={ag.id} className="text-xs p-1 rounded bg-gray-100 dark:bg-gray-700 flex items-center justify-between">
-                              <span className="truncate">
-                                <span className="font-mono">{ag.hora_inicio}</span> {ag.paciente_nome?.split(' ')[0]}
-                              </span>
+                          {agendamentosDia.slice(0, 2).map(ag => (
+                            <div key={ag.id} className="text-xs p-1 rounded bg-gray-100 flex items-center justify-between">
+                              <span className="truncate">{ag.hora_inicio} {ag.paciente_nome?.split(' ')[0]}</span>
                               {podeAtender(ag) && (
                                 <Link to={`/prontuario/${ag.id}`} className="text-cyan-600">
                                   <CheckBadgeIcon className="w-3 h-3" />
@@ -786,9 +589,7 @@ export default function Agendamentos() {
                               )}
                             </div>
                           ))}
-                          {agendamentosDia.length > 3 && (
-                            <div className="text-xs text-gray-500 text-center">+{agendamentosDia.length - 3}</div>
-                          )}
+                          {agendamentosDia.length > 2 && <div className="text-xs text-gray-400">+{agendamentosDia.length - 2}</div>}
                         </div>
                       </div>
                     );
@@ -802,44 +603,45 @@ export default function Agendamentos() {
         )}
       </div>
 
-      {/* Modal de Cadastro/Edição */}
+      {/* MODAL */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b dark:border-gray-700 flex justify-between items-center sticky top-0 bg-white dark:bg-gray-800">
-              <h2 className="text-xl font-semibold">{editing ? 'Editar Agendamento' : 'Novo Agendamento'}</h2>
-              <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b flex justify-between items-center sticky top-0 bg-white">
+              <h2 className="text-xl font-semibold">{editing ? 'Editar' : 'Novo'} Agendamento</h2>
+              <button onClick={() => setShowModal(false)} className="p-1 hover:bg-gray-100 rounded">
                 <XMarkIcon className="w-6 h-6" />
               </button>
             </div>
+            
             <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 {/* Paciente com busca */}
-                <div className="relative" ref={pacienteRef}>
+                <div className="relative">
                   <label className="block text-sm font-medium mb-1">Paciente *</label>
                   <input
                     type="text"
                     placeholder="Digite nome, CPF ou carteira..."
-                    value={searchPaciente}
+                    value={pacienteBusca}
                     onChange={(e) => {
-                      setSearchPaciente(e.target.value);
-                      setShowPacienteDropdown(true);
+                      setPacienteBusca(e.target.value);
+                      setShowPacienteList(true);
                       if (e.target.value === '') setFormData({...formData, paciente_id: ''});
                     }}
-                    onFocus={() => setShowPacienteDropdown(true)}
-                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600"
+                    onFocus={() => setShowPacienteList(true)}
+                    className="w-full border rounded-lg px-3 py-2"
                     autoComplete="off"
                   />
-                  {showPacienteDropdown && pacientesFiltrados.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {showPacienteList && pacientesFiltrados.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
                       {pacientesFiltrados.map(p => (
                         <div
                           key={p.id}
-                          className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                          className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
                           onClick={() => {
                             setFormData({...formData, paciente_id: p.id.toString()});
-                            setSearchPaciente(`${p.nome} - ${p.numero_carteira}`);
-                            setShowPacienteDropdown(false);
+                            setPacienteBusca(`${p.nome} - ${p.numero_carteira}`);
+                            setShowPacienteList(false);
                           }}
                         >
                           <div className="font-medium">{p.nome}</div>
@@ -851,35 +653,35 @@ export default function Agendamentos() {
                 </div>
 
                 {/* Profissional com busca */}
-                <div className="relative" ref={prestadorRef}>
+                <div className="relative">
                   <label className="block text-sm font-medium mb-1">Profissional *</label>
                   <input
                     type="text"
-                    placeholder="Digite nome, especialidade ou CPF..."
-                    value={searchPrestador}
+                    placeholder="Digite nome ou especialidade..."
+                    value={prestadorBusca}
                     onChange={(e) => {
-                      setSearchPrestador(e.target.value);
-                      setShowPrestadorDropdown(true);
+                      setPrestadorBusca(e.target.value);
+                      setShowPrestadorList(true);
                       if (e.target.value === '') setFormData({...formData, prestador_id: ''});
                     }}
-                    onFocus={() => setShowPrestadorDropdown(true)}
-                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600"
+                    onFocus={() => setShowPrestadorList(true)}
+                    className="w-full border rounded-lg px-3 py-2"
                     autoComplete="off"
                   />
-                  {showPrestadorDropdown && prestadoresFiltrados.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {showPrestadorList && prestadoresFiltrados.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
                       {prestadoresFiltrados.map(p => (
                         <div
                           key={p.id}
-                          className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                          className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
                           onClick={() => {
                             setFormData({...formData, prestador_id: p.id.toString()});
-                            setSearchPrestador(`${p.nome} - ${p.especialidade}`);
-                            setShowPrestadorDropdown(false);
+                            setPrestadorBusca(`${p.nome} - ${p.especialidade}`);
+                            setShowPrestadorList(false);
                           }}
                         >
                           <div className="font-medium">{p.nome}</div>
-                          <div className="text-xs text-gray-500">Especialidade: {p.especialidade} | CPF: {p.cpf || '---'}</div>
+                          <div className="text-xs text-gray-500">{p.especialidade} | CPF: {p.cpf || '---'}</div>
                         </div>
                       ))}
                     </div>
@@ -887,31 +689,31 @@ export default function Agendamentos() {
                 </div>
 
                 {/* Sala com busca */}
-                <div className="relative" ref={salaRef}>
+                <div className="relative">
                   <label className="block text-sm font-medium mb-1">Sala</label>
                   <input
                     type="text"
                     placeholder="Digite o nome da sala..."
-                    value={searchSala}
+                    value={salaBusca}
                     onChange={(e) => {
-                      setSearchSala(e.target.value);
-                      setShowSalaDropdown(true);
+                      setSalaBusca(e.target.value);
+                      setShowSalaList(true);
                       if (e.target.value === '') setFormData({...formData, sala_id: ''});
                     }}
-                    onFocus={() => setShowSalaDropdown(true)}
-                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600"
+                    onFocus={() => setShowSalaList(true)}
+                    className="w-full border rounded-lg px-3 py-2"
                     autoComplete="off"
                   />
-                  {showSalaDropdown && salasFiltradas.length > 0 && (
-                    <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {showSalaList && salasFiltradas.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
                       {salasFiltradas.map(s => (
                         <div
                           key={s.id}
-                          className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center gap-2"
+                          className="px-3 py-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0 flex items-center gap-2"
                           onClick={() => {
                             setFormData({...formData, sala_id: s.id.toString()});
-                            setSearchSala(s.nome);
-                            setShowSalaDropdown(false);
+                            setSalaBusca(s.nome);
+                            setShowSalaList(false);
                           }}
                         >
                           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.cor }}></div>
@@ -928,31 +730,33 @@ export default function Agendamentos() {
                   <select
                     value={formData.tipo}
                     onChange={(e) => setFormData({...formData, tipo: e.target.value})}
-                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600"
+                    className="w-full border rounded-lg px-3 py-2"
                   >
                     {TIPO_AGENDAMENTO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                   </select>
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium mb-1">Modalidade</label>
                   <select
                     value={formData.modalidade}
                     onChange={(e) => setFormData({...formData, modalidade: e.target.value})}
-                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600"
+                    className="w-full border rounded-lg px-3 py-2"
                   >
                     {MODALIDADE.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                   </select>
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium mb-1">Data *</label>
+                  <label className="block text-sm font-medium mb-1">Data</label>
                   <input
                     type="date"
                     value={formData.data_agendamento}
                     onChange={(e) => setFormData({...formData, data_agendamento: e.target.value})}
-                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600"
-                    required
+                    className="w-full border rounded-lg px-3 py-2"
                   />
                 </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-sm font-medium mb-1">Hora Início</label>
@@ -960,7 +764,7 @@ export default function Agendamentos() {
                       type="time"
                       value={formData.hora_inicio}
                       onChange={(e) => setFormData({...formData, hora_inicio: e.target.value})}
-                      className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600"
+                      className="w-full border rounded-lg px-3 py-2"
                     />
                   </div>
                   <div>
@@ -969,50 +773,28 @@ export default function Agendamentos() {
                       type="time"
                       value={formData.hora_fim}
                       onChange={(e) => setFormData({...formData, hora_fim: e.target.value})}
-                      className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600"
+                      className="w-full border rounded-lg px-3 py-2"
                     />
                   </div>
                 </div>
-                {formData.modalidade === 'teleconsulta' && (
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium mb-1">Link da Teleconsulta</label>
-                    <input
-                      type="url"
-                      value={formData.link_teleconsulta}
-                      onChange={(e) => setFormData({...formData, link_teleconsulta: e.target.value})}
-                      className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600"
-                      placeholder="https://meet.google.com/..."
-                    />
-                  </div>
-                )}
-                {formData.modalidade === 'presencial' && (
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium mb-1">Local</label>
-                    <input
-                      type="text"
-                      value={formData.local}
-                      onChange={(e) => setFormData({...formData, local: e.target.value})}
-                      className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600"
-                      placeholder="Sala/Consultório"
-                    />
-                  </div>
-                )}
-                <div className="md:col-span-2">
+
+                <div className="col-span-2">
                   <label className="block text-sm font-medium mb-1">Observações</label>
                   <textarea
                     rows="3"
                     value={formData.observacao}
                     onChange={(e) => setFormData({...formData, observacao: e.target.value})}
-                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600"
+                    className="w-full border rounded-lg px-3 py-2"
                   />
                 </div>
               </div>
             </div>
-            <div className="p-6 border-t dark:border-gray-700 flex justify-end gap-3 sticky bottom-0 bg-white dark:bg-gray-800">
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
+
+            <div className="p-6 border-t flex justify-end gap-3 sticky bottom-0 bg-white">
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg">
                 Cancelar
               </button>
-              <button onClick={salvarAgendamento} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <button onClick={salvarAgendamento} className="px-4 py-2 bg-blue-600 text-white rounded-lg">
                 {editing ? 'Atualizar' : 'Salvar'}
               </button>
             </div>
