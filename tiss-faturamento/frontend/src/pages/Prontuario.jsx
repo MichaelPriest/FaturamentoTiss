@@ -18,11 +18,96 @@ import {
   ExclamationTriangleIcon,
   DocumentDuplicateIcon,
   MagnifyingGlassIcon,
-  PencilIcon
+  PencilIcon,
+  CurrencyDollarIcon,
+  IdentificationIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format, addDays } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
+
+// Constantes
+const CARATER_ATENDIMENTO = [
+  { value: '1', label: 'Eletivo' },
+  { value: '2', label: 'Urgência/Emergência' }
+];
+
+const TIPO_ATENDIMENTO = [
+  { value: '01', label: 'Remoção' },
+  { value: '02', label: 'Pequena Cirurgia' },
+  { value: '03', label: 'Outras Terapias' },
+  { value: '04', label: 'Consulta' },
+  { value: '08', label: 'Quimioterapia' },
+  { value: '09', label: 'Radioterapia' },
+  { value: '10', label: 'Terapia Renal Substitutiva (TRS)' },
+  { value: '13', label: 'Pequenos atendimentos' },
+  { value: '23', label: 'Exame' }
+];
+
+const INDICADOR_ACIDENTE = [
+  { value: '0', label: 'Trabalho' },
+  { value: '1', label: 'Trânsito' },
+  { value: '2', label: 'Outros Acidentes' },
+  { value: '9', label: 'Não Acidente' }
+];
+
+const TIPO_CONSULTA = [
+  { value: '1', label: 'Primeira Consulta' },
+  { value: '2', label: 'Seguimento' },
+  { value: '3', label: 'Pré-Natal' },
+  { value: '4', label: 'Por encaminhamento' }
+];
+
+const MOTIVO_ENCERRAMENTO = [
+  { value: '', label: 'Selecione' },
+  { value: '11', label: 'Alta Curado' },
+  { value: '12', label: 'Alta Melhorado' },
+  { value: '14', label: 'Alta a pedido' },
+  { value: '31', label: 'Transferido' },
+  { value: '41', label: 'Óbito' }
+];
+
+const COBERTURA_ESPECIAL = [
+  { value: '', label: 'Selecione' },
+  { value: '01', label: 'Gestante' },
+  { value: '02', label: 'Pré-operatório' },
+  { value: '03', label: 'Pós-operatório' }
+];
+
+const REGIME_ATENDIMENTO = [
+  { value: '01', label: 'Ambulatorial' },
+  { value: '02', label: 'Domiciliar' },
+  { value: '03', label: 'Internação' },
+  { value: '04', label: 'Pronto Socorro' },
+  { value: '05', label: 'Telessaúde' }
+];
+
+const SAUDE_OCUPACIONAL = [
+  { value: '01', label: 'Admissional' },
+  { value: '02', label: 'Demissional' },
+  { value: '03', label: 'Periódico' },
+  { value: '04', label: 'Retorno ao trabalho' },
+  { value: '05', label: 'Mudança de função' },
+  { value: '06', label: 'Promoção à saúde' }
+];
+
+const SIM_NAO = [
+  { value: 'S', label: 'Sim' },
+  { value: 'N', label: 'Não' }
+];
+
+const GRAU_PARTICIPACAO = [
+  { value: '00', label: '00 - Cirurgião' },
+  { value: '01', label: '01 - Primeiro Auxiliar' },
+  { value: '02', label: '02 - Segundo Auxiliar' },
+  { value: '03', label: '03 - Terceiro Auxiliar' },
+  { value: '04', label: '04 - Quarto Auxiliar' },
+  { value: '05', label: '05 - Instrumentador' },
+  { value: '06', label: '06 - Anestesista' },
+  { value: '07', label: '07 - Auxiliar de Anestesista' },
+  { value: '12', label: '12 - Clínico' },
+  { value: '13', label: '13 - Intensivista' }
+];
 
 export default function Prontuario() {
   const { id } = useParams();
@@ -48,6 +133,32 @@ export default function Prontuario() {
   const [convenios, setConvenios] = useState([]);
   const [prestadores, setPrestadores] = useState([]);
   const [buscaProcedimento, setBuscaProcedimento] = useState('');
+
+  // Dados de faturamento
+  const [faturamentoData, setFaturamentoData] = useState({
+    numero_guia_operadora: '',
+    data_autorizacao: '',
+    senha_autorizacao: '',
+    data_validade_senha: '',
+    codigo_operadora: '',
+    nome_contratado: '',
+    profissional_solicitante: '',
+    conselho_solicitante: '06',
+    uf_solicitante: '35',
+    numero_conselho_solicitante: '',
+    cbos_solicitante: '225125',
+    carater_atendimento: '1',
+    data_solicitacao: new Date().toISOString().split('T')[0],
+    atendimento_rn: 'N',
+    indicacao_clinica: '',
+    tipo_atendimento: '04',
+    indicacao_acidente: '9',
+    tipo_consulta: '1',
+    motivo_encerramento: '',
+    cobertura_especial: '',
+    regime_atendimento: '01',
+    saude_ocupacional: ''
+  });
 
   const [formData, setFormData] = useState({
     anamnese: '',
@@ -109,6 +220,14 @@ export default function Prontuario() {
           .eq('id', agendamentoData.paciente_id)
           .single();
         if (pacienteData) setPaciente(pacienteData);
+        
+        if (agendamentoData.prestador_nome) {
+          setFaturamentoData(prev => ({
+            ...prev,
+            profissional_solicitante: agendamentoData.prestador_nome,
+            data_solicitacao: agendamentoData.data_agendamento || new Date().toISOString().split('T')[0]
+          }));
+        }
       }
 
       const { data: prontuarioData } = await supabase
@@ -204,124 +323,94 @@ export default function Prontuario() {
     }
   };
 
-  const finalizarAtendimento = async () => {
-    if (!confirm('Deseja finalizar este atendimento? Isso irá gerar uma guia de atendimento.')) return;
-  
+  const adicionarPrescricao = async () => {
+    if (!prescricaoForm.descricao) {
+      toast.error('Descrição da prescrição é obrigatória');
+      return;
+    }
+
     setSaving(true);
     try {
-      // Atualizar status do agendamento
-      await supabase
-        .from('agendamentos')
-        .update({ status: 'realizado', updated_at: new Date().toISOString() })
-        .eq('id', id);
-  
-      // Atualizar status do prontuário
-      if (prontuario) {
-        await supabase
-          .from('prontuario')
-          .update({ status: 'finalizado', updated_at: new Date().toISOString() })
-          .eq('id', prontuario.id);
+      let prontuarioId = prontuario?.id;
+      if (!prontuarioId) {
+        await salvarProntuario();
+        prontuarioId = prontuario?.id;
       }
-  
-      // Buscar o convênio do paciente
-      const convenio = convenios.find(c => c.id === paciente?.convenio_id);
-      
-      // Gerar número da guia (apenas números)
-      let numeroGuiaPrestador;
-      if (convenio && convenio.proximo_numero_guia) {
-        numeroGuiaPrestador = convenio.proximo_numero_guia.toString();
-        await supabase
-          .from('convenios')
-          .update({ proximo_numero_guia: convenio.proximo_numero_guia + 1 })
-          .eq('id', convenio.id);
-      } else {
-        numeroGuiaPrestador = String(Date.now());
-      }
-  
-      const valorTotal = procedimentosSelecionados.reduce((sum, p) => sum + (p.valor_sugerido || 0), 0);
-      const dataAtual = new Date().toISOString().split('T')[0];
-      const agora = new Date().toISOString();
-      
-      // Criar objeto apenas com os campos que existem na tabela
-      const atendimento = {
-        numero_guia_prestador: numeroGuiaPrestador,
-        data_atendimento: agendamento?.data_agendamento || dataAtual,
-        hora_atendimento: agendamento?.hora_inicio || '00:00:00',
-        observacao: formData.conduta || null,
-        status: 'pendente',
-        numero_guia_operadora: null,
-        data_autorizacao: null,
-        senha_autorizacao: null,
-        data_validade_senha: null,
-        valor_total: valorTotal,
-        paciente_id: agendamento?.paciente_id,
-        paciente_nome: paciente?.nome || '',
-        numero_carteira: paciente?.numero_carteira || '',
-        paciente_convenio_id: paciente?.convenio_id || null,
-        paciente_convenio_nome: convenio?.razao_social || 'Sem convênio',
-        prestador_id: agendamento?.prestador_id,
-        prestador_nome: agendamento?.prestador_nome,
-        itens: procedimentosSelecionados.map(p => ({
-          codigo: p.codigo_tuss,
-          nome: p.nome,
-          quantidade: 1,
-          valor_unitario: p.valor_sugerido || 0,
-          valor_total: p.valor_sugerido || 0,
-          data_execucao: agendamento?.data_agendamento || dataAtual,
-          hora_inicial: agendamento?.hora_inicio || '00:00:00',
-          hora_final: agendamento?.hora_fim || '00:00:00',
-          tabela_referencia: '22',
-          prestador_nome: agendamento?.prestador_nome,
-          prestador_id: agendamento?.prestador_id
-        })),
-        created_at: agora,
-        updated_at: agora,
-        codigo_operadora: convenio?.codigo_prestador || null,
-        nome_contratado: null,
-        profissional_solicitante: agendamento?.prestador_nome || null,
-        conselho_solicitante: '06',
-        uf_solicitante: '35',
-        numero_conselho_solicitante: null,
-        cbos_solicitante: '225125',
-        carater_atendimento: '1',
-        data_solicitacao: agendamento?.data_agendamento || dataAtual,
-        atendimento_rn: 'N',
-        indicacao_clinica: formData.conduta || null,
-        tipo_atendimento: '04',
-        indicacao_acidente: '9',
-        tipo_consulta: '1',
-        motivo_encerramento: null,
-        cobertura_especial: null,
-        regime_atendimento: '01',
-        saude_ocupacional: null,
-        convenio_registro_ans: convenio?.registro_ans || null,
-        convenio_codigo_prestador: convenio?.codigo_prestador || null
-      };
-  
-      // Remover campos undefined e null desnecessários
-      Object.keys(atendimento).forEach(key => {
-        if (atendimento[key] === undefined) {
-          delete atendimento[key];
-        }
-      });
-  
-      console.log('Enviando atendimento:', JSON.stringify(atendimento, null, 2));
-  
+
       const { data, error } = await supabase
-        .from('atendimentos')
-        .insert([atendimento])
+        .from('prescricoes')
+        .insert({
+          prontuario_id: prontuarioId,
+          ...prescricaoForm,
+          created_at: new Date().toISOString()
+        })
         .select();
-  
-      if (error) {
-        console.error('Erro detalhado:', error);
-        throw error;
-      }
-  
-      toast.success('Atendimento finalizado e guia gerada com sucesso!');
-      navigate('/atendimentos');
+
+      if (error) throw error;
+
+      setPrescricoes([data[0], ...prescricoes]);
+      setShowPrescricaoModal(false);
+      setPrescricaoForm({
+        tipo: 'medicamento',
+        descricao: '',
+        dosagem: '',
+        via_administracao: '',
+        frequencia: '',
+        duracao: '',
+        observacoes: ''
+      });
+      toast.success('Prescrição adicionada com sucesso!');
     } catch (error) {
-      console.error('Erro ao finalizar atendimento:', error);
-      toast.error('Erro ao finalizar atendimento: ' + (error.message || 'Erro desconhecido'));
+      console.error('Erro ao adicionar prescrição:', error);
+      toast.error('Erro ao adicionar prescrição');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const adicionarReceita = async () => {
+    if (!receitaForm.medicamentos.some(m => m.nome)) {
+      toast.error('Adicione pelo menos um medicamento');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      let prontuarioId = prontuario?.id;
+      if (!prontuarioId) {
+        await salvarProntuario();
+        prontuarioId = prontuario?.id;
+      }
+
+      const numeroReceita = `REC${Date.now()}`;
+
+      const { data, error } = await supabase
+        .from('receitas')
+        .insert({
+          prontuario_id: prontuarioId,
+          numero_receita: numeroReceita,
+          tipo: receitaForm.tipo,
+          medicamentos: receitaForm.medicamentos,
+          validade: receitaForm.validade,
+          observacoes: receitaForm.observacoes,
+          created_at: new Date().toISOString()
+        })
+        .select();
+
+      if (error) throw error;
+
+      setReceitas([data[0], ...receitas]);
+      setShowReceitaModal(false);
+      setReceitaForm({
+        tipo: 'medicamento',
+        medicamentos: [{ nome: '', dosagem: '', quantidade: '' }],
+        validade: '',
+        observacoes: ''
+      });
+      toast.success('Receita gerada com sucesso!');
+    } catch (error) {
+      console.error('Erro ao adicionar receita:', error);
+      toast.error('Erro ao adicionar receita');
     } finally {
       setSaving(false);
     }
@@ -379,6 +468,119 @@ export default function Prontuario() {
     }
   };
 
+  const finalizarAtendimento = async () => {
+    if (!confirm('Deseja finalizar este atendimento? Isso irá gerar uma guia de atendimento.')) return;
+  
+    setSaving(true);
+    try {
+      await supabase
+        .from('agendamentos')
+        .update({ status: 'realizado', updated_at: new Date().toISOString() })
+        .eq('id', id);
+  
+      if (prontuario) {
+        await supabase
+          .from('prontuario')
+          .update({ status: 'finalizado', updated_at: new Date().toISOString() })
+          .eq('id', prontuario.id);
+      }
+  
+      const convenio = convenios.find(c => c.id === paciente?.convenio_id);
+      
+      let numeroGuiaPrestador;
+      if (convenio && convenio.proximo_numero_guia) {
+        numeroGuiaPrestador = convenio.proximo_numero_guia.toString();
+        await supabase
+          .from('convenios')
+          .update({ proximo_numero_guia: convenio.proximo_numero_guia + 1 })
+          .eq('id', convenio.id);
+      } else {
+        numeroGuiaPrestador = String(Date.now());
+      }
+  
+      const valorTotal = procedimentosSelecionados.reduce((sum, p) => sum + (p.valor_sugerido || 0), 0);
+      const dataAtual = new Date().toISOString().split('T')[0];
+      const agora = new Date().toISOString();
+      
+      const atendimento = {
+        numero_guia_prestador: numeroGuiaPrestador,
+        data_atendimento: agendamento?.data_agendamento || dataAtual,
+        hora_atendimento: agendamento?.hora_inicio || '00:00:00',
+        observacao: formData.conduta || null,
+        status: 'pendente',
+        numero_guia_operadora: faturamentoData.numero_guia_operadora || null,
+        data_autorizacao: faturamentoData.data_autorizacao || null,
+        senha_autorizacao: faturamentoData.senha_autorizacao || null,
+        data_validade_senha: faturamentoData.data_validade_senha || null,
+        valor_total: valorTotal,
+        paciente_id: agendamento?.paciente_id,
+        paciente_nome: paciente?.nome || '',
+        numero_carteira: paciente?.numero_carteira || '',
+        paciente_convenio_id: paciente?.convenio_id || null,
+        paciente_convenio_nome: convenio?.razao_social || 'Sem convênio',
+        prestador_id: agendamento?.prestador_id,
+        prestador_nome: agendamento?.prestador_nome,
+        itens: procedimentosSelecionados.map(p => ({
+          codigo: p.codigo_tuss,
+          nome: p.nome,
+          quantidade: 1,
+          valor_unitario: p.valor_sugerido || 0,
+          valor_total: p.valor_sugerido || 0,
+          data_execucao: agendamento?.data_agendamento || dataAtual,
+          hora_inicial: agendamento?.hora_inicio || '00:00:00',
+          hora_final: agendamento?.hora_fim || '00:00:00',
+          tabela_referencia: '22',
+          prestador_nome: agendamento?.prestador_nome,
+          prestador_id: agendamento?.prestador_id,
+          prestador_conselho: '06',
+          grau_participacao: '12'
+        })),
+        created_at: agora,
+        updated_at: agora,
+        codigo_operadora: faturamentoData.codigo_operadora || convenio?.codigo_prestador || null,
+        nome_contratado: faturamentoData.nome_contratado || null,
+        profissional_solicitante: faturamentoData.profissional_solicitante || agendamento?.prestador_nome || null,
+        conselho_solicitante: faturamentoData.conselho_solicitante || '06',
+        uf_solicitante: faturamentoData.uf_solicitante || '35',
+        numero_conselho_solicitante: faturamentoData.numero_conselho_solicitante || null,
+        cbos_solicitante: faturamentoData.cbos_solicitante || '225125',
+        carater_atendimento: faturamentoData.carater_atendimento || '1',
+        data_solicitacao: faturamentoData.data_solicitacao || agendamento?.data_agendamento || dataAtual,
+        atendimento_rn: faturamentoData.atendimento_rn || 'N',
+        indicacao_clinica: faturamentoData.indicacao_clinica || formData.conduta || null,
+        tipo_atendimento: faturamentoData.tipo_atendimento || '04',
+        indicacao_acidente: faturamentoData.indicacao_acidente || '9',
+        tipo_consulta: faturamentoData.tipo_consulta || '1',
+        motivo_encerramento: faturamentoData.motivo_encerramento || null,
+        cobertura_especial: faturamentoData.cobertura_especial || null,
+        regime_atendimento: faturamentoData.regime_atendimento || '01',
+        saude_ocupacional: faturamentoData.saude_ocupacional || null,
+        convenio_registro_ans: convenio?.registro_ans || null,
+        convenio_codigo_prestador: convenio?.codigo_prestador || null
+      };
+  
+      Object.keys(atendimento).forEach(key => {
+        if (atendimento[key] === undefined) {
+          delete atendimento[key];
+        }
+      });
+  
+      const { error } = await supabase
+        .from('atendimentos')
+        .insert([atendimento]);
+  
+      if (error) throw error;
+  
+      toast.success('Atendimento finalizado e guia gerada com sucesso!');
+      navigate('/atendimentos');
+    } catch (error) {
+      console.error('Erro ao finalizar atendimento:', error);
+      toast.error('Erro ao finalizar atendimento: ' + (error.message || 'Erro desconhecido'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const adicionarMedicamentoReceita = () => {
     setReceitaForm({
       ...receitaForm,
@@ -404,16 +606,15 @@ export default function Prontuario() {
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
-      <head>
-        <title>Receita Médica</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 40px; }
-          .header { text-align: center; margin-bottom: 30px; }
-          .receita { border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; }
-          .medicamento { margin-bottom: 10px; }
-          .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
-          @media print { button { display: none; } }
-        </style>
+      <head><title>Receita Médica</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .receita { border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; }
+        .medicamento { margin-bottom: 10px; }
+        .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
+        @media print { button { display: none; } }
+      </style>
       </head>
       <body>
         <div class="header">
@@ -423,7 +624,6 @@ export default function Prontuario() {
         </div>
         <div class="receita">
           <h3>Paciente: ${paciente?.nome}</h3>
-          <p><strong>Convênio:</strong> ${agendamento?.convenio_nome || 'Particular'}</p>
           <h4>Medicamentos:</h4>
           ${receita.medicamentos.map(m => `
             <div class="medicamento">
@@ -450,15 +650,14 @@ export default function Prontuario() {
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
-      <head>
-        <title>Atestado Médico</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 40px; }
-          .header { text-align: center; margin-bottom: 30px; }
-          .atestado { border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; }
-          .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
-          @media print { button { display: none; } }
-        </style>
+      <head><title>Atestado Médico</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .atestado { border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; }
+        .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
+        @media print { button { display: none; } }
+      </style>
       </head>
       <body>
         <div class="header">
@@ -468,7 +667,6 @@ export default function Prontuario() {
         </div>
         <div class="atestado">
           <p>Atesto para os devidos fins que o(a) paciente <strong>${paciente?.nome}</strong>, 
-          portador(a) da carteira de plano de saúde nº ${paciente?.numero_carteira || 'N/A'}, 
           esteve sob meus cuidados médicos e necessita de afastamento por 
           <strong>${atestado.dias_afastamento} dias</strong>, 
           no período de ${new Date(atestado.data_inicio).toLocaleDateString()} a ${new Date(atestado.data_fim).toLocaleDateString()}.</p>
@@ -504,39 +702,22 @@ export default function Prontuario() {
         {/* Cabeçalho */}
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate('/agendamentos')}
-              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-            >
+            <button onClick={() => navigate('/agendamentos')} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
               <ArrowLeftIcon className="w-5 h-5 text-gray-500" />
             </button>
             <div>
               <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
                 Prontuário Eletrônico
               </h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Atendimento médico e registro clínico
-              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Atendimento médico e registro clínico</p>
             </div>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={salvarProntuario}
-              disabled={saving}
-              className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg"
-            >
-              {saving ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              ) : (
-                <CheckIcon className="w-4 h-4" />
-              )}
+            <button onClick={salvarProntuario} disabled={saving} className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 shadow-lg">
+              {saving ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <CheckIcon className="w-4 h-4" />}
               Salvar
             </button>
-            <button
-              onClick={finalizarAtendimento}
-              disabled={saving}
-              className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg"
-            >
+            <button onClick={finalizarAtendimento} disabled={saving} className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 shadow-lg">
               Finalizar Atendimento
             </button>
           </div>
@@ -547,31 +728,19 @@ export default function Prontuario() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="flex items-center gap-2">
               <UserIcon className="w-5 h-5 text-gray-400" />
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Paciente</p>
-                <p className="text-sm font-medium text-gray-800 dark:text-white">{paciente?.nome || '---'}</p>
-              </div>
+              <div><p className="text-xs text-gray-500">Paciente</p><p className="text-sm font-medium">{paciente?.nome || '---'}</p></div>
             </div>
             <div className="flex items-center gap-2">
               <CalendarIcon className="w-5 h-5 text-gray-400" />
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Data</p>
-                <p className="text-sm font-medium text-gray-800 dark:text-white">{agendamento?.data_agendamento}</p>
-              </div>
+              <div><p className="text-xs text-gray-500">Data</p><p className="text-sm font-medium">{agendamento?.data_agendamento}</p></div>
             </div>
             <div className="flex items-center gap-2">
               <ClockIcon className="w-5 h-5 text-gray-400" />
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Horário</p>
-                <p className="text-sm font-medium text-gray-800 dark:text-white">{agendamento?.hora_inicio} - {agendamento?.hora_fim}</p>
-              </div>
+              <div><p className="text-xs text-gray-500">Horário</p><p className="text-sm font-medium">{agendamento?.hora_inicio} - {agendamento?.hora_fim}</p></div>
             </div>
             <div className="flex items-center gap-2">
               <BuildingOfficeIcon className="w-5 h-5 text-gray-400" />
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Convênio</p>
-                <p className="text-sm font-medium text-gray-800 dark:text-white">{agendamento?.convenio_nome || 'Particular'}</p>
-              </div>
+              <div><p className="text-xs text-gray-500">Convênio</p><p className="text-sm font-medium">{agendamento?.convenio_nome || 'Particular'}</p></div>
             </div>
           </div>
         </div>
@@ -585,19 +754,11 @@ export default function Prontuario() {
                 { id: 'prescricoes', label: `Prescrições (${prescricoes.length})`, icon: BeakerIcon },
                 { id: 'receitas', label: `Receitas (${receitas.length})`, icon: ClipboardDocumentListIcon },
                 { id: 'atestados', label: `Atestados (${atestados.length})`, icon: DocumentDuplicateIcon },
-                { id: 'procedimentos', label: 'Procedimentos', icon: ExclamationTriangleIcon }
+                { id: 'procedimentos', label: 'Procedimentos', icon: ExclamationTriangleIcon },
+                { id: 'faturamento', label: 'Faturamento', icon: CurrencyDollarIcon }
               ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setAba(tab.id)}
-                  className={`px-4 py-3 text-sm font-medium transition-all duration-200 flex items-center gap-1 ${
-                    aba === tab.id
-                      ? 'text-blue-600 border-b-2 border-blue-600'
-                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
-                  }`}
-                >
-                  <tab.icon className="w-4 h-4" />
-                  {tab.label}
+                <button key={tab.id} onClick={() => setAba(tab.id)} className={`px-4 py-3 text-sm font-medium flex items-center gap-1 transition-all duration-200 ${aba === tab.id ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>
+                  <tab.icon className="w-4 h-4" /> {tab.label}
                 </button>
               ))}
             </div>
@@ -607,111 +768,31 @@ export default function Prontuario() {
             {/* Aba Clínica */}
             {aba === 'clinico' && (
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Anamnese</label>
-                  <textarea
-                    rows="3"
-                    value={formData.anamnese}
-                    onChange={(e) => setFormData({...formData, anamnese: e.target.value})}
-                    className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                    placeholder="História da doença atual, queixas principais..."
-                  />
+                <div><label className="block text-sm font-medium mb-1">Anamnese</label><textarea rows="3" value={formData.anamnese} onChange={(e) => setFormData({...formData, anamnese: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-lg px-3 py-2 text-sm" placeholder="História da doença atual..." /></div>
+                <div><label className="block text-sm font-medium mb-1">Exame Físico</label><textarea rows="3" value={formData.exame_fisico} onChange={(e) => setFormData({...formData, exame_fisico: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-lg px-3 py-2 text-sm" placeholder="Sinais vitais..." /></div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div><label className="block text-sm font-medium mb-1">Hipótese Diagnóstica</label><textarea rows="2" value={formData.hipotese_diagnostica} onChange={(e) => setFormData({...formData, hipotese_diagnostica: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-lg px-3 py-2 text-sm" /></div>
+                  <div><label className="block text-sm font-medium mb-1">Diagnóstico Principal</label><input type="text" value={formData.diagnostico_principal} onChange={(e) => setFormData({...formData, diagnostico_principal: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-lg px-3 py-2 text-sm" /></div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Exame Físico</label>
-                  <textarea
-                    rows="3"
-                    value={formData.exame_fisico}
-                    onChange={(e) => setFormData({...formData, exame_fisico: e.target.value})}
-                    className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                    placeholder="Sinais vitais, inspeção, palpação..."
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Hipótese Diagnóstica</label>
-                    <textarea
-                      rows="2"
-                      value={formData.hipotese_diagnostica}
-                      onChange={(e) => setFormData({...formData, hipotese_diagnostica: e.target.value})}
-                      className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                      placeholder="Possíveis diagnósticos..."
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Diagnóstico Principal</label>
-                    <input
-                      type="text"
-                      value={formData.diagnostico_principal}
-                      onChange={(e) => setFormData({...formData, diagnostico_principal: e.target.value})}
-                      className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                      placeholder="Diagnóstico confirmado"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Conduta / Plano Terapêutico</label>
-                  <textarea
-                    rows="3"
-                    value={formData.conduta}
-                    onChange={(e) => setFormData({...formData, conduta: e.target.value})}
-                    className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                    placeholder="Orientações, exames solicitados, retorno..."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações</label>
-                  <textarea
-                    rows="2"
-                    value={formData.observacoes}
-                    onChange={(e) => setFormData({...formData, observacoes: e.target.value})}
-                    className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                    placeholder="Informações adicionais..."
-                  />
-                </div>
+                <div><label className="block text-sm font-medium mb-1">Conduta</label><textarea rows="3" value={formData.conduta} onChange={(e) => setFormData({...formData, conduta: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-lg px-3 py-2 text-sm" placeholder="Orientações..." /></div>
+                <div><label className="block text-sm font-medium mb-1">Observações</label><textarea rows="2" value={formData.observacoes} onChange={(e) => setFormData({...formData, observacoes: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-lg px-3 py-2 text-sm" /></div>
               </div>
             )}
 
             {/* Aba Prescrições */}
             {aba === 'prescricoes' && (
               <div>
-                <button
-                  onClick={() => setShowPrescricaoModal(true)}
-                  className="mb-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-2 hover:from-blue-600 hover:to-indigo-700 transition-all duration-200"
-                >
-                  <PlusIcon className="w-4 h-4" />
-                  Nova Prescrição
-                </button>
+                <button onClick={() => setShowPrescricaoModal(true)} className="mb-4 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-2"><PlusIcon className="w-4 h-4" /> Nova Prescrição</button>
                 <div className="space-y-3">
-                  {prescricoes.map((p) => (
-                    <div key={p.id} className="border rounded-lg p-3 bg-gray-50 dark:bg-gray-700/50">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <span className="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700 mb-2">
-                            {p.tipo === 'medicamento' ? '💊 Medicamento' : p.tipo === 'exame' ? '🔬 Exame' : '📋 Procedimento'}
-                          </span>
-                          <p className="text-sm font-medium mt-1">{p.descricao}</p>
-                          {p.dosagem && <p className="text-xs text-gray-500">Dosagem: {p.dosagem}</p>}
-                          {p.via_administracao && <p className="text-xs text-gray-500">Via: {p.via_administracao}</p>}
-                          {p.frequencia && <p className="text-xs text-gray-500">Frequência: {p.frequencia}</p>}
-                          {p.duracao && <p className="text-xs text-gray-500">Duração: {p.duracao}</p>}
-                        </div>
-                        <button
-                          onClick={() => {
-                            setEditingPrescricao(p);
-                            setPrescricaoForm(p);
-                            setShowPrescricaoModal(true);
-                          }}
-                          className="text-blue-600 hover:text-blue-800"
-                        >
-                          <PencilIcon className="w-4 h-4" />
-                        </button>
+                  {prescricoes.map(p => (
+                    <div key={p.id} className="border rounded-lg p-3 bg-gray-50">
+                      <div className="flex justify-between">
+                        <div><span className="inline-flex px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-700">{p.tipo}</span><p className="text-sm font-medium mt-1">{p.descricao}</p></div>
+                        <button onClick={() => { setEditingPrescricao(p); setPrescricaoForm(p); setShowPrescricaoModal(true); }}><PencilIcon className="w-4 h-4 text-blue-600" /></button>
                       </div>
                     </div>
                   ))}
-                  {prescricoes.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">Nenhuma prescrição adicionada</div>
-                  )}
+                  {prescricoes.length === 0 && <div className="text-center py-8 text-gray-500">Nenhuma prescrição</div>}
                 </div>
               </div>
             )}
@@ -719,36 +800,17 @@ export default function Prontuario() {
             {/* Aba Receitas */}
             {aba === 'receitas' && (
               <div>
-                <button
-                  onClick={() => setShowReceitaModal(true)}
-                  className="mb-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-2 hover:from-blue-600 hover:to-indigo-700 transition-all duration-200"
-                >
-                  <PlusIcon className="w-4 h-4" />
-                  Nova Receita
-                </button>
+                <button onClick={() => setShowReceitaModal(true)} className="mb-4 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-2"><PlusIcon className="w-4 h-4" /> Nova Receita</button>
                 <div className="space-y-3">
-                  {receitas.map((r) => (
-                    <div key={r.id} className="border rounded-lg p-3 bg-gray-50 dark:bg-gray-700/50">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">Receita #{r.numero_receita}</p>
-                          <p className="text-xs text-gray-500">Data: {new Date(r.created_at).toLocaleDateString()}</p>
-                          <p className="text-xs text-gray-500">Medicamentos: {r.medicamentos?.length || 0}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <button onClick={() => imprimirReceita(r)} className="text-green-600 hover:text-green-800" title="Imprimir">
-                            <PrinterIcon className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => { setEditingReceita(r); setReceitaForm(r); setShowReceitaModal(true); }} className="text-blue-600 hover:text-blue-800" title="Editar">
-                            <PencilIcon className="w-4 h-4" />
-                          </button>
-                        </div>
+                  {receitas.map(r => (
+                    <div key={r.id} className="border rounded-lg p-3 bg-gray-50">
+                      <div className="flex justify-between items-center">
+                        <div><p className="text-sm font-medium">Receita #{r.numero_receita}</p><p className="text-xs text-gray-500">{new Date(r.created_at).toLocaleDateString()}</p></div>
+                        <button onClick={() => imprimirReceita(r)} className="text-green-600"><PrinterIcon className="w-4 h-4" /></button>
                       </div>
                     </div>
                   ))}
-                  {receitas.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">Nenhuma receita gerada</div>
-                  )}
+                  {receitas.length === 0 && <div className="text-center py-8 text-gray-500">Nenhuma receita</div>}
                 </div>
               </div>
             )}
@@ -756,38 +818,17 @@ export default function Prontuario() {
             {/* Aba Atestados */}
             {aba === 'atestados' && (
               <div>
-                <button
-                  onClick={() => setShowAtestadoModal(true)}
-                  className="mb-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-2 hover:from-blue-600 hover:to-indigo-700 transition-all duration-200"
-                >
-                  <PlusIcon className="w-4 h-4" />
-                  Novo Atestado
-                </button>
+                <button onClick={() => setShowAtestadoModal(true)} className="mb-4 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-2"><PlusIcon className="w-4 h-4" /> Novo Atestado</button>
                 <div className="space-y-3">
-                  {atestados.map((a) => (
-                    <div key={a.id} className="border rounded-lg p-3 bg-gray-50 dark:bg-gray-700/50">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">Atestado #{a.numero_atestado}</p>
-                          <p className="text-xs text-gray-500">
-                            Afastamento: {a.dias_afastamento} dias ({new Date(a.data_inicio).toLocaleDateString()} - {new Date(a.data_fim).toLocaleDateString()})
-                          </p>
-                          {a.cid && <p className="text-xs text-gray-500">CID: {a.cid}</p>}
-                        </div>
-                        <div className="flex gap-2">
-                          <button onClick={() => imprimirAtestado(a)} className="text-green-600 hover:text-green-800" title="Imprimir">
-                            <PrinterIcon className="w-4 h-4" />
-                          </button>
-                          <button onClick={() => { setEditingAtestado(a); setAtestadoForm(a); setShowAtestadoModal(true); }} className="text-blue-600 hover:text-blue-800" title="Editar">
-                            <PencilIcon className="w-4 h-4" />
-                          </button>
-                        </div>
+                  {atestados.map(a => (
+                    <div key={a.id} className="border rounded-lg p-3 bg-gray-50">
+                      <div className="flex justify-between">
+                        <div><p className="text-sm font-medium">Atestado #{a.numero_atestado}</p><p className="text-xs text-gray-500">{a.dias_afastamento} dias</p></div>
+                        <button onClick={() => imprimirAtestado(a)} className="text-green-600"><PrinterIcon className="w-4 h-4" /></button>
                       </div>
                     </div>
                   ))}
-                  {atestados.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">Nenhum atestado gerado</div>
-                  )}
+                  {atestados.length === 0 && <div className="text-center py-8 text-gray-500">Nenhum atestado</div>}
                 </div>
               </div>
             )}
@@ -795,77 +836,84 @@ export default function Prontuario() {
             {/* Aba Procedimentos */}
             {aba === 'procedimentos' && (
               <div>
-                <button
-                  onClick={() => setShowProcedimentosModal(true)}
-                  className="mb-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-2 hover:from-blue-600 hover:to-indigo-700 transition-all duration-200"
-                >
-                  <PlusIcon className="w-4 h-4" />
-                  Adicionar Procedimento
-                </button>
+                <button onClick={() => setShowProcedimentosModal(true)} className="mb-4 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-2"><PlusIcon className="w-4 h-4" /> Adicionar</button>
                 <div className="space-y-3">
                   {procedimentosSelecionados.map((p, idx) => (
-                    <div key={idx} className="border rounded-lg p-3 bg-gray-50 dark:bg-gray-700/50">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="text-sm font-medium text-gray-800 dark:text-white">{p.nome}</p>
-                          <p className="text-xs text-gray-500">Código: {p.codigo_tuss}</p>
-                          <p className="text-xs text-gray-500">Valor: R$ {p.valor_sugerido?.toFixed(2)}</p>
-                        </div>
-                        <button onClick={() => setProcedimentosSelecionados(procedimentosSelecionados.filter((_, i) => i !== idx))} className="text-red-600 hover:text-red-800">
-                          <TrashIcon className="w-4 h-4" />
-                        </button>
+                    <div key={idx} className="border rounded-lg p-3 bg-gray-50">
+                      <div className="flex justify-between">
+                        <div><p className="text-sm font-medium">{p.nome}</p><p className="text-xs text-gray-500">R$ {p.valor_sugerido?.toFixed(2)}</p></div>
+                        <button onClick={() => setProcedimentosSelecionados(procedimentosSelecionados.filter((_, i) => i !== idx))}><TrashIcon className="w-4 h-4 text-red-600" /></button>
                       </div>
                     </div>
                   ))}
-                  {procedimentosSelecionados.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">Nenhum procedimento adicionado</div>
-                  )}
+                  {procedimentosSelecionados.length > 0 && <div className="mt-4 p-3 bg-blue-50 rounded-lg">Total: R$ {procedimentosSelecionados.reduce((s, p) => s + (p.valor_sugerido || 0), 0).toFixed(2)}</div>}
                 </div>
-                {procedimentosSelecionados.length > 0 && (
-                  <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Total: R$ {procedimentosSelecionados.reduce((sum, p) => sum + (p.valor_sugerido || 0), 0).toFixed(2)}</p>
+              </div>
+            )}
+
+            {/* Aba Faturamento */}
+            {aba === 'faturamento' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div><label className="block text-sm font-medium mb-1">Nº Guia Operadora</label><input type="text" value={faturamentoData.numero_guia_operadora} onChange={e => setFaturamentoData({...faturamentoData, numero_guia_operadora: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
+                  <div><label className="block text-sm font-medium mb-1">Data Autorização</label><input type="date" value={faturamentoData.data_autorizacao} onChange={e => setFaturamentoData({...faturamentoData, data_autorizacao: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
+                  <div><label className="block text-sm font-medium mb-1">Senha</label><input type="text" value={faturamentoData.senha_autorizacao} onChange={e => setFaturamentoData({...faturamentoData, senha_autorizacao: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
+                  <div><label className="block text-sm font-medium mb-1">Validade Senha</label><input type="date" value={faturamentoData.data_validade_senha} onChange={e => setFaturamentoData({...faturamentoData, data_validade_senha: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
+                  <div><label className="block text-sm font-medium mb-1">Código Operadora</label><input type="text" value={faturamentoData.codigo_operadora} onChange={e => setFaturamentoData({...faturamentoData, codigo_operadora: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
+                  <div><label className="block text-sm font-medium mb-1">Nome Contratado</label><input type="text" value={faturamentoData.nome_contratado} onChange={e => setFaturamentoData({...faturamentoData, nome_contratado: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold mb-3">Profissional Solicitante</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div><label className="block text-sm font-medium mb-1">Nome</label><input type="text" value={faturamentoData.profissional_solicitante} onChange={e => setFaturamentoData({...faturamentoData, profissional_solicitante: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
+                    <div><label className="block text-sm font-medium mb-1">Conselho</label><select value={faturamentoData.conselho_solicitante} onChange={e => setFaturamentoData({...faturamentoData, conselho_solicitante: e.target.value})} className="w-full border rounded-lg px-3 py-2"><option value="06">CRM</option><option value="08">CRO</option></select></div>
+                    <div><label className="block text-sm font-medium mb-1">Nº Conselho</label><input type="text" value={faturamentoData.numero_conselho_solicitante} onChange={e => setFaturamentoData({...faturamentoData, numero_conselho_solicitante: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
+                    <div><label className="block text-sm font-medium mb-1">UF</label><select value={faturamentoData.uf_solicitante} onChange={e => setFaturamentoData({...faturamentoData, uf_solicitante: e.target.value})} className="w-full border rounded-lg px-3 py-2"><option value="35">SP</option><option value="33">RJ</option></select></div>
+                    <div><label className="block text-sm font-medium mb-1">CBOS</label><input type="text" value={faturamentoData.cbos_solicitante} onChange={e => setFaturamentoData({...faturamentoData, cbos_solicitante: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
                   </div>
-                )}
+                </div>
+
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold mb-3">Dados do Atendimento</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div><label className="block text-sm font-medium mb-1">Caráter</label><select value={faturamentoData.carater_atendimento} onChange={e => setFaturamentoData({...faturamentoData, carater_atendimento: e.target.value})} className="w-full border rounded-lg px-3 py-2">{CARATER_ATENDIMENTO.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select></div>
+                    <div><label className="block text-sm font-medium mb-1">Data Solicitação</label><input type="date" value={faturamentoData.data_solicitacao} onChange={e => setFaturamentoData({...faturamentoData, data_solicitacao: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
+                    <div><label className="block text-sm font-medium mb-1">Atendimento RN</label><select value={faturamentoData.atendimento_rn} onChange={e => setFaturamentoData({...faturamentoData, atendimento_rn: e.target.value})} className="w-full border rounded-lg px-3 py-2">{SIM_NAO.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
+                    <div><label className="block text-sm font-medium mb-1">Tipo Atendimento</label><select value={faturamentoData.tipo_atendimento} onChange={e => setFaturamentoData({...faturamentoData, tipo_atendimento: e.target.value})} className="w-full border rounded-lg px-3 py-2">{TIPO_ATENDIMENTO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
+                    <div><label className="block text-sm font-medium mb-1">Indicador Acidente</label><select value={faturamentoData.indicacao_acidente} onChange={e => setFaturamentoData({...faturamentoData, indicacao_acidente: e.target.value})} className="w-full border rounded-lg px-3 py-2">{INDICADOR_ACIDENTE.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}</select></div>
+                    <div><label className="block text-sm font-medium mb-1">Tipo Consulta</label><select value={faturamentoData.tipo_consulta} onChange={e => setFaturamentoData({...faturamentoData, tipo_consulta: e.target.value})} className="w-full border rounded-lg px-3 py-2">{TIPO_CONSULTA.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
+                    <div><label className="block text-sm font-medium mb-1">Regime</label><select value={faturamentoData.regime_atendimento} onChange={e => setFaturamentoData({...faturamentoData, regime_atendimento: e.target.value})} className="w-full border rounded-lg px-3 py-2">{REGIME_ATENDIMENTO.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}</select></div>
+                    <div><label className="block text-sm font-medium mb-1">Cobertura Especial</label><select value={faturamentoData.cobertura_especial} onChange={e => setFaturamentoData({...faturamentoData, cobertura_especial: e.target.value})} className="w-full border rounded-lg px-3 py-2">{COBERTURA_ESPECIAL.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select></div>
+                    <div><label className="block text-sm font-medium mb-1">Saúde Ocupacional</label><select value={faturamentoData.saude_ocupacional} onChange={e => setFaturamentoData({...faturamentoData, saude_ocupacional: e.target.value})} className="w-full border rounded-lg px-3 py-2">{SAUDE_OCUPACIONAL.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
+                    <div><label className="block text-sm font-medium mb-1">Motivo Encerramento</label><select value={faturamentoData.motivo_encerramento} onChange={e => setFaturamentoData({...faturamentoData, motivo_encerramento: e.target.value})} className="w-full border rounded-lg px-3 py-2">{MOTIVO_ENCERRAMENTO.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}</select></div>
+                  </div>
+                  <div className="mt-3"><label className="block text-sm font-medium mb-1">Indicação Clínica</label><textarea rows="2" value={faturamentoData.indicacao_clinica} onChange={e => setFaturamentoData({...faturamentoData, indicacao_clinica: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
+                </div>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Modal de Prescrição */}
+      {/* Modal Prescrição */}
       {showPrescricaoModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg">
-            <div className="p-5 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">{editingPrescricao ? 'Editar Prescrição' : 'Nova Prescrição'}</h3>
-                <button onClick={() => setShowPrescricaoModal(false)} className="p-2 rounded-lg hover:bg-gray-100"><XMarkIcon className="w-5 h-5" /></button>
-              </div>
-            </div>
-            <div className="p-5 space-y-4">
-              <div><label className="block text-sm font-medium mb-1">Tipo</label>
-                <select value={prescricaoForm.tipo} onChange={(e) => setPrescricaoForm({...prescricaoForm, tipo: e.target.value})} className="w-full border rounded-lg px-3 py-2">
-                  <option value="medicamento">Medicamento</option><option value="exame">Exame</option><option value="procedimento">Procedimento</option>
-                </select>
-              </div>
-              <div><label className="block text-sm font-medium mb-1">Descrição *</label>
-                <textarea rows="3" value={prescricaoForm.descricao} onChange={(e) => setPrescricaoForm({...prescricaoForm, descricao: e.target.value})} className="w-full border rounded-lg px-3 py-2" placeholder="Descreva a prescrição..." />
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl w-full max-w-lg p-5">
+            <h3 className="text-xl font-semibold mb-4">{editingPrescricao ? 'Editar' : 'Nova'} Prescrição</h3>
+            <div className="space-y-3">
+              <select value={prescricaoForm.tipo} onChange={e => setPrescricaoForm({...prescricaoForm, tipo: e.target.value})} className="w-full border rounded-lg px-3 py-2"><option value="medicamento">Medicamento</option><option value="exame">Exame</option><option value="procedimento">Procedimento</option></select>
+              <textarea rows="3" value={prescricaoForm.descricao} onChange={e => setPrescricaoForm({...prescricaoForm, descricao: e.target.value})} className="w-full border rounded-lg px-3 py-2" placeholder="Descrição" />
+              <div className="grid grid-cols-2 gap-3">
+                <input type="text" placeholder="Dosagem" value={prescricaoForm.dosagem} onChange={e => setPrescricaoForm({...prescricaoForm, dosagem: e.target.value})} className="border rounded-lg px-3 py-2" />
+                <select value={prescricaoForm.via_administracao} onChange={e => setPrescricaoForm({...prescricaoForm, via_administracao: e.target.value})} className="border rounded-lg px-3 py-2"><option value="">Via</option><option value="oral">Oral</option><option value="intravenosa">IV</option></select>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className="block text-sm font-medium mb-1">Dosagem</label><input type="text" value={prescricaoForm.dosagem} onChange={(e) => setPrescricaoForm({...prescricaoForm, dosagem: e.target.value})} className="w-full border rounded-lg px-3 py-2" placeholder="Ex: 500mg" /></div>
-                <div><label className="block text-sm font-medium mb-1">Via Administração</label>
-                  <select value={prescricaoForm.via_administracao} onChange={(e) => setPrescricaoForm({...prescricaoForm, via_administracao: e.target.value})} className="w-full border rounded-lg px-3 py-2">
-                    <option value="">Selecione</option><option value="oral">Oral</option><option value="intravenosa">Intravenosa</option><option value="intramuscular">Intramuscular</option><option value="topica">Tópica</option>
-                  </select>
-                </div>
+                <input type="text" placeholder="Frequência" value={prescricaoForm.frequencia} onChange={e => setPrescricaoForm({...prescricaoForm, frequencia: e.target.value})} className="border rounded-lg px-3 py-2" />
+                <input type="text" placeholder="Duração" value={prescricaoForm.duracao} onChange={e => setPrescricaoForm({...prescricaoForm, duracao: e.target.value})} className="border rounded-lg px-3 py-2" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className="block text-sm font-medium mb-1">Frequência</label><input type="text" value={prescricaoForm.frequencia} onChange={(e) => setPrescricaoForm({...prescricaoForm, frequencia: e.target.value})} className="w-full border rounded-lg px-3 py-2" placeholder="Ex: 8/8h" /></div>
-                <div><label className="block text-sm font-medium mb-1">Duração</label><input type="text" value={prescricaoForm.duracao} onChange={(e) => setPrescricaoForm({...prescricaoForm, duracao: e.target.value})} className="w-full border rounded-lg px-3 py-2" placeholder="Ex: 7 dias" /></div>
-              </div>
-              <div><label className="block text-sm font-medium mb-1">Observações</label><textarea rows="2" value={prescricaoForm.observacoes} onChange={(e) => setPrescricaoForm({...prescricaoForm, observacoes: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
             </div>
-            <div className="p-5 border-t flex justify-end gap-3">
+            <div className="flex justify-end gap-3 mt-5">
               <button onClick={() => setShowPrescricaoModal(false)} className="px-4 py-2 border rounded-lg">Cancelar</button>
               <button onClick={adicionarPrescricao} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Salvar</button>
             </div>
@@ -873,110 +921,71 @@ export default function Prontuario() {
         </div>
       )}
 
-      {/* Modal de Receita */}
+      {/* Modal Receita */}
       {showReceitaModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-            <div className="p-5 border-b sticky top-0 bg-white dark:bg-gray-800">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xl font-semibold">{editingReceita ? 'Editar Receita' : 'Nova Receita'}</h3>
-                <button onClick={() => setShowReceitaModal(false)} className="p-2 rounded-lg hover:bg-gray-100"><XMarkIcon className="w-5 h-5" /></button>
-              </div>
-            </div>
-            <div className="p-5 space-y-4">
-              <div><label className="block text-sm font-medium mb-1">Tipo de Receita</label>
-                <select value={receitaForm.tipo} onChange={(e) => setReceitaForm({...receitaForm, tipo: e.target.value})} className="w-full border rounded-lg px-3 py-2">
-                  <option value="medicamento">Receita de Medicamento</option><option value="especial">Receita Especial (Controle Especial)</option>
-                </select>
-              </div>
-              <div><label className="block text-sm font-medium mb-2">Medicamentos</label>
-                {receitaForm.medicamentos.map((med, idx) => (
-                  <div key={idx} className="border rounded-lg p-3 mb-2">
-                    <div className="grid grid-cols-3 gap-2 mb-2">
-                      <input type="text" placeholder="Medicamento" value={med.nome} onChange={(e) => atualizarMedicamentoReceita(idx, 'nome', e.target.value)} className="border rounded-lg px-2 py-1 text-sm" />
-                      <input type="text" placeholder="Dosagem" value={med.dosagem} onChange={(e) => atualizarMedicamentoReceita(idx, 'dosagem', e.target.value)} className="border rounded-lg px-2 py-1 text-sm" />
-                      <input type="text" placeholder="Quantidade" value={med.quantidade} onChange={(e) => atualizarMedicamentoReceita(idx, 'quantidade', e.target.value)} className="border rounded-lg px-2 py-1 text-sm" />
-                    </div>
-                    {receitaForm.medicamentos.length > 1 && <button onClick={() => removerMedicamentoReceita(idx)} className="text-red-600 text-xs">Remover</button>}
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto p-5">
+            <h3 className="text-xl font-semibold mb-4">{editingReceita ? 'Editar' : 'Nova'} Receita</h3>
+            <div className="space-y-3">
+              <select value={receitaForm.tipo} onChange={e => setReceitaForm({...receitaForm, tipo: e.target.value})} className="w-full border rounded-lg px-3 py-2"><option value="medicamento">Medicamento</option><option value="especial">Especial</option></select>
+              {receitaForm.medicamentos.map((med, idx) => (
+                <div key={idx} className="border rounded-lg p-3">
+                  <div className="grid grid-cols-3 gap-2">
+                    <input placeholder="Medicamento" value={med.nome} onChange={e => atualizarMedicamentoReceita(idx, 'nome', e.target.value)} className="border rounded-lg px-2 py-1" />
+                    <input placeholder="Dosagem" value={med.dosagem} onChange={e => atualizarMedicamentoReceita(idx, 'dosagem', e.target.value)} className="border rounded-lg px-2 py-1" />
+                    <input placeholder="Quantidade" value={med.quantidade} onChange={e => atualizarMedicamentoReceita(idx, 'quantidade', e.target.value)} className="border rounded-lg px-2 py-1" />
                   </div>
-                ))}
-                <button onClick={adicionarMedicamentoReceita} className="text-blue-600 text-sm flex items-center gap-1"><PlusIcon className="w-4 h-4" /> Adicionar Medicamento</button>
-              </div>
-              <div><label className="block text-sm font-medium mb-1">Validade da Receita</label><input type="date" value={receitaForm.validade} onChange={(e) => setReceitaForm({...receitaForm, validade: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
-              <div><label className="block text-sm font-medium mb-1">Observações</label><textarea rows="2" value={receitaForm.observacoes} onChange={(e) => setReceitaForm({...receitaForm, observacoes: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
-            </div>
-            <div className="p-5 border-t flex justify-end gap-3">
-              <button onClick={() => setShowReceitaModal(false)} className="px-4 py-2 border rounded-lg">Cancelar</button>
-              <button onClick={adicionarReceita} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Gerar Receita</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Atestado */}
-      {showAtestadoModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg">
-            <div className="p-5 border-b">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xl font-semibold">{editingAtestado ? 'Editar Atestado' : 'Novo Atestado'}</h3>
-                <button onClick={() => setShowAtestadoModal(false)} className="p-2 rounded-lg hover:bg-gray-100"><XMarkIcon className="w-5 h-5" /></button>
-              </div>
-            </div>
-            <div className="p-5 space-y-4">
-              <div><label className="block text-sm font-medium mb-1">Tipo de Atestado</label>
-                <select value={atestadoForm.tipo} onChange={(e) => setAtestadoForm({...atestadoForm, tipo: e.target.value})} className="w-full border rounded-lg px-3 py-2">
-                  <option value="saude">Atestado de Saúde</option><option value="acompanhamento">Atestado de Acompanhamento</option><option value="comparecimento">Atestado de Comparecimento</option>
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className="block text-sm font-medium mb-1">Dias de Afastamento</label><input type="number" value={atestadoForm.dias_afastamento} onChange={(e) => setAtestadoForm({...atestadoForm, dias_afastamento: parseInt(e.target.value)})} className="w-full border rounded-lg px-3 py-2" /></div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className="block text-sm font-medium mb-1">Data Início</label><input type="date" value={atestadoForm.data_inicio} onChange={(e) => setAtestadoForm({...atestadoForm, data_inicio: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
-                <div><label className="block text-sm font-medium mb-1">Data Fim</label><input type="date" value={atestadoForm.data_fim} onChange={(e) => setAtestadoForm({...atestadoForm, data_fim: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
-              </div>
-              <div><label className="block text-sm font-medium mb-1">CID</label><input type="text" value={atestadoForm.cid} onChange={(e) => setAtestadoForm({...atestadoForm, cid: e.target.value})} className="w-full border rounded-lg px-3 py-2" placeholder="Ex: J06.9" /></div>
-              <div><label className="block text-sm font-medium mb-1">Recomendações</label><textarea rows="3" value={atestadoForm.recomendacoes} onChange={(e) => setAtestadoForm({...atestadoForm, recomendacoes: e.target.value})} className="w-full border rounded-lg px-3 py-2" /></div>
-            </div>
-            <div className="p-5 border-t flex justify-end gap-3">
-              <button onClick={() => setShowAtestadoModal(false)} className="px-4 py-2 border rounded-lg">Cancelar</button>
-              <button onClick={adicionarAtestado} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Gerar Atestado</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Procedimentos */}
-      {showProcedimentosModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl">
-            <div className="p-5 border-b">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xl font-semibold">Adicionar Procedimentos</h3>
-                <button onClick={() => setShowProcedimentosModal(false)} className="p-2 rounded-lg hover:bg-gray-100"><XMarkIcon className="w-5 h-5" /></button>
-              </div>
-            </div>
-            <div className="p-5">
-              <div className="mb-4">
-                <div className="relative">
-                  <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                  <input type="text" value={buscaProcedimento} onChange={(e) => setBuscaProcedimento(e.target.value)} placeholder="Buscar procedimento por nome ou código..." className="w-full border rounded-lg pl-8 pr-3 py-2 text-sm" />
                 </div>
-              </div>
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {procedimentosFiltrados.map((proc) => (
-                  <div key={proc.id} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-lg">
-                    <div><p className="text-sm font-medium">{proc.nome}</p><p className="text-xs text-gray-500">Código: {proc.codigo_tuss} - R$ {proc.valor_sugerido?.toFixed(2)}</p></div>
-                    <button onClick={() => { if (!procedimentosSelecionados.find(p => p.id === proc.id)) { setProcedimentosSelecionados([...procedimentosSelecionados, proc]); toast.success(`${proc.nome} adicionado!`); } }} className="p-1 rounded-lg text-green-600 hover:bg-green-50"><PlusIcon className="w-5 h-5" /></button>
-                  </div>
-                ))}
-                {procedimentosFiltrados.length === 0 && <div className="text-center py-8 text-gray-500">Nenhum procedimento encontrado</div>}
-              </div>
+              ))}
+              <button onClick={adicionarMedicamentoReceita} className="text-blue-600 text-sm">+ Adicionar</button>
+              <input type="date" placeholder="Validade" value={receitaForm.validade} onChange={e => setReceitaForm({...receitaForm, validade: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
             </div>
-            <div className="p-5 border-t flex justify-end">
-              <button onClick={() => setShowProcedimentosModal(false)} className="px-4 py-2 border rounded-lg">Fechar</button>
+            <div className="flex justify-end gap-3 mt-5">
+              <button onClick={() => setShowReceitaModal(false)} className="px-4 py-2 border rounded-lg">Cancelar</button>
+              <button onClick={adicionarReceita} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Gerar</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Atestado */}
+      {showAtestadoModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl w-full max-w-lg p-5">
+            <h3 className="text-xl font-semibold mb-4">{editingAtestado ? 'Editar' : 'Novo'} Atestado</h3>
+            <div className="space-y-3">
+              <select value={atestadoForm.tipo} onChange={e => setAtestadoForm({...atestadoForm, tipo: e.target.value})} className="w-full border rounded-lg px-3 py-2"><option value="saude">Saúde</option><option value="acompanhamento">Acompanhamento</option></select>
+              <input type="number" placeholder="Dias de afastamento" value={atestadoForm.dias_afastamento} onChange={e => setAtestadoForm({...atestadoForm, dias_afastamento: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
+              <div className="grid grid-cols-2 gap-3">
+                <input type="date" value={atestadoForm.data_inicio} onChange={e => setAtestadoForm({...atestadoForm, data_inicio: e.target.value})} className="border rounded-lg px-3 py-2" />
+                <input type="date" value={atestadoForm.data_fim} onChange={e => setAtestadoForm({...atestadoForm, data_fim: e.target.value})} className="border rounded-lg px-3 py-2" />
+              </div>
+              <input type="text" placeholder="CID" value={atestadoForm.cid} onChange={e => setAtestadoForm({...atestadoForm, cid: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
+              <textarea rows="2" placeholder="Recomendações" value={atestadoForm.recomendacoes} onChange={e => setAtestadoForm({...atestadoForm, recomendacoes: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
+            </div>
+            <div className="flex justify-end gap-3 mt-5">
+              <button onClick={() => setShowAtestadoModal(false)} className="px-4 py-2 border rounded-lg">Cancelar</button>
+              <button onClick={adicionarAtestado} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Gerar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Procedimentos */}
+      {showProcedimentosModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto p-5">
+            <h3 className="text-xl font-semibold mb-4">Adicionar Procedimentos</h3>
+            <div className="relative mb-4"><MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-3 text-gray-400" /><input type="text" placeholder="Buscar..." value={buscaProcedimento} onChange={e => setBuscaProcedimento(e.target.value)} className="w-full border rounded-lg pl-8 pr-3 py-2" /></div>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {procedimentosFiltrados.map(proc => (
+                <div key={proc.id} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-lg">
+                  <div><p className="text-sm font-medium">{proc.nome}</p><p className="text-xs text-gray-500">{proc.codigo_tuss} - R$ {proc.valor_sugerido?.toFixed(2)}</p></div>
+                  <button onClick={() => { if (!procedimentosSelecionados.find(p => p.id === proc.id)) { setProcedimentosSelecionados([...procedimentosSelecionados, proc]); toast.success(`${proc.nome} adicionado!`); } }} className="p-1 rounded-lg text-green-600"><PlusIcon className="w-5 h-5" /></button>
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end mt-4"><button onClick={() => setShowProcedimentosModal(false)} className="px-4 py-2 border rounded-lg">Fechar</button></div>
           </div>
         </div>
       )}
