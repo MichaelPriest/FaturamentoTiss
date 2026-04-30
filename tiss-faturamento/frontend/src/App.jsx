@@ -22,14 +22,14 @@ import Configuracoes from './pages/Configuracoes';
 import NotificationBell from './components/NotificationBell';
 
 import { setConfig } from './lib/tissGenerator';
-import { supabase, isSupabaseAvailable, checkSupabaseConnection } from './lib/supabaseClient';
+import { supabase, isSupabaseAvailable, checkSupabaseConnection, TABLES } from './lib/supabaseClient';
 
 // Context para o tema
 const ThemeContext = createContext({ darkMode: false, toggleDarkMode: () => {} });
 export const useTheme = () => useContext(ThemeContext);
 
 // Context para autenticação
-const AuthContext = createContext({ user: null, userData: null, loading: true, signOut: () => {}, isAuthenticated: false });
+const AuthContext = createContext({ user: null, loading: true, signOut: () => {}, isAuthenticated: false });
 export const useAuth = () => useContext(AuthContext);
 
 // Componente Provider do Tema
@@ -71,86 +71,89 @@ function ThemeProvider({ children }) {
 // Componente Provider de Autenticação
 function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Verificar conexão com Supabase
     checkSupabaseConnection();
     
-    // Verificar sessão atual
-    const getSession = async () => {
-      if (!supabase) {
-        console.error('Supabase não disponível');
-        setLoading(false);
-        return;
+    // Verificar sessão atual no localStorage
+    const checkSession = () => {
+      const sessao = localStorage.getItem('tiss_sessao');
+      if (sessao) {
+        try {
+          const sessaoData = JSON.parse(sessao);
+          if (sessaoData.logado && sessaoData.user) {
+            setUser(sessaoData.user);
+          }
+        } catch (e) {
+          console.error('Erro ao parsear sessão:', e);
+        }
       }
-      
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('Erro ao obter sessão:', error);
-      }
-      
-      if (session?.user) {
-        setUser(session.user);
-        await buscarDadosUsuario(session.user.id);
-      }
-      
       setLoading(false);
     };
 
-    getSession();
-
-    // Escutar mudanças na autenticação
-    if (supabase) {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-        console.log('Auth state change:', _event, session?.user?.email);
-        
-        if (session?.user) {
-          setUser(session.user);
-          await buscarDadosUsuario(session.user.id);
-        } else {
-          setUser(null);
-          setUserData(null);
-        }
-        setLoading(false);
-      });
-
-      return () => subscription.unsubscribe();
-    }
-    
-    return () => {};
+    checkSession();
   }, []);
 
-  const buscarDadosUsuario = async (userId) => {
-    if (!supabase) return;
+  const signIn = async (email, senha) => {
+    if (!supabase) {
+      toast.error('Supabase não disponível');
+      return { success: false };
+    }
     
     try {
+      // Buscar usuário na tabela
       const { data, error } = await supabase
-        .from('usuarios')
+        .from(TABLES.USUARIOS)
         .select('*')
-        .eq('id', userId)
+        .eq('email', email)
+        .eq('ativo', true)
         .single();
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Erro ao buscar dados do usuário:', error);
+      if (error) {
+        console.error('Erro ao buscar usuário:', error);
+        toast.error('Usuário não encontrado');
+        return { success: false };
       }
 
-      setUserData(data);
+      // Verificar senha
+      if (data && data.senha === senha) {
+        // Atualizar último acesso
+        await supabase
+          .from(TABLES.USUARIOS)
+          .update({ ultimo_acesso: new Date().toISOString() })
+          .eq('id', data.id);
+
+        const userData = {
+          id: data.id,
+          email: data.email,
+          nome: data.nome,
+          perfil: data.perfil
+        };
+
+        // Salvar sessão no localStorage
+        const sessao = { user: userData, logado: true, data_hora: new Date().toISOString() };
+        localStorage.setItem('tiss_sessao', JSON.stringify(sessao));
+        
+        setUser(userData);
+        toast.success(`Bem-vindo, ${data.nome}!`);
+        return { success: true, user: userData };
+      } else {
+        toast.error('Senha incorreta!');
+        return { success: false, error: 'Senha incorreta' };
+      }
     } catch (error) {
-      console.error('Erro ao buscar dados do usuário:', error);
+      console.error('Erro ao fazer login:', error);
+      toast.error(error.message || 'Erro ao fazer login');
+      return { success: false, error: error.message };
     }
   };
 
   const signOut = async () => {
-    if (!supabase) return { success: false };
-    
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      localStorage.removeItem('tiss_sessao');
       setUser(null);
-      setUserData(null);
       toast.success('Logout realizado com sucesso');
       return { success: true };
     } catch (error) {
@@ -160,39 +163,11 @@ function AuthProvider({ children }) {
     }
   };
 
-  const signIn = async (email, password) => {
-    if (!supabase) {
-      toast.error('Supabase não disponível');
-      return { success: false };
-    }
-    
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
-      if (data.user) {
-        toast.success(`Bem-vindo, ${data.user.email}!`);
-        return { success: true, user: data.user };
-      }
-      
-      return { success: false, error: 'Erro ao fazer login' };
-    } catch (error) {
-      console.error('Erro ao fazer login:', error);
-      toast.error(error.message || 'Email ou senha incorretos!');
-      return { success: false, error: error.message };
-    }
-  };
-
   const value = {
     user,
-    userData,
     loading,
-    signOut,
     signIn,
+    signOut,
     isAuthenticated: !!user,
   };
 
@@ -351,7 +326,7 @@ function MainApp() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const { darkMode, toggleDarkMode } = useTheme();
-  const { user, userData, signOut, loading, isAuthenticated } = useAuth();
+  const { user, signOut, loading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   // Redirecionar se não estiver autenticado
@@ -370,6 +345,7 @@ function MainApp() {
 
   const handleLogout = async () => {
     await signOut();
+    navigate('/login');
   };
 
   const menuItems = [
@@ -402,8 +378,8 @@ function MainApp() {
   };
 
   const currentMenuItem = menuItems.find(i => i.id === activeTab);
-  const nomeUsuario = userData?.nome || user?.user_metadata?.nome || user?.email?.split('@')[0] || 'Usuário';
-  const perfilUsuario = userData?.role === 'admin' ? 'Administrador' : (userData?.role === 'usuario' ? 'Usuário' : 'Perfil');
+  const nomeUsuario = user?.nome || 'Usuário';
+  const perfilUsuario = user?.perfil || 'Perfil';
 
   if (loading) {
     return (
