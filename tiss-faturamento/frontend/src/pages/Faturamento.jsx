@@ -44,7 +44,7 @@ export default function Faturamento() {
   const [filtroEspecialidade, setFiltroEspecialidade] = useState('todos');
   const [filtroPrestador, setFiltroPrestador] = useState('todos');
   const [filtroTipoAtendimento, setFiltroTipoAtendimento] = useState('todos');
-  const [ordem, setOrdem] = useState('guia'); // guia, alfabetica, atendimento, valor
+  const [ordem, setOrdem] = useState('guia');
   const [ordemDirecao, setOrdemDirecao] = useState('asc');
   const [versaoTISS, setVersaoTISS] = useState('4.03.00');
   const [showLoteModal, setShowLoteModal] = useState(false);
@@ -190,7 +190,6 @@ export default function Faturamento() {
       filtrados = filtrados.filter(a => a.tipo_atendimento === filtroTipoAtendimento);
     }
     
-    // Aplicar ordenação
     filtrados.sort((a, b) => {
       let valorA, valorB;
       switch(ordem) {
@@ -532,6 +531,11 @@ export default function Faturamento() {
     toast.success('Lote excluído!');
   };
 
+  const visualizarLote = (lote) => {
+    setSelectedLote(lote);
+    setShowLoteModal(true);
+  };
+
   const pendentesPorConvenio = useMemo(() => {
     return pendentesFiltrados.reduce((acc, a) => {
       const convenioId = a.paciente_convenio_id;
@@ -777,7 +781,7 @@ export default function Faturamento() {
                       <tr className="border-t">
                         <td colSpan="8" className="px-4 py-3 text-right font-semibold">Total do Convênio:</td>
                         <td className="px-4 py-3 text-right font-bold text-blue-600">R$ {totalConvenio.toFixed(2)}</td>
-                        <td></td>
+                        <tr><td></td></tr>
                       </tr>
                     </tfoot>
                   </table>
@@ -830,12 +834,13 @@ export default function Faturamento() {
                       </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex gap-1 justify-center">
+                          <button onClick={() => visualizarLote(g)} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50" title="Visualizar"><EyeIcon className="w-4 h-4" /></button>
                           <button onClick={() => gerarXMLporLote(g)} className="p-1 rounded-lg text-green-600 hover:bg-green-50" title="Baixar XML"><DocumentArrowDownIcon className="w-4 h-4" /></button>
                           <button onClick={() => regenerarLote(g)} disabled={gerando} className="p-1 rounded-lg text-yellow-600 hover:bg-yellow-50" title="Regenerar"><ArrowPathIcon className="w-4 h-4" /></button>
                           {g.status !== 'cancelado' && <button onClick={() => cancelarLote(g)} className="p-1 rounded-lg text-red-600 hover:bg-red-50" title="Cancelar"><XCircleIcon className="w-4 h-4" /></button>}
                           <button onClick={() => excluirLote(g)} className="p-1 rounded-lg text-gray-600 hover:bg-gray-50" title="Excluir"><TrashIcon className="w-4 h-4" /></button>
                         </div>
-                       </td>
+                      </td>
                     </tr>
                   ))}
                   {guiasGeradas.length === 0 && (
@@ -846,276 +851,6 @@ export default function Faturamento() {
             </div>
           </div>
         </div>
-
-        {/* Modal de Prévia da Fatura */}
-        {showPreviaModal && previewData && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Prévia do Faturamento</h3>
-                  <button onClick={() => setShowPreviaModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                    <XMarkIcon className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-              
-              <div className="p-5 space-y-6">
-                {/* Resumo dos Selecionados */}
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4">
-                  <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-3">Resumo dos Agendamentos Selecionados</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                      <p className="text-xs text-gray-500">Total de Guias</p>
-                      <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{previewData.quantidade}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Valor Total</p>
-                      <p className="text-2xl font-bold text-green-600 dark:text-green-400">R$ {previewData.valorTotal.toFixed(2)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Convênios</p>
-                      <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{Object.keys(previewData.conveniosAgrupados).length}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Limite por Lote</p>
-                      <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{MAX_GUIAS_POR_LOTE}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Detalhes por Convênio */}
-                {Object.entries(previewData.conveniosAgrupados).map(([convenioId, data]) => (
-                  <div key={convenioId} className="border rounded-xl overflow-hidden">
-                    <div className="bg-gray-50 dark:bg-gray-700/50 p-3 border-b">
-                      <div className="flex justify-between items-center">
-                        <span className="font-semibold text-gray-800 dark:text-white">{data.convenio?.razao_social}</span>
-                        <span className="text-sm font-bold text-green-600 dark:text-green-400">R$ {data.valorTotal.toFixed(2)}</span>
-                      </div>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead className="bg-gray-50 dark:bg-gray-700/50">
-                          <tr>
-                            <th className="px-3 py-2 text-left text-xs">Nº Guia</th>
-                            <th className="px-3 py-2 text-left text-xs">Data</th>
-                            <th className="px-3 py-2 text-left text-xs">Paciente</th>
-                            <th className="px-3 py-2 text-left text-xs">Carteira</th>
-                            <th className="px-3 py-2 text-left text-xs">Guia Operadora</th>
-                            <th className="px-3 py-2 text-left text-xs">Senha</th>
-                            <th className="px-3 py-2 text-right text-xs">Valor</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {data.atendimentos.map(a => (
-                            <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                              <td className="px-3 py-2 text-xs font-mono text-blue-600 dark:text-blue-400">{a.numero_guia_prestador}</td>
-                              <td className="px-3 py-2 text-xs">{a.data_atendimento || (a.itens && a.itens[0]?.data_execucao) || '-'}</td>
-                              <td className="px-3 py-2 text-xs">{a.paciente_nome}</td>
-                              <td className="px-3 py-2 text-xs">{a.numero_carteira}</td>
-                              <td className="px-3 py-2 text-xs">{a.numero_guia_operadora || '-'}</td>
-                              <td className="px-3 py-2 text-xs">{a.senha_autorizacao || '-'}</td>
-                              <td className="px-3 py-2 text-xs text-right font-semibold">R$ {a.valor_total?.toFixed(2)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Dados da Nota Fiscal */}
-                <div className="border rounded-xl p-4">
-                  <h4 className="font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
-                    <BanknotesIcon className="w-5 h-5" /> Dados da Nota Fiscal / Faturamento
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Competência</label>
-                      <input 
-                        type="month" 
-                        value={dadosFatura.competencia} 
-                        onChange={e => setDadosFatura({...dadosFatura, competencia: e.target.value})} 
-                        className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data de Fechamento</label>
-                      <input 
-                        type="date" 
-                        value={dadosFatura.dataFechamento} 
-                        onChange={e => setDadosFatura({...dadosFatura, dataFechamento: e.target.value})} 
-                        className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Previsão de Pagamento</label>
-                      <input 
-                        type="date" 
-                        value={dadosFatura.dataPrevisaoPagamento} 
-                        onChange={e => setDadosFatura({...dadosFatura, dataPrevisaoPagamento: e.target.value})} 
-                        className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4">
-                    <h5 className="font-medium text-sm text-gray-700 dark:text-gray-300 mb-2">Impostos e Deduções</h5>
-                    <div className="grid grid-cols-2 md:grid-cols-8 gap-2">
-                      <div>
-                        <label className="block text-xs text-gray-500">Base Cálculo</label>
-                        <input 
-                          type="number" 
-                          step="0.01" 
-                          value={dadosFatura.baseCalculo} 
-                          disabled
-                          className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500">ISS (%)</label>
-                        <input 
-                          type="number" 
-                          step="0.01" 
-                          value={dadosFatura.aliquotaISS} 
-                          onChange={(e) => atualizarAliquota('aliquotaISS', e.target.value)} 
-                          className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500">IBS (%)</label>
-                        <input 
-                          type="number" 
-                          step="0.01" 
-                          value={dadosFatura.aliquotaIBS} 
-                          onChange={(e) => atualizarAliquota('aliquotaIBS', e.target.value)} 
-                          className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500">CBS (%)</label>
-                        <input 
-                          type="number" 
-                          step="0.01" 
-                          value={dadosFatura.aliquotaCBS} 
-                          onChange={(e) => atualizarAliquota('aliquotaCBS', e.target.value)} 
-                          className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500">IR (%)</label>
-                        <input 
-                          type="number" 
-                          step="0.01" 
-                          value={dadosFatura.aliquotaIR} 
-                          onChange={(e) => atualizarAliquota('aliquotaIR', e.target.value)} 
-                          className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500">CSLL (%)</label>
-                        <input 
-                          type="number" 
-                          step="0.01" 
-                          value={dadosFatura.aliquotaCSLL} 
-                          onChange={(e) => atualizarAliquota('aliquotaCSLL', e.target.value)} 
-                          className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500">PIS (%)</label>
-                        <input 
-                          type="number" 
-                          step="0.01" 
-                          value={dadosFatura.aliquotaPIS} 
-                          onChange={(e) => atualizarAliquota('aliquotaPIS', e.target.value)} 
-                          className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500">COFINS (%)</label>
-                        <input 
-                          type="number" 
-                          step="0.01" 
-                          value={dadosFatura.aliquotaCOFINS} 
-                          onChange={(e) => atualizarAliquota('aliquotaCOFINS', e.target.value)} 
-                          className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
-                      <div>
-                        <label className="block text-xs text-gray-500">Valor ISS</label>
-                        <input type="text" value={dadosFatura.valorISS.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500">Valor IBS</label>
-                        <input type="text" value={dadosFatura.valorIBS.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500">Valor CBS</label>
-                        <input type="text" value={dadosFatura.valorCBS.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500">Valor IR</label>
-                        <input type="text" value={dadosFatura.valorIR.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500">Valor CSLL</label>
-                        <input type="text" value={dadosFatura.valorCSLL.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500">Valor PIS</label>
-                        <input type="text" value={dadosFatura.valorPIS.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500">Valor COFINS</label>
-                        <input type="text" value={dadosFatura.valorCOFINS.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500">Valor Líquido</label>
-                        <input type="text" value={dadosFatura.valorLiquido.toFixed(2)} disabled className="w-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg px-2 py-1 text-sm font-bold text-green-700 dark:text-green-400" />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-3">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações</label>
-                    <textarea 
-                      rows="2" 
-                      value={dadosFatura.observacoes} 
-                      onChange={e => setDadosFatura({...dadosFatura, observacoes: e.target.value})} 
-                      className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                      placeholder="Informações adicionais da fatura..."
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="p-5 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
-                <button 
-                  onClick={() => setShowPreviaModal(false)} 
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  onClick={confirmarGeracaoLote} 
-                  disabled={gerando} 
-                  className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-medium shadow-md flex items-center gap-2 hover:from-green-600 hover:to-emerald-700 transition-all duration-200 disabled:opacity-50"
-                >
-                  {gerando ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  ) : (
-                    <PaperAirplaneIcon className="w-4 h-4" />
-                  )}
-                  Gerar Lote(s) e XML
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Modal de Visualização do XML */}
         {showLoteModal && selectedLote && (
@@ -1175,7 +910,7 @@ export default function Faturamento() {
             </div>
           </div>
         )}
-        
+
         {/* Instruções */}
         <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200">
           <h4 className="text-sm font-semibold text-blue-800 mb-2">📋 Informações</h4>
@@ -1185,6 +920,7 @@ export default function Faturamento() {
             <li>• Use os botões de bloqueio para excluir guias do faturamento sem perder os dados</li>
             <li>• Cancelar um lote reabre as guias para novo faturamento</li>
             <li>• Filtros avançados permitem ordenar por guia, nome, data ou valor</li>
+            <li>• IBS e CBS são os novos impostos (Imposto sobre Bens e Serviços e Contribuição sobre Bens e Serviços)</li>
           </ul>
         </div>
       </div>
