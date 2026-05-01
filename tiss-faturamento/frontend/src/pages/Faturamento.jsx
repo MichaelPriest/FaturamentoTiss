@@ -42,6 +42,10 @@ export default function Faturamento() {
     baseCalculo: 0,
     aliquotaISS: 5,
     valorISS: 0,
+    aliquotaIBS: 0,
+    valorIBS: 0,
+    aliquotaCBS: 0,
+    valorCBS: 0,
     aliquotaIR: 1.5,
     valorIR: 0,
     aliquotaCSLL: 1,
@@ -109,7 +113,6 @@ export default function Faturamento() {
 
   const salvarLote = async (lote) => {
     try {
-      // Remover campos undefined
       Object.keys(lote).forEach(key => {
         if (lote[key] === undefined) {
           delete lote[key];
@@ -161,7 +164,6 @@ export default function Faturamento() {
     }
   };
 
-  // Gerar número do lote (12 dígitos)
   const gerarNumeroLote = () => {
     const data = new Date();
     const ano = data.getFullYear().toString().slice(-2);
@@ -171,17 +173,18 @@ export default function Faturamento() {
     return `${ano}${mes}${dia}${seq}`;
   };
 
-  // Calcular impostos
-  const calcularImpostos = (baseCalculo, aliquotaISS, aliquotaIR, aliquotaCSLL, aliquotaPIS, aliquotaCOFINS) => {
+  const calcularImpostos = (baseCalculo, aliquotaISS, aliquotaIBS, aliquotaCBS, aliquotaIR, aliquotaCSLL, aliquotaPIS, aliquotaCOFINS) => {
     const iss = (baseCalculo * aliquotaISS) / 100;
+    const ibs = (baseCalculo * aliquotaIBS) / 100;
+    const cbs = (baseCalculo * aliquotaCBS) / 100;
     const ir = (baseCalculo * aliquotaIR) / 100;
     const csll = (baseCalculo * aliquotaCSLL) / 100;
     const pis = (baseCalculo * aliquotaPIS) / 100;
     const cofins = (baseCalculo * aliquotaCOFINS) / 100;
-    const totalImpostos = iss + ir + csll + pis + cofins;
+    const totalImpostos = iss + ibs + cbs + ir + csll + pis + cofins;
     const valorLiquido = baseCalculo - totalImpostos;
 
-    return { iss, ir, csll, pis, cofins, totalImpostos, valorLiquido };
+    return { iss, ibs, cbs, ir, csll, pis, cofins, totalImpostos, valorLiquido };
   };
 
   const pendentes = atendimentos.filter(a => a.status === 'pendente');
@@ -230,6 +233,8 @@ export default function Faturamento() {
     const impostos = calcularImpostos(
       valorTotal,
       dadosFatura.aliquotaISS,
+      dadosFatura.aliquotaIBS,
+      dadosFatura.aliquotaCBS,
       dadosFatura.aliquotaIR,
       dadosFatura.aliquotaCSLL,
       dadosFatura.aliquotaPIS,
@@ -239,6 +244,8 @@ export default function Faturamento() {
       ...prev,
       baseCalculo: valorTotal,
       valorISS: impostos.iss,
+      valorIBS: impostos.ibs,
+      valorCBS: impostos.cbs,
       valorIR: impostos.ir,
       valorCSLL: impostos.csll,
       valorPIS: impostos.pis,
@@ -246,6 +253,35 @@ export default function Faturamento() {
       valorLiquido: impostos.valorLiquido
     }));
     setShowPreviaModal(true);
+  };
+
+  const atualizarAliquota = (campo, valor) => {
+    const novaAliquota = parseFloat(valor) || 0;
+    setDadosFatura(prev => ({ ...prev, [campo]: novaAliquota }));
+    
+    const impostos = calcularImpostos(
+      dadosFatura.baseCalculo,
+      campo === 'aliquotaISS' ? novaAliquota : dadosFatura.aliquotaISS,
+      campo === 'aliquotaIBS' ? novaAliquota : dadosFatura.aliquotaIBS,
+      campo === 'aliquotaCBS' ? novaAliquota : dadosFatura.aliquotaCBS,
+      campo === 'aliquotaIR' ? novaAliquota : dadosFatura.aliquotaIR,
+      campo === 'aliquotaCSLL' ? novaAliquota : dadosFatura.aliquotaCSLL,
+      campo === 'aliquotaPIS' ? novaAliquota : dadosFatura.aliquotaPIS,
+      campo === 'aliquotaCOFINS' ? novaAliquota : dadosFatura.aliquotaCOFINS
+    );
+    
+    setDadosFatura(prev => ({
+      ...prev,
+      [campo]: novaAliquota,
+      valorISS: impostos.iss,
+      valorIBS: impostos.ibs,
+      valorCBS: impostos.cbs,
+      valorIR: impostos.ir,
+      valorCSLL: impostos.csll,
+      valorPIS: impostos.pis,
+      valorCOFINS: impostos.cofins,
+      valorLiquido: impostos.valorLiquido
+    }));
   };
 
   const confirmarGeracaoLote = async () => {
@@ -294,6 +330,10 @@ export default function Faturamento() {
           base_calculo: dadosFatura.baseCalculo,
           aliquota_iss: dadosFatura.aliquotaISS,
           valor_iss: dadosFatura.valorISS,
+          aliquota_ibs: dadosFatura.aliquotaIBS,
+          valor_ibs: dadosFatura.valorIBS,
+          aliquota_cbs: dadosFatura.aliquotaCBS,
+          valor_cbs: dadosFatura.valorCBS,
           aliquota_ir: dadosFatura.aliquotaIR,
           valor_ir: dadosFatura.valorIR,
           aliquota_csll: dadosFatura.aliquotaCSLL,
@@ -383,9 +423,7 @@ export default function Faturamento() {
   };
 
   const regenerarLote = async (lote) => {
-    if (!confirm(`Deseja regenerar o lote ${lote.numero_lote}? Isso irá recriar o XML.`)) {
-      return;
-    }
+    if (!confirm(`Deseja regenerar o lote ${lote.numero_lote}?`)) return;
 
     setGerando(true);
     
@@ -425,16 +463,10 @@ export default function Faturamento() {
     const nomeArquivo = `${lote.numero_lote}_${convenio.registro_ans}_${format(new Date(), 'yyyyMMdd_HHmmss')}.xml`;
 
     const novoLote = {
-      convenio_id: lote.convenio_id,
-      convenio_nome: lote.convenio_nome,
-      numero_lote: lote.numero_lote,
+      ...lote,
+      id: undefined,
       data_envio: format(new Date(), 'yyyy-MM-dd'),
-      quantidade_guias: atendimentosOriginais.length,
-      guias_ids: atendimentosOriginais.map(a => a.id),
       xml_content: xml,
-      status: 'faturado',
-      versao: versaoTISS,
-      dados_fatura: lote.dados_fatura,
       regenerado: true,
       regenerado_de: lote.numero_lote,
       created_at: new Date().toISOString(),
@@ -457,9 +489,7 @@ export default function Faturamento() {
   };
 
   const excluirLote = async (lote) => {
-    if (!confirm(`Tem certeza que deseja excluir o lote ${lote.numero_lote}?`)) {
-      return;
-    }
+    if (!confirm(`Excluir o lote ${lote.numero_lote}?`)) return;
 
     try {
       const { error } = await supabase
@@ -470,7 +500,7 @@ export default function Faturamento() {
       if (error) throw error;
 
       await carregarLotes();
-      toast.success('Lote excluído com sucesso!');
+      toast.success('Lote excluído!');
     } catch (error) {
       console.error('Erro ao excluir lote:', error);
       toast.error('Erro ao excluir lote');
@@ -538,8 +568,8 @@ export default function Faturamento() {
 
         {/* Cards de resumo */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+            <div className="flex justify-between items-center">
               <div>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Total Pendentes</p>
                 <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{totalPendentes}</p>
@@ -547,8 +577,8 @@ export default function Faturamento() {
               <ClockIcon className="w-8 h-8 text-yellow-500 opacity-50" />
             </div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+            <div className="flex justify-between items-center">
               <div>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Convênios com Pendência</p>
                 <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{Object.keys(pendentesPorConvenio).length}</p>
@@ -556,8 +586,8 @@ export default function Faturamento() {
               <BuildingOfficeIcon className="w-8 h-8 text-blue-500 opacity-50" />
             </div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+            <div className="flex justify-between items-center">
               <div>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Lotes Gerados</p>
                 <p className="text-2xl font-bold text-green-600 dark:text-green-400">{guiasGeradas.length}</p>
@@ -565,8 +595,8 @@ export default function Faturamento() {
               <DocumentPlusIcon className="w-8 h-8 text-green-500 opacity-50" />
             </div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+            <div className="flex justify-between items-center">
               <div>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Valor Pendente</p>
                 <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">R$ {valorTotalPendente.toFixed(2)}</p>
@@ -636,13 +666,13 @@ export default function Faturamento() {
                       <thead className="bg-gray-50 dark:bg-gray-700/50">
                         <tr>
                           <th className="px-4 py-3 text-left w-8"></th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nº Guia</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Data Atendimento</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Paciente</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Carteira</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Guia Operadora</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Senha</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Valor Total</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Nº Guia</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data Atendimento</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Paciente</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Carteira</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Guia Operadora</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Senha</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Total</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -711,13 +741,13 @@ export default function Faturamento() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 dark:bg-gray-700/50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Convênio</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nº Lote</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Data</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Guias</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Valor</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Versão</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-32">Ações</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Convênio</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Nº Lote</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Guias</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Valor</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Versão</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 w-32">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -731,7 +761,7 @@ export default function Faturamento() {
                       <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{g.versao || '4.03.00'}</td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex gap-2 justify-center">
-                          <button onClick={() => visualizarLote(g)} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Visualizar XML">
+                          <button onClick={() => visualizarLote(g)} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors" title="Visualizar XML">
                             <EyeIcon className="w-4 h-4" />
                           </button>
                           <button onClick={() => { 
@@ -743,17 +773,17 @@ export default function Faturamento() {
                             a.click(); 
                             URL.revokeObjectURL(url); 
                             toast.success('XML baixado!'); 
-                          }} className="p-1 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" title="Baixar XML">
+                          }} className="p-1 rounded-lg text-green-600 hover:bg-green-50 transition-colors" title="Baixar XML">
                             <DocumentArrowDownIcon className="w-4 h-4" />
                           </button>
-                          <button onClick={() => regenerarLote(g)} disabled={gerando} className="p-1 rounded-lg text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors" title="Regenerar Lote">
+                          <button onClick={() => regenerarLote(g)} disabled={gerando} className="p-1 rounded-lg text-yellow-600 hover:bg-yellow-50 transition-colors" title="Regenerar Lote">
                             <ArrowPathIcon className="w-4 h-4" />
                           </button>
-                          <button onClick={() => excluirLote(g)} className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Excluir Lote">
+                          <button onClick={() => excluirLote(g)} className="p-1 rounded-lg text-red-600 hover:bg-red-50 transition-colors" title="Excluir Lote">
                             <TrashIcon className="w-4 h-4" />
                           </button>
                         </div>
-                      <td>
+                      </td>
                     </tr>
                   ))}
                   {guiasGeradas.length === 0 && (
@@ -884,35 +914,15 @@ export default function Faturamento() {
                   
                   <div className="mt-4">
                     <h5 className="font-medium text-sm text-gray-700 dark:text-gray-300 mb-2">Impostos e Deduções</h5>
-                    <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-8 gap-2">
                       <div>
-                        <label className="block text-xs text-gray-500">Base de Cálculo</label>
+                        <label className="block text-xs text-gray-500">Base Cálculo</label>
                         <input 
                           type="number" 
                           step="0.01" 
                           value={dadosFatura.baseCalculo} 
-                          onChange={(e) => {
-                            const valor = parseFloat(e.target.value) || 0;
-                            const impostos = calcularImpostos(
-                              valor,
-                              dadosFatura.aliquotaISS,
-                              dadosFatura.aliquotaIR,
-                              dadosFatura.aliquotaCSLL,
-                              dadosFatura.aliquotaPIS,
-                              dadosFatura.aliquotaCOFINS
-                            );
-                            setDadosFatura(prev => ({
-                              ...prev,
-                              baseCalculo: valor,
-                              valorISS: impostos.iss,
-                              valorIR: impostos.ir,
-                              valorCSLL: impostos.csll,
-                              valorPIS: impostos.pis,
-                              valorCOFINS: impostos.cofins,
-                              valorLiquido: impostos.valorLiquido
-                            }));
-                          }} 
-                          className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                          disabled
+                          className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm"
                         />
                       </div>
                       <div>
@@ -921,28 +931,27 @@ export default function Faturamento() {
                           type="number" 
                           step="0.01" 
                           value={dadosFatura.aliquotaISS} 
-                          onChange={(e) => {
-                            const valor = parseFloat(e.target.value) || 0;
-                            setDadosFatura(prev => ({...prev, aliquotaISS: valor}));
-                            const impostos = calcularImpostos(
-                              dadosFatura.baseCalculo,
-                              valor,
-                              dadosFatura.aliquotaIR,
-                              dadosFatura.aliquotaCSLL,
-                              dadosFatura.aliquotaPIS,
-                              dadosFatura.aliquotaCOFINS
-                            );
-                            setDadosFatura(prev => ({
-                              ...prev,
-                              aliquotaISS: valor,
-                              valorISS: impostos.iss,
-                              valorIR: impostos.ir,
-                              valorCSLL: impostos.csll,
-                              valorPIS: impostos.pis,
-                              valorCOFINS: impostos.cofins,
-                              valorLiquido: impostos.valorLiquido
-                            }));
-                          }} 
+                          onChange={(e) => atualizarAliquota('aliquotaISS', e.target.value)} 
+                          className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500">IBS (%)</label>
+                        <input 
+                          type="number" 
+                          step="0.01" 
+                          value={dadosFatura.aliquotaIBS} 
+                          onChange={(e) => atualizarAliquota('aliquotaIBS', e.target.value)} 
+                          className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500">CBS (%)</label>
+                        <input 
+                          type="number" 
+                          step="0.01" 
+                          value={dadosFatura.aliquotaCBS} 
+                          onChange={(e) => atualizarAliquota('aliquotaCBS', e.target.value)} 
                           className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
                         />
                       </div>
@@ -952,28 +961,7 @@ export default function Faturamento() {
                           type="number" 
                           step="0.01" 
                           value={dadosFatura.aliquotaIR} 
-                          onChange={(e) => {
-                            const valor = parseFloat(e.target.value) || 0;
-                            setDadosFatura(prev => ({...prev, aliquotaIR: valor}));
-                            const impostos = calcularImpostos(
-                              dadosFatura.baseCalculo,
-                              dadosFatura.aliquotaISS,
-                              valor,
-                              dadosFatura.aliquotaCSLL,
-                              dadosFatura.aliquotaPIS,
-                              dadosFatura.aliquotaCOFINS
-                            );
-                            setDadosFatura(prev => ({
-                              ...prev,
-                              aliquotaIR: valor,
-                              valorISS: impostos.iss,
-                              valorIR: impostos.ir,
-                              valorCSLL: impostos.csll,
-                              valorPIS: impostos.pis,
-                              valorCOFINS: impostos.cofins,
-                              valorLiquido: impostos.valorLiquido
-                            }));
-                          }} 
+                          onChange={(e) => atualizarAliquota('aliquotaIR', e.target.value)} 
                           className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
                         />
                       </div>
@@ -983,28 +971,7 @@ export default function Faturamento() {
                           type="number" 
                           step="0.01" 
                           value={dadosFatura.aliquotaCSLL} 
-                          onChange={(e) => {
-                            const valor = parseFloat(e.target.value) || 0;
-                            setDadosFatura(prev => ({...prev, aliquotaCSLL: valor}));
-                            const impostos = calcularImpostos(
-                              dadosFatura.baseCalculo,
-                              dadosFatura.aliquotaISS,
-                              dadosFatura.aliquotaIR,
-                              valor,
-                              dadosFatura.aliquotaPIS,
-                              dadosFatura.aliquotaCOFINS
-                            );
-                            setDadosFatura(prev => ({
-                              ...prev,
-                              aliquotaCSLL: valor,
-                              valorISS: impostos.iss,
-                              valorIR: impostos.ir,
-                              valorCSLL: impostos.csll,
-                              valorPIS: impostos.pis,
-                              valorCOFINS: impostos.cofins,
-                              valorLiquido: impostos.valorLiquido
-                            }));
-                          }} 
+                          onChange={(e) => atualizarAliquota('aliquotaCSLL', e.target.value)} 
                           className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
                         />
                       </div>
@@ -1014,28 +981,7 @@ export default function Faturamento() {
                           type="number" 
                           step="0.01" 
                           value={dadosFatura.aliquotaPIS} 
-                          onChange={(e) => {
-                            const valor = parseFloat(e.target.value) || 0;
-                            setDadosFatura(prev => ({...prev, aliquotaPIS: valor}));
-                            const impostos = calcularImpostos(
-                              dadosFatura.baseCalculo,
-                              dadosFatura.aliquotaISS,
-                              dadosFatura.aliquotaIR,
-                              dadosFatura.aliquotaCSLL,
-                              valor,
-                              dadosFatura.aliquotaCOFINS
-                            );
-                            setDadosFatura(prev => ({
-                              ...prev,
-                              aliquotaPIS: valor,
-                              valorISS: impostos.iss,
-                              valorIR: impostos.ir,
-                              valorCSLL: impostos.csll,
-                              valorPIS: impostos.pis,
-                              valorCOFINS: impostos.cofins,
-                              valorLiquido: impostos.valorLiquido
-                            }));
-                          }} 
+                          onChange={(e) => atualizarAliquota('aliquotaPIS', e.target.value)} 
                           className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
                         />
                       </div>
@@ -1045,36 +991,24 @@ export default function Faturamento() {
                           type="number" 
                           step="0.01" 
                           value={dadosFatura.aliquotaCOFINS} 
-                          onChange={(e) => {
-                            const valor = parseFloat(e.target.value) || 0;
-                            setDadosFatura(prev => ({...prev, aliquotaCOFINS: valor}));
-                            const impostos = calcularImpostos(
-                              dadosFatura.baseCalculo,
-                              dadosFatura.aliquotaISS,
-                              dadosFatura.aliquotaIR,
-                              dadosFatura.aliquotaCSLL,
-                              dadosFatura.aliquotaPIS,
-                              valor
-                            );
-                            setDadosFatura(prev => ({
-                              ...prev,
-                              aliquotaCOFINS: valor,
-                              valorISS: impostos.iss,
-                              valorIR: impostos.ir,
-                              valorCSLL: impostos.csll,
-                              valorPIS: impostos.pis,
-                              valorCOFINS: impostos.cofins,
-                              valorLiquido: impostos.valorLiquido
-                            }));
-                          }} 
+                          onChange={(e) => atualizarAliquota('aliquotaCOFINS', e.target.value)} 
                           className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
                         />
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-2">
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
                       <div>
                         <label className="block text-xs text-gray-500">Valor ISS</label>
                         <input type="text" value={dadosFatura.valorISS.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500">Valor IBS</label>
+                        <input type="text" value={dadosFatura.valorIBS.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500">Valor CBS</label>
+                        <input type="text" value={dadosFatura.valorCBS.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm" />
                       </div>
                       <div>
                         <label className="block text-xs text-gray-500">Valor IR</label>
@@ -1098,6 +1032,7 @@ export default function Faturamento() {
                       </div>
                     </div>
                   </div>
+                  
                   <div className="mt-3">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações</label>
                     <textarea 
@@ -1200,11 +1135,11 @@ export default function Faturamento() {
           <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-1">
             <li>• Limite máximo de <strong>{MAX_GUIAS_POR_LOTE} guias por lote</strong></li>
             <li>• Selecione as guias desejadas e clique em "Faturar Selecionados"</li>
-            <li>• O número do lote será gerado automaticamente com 12 dígitos (formato: AAMMDD + 6 dígitos sequenciais)</li>
+            <li>• O número do lote será gerado automaticamente com 12 dígitos (formato: AAMMDD + 6 dígitos)</li>
             <li>• O XML será gerado conforme a versão TISS selecionada</li>
             <li>• Use o botão de regenerar para recriar um lote e corrigir erros</li>
             <li>• Os lotes ficam salvos no banco de dados para consulta futura</li>
-            <li>• Os dados da nota fiscal são incluídos no XML e salvos no histórico</li>
+            <li>• Configure as alíquotas de impostos (ISS, IBS, CBS, IR, CSLL, PIS, COFINS) conforme necessidade</li>
           </ul>
         </div>
       </div>
