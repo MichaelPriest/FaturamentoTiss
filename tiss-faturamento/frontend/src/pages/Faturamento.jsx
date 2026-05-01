@@ -22,7 +22,9 @@ import {
   BeakerIcon,
   CalendarIcon,
   XCircleIcon,
-  PrinterIcon
+  PrinterIcon,
+  ListBulletIcon,
+  ArchiveBoxIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -51,9 +53,10 @@ export default function Faturamento() {
   const [showLoteModal, setShowLoteModal] = useState(false);
   const [showPreviaModal, setShowPreviaModal] = useState(false);
   const [showFiltrosAvancados, setShowFiltrosAvancados] = useState(false);
+  const [showHistoricoLogs, setShowHistoricoLogs] = useState(false);
   const [selectedLote, setSelectedLote] = useState(null);
   const [sequencialGlobal, setSequencialGlobal] = useState(1);
-  const [gerandoRelacao, setGerandoRelacao] = useState(false);
+  const [logsLotes, setLogsLotes] = useState([]);
   
   const [dadosFatura, setDadosFatura] = useState({
     competencia: format(new Date(), 'yyyy-MM'),
@@ -84,6 +87,7 @@ export default function Faturamento() {
     carregarLotes();
     carregarSequencial();
     carregarBloqueados();
+    carregarLogs();
   }, []);
 
   const carregarSequencial = async () => {
@@ -130,6 +134,31 @@ export default function Faturamento() {
         descricao: 'Lista de guias bloqueadas para faturamento',
         updated_at: new Date().toISOString()
       });
+  };
+
+  const carregarLogs = async () => {
+    const { data } = await supabase
+      .from('logs_faturamento')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    setLogsLotes(data || []);
+  };
+
+  const registrarLog = async (acao, lote, detalhes) => {
+    await supabase
+      .from('logs_faturamento')
+      .insert({
+        acao,
+        numero_lote: lote.numero_lote,
+        convenio_nome: lote.convenio_nome,
+        quantidade_guias: lote.quantidade_guias,
+        valor_total: lote.dados_fatura?.base_calculo,
+        detalhes,
+        usuario: 'sistema',
+        created_at: new Date().toISOString()
+      });
+    await carregarLogs();
   };
 
   const carregarDados = async () => {
@@ -198,10 +227,13 @@ export default function Faturamento() {
     return { iss, ibs, cbs, ir, csll, pis, cofins, totalImpostos, valorLiquido };
   };
 
-  const pendentes = atendimentos.filter(a => a.status === 'pendente' && !bloqueados.includes(a.id));
+  const pendentes = atendimentos.filter(a => a.status === 'pendente');
+  
+  // Mostrar bloqueados também na listagem mas com destaque
+  const todosAtendimentos = [...pendentes, ...atendimentos.filter(a => bloqueados.includes(a.id) && a.status === 'pendente')];
   
   const pendentesFiltrados = useMemo(() => {
-    let filtrados = [...pendentes];
+    let filtrados = [...todosAtendimentos];
     
     if (filtroConvenio !== 'todos') {
       filtrados = filtrados.filter(a => a.paciente_convenio_id === parseInt(filtroConvenio));
@@ -247,23 +279,23 @@ export default function Faturamento() {
     });
     
     return filtrados;
-  }, [pendentes, filtroConvenio, filtroEspecialidade, filtroPrestador, filtroTipoAtendimento, ordem, ordemDirecao]);
+  }, [todosAtendimentos, filtroConvenio, filtroEspecialidade, filtroPrestador, filtroTipoAtendimento, ordem, ordemDirecao]);
 
   const toggleBloqueio = async (id) => {
     let novosBloqueados;
     if (bloqueados.includes(id)) {
       novosBloqueados = bloqueados.filter(b => b !== id);
-      toast.info('Guia desbloqueada');
+      toast.info('Guia desbloqueada e voltará a aparecer no faturamento');
     } else {
       novosBloqueados = [...bloqueados, id];
-      toast.info('Guia bloqueada');
+      toast.info('Guia bloqueada e não será faturada');
     }
     setBloqueados(novosBloqueados);
     await salvarBloqueados(novosBloqueados);
   };
 
   const selecionarTodos = () => {
-    const ids = pendentesFiltrados.map(a => a.id);
+    const ids = pendentesFiltrados.filter(a => !bloqueados.includes(a.id)).map(a => a.id);
     setSelecionados(ids);
   };
 
@@ -334,7 +366,16 @@ export default function Faturamento() {
         <h3 style="margin-top: 20px;">Convênio: ${data.convenio?.razao_social}</h3>
         <table>
           <thead>
-            <tr><th>Nº Guia</th><th>Data</th><th>Paciente</th><th>Carteira</th><th>Profissional</th><th>Valor</th></tr>
+            <tr>
+              <th>Nº Guia (Prestador)</th>
+              <th>Nº Guia (Operadora)</th>
+              <th>Senha</th>
+              <th>Data</th>
+              <th>Paciente</th>
+              <th>Carteira</th>
+              <th>Profissional</th>
+              <th>Valor</th>
+            </tr>
           </thead>
           <tbody>
       `;
@@ -342,6 +383,8 @@ export default function Faturamento() {
         conteudo += `
           <tr>
             <td>${a.numero_guia_prestador}</td>
+            <td>${a.numero_guia_operadora || '-'}</td>
+            <td>${a.senha_autorizacao || '-'}</td>
             <td>${a.data_atendimento || '-'}</td>
             <td>${a.paciente_nome}</td>
             <td>${a.numero_carteira}</td>
@@ -353,7 +396,7 @@ export default function Faturamento() {
       conteudo += `
           </tbody>
           <tfoot>
-            <tr><td colspan="5" class="total">Total do Convênio:</td><td style="text-align: right;">R$ ${data.valorTotal.toFixed(2)}</td></tr>
+            <tr><td colspan="7" class="total">Total do Convênio:</td><td style="text-align: right;">R$ ${data.valorTotal.toFixed(2)}</td></tr>
           </tfoot>
         </table>
       `;
@@ -377,7 +420,6 @@ export default function Faturamento() {
 
     setGerando(true);
     setShowPreviaModal(false);
-    setGerandoRelacao(true);
 
     try {
       const atendimentosPorConvenio = previewData.conveniosAgrupados;
@@ -451,7 +493,10 @@ export default function Faturamento() {
         await supabase.from('lotes_faturamento').insert([novoLote]);
         lotesGerados.push(novoLote);
         
-        // ATUALIZAR STATUS DOS ATENDIMENTOS PARA FATURADO (BLOQUEAR)
+        // Registrar log
+        await registrarLog('GERACAO_LOTE', novoLote, `Lote gerado com ${data.atendimentos.length} guias`);
+        
+        // ATUALIZAR STATUS DOS ATENDIMENTOS PARA FATURADO
         const ids = data.atendimentos.map(a => a.id);
         await supabase
           .from('atendimentos')
@@ -462,6 +507,11 @@ export default function Faturamento() {
             updated_at: new Date().toISOString() 
           })
           .in('id', ids);
+        
+        // Remover dos bloqueados se estiver
+        const novosBloqueados = bloqueados.filter(id => !ids.includes(id));
+        setBloqueados(novosBloqueados);
+        await salvarBloqueados(novosBloqueados);
         
         // Baixar XML
         const blob = new Blob([xml], { type: 'application/xml' });
@@ -480,12 +530,10 @@ export default function Faturamento() {
       await carregarLotes();
       await carregarDados();
       
-      // Limpar seleções
       setSelecionados([]);
       
       toast.success(`${lotesGerados.length} lote(s) gerado(s) com sucesso!`);
       
-      // Oferecer para imprimir a relação
       if (confirm('Deseja imprimir a relação das guias faturadas?')) {
         setTimeout(() => imprimirRelacao(), 500);
       }
@@ -494,12 +542,91 @@ export default function Faturamento() {
       toast.error('Erro ao gerar lote');
     } finally {
       setGerando(false);
-      setGerandoRelacao(false);
+    }
+  };
+
+  const gerarNovamenteLote = async (lote) => {
+    if (!confirm(`Gerar novamente o lote ${lote.numero_lote}? Isso irá criar um novo lote com as mesmas guias.`)) return;
+    
+    setGerando(true);
+    
+    try {
+      // Buscar os atendimentos originais
+      const { data: atendimentosOriginais } = await supabase
+        .from('atendimentos')
+        .select('*')
+        .in('id', lote.guias_ids || []);
+
+      const convenio = convenios.find(c => c.id === lote.convenio_id);
+      if (!convenio) {
+        toast.error('Convênio não encontrado');
+        setGerando(false);
+        return;
+      }
+
+      const seq = sequencialGlobal;
+      const numeroLote = gerarNumeroLote();
+      
+      const guias = atendimentosOriginais.map(atendimento => ({
+        ...converterAtendimentoParaTISS(atendimento, convenio),
+        codigoPrestadorExecutante: convenio.codigo_prestador,
+        versao: versaoTISS
+      }));
+
+      const xml = gerarXMLTISS({
+        versao: versaoTISS,
+        sequencialTransacao: seq.toString().padStart(4, '0'),
+        codigoPrestadorNaOperadora: convenio.codigo_prestador,
+        registroANS: convenio.registro_ans,
+        numeroLote: numeroLote,
+        guias: guias,
+        convenio: convenio
+      });
+
+      const nomeArquivo = `${numeroLote}_${convenio.registro_ans}_${format(new Date(), 'yyyyMMdd_HHmmss')}.xml`;
+
+      const novoLote = {
+        convenio_id: lote.convenio_id,
+        convenio_nome: lote.convenio_nome,
+        numero_lote: numeroLote,
+        data_envio: format(new Date(), 'yyyy-MM-dd'),
+        quantidade_guias: atendimentosOriginais.length,
+        guias_ids: atendimentosOriginais.map(a => a.id),
+        xml_content: xml,
+        status: 'faturado',
+        versao: versaoTISS,
+        dados_fatura: lote.dados_fatura,
+        regenerado: true,
+        regenerado_de: lote.numero_lote,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      await supabase.from('lotes_faturamento').insert([novoLote]);
+      await registrarLog('REGENERACAO_LOTE', novoLote, `Lote regenerado a partir do lote ${lote.numero_lote}`);
+      await atualizarSequencial(seq + 1);
+      setSequencialGlobal(seq + 1);
+      await carregarLotes();
+
+      const blob = new Blob([xml], { type: 'application/xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = nomeArquivo;
+      a.click();
+      URL.revokeObjectURL(url);
+      
+      toast.success(`Lote ${numeroLote} gerado com sucesso!`);
+    } catch (error) {
+      console.error('Erro:', error);
+      toast.error('Erro ao gerar lote');
+    } finally {
+      setGerando(false);
     }
   };
 
   const cancelarLote = async (lote) => {
-    if (!confirm(`Cancelar o lote ${lote.numero_lote}? As guias serão reabertas e poderão ser editadas novamente.`)) return;
+    if (!confirm(`Cancelar o lote ${lote.numero_lote}? As guias serão reabertas e o lote será movido para o histórico de logs.`)) return;
     
     setGerando(true);
     
@@ -515,10 +642,13 @@ export default function Faturamento() {
         })
         .in('id', lote.guias_ids || []);
       
-      // Marcar lote como cancelado
+      // Registrar log antes de excluir
+      await registrarLog('CANCELAMENTO_LOTE', lote, `Lote cancelado pelo usuário. Guias reabertas.`);
+      
+      // Excluir o lote (não manter no histórico principal)
       await supabase
         .from('lotes_faturamento')
-        .update({ status: 'cancelado', updated_at: new Date().toISOString() })
+        .delete()
         .eq('id', lote.id);
       
       await carregarLotes();
@@ -584,6 +714,7 @@ export default function Faturamento() {
       };
       
       await supabase.from('lotes_faturamento').insert([novoLote]);
+      await registrarLog('REGENERACAO_XML', novoLote, `XML regenerado para o lote ${lote.numero_lote}`);
       await carregarLotes();
 
       const blob = new Blob([xml], { type: 'application/xml' });
@@ -594,7 +725,7 @@ export default function Faturamento() {
       a.click();
       URL.revokeObjectURL(url);
       
-      toast.success(`Lote ${lote.numero_lote} regenerado!`);
+      toast.success(`XML do lote ${lote.numero_lote} regenerado!`);
     } catch (error) {
       console.error('Erro:', error);
       toast.error('Erro ao regenerar lote');
@@ -614,13 +745,6 @@ export default function Faturamento() {
     toast.success('XML baixado!');
   };
 
-  const excluirLote = async (lote) => {
-    if (!confirm(`Excluir o lote ${lote.numero_lote}?`)) return;
-    await supabase.from('lotes_faturamento').delete().eq('id', lote.id);
-    await carregarLotes();
-    toast.success('Lote excluído!');
-  };
-
   const visualizarLote = (lote) => {
     setSelectedLote(lote);
     setShowLoteModal(true);
@@ -636,8 +760,8 @@ export default function Faturamento() {
   }, [pendentesFiltrados]);
 
   const totalSelecionados = selecionados.length;
-  const totalPendentes = pendentesFiltrados.length;
-  const valorTotalPendente = pendentesFiltrados.reduce((sum, a) => sum + (a.valor_total || 0), 0);
+  const totalPendentes = pendentes.length;
+  const valorTotalPendente = pendentes.reduce((sum, a) => sum + (a.valor_total || 0), 0);
 
   const atualizarAliquota = (campo, valor) => {
     const novaAliquota = parseFloat(valor) || 0;
@@ -697,6 +821,13 @@ export default function Faturamento() {
               <option value="4.02.00">TISS 4.02.00</option>
               <option value="4.03.00">TISS 4.03.00</option>
             </select>
+            <button 
+              onClick={() => setShowHistoricoLogs(!showHistoricoLogs)} 
+              className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-lg text-sm flex items-center gap-1 hover:bg-gray-300 dark:hover:bg-gray-600 transition-all"
+            >
+              <ArchiveBoxIcon className="w-4 h-4" />
+              {showHistoricoLogs ? 'Ocultar Logs' : 'Ver Logs'}
+            </button>
             {totalSelecionados > 0 && (
               <button 
                 onClick={() => setShowPreviaModal(true)} 
@@ -734,9 +865,9 @@ export default function Faturamento() {
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Bloqueados</p>
-                <p className="text-2xl font-bold text-red-600 dark:text-red-400">{bloqueados.length}</p>
+                <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{bloqueados.length}</p>
               </div>
-              <LockClosedIcon className="w-8 h-8 text-red-500 opacity-50" />
+              <LockClosedIcon className="w-8 h-8 text-orange-500 opacity-50" />
             </div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl border p-4 hover:shadow-md transition-shadow">
@@ -752,18 +883,18 @@ export default function Faturamento() {
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Próx. Sequencial</p>
-                <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{sequencialGlobal}</p>
+                <p className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">{sequencialGlobal}</p>
               </div>
-              <ArrowPathIcon className="w-8 h-8 text-orange-500 opacity-50" />
+              <ArrowPathIcon className="w-8 h-8 text-cyan-500 opacity-50" />
             </div>
           </div>
         </div>
 
         {/* Botões de Ação Rápida */}
         <div className="flex flex-wrap gap-2 mb-4">
-          <button onClick={selecionarTodos} className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-sm hover:from-blue-600 hover:to-blue-700 transition-all">Selecionar Todos</button>
+          <button onClick={selecionarTodos} className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-sm hover:from-blue-600 hover:to-blue-700 transition-all">Selecionar Todos (Não Bloqueados)</button>
           <button onClick={desmarcarTodos} className="px-3 py-1.5 bg-gray-500 text-white rounded-lg text-sm hover:bg-gray-600 transition-all">Desmarcar Todos</button>
-          <button onClick={selecionarBloqueados} className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-all">Selecionar Bloqueados</button>
+          <button onClick={selecionarBloqueados} className="px-3 py-1.5 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600 transition-all">Selecionar Bloqueados</button>
           <button onClick={() => setShowFiltrosAvancados(!showFiltrosAvancados)} className="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm flex items-center gap-1 hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">
             <FunnelIcon className="w-4 h-4" /> Filtros Avançados
           </button>
@@ -842,9 +973,9 @@ export default function Faturamento() {
                     <thead className="bg-gray-50 dark:bg-gray-700/50">
                       <tr>
                         <th className="px-4 py-3 text-left w-8">
-                          <input type="checkbox" checked={selecionadosCount === convenioAtendimentos.length} onChange={() => {
-                            const ids = convenioAtendimentos.map(a => a.id);
-                            if (selecionadosCount === convenioAtendimentos.length) {
+                          <input type="checkbox" checked={selecionadosCount === convenioAtendimentos.filter(a => !bloqueados.includes(a.id)).length} onChange={() => {
+                            const ids = convenioAtendimentos.filter(a => !bloqueados.includes(a.id)).map(a => a.id);
+                            if (selecionadosCount === ids.length) {
                               setSelecionados(selecionados.filter(id => !ids.includes(id)));
                             } else {
                               setSelecionados([...selecionados, ...ids]);
@@ -852,19 +983,19 @@ export default function Faturamento() {
                           }} className="rounded w-4 h-4 text-blue-600 focus:ring-blue-500" />
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Nº Guia</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Nº Guia Operadora</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Senha</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Paciente</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Carteira</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Profissional</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Guia Operadora</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Senha</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor</th>
                         <th className="px-4 py-3 text-center w-24">Ações</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                       {convenioAtendimentos.map((a) => (
-                        <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                        <tr key={a.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${bloqueados.includes(a.id) ? 'bg-orange-50 dark:bg-orange-900/20' : ''}`}>
                           <td className="px-4 py-3">
                             <input type="checkbox" checked={selecionados.includes(a.id)} onChange={() => {
                               if (selecionados.includes(a.id)) {
@@ -876,19 +1007,19 @@ export default function Faturamento() {
                                   toast.warning(`Limite de ${MAX_GUIAS_POR_LOTE} guias`);
                                 }
                               }
-                            }} className="rounded w-4 h-4 text-blue-600 focus:ring-blue-500" />
+                            }} disabled={bloqueados.includes(a.id)} className="rounded w-4 h-4 text-blue-600 focus:ring-blue-500 disabled:opacity-50" />
                           </td>
                           <td className="px-4 py-3 text-xs font-mono text-blue-600 dark:text-blue-400 font-medium">{a.numero_guia_prestador}</td>
+                          <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{a.numero_guia_operadora || '-'}</td>
+                          <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{a.senha_autorizacao || '-'}</td>
                           <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{a.data_atendimento || (a.itens && a.itens[0]?.data_execucao) || '-'}</td>
                           <td className="px-4 py-3 text-xs font-medium text-gray-800 dark:text-white">{a.paciente_nome}</td>
                           <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{a.numero_carteira}</td>
                           <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">{a.prestador_nome}</td>
-                          <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{a.numero_guia_operadora || '-'}</td>
-                          <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{a.senha_autorizacao || '-'}</td>
                           <td className="px-4 py-3 text-xs font-semibold text-right text-gray-700 dark:text-gray-300">R$ {a.valor_total?.toFixed(2)}</td>
                           <td className="px-4 py-3 text-center">
                             <button onClick={() => toggleBloqueio(a.id)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title={bloqueados.includes(a.id) ? 'Desbloquear' : 'Bloquear'}>
-                              {bloqueados.includes(a.id) ? <LockClosedIcon className="w-4 h-4 text-red-500" /> : <LockOpenIcon className="w-4 h-4 text-green-500" />}
+                              {bloqueados.includes(a.id) ? <LockOpenIcon className="w-4 h-4 text-green-500" /> : <LockClosedIcon className="w-4 h-4 text-orange-500" />}
                             </button>
                           </td>
                         </tr>
@@ -915,10 +1046,10 @@ export default function Faturamento() {
           </div>
         )}
 
-        {/* Histórico de lotes */}
+        {/* Histórico de Lotes */}
         <div className="mt-8">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Histórico de Lotes Gerados</h3>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Lotes Gerados</h3>
             <button onClick={carregarLotes} className="text-blue-600 dark:text-blue-400 text-sm flex items-center gap-1 hover:text-blue-700 transition-colors"><ArrowPathIcon className="w-4 h-4" /> Atualizar</button>
           </div>
           
@@ -932,37 +1063,31 @@ export default function Faturamento() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Guias</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Valor</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Status</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 w-40">Ações</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 w-48">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                   {guiasGeradas.map((g) => (
                     <tr key={g.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                       <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">{g.convenio_nome}</td>
-                      <td className="px-4 py-3 text-xs font-mono text-gray-500 dark:text-gray-400">{g.numero_lote}</td>
+                      <td className="px-4 py-3 text-xs font-mono text-blue-600 dark:text-blue-400 font-medium">{g.numero_lote}</td>
                       <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{g.data_envio}</td>
                       <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{g.quantidade_guias}</td>
                       <td className="px-4 py-3 text-xs font-semibold text-gray-700 dark:text-gray-300">R$ {(g.dados_fatura?.base_calculo || 0).toFixed(2)}</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded-full text-xs ${g.status === 'cancelado' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
-                          {g.status === 'cancelado' ? 'Cancelado' : 'Faturado'}
-                        </span>
-                      </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex gap-1 justify-center flex-wrap">
                           <button onClick={() => visualizarLote(g)} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Visualizar XML"><EyeIcon className="w-4 h-4" /></button>
                           <button onClick={() => gerarXMLporLote(g)} className="p-1 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" title="Baixar XML"><DocumentArrowDownIcon className="w-4 h-4" /></button>
-                          <button onClick={() => regenerarLote(g)} disabled={gerando} className="p-1 rounded-lg text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors" title="Regenerar Lote"><ArrowPathIcon className="w-4 h-4" /></button>
-                          {g.status !== 'cancelado' && <button onClick={() => cancelarLote(g)} className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Cancelar Lote"><XCircleIcon className="w-4 h-4" /></button>}
-                          <button onClick={() => excluirLote(g)} className="p-1 rounded-lg text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors" title="Excluir Lote"><TrashIcon className="w-4 h-4" /></button>
+                          <button onClick={() => regenerarLote(g)} disabled={gerando} className="p-1 rounded-lg text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors" title="Regenerar XML"><ArrowPathIcon className="w-4 h-4" /></button>
+                          <button onClick={() => gerarNovamenteLote(g)} disabled={gerando} className="p-1 rounded-lg text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors" title="Gerar Novamente Lote"><DocumentPlusIcon className="w-4 h-4" /></button>
+                          <button onClick={() => cancelarLote(g)} disabled={gerando} className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Cancelar Lote"><XCircleIcon className="w-4 h-4" /></button>
                         </div>
                       </td>
                     </tr>
                   ))}
                   {guiasGeradas.length === 0 && (
                     <tr>
-                      <td colSpan="7" className="px-4 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
+                      <td colSpan="6" className="px-4 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
                         <DocumentPlusIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
                         Nenhum lote gerado ainda
                       </td>
@@ -974,6 +1099,53 @@ export default function Faturamento() {
           </div>
         </div>
 
+        {/* Histórico de Logs */}
+        {showHistoricoLogs && (
+          <div className="mt-8">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Histórico de Logs</h3>
+              <button onClick={carregarLogs} className="text-blue-600 dark:text-blue-400 text-sm flex items-center gap-1"><ArrowPathIcon className="w-4 h-4" /> Atualizar</button>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-xl border overflow-hidden shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 dark:bg-gray-700/50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data/Hora</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Ação</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Nº Lote</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Convênio</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Guias</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Valor</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Detalhes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {logsLotes.map((log) => (
+                      <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                        <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{new Date(log.created_at).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-xs">
+                          <span className={`px-2 py-1 rounded-full text-xs ${log.acao === 'GERACAO_LOTE' ? 'bg-green-100 text-green-700' : log.acao === 'CANCELAMENTO_LOTE' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                            {log.acao === 'GERACAO_LOTE' ? 'Geração' : log.acao === 'CANCELAMENTO_LOTE' ? 'Cancelamento' : 'Regeneração'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-xs font-mono text-blue-600">{log.numero_lote}</td>
+                        <td className="px-4 py-3 text-xs text-gray-600">{log.convenio_nome}</td>
+                        <td className="px-4 py-3 text-xs text-gray-500">{log.quantidade_guias}</td>
+                        <td className="px-4 py-3 text-xs font-semibold text-gray-700">R$ {(log.valor_total || 0).toFixed(2)}</td>
+                        <td className="px-4 py-3 text-xs text-gray-500">{log.detalhes}</td>
+                      </tr>
+                    ))}
+                    {logsLotes.length === 0 && (
+                      <tr><td colSpan="7" className="px-4 py-12 text-center text-gray-500">Nenhum log encontrado</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Modal de Prévia e Faturamento */}
         {showPreviaModal && previewData && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
@@ -981,9 +1153,7 @@ export default function Faturamento() {
               <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
                 <div className="flex justify-between items-center">
                   <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Prévia do Faturamento</h3>
-                  <button onClick={() => setShowPreviaModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                    <XMarkIcon className="w-5 h-5" />
-                  </button>
+                  <button onClick={() => setShowPreviaModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"><XMarkIcon className="w-5 h-5" /></button>
                 </div>
               </div>
               
@@ -992,25 +1162,13 @@ export default function Faturamento() {
                 <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4">
                   <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-3">Resumo dos Agendamentos Selecionados</h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Total de Guias</p>
-                      <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{previewData.quantidade}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Valor Total</p>
-                      <p className="text-2xl font-bold text-green-600 dark:text-green-400">R$ {previewData.valorTotal.toFixed(2)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Convênios</p>
-                      <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{Object.keys(previewData.conveniosAgrupados).length}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Limite por Lote</p>
-                      <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{MAX_GUIAS_POR_LOTE}</p>
-                    </div>
+                    <div><p className="text-xs text-gray-500 dark:text-gray-400">Total de Guias</p><p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{previewData.quantidade}</p></div>
+                    <div><p className="text-xs text-gray-500 dark:text-gray-400">Valor Total</p><p className="text-2xl font-bold text-green-600 dark:text-green-400">R$ {previewData.valorTotal.toFixed(2)}</p></div>
+                    <div><p className="text-xs text-gray-500 dark:text-gray-400">Convênios</p><p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{Object.keys(previewData.conveniosAgrupados).length}</p></div>
+                    <div><p className="text-xs text-gray-500 dark:text-gray-400">Limite por Lote</p><p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{MAX_GUIAS_POR_LOTE}</p></div>
                   </div>
                   <div className="mt-4 flex gap-2">
-                    <button onClick={imprimirRelacao} className="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm flex items-center gap-1 hover:bg-gray-300 dark:hover:bg-gray-600">
+                    <button onClick={imprimirRelacao} className="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm flex items-center gap-1 hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">
                       <PrinterIcon className="w-4 h-4" /> Imprimir Relação
                     </button>
                   </div>
@@ -1029,25 +1187,25 @@ export default function Faturamento() {
                       <table className="w-full text-sm">
                         <thead className="bg-gray-50 dark:bg-gray-700/50">
                           <tr>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Nº Guia</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Paciente</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Carteira</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Guia Operadora</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Senha</th>
-                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Nº Guia</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Nº Guia Operadora</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Senha</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Data</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Paciente</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Carteira</th>
+                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Valor</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y">
                           {data.atendimentos.map(a => (
                             <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                              <td className="px-3 py-2 text-xs font-mono text-blue-600 dark:text-blue-400">{a.numero_guia_prestador}</td>
-                              <td className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">{a.data_atendimento || (a.itens && a.itens[0]?.data_execucao) || '-'}</td>
-                              <td className="px-3 py-2 text-xs text-gray-800 dark:text-white">{a.paciente_nome}</td>
-                              <td className="px-3 py-2 text-xs text-gray-600 dark:text-gray-400">{a.numero_carteira}</td>
-                              <td className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">{a.numero_guia_operadora || '-'}</td>
-                              <td className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">{a.senha_autorizacao || '-'}</td>
-                              <td className="px-3 py-2 text-xs text-right font-semibold text-gray-700 dark:text-gray-300">R$ {a.valor_total?.toFixed(2)}</td>
+                              <td className="px-3 py-2 text-xs font-mono text-blue-600">{a.numero_guia_prestador}</td>
+                              <td className="px-3 py-2 text-xs font-mono text-gray-600">{a.numero_guia_operadora || '-'}</td>
+                              <td className="px-3 py-2 text-xs font-mono text-gray-600">{a.senha_autorizacao || '-'}</td>
+                              <td className="px-3 py-2 text-xs text-gray-500">{a.data_atendimento || '-'}</td>
+                              <td className="px-3 py-2 text-xs text-gray-800">{a.paciente_nome}</td>
+                              <td className="px-3 py-2 text-xs text-gray-600">{a.numero_carteira}</td>
+                              <td className="px-3 py-2 text-xs text-right font-semibold text-gray-700">R$ {a.valor_total?.toFixed(2)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1064,136 +1222,54 @@ export default function Faturamento() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Competência</label>
-                      <input 
-                        type="month" 
-                        value={dadosFatura.competencia} 
-                        onChange={e => setDadosFatura({...dadosFatura, competencia: e.target.value})} 
-                        className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                      />
+                      <input type="month" value={dadosFatura.competencia} onChange={e => setDadosFatura({...dadosFatura, competencia: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data de Fechamento</label>
-                      <input 
-                        type="date" 
-                        value={dadosFatura.dataFechamento} 
-                        onChange={e => setDadosFatura({...dadosFatura, dataFechamento: e.target.value})} 
-                        className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                      />
+                      <input type="date" value={dadosFatura.dataFechamento} onChange={e => setDadosFatura({...dadosFatura, dataFechamento: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Previsão de Pagamento</label>
-                      <input 
-                        type="date" 
-                        value={dadosFatura.dataPrevisaoPagamento} 
-                        onChange={e => setDadosFatura({...dadosFatura, dataPrevisaoPagamento: e.target.value})} 
-                        className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                      />
+                      <input type="date" value={dadosFatura.dataPrevisaoPagamento} onChange={e => setDadosFatura({...dadosFatura, dataPrevisaoPagamento: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
                     </div>
                   </div>
                   
                   <div className="mt-4">
                     <h5 className="font-medium text-sm text-gray-700 dark:text-gray-300 mb-2">Impostos e Deduções</h5>
                     <div className="grid grid-cols-2 md:grid-cols-8 gap-2">
-                      <div>
-                        <label className="block text-xs text-gray-500 dark:text-gray-400">Base Cálculo</label>
-                        <input type="number" step="0.01" value={dadosFatura.baseCalculo} disabled className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 dark:text-gray-400">ISS (%)</label>
-                        <input type="number" step="0.01" value={dadosFatura.aliquotaISS} onChange={(e) => atualizarAliquota('aliquotaISS', e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 dark:text-gray-400">IBS (%)</label>
-                        <input type="number" step="0.01" value={dadosFatura.aliquotaIBS} onChange={(e) => atualizarAliquota('aliquotaIBS', e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 dark:text-gray-400">CBS (%)</label>
-                        <input type="number" step="0.01" value={dadosFatura.aliquotaCBS} onChange={(e) => atualizarAliquota('aliquotaCBS', e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 dark:text-gray-400">IR (%)</label>
-                        <input type="number" step="0.01" value={dadosFatura.aliquotaIR} onChange={(e) => atualizarAliquota('aliquotaIR', e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 dark:text-gray-400">CSLL (%)</label>
-                        <input type="number" step="0.01" value={dadosFatura.aliquotaCSLL} onChange={(e) => atualizarAliquota('aliquotaCSLL', e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 dark:text-gray-400">PIS (%)</label>
-                        <input type="number" step="0.01" value={dadosFatura.aliquotaPIS} onChange={(e) => atualizarAliquota('aliquotaPIS', e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 dark:text-gray-400">COFINS (%)</label>
-                        <input type="number" step="0.01" value={dadosFatura.aliquotaCOFINS} onChange={(e) => atualizarAliquota('aliquotaCOFINS', e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                      </div>
+                      <div><label className="block text-xs text-gray-500">Base Cálculo</label><input type="number" step="0.01" value={dadosFatura.baseCalculo} disabled className="w-full bg-gray-100 border rounded-lg px-2 py-1 text-sm" /></div>
+                      <div><label className="block text-xs text-gray-500">ISS (%)</label><input type="number" step="0.01" value={dadosFatura.aliquotaISS} onChange={(e) => atualizarAliquota('aliquotaISS', e.target.value)} className="w-full bg-white border rounded-lg px-2 py-1 text-sm" /></div>
+                      <div><label className="block text-xs text-gray-500">IBS (%)</label><input type="number" step="0.01" value={dadosFatura.aliquotaIBS} onChange={(e) => atualizarAliquota('aliquotaIBS', e.target.value)} className="w-full bg-white border rounded-lg px-2 py-1 text-sm" /></div>
+                      <div><label className="block text-xs text-gray-500">CBS (%)</label><input type="number" step="0.01" value={dadosFatura.aliquotaCBS} onChange={(e) => atualizarAliquota('aliquotaCBS', e.target.value)} className="w-full bg-white border rounded-lg px-2 py-1 text-sm" /></div>
+                      <div><label className="block text-xs text-gray-500">IR (%)</label><input type="number" step="0.01" value={dadosFatura.aliquotaIR} onChange={(e) => atualizarAliquota('aliquotaIR', e.target.value)} className="w-full bg-white border rounded-lg px-2 py-1 text-sm" /></div>
+                      <div><label className="block text-xs text-gray-500">CSLL (%)</label><input type="number" step="0.01" value={dadosFatura.aliquotaCSLL} onChange={(e) => atualizarAliquota('aliquotaCSLL', e.target.value)} className="w-full bg-white border rounded-lg px-2 py-1 text-sm" /></div>
+                      <div><label className="block text-xs text-gray-500">PIS (%)</label><input type="number" step="0.01" value={dadosFatura.aliquotaPIS} onChange={(e) => atualizarAliquota('aliquotaPIS', e.target.value)} className="w-full bg-white border rounded-lg px-2 py-1 text-sm" /></div>
+                      <div><label className="block text-xs text-gray-500">COFINS (%)</label><input type="number" step="0.01" value={dadosFatura.aliquotaCOFINS} onChange={(e) => atualizarAliquota('aliquotaCOFINS', e.target.value)} className="w-full bg-white border rounded-lg px-2 py-1 text-sm" /></div>
                     </div>
                     
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
-                      <div>
-                        <label className="block text-xs text-gray-500 dark:text-gray-400">Valor ISS</label>
-                        <input type="text" value={dadosFatura.valorISS.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 dark:text-gray-400">Valor IBS</label>
-                        <input type="text" value={dadosFatura.valorIBS.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 dark:text-gray-400">Valor CBS</label>
-                        <input type="text" value={dadosFatura.valorCBS.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 dark:text-gray-400">Valor IR</label>
-                        <input type="text" value={dadosFatura.valorIR.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 dark:text-gray-400">Valor CSLL</label>
-                        <input type="text" value={dadosFatura.valorCSLL.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 dark:text-gray-400">Valor PIS</label>
-                        <input type="text" value={dadosFatura.valorPIS.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 dark:text-gray-400">Valor COFINS</label>
-                        <input type="text" value={dadosFatura.valorCOFINS.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 dark:text-gray-400">Valor Líquido</label>
-                        <input type="text" value={dadosFatura.valorLiquido.toFixed(2)} disabled className="w-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg px-2 py-1 text-sm font-bold text-green-700 dark:text-green-400" />
-                      </div>
+                      <div><label className="block text-xs text-gray-500">Valor ISS</label><input type="text" value={dadosFatura.valorISS.toFixed(2)} disabled className="w-full bg-gray-100 border rounded-lg px-2 py-1 text-sm" /></div>
+                      <div><label className="block text-xs text-gray-500">Valor IBS</label><input type="text" value={dadosFatura.valorIBS.toFixed(2)} disabled className="w-full bg-gray-100 border rounded-lg px-2 py-1 text-sm" /></div>
+                      <div><label className="block text-xs text-gray-500">Valor CBS</label><input type="text" value={dadosFatura.valorCBS.toFixed(2)} disabled className="w-full bg-gray-100 border rounded-lg px-2 py-1 text-sm" /></div>
+                      <div><label className="block text-xs text-gray-500">Valor IR</label><input type="text" value={dadosFatura.valorIR.toFixed(2)} disabled className="w-full bg-gray-100 border rounded-lg px-2 py-1 text-sm" /></div>
+                      <div><label className="block text-xs text-gray-500">Valor CSLL</label><input type="text" value={dadosFatura.valorCSLL.toFixed(2)} disabled className="w-full bg-gray-100 border rounded-lg px-2 py-1 text-sm" /></div>
+                      <div><label className="block text-xs text-gray-500">Valor PIS</label><input type="text" value={dadosFatura.valorPIS.toFixed(2)} disabled className="w-full bg-gray-100 border rounded-lg px-2 py-1 text-sm" /></div>
+                      <div><label className="block text-xs text-gray-500">Valor COFINS</label><input type="text" value={dadosFatura.valorCOFINS.toFixed(2)} disabled className="w-full bg-gray-100 border rounded-lg px-2 py-1 text-sm" /></div>
+                      <div><label className="block text-xs text-gray-500">Valor Líquido</label><input type="text" value={dadosFatura.valorLiquido.toFixed(2)} disabled className="w-full bg-green-50 border border-green-200 rounded-lg px-2 py-1 text-sm font-bold text-green-700" /></div>
                     </div>
                   </div>
                   
                   <div className="mt-3">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações</label>
-                    <textarea 
-                      rows="2" 
-                      value={dadosFatura.observacoes} 
-                      onChange={e => setDadosFatura({...dadosFatura, observacoes: e.target.value})} 
-                      className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                      placeholder="Informações adicionais da fatura..."
-                    />
+                    <textarea rows="2" value={dadosFatura.observacoes} onChange={e => setDadosFatura({...dadosFatura, observacoes: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" placeholder="Informações adicionais da fatura..." />
                   </div>
                 </div>
               </div>
               
               <div className="p-5 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
-                <button 
-                  onClick={() => setShowPreviaModal(false)} 
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  onClick={confirmarGeracaoLote} 
-                  disabled={gerando} 
-                  className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-medium shadow-md flex items-center gap-2 hover:from-green-600 hover:to-emerald-700 transition-all duration-200 disabled:opacity-50"
-                >
-                  {gerando ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  ) : (
-                    <PaperAirplaneIcon className="w-4 h-4" />
-                  )}
+                <button onClick={() => setShowPreviaModal(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Cancelar</button>
+                <button onClick={confirmarGeracaoLote} disabled={gerando} className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-medium shadow-md flex items-center gap-2 hover:from-green-600 hover:to-emerald-700 transition-all disabled:opacity-50">
+                  {gerando ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <PaperAirplaneIcon className="w-4 h-4" />}
                   Confirmar e Gerar Lote
                 </button>
               </div>
@@ -1208,20 +1284,18 @@ export default function Faturamento() {
               <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
                 <div className="flex justify-between items-center">
                   <h3 className="text-xl font-semibold text-gray-800 dark:text-white">XML do Lote - {selectedLote.numero_lote}</h3>
-                  <button onClick={() => setShowLoteModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                    <XMarkIcon className="w-5 h-5" />
-                  </button>
+                  <button onClick={() => setShowLoteModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"><XMarkIcon className="w-5 h-5" /></button>
                 </div>
               </div>
               <div className="p-5">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Convênio:</span> <span className="text-sm font-medium">{selectedLote.convenio_nome}</span></div>
-                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Nº Lote:</span> <span className="text-sm font-mono">{selectedLote.numero_lote}</span></div>
-                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Data:</span> <span className="text-sm">{selectedLote.data_envio}</span></div>
-                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Guias:</span> <span className="text-sm font-bold">{selectedLote.quantidade_guias}</span></div>
+                  <div><span className="text-xs text-gray-500">Convênio:</span> <span className="text-sm font-medium">{selectedLote.convenio_nome}</span></div>
+                  <div><span className="text-xs text-gray-500">Nº Lote:</span> <span className="text-sm font-mono">{selectedLote.numero_lote}</span></div>
+                  <div><span className="text-xs text-gray-500">Data:</span> <span className="text-sm">{selectedLote.data_envio}</span></div>
+                  <div><span className="text-xs text-gray-500">Guias:</span> <span className="text-sm font-bold">{selectedLote.quantidade_guias}</span></div>
                 </div>
                 {selectedLote.dados_fatura && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 p-4 bg-green-50 rounded-xl">
                     <div><span className="text-xs text-gray-500">Competência:</span> <span className="text-sm">{selectedLote.dados_fatura.competencia}</span></div>
                     <div><span className="text-xs text-gray-500">Fechamento:</span> <span className="text-sm">{selectedLote.dados_fatura.data_fechamento}</span></div>
                     <div><span className="text-xs text-gray-500">Valor Líquido:</span> <span className="text-sm font-bold text-green-600">R$ {selectedLote.dados_fatura.valor_liquido?.toFixed(2)}</span></div>
@@ -1231,29 +1305,9 @@ export default function Faturamento() {
                 <div className="bg-gray-900 rounded-xl p-4 overflow-auto max-h-96">
                   <pre className="text-xs text-green-400 font-mono whitespace-pre-wrap">{selectedLote.xml_content}</pre>
                 </div>
-                <div className="flex justify-end gap-3 mt-5 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <button 
-                    onClick={() => {
-                      const blob = new Blob([selectedLote.xml_content], { type: 'application/xml' });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = `${selectedLote.numero_lote}.xml`;
-                      a.click();
-                      URL.revokeObjectURL(url);
-                      toast.success('XML baixado!');
-                    }} 
-                    className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg text-sm font-medium hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-md"
-                  >
-                    <DocumentArrowDownIcon className="w-4 h-4 inline mr-1" />
-                    Baixar XML
-                  </button>
-                  <button 
-                    onClick={() => setShowLoteModal(false)} 
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    Fechar
-                  </button>
+                <div className="flex justify-end gap-3 mt-5 pt-4 border-t">
+                  <button onClick={() => { const blob = new Blob([selectedLote.xml_content], { type: 'application/xml' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${selectedLote.numero_lote}.xml`; a.click(); URL.revokeObjectURL(url); toast.success('XML baixado!'); }} className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg">Baixar XML</button>
+                  <button onClick={() => setShowLoteModal(false)} className="px-4 py-2 border rounded-lg">Fechar</button>
                 </div>
               </div>
             </div>
@@ -1264,11 +1318,13 @@ export default function Faturamento() {
         <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
           <h4 className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">📋 Informações</h4>
           <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-1">
-            <li>• Selecione as guias desejadas e clique em "Faturar Selecionados"</li>
-            <li>• Antes de faturar, visualize a relação e imprima se necessário</li>
-            <li>• Após faturar, as guias ficam bloqueadas e não podem ser alteradas</li>
+            <li>• <strong>Guias bloqueadas</strong> aparecem com fundo laranja e não podem ser faturadas</li>
+            <li>• Use os botões de bloqueio/desbloqueio para controlar quais guias entrarão no faturamento</li>
+            <li>• Após faturar, as guias ficam bloqueadas e não podem ser alteradas no módulo de atendimentos</li>
             <li>• Para reabrir as guias, cancele o lote no histórico</li>
-            <li>• Use o botão "Regenerar Lote" para recriar o XML de um lote existente</li>
+            <li>• Use "Gerar Novamente Lote" para criar um novo lote com as mesmas guias</li>
+            <li>• Use "Regenerar XML" para recriar o XML de um lote existente sem alterar as guias</li>
+            <li>• Cancelar um lote move o registro para o histórico de logs e remove da lista principal</li>
             <li>• Limite máximo de <strong>{MAX_GUIAS_POR_LOTE} guias por lote</strong></li>
           </ul>
         </div>
