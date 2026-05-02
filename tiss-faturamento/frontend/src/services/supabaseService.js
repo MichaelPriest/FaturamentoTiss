@@ -33,14 +33,20 @@ export const conveniosService = {
   async criar(convenio) {
     if (!isSupabaseAvailable()) {
       const data = localStorageFallback.get(TABLES.CONVENIOS);
-      const newItem = { ...convenio, id: Date.now() };
+      const { versao_tiss, ...dadosLimpos } = convenio;
+      const newItem = { ...dadosLimpos, id: Date.now() };
       localStorageFallback.set(TABLES.CONVENIOS, [...data, newItem]);
       return newItem;
     }
     try {
+      // Remover o campo versao_tiss dos dados a serem inseridos (não existe na tabela)
+      const { versao_tiss, ...dadosParaInserir } = convenio;
+      
+      console.log('Inserindo convênio:', dadosParaInserir);
+      
       const { data, error } = await supabase
         .from(TABLES.CONVENIOS)
-        .insert([convenio])
+        .insert([dadosParaInserir])
         .select()
         .single();
       if (error) throw error;
@@ -48,7 +54,8 @@ export const conveniosService = {
     } catch (err) {
       console.error('Erro ao criar convênio:', err);
       const data = localStorageFallback.get(TABLES.CONVENIOS);
-      const newItem = { ...convenio, id: Date.now() };
+      const { versao_tiss, ...dadosLimpos } = convenio;
+      const newItem = { ...dadosLimpos, id: Date.now() };
       localStorageFallback.set(TABLES.CONVENIOS, [...data, newItem]);
       return newItem;
     }
@@ -59,15 +66,19 @@ export const conveniosService = {
       const data = localStorageFallback.get(TABLES.CONVENIOS);
       const index = data.findIndex(item => item.id === id);
       if (index !== -1) {
-        data[index] = { ...convenio, id };
+        const { versao_tiss, ...dadosLimpos } = convenio;
+        data[index] = { ...dadosLimpos, id };
         localStorageFallback.set(TABLES.CONVENIOS, data);
       }
       return { ...convenio, id };
     }
     try {
+      // Remover o campo versao_tiss dos dados a serem atualizados
+      const { versao_tiss, ...dadosParaAtualizar } = convenio;
+      
       const { data, error } = await supabase
         .from(TABLES.CONVENIOS)
-        .update(convenio)
+        .update(dadosParaAtualizar)
         .eq('id', id)
         .select()
         .single();
@@ -216,7 +227,7 @@ export const pacientesService = {
 };
 
 // ============================================
-// SERVIÇO DE PRESTADORES (VERSÃO CORRIGIDA - FUNCIONA)
+// SERVIÇO DE PRESTADORES
 // ============================================
 export const prestadoresService = {
   async listar() {
@@ -236,7 +247,6 @@ export const prestadoresService = {
     }
   },
 
-  // Versão CORRIGIDA - usando consultas separadas (100% funcional)
   async listarComEspecialidades() {
     if (!isSupabaseAvailable()) {
       const prestadores = localStorageFallback.get(TABLES.PRESTADORES);
@@ -255,7 +265,6 @@ export const prestadoresService = {
     }
     
     try {
-      // 1. Buscar todos os prestadores
       const { data: prestadores, error: errorPrestadores } = await supabase
         .from('prestadores')
         .select('*')
@@ -264,21 +273,18 @@ export const prestadoresService = {
       if (errorPrestadores) throw errorPrestadores;
       if (!prestadores || prestadores.length === 0) return [];
       
-      // 2. Buscar todas as relações
       const { data: relacoes, error: errorRelacoes } = await supabase
         .from('prestador_especialidade')
         .select('*');
       
       if (errorRelacoes) throw errorRelacoes;
       
-      // 3. Buscar todas as especialidades
       const { data: especialidades, error: errorEspecialidades } = await supabase
         .from('especialidades')
         .select('*');
       
       if (errorEspecialidades) throw errorEspecialidades;
       
-      // Criar mapa de especialidades por ID
       const mapaEspecialidades = new Map();
       especialidades?.forEach(esp => {
         mapaEspecialidades.set(esp.id, {
@@ -289,7 +295,6 @@ export const prestadoresService = {
         });
       });
       
-      // Criar mapa de relações por prestador
       const mapaRelacoes = new Map();
       relacoes?.forEach(rel => {
         if (!mapaRelacoes.has(rel.prestador_id)) {
@@ -308,7 +313,6 @@ export const prestadoresService = {
         }
       });
       
-      // Montar resultado
       const resultado = prestadores.map(prestador => ({
         ...prestador,
         especialidades: mapaRelacoes.get(prestador.id) || []
@@ -335,7 +339,6 @@ export const prestadoresService = {
       
       if (prestadorError) throw prestadorError;
       
-      // Buscar especialidades
       const { data: especialidadesRel, error: relError } = await supabase
         .from('prestador_especialidade')
         .select(`
@@ -1083,22 +1086,18 @@ export const configuracoesService = {
 // Função para inicializar dados padrão
 export const inicializarDadosPadrao = async () => {
   try {
-    // Inicializar especialidades
     await especialidadesService.seed();
     
-    // Verificar se já existe configuração de versão TISS
     const versaoExists = await configuracoesService.buscar('versao_tiss');
     if (!versaoExists) {
       await configuracoesService.salvar('versao_tiss', '4.03.00', 'Versão padrão do TISS');
     }
     
-    // Verificar se já existe sequencial de faturamento
     const sequencialExists = await configuracoesService.buscar('sequencial_faturamento');
     if (!sequencialExists) {
       await configuracoesService.salvar('sequencial_faturamento', '1', 'Sequencial para faturamento TISS');
     }
     
-    // Verificar se já existe lista de guias bloqueadas
     const bloqueadosExists = await configuracoesService.buscar('guias_bloqueadas');
     if (!bloqueadosExists) {
       await configuracoesService.salvar('guias_bloqueadas', '[]', 'Lista de guias bloqueadas para faturamento');
