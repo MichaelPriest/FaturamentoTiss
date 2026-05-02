@@ -234,7 +234,9 @@ export default function Faturamento() {
       valorCOFINS: impostos.cofins,
       valorLiquido: impostos.valorLiquido
     }));
-  }, [dadosFatura.aliquotaISS, dadosFatura.aliquotaIBS, dadosFatura.aliquotaCBS, dadosFatura.aliquotaIR, dadosFatura.aliquotaCSLL, dadosFatura.aliquotaPIS, dadosFatura.aliquotaCOFINS]);
+  }, [dadosFatura.aliquotaISS, dadosFatura.aliquotaIBS, dadosFatura.aliquotaCBS, 
+      dadosFatura.aliquotaIR, dadosFatura.aliquotaCSLL, dadosFatura.aliquotaPIS, 
+      dadosFatura.aliquotaCOFINS]);
 
   const atualizarAliquota = (campo, valor) => {
     const novaAliquota = parseFloat(valor) || 0;
@@ -1204,7 +1206,7 @@ return (
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {guiasGeradas.map((g) => (
-                  <tr key={g.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <tr key={g.id || `lote-${g.numero_lote}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">{g.convenio_nome}</td>
                     <td className="px-4 py-3 text-xs font-mono text-blue-600 dark:text-blue-400 font-medium">{g.numero_lote}</td>
                     <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{g.data_envio}</td>
@@ -1212,16 +1214,24 @@ return (
                     <td className="px-4 py-3 text-xs font-semibold text-gray-700 dark:text-gray-300">R$ {(g.dados_fatura?.base_calculo || 0).toFixed(2)}</td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex gap-1 justify-center flex-wrap">
-                        <button onClick={() => visualizarLote(g)} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Visualizar XML"><EyeIcon className="w-4 h-4" /></button>
-                        <button onClick={() => gerarXMLporLote(g)} className="p-1 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" title="Baixar XML"><DocumentArrowDownIcon className="w-4 h-4" /></button>
-                        <button onClick={() => regenerarLote(g)} disabled={gerando} className="p-1 rounded-lg text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors" title="Regenerar XML"><ArrowPathIcon className="w-4 h-4" /></button>
-                        <button onClick={() => cancelarLote(g)} disabled={gerando} className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Cancelar Lote"><XCircleIcon className="w-4 h-4" /></button>
+                        <button onClick={() => visualizarLote(g)} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Visualizar XML">
+                          <EyeIcon className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => gerarXMLporLote(g)} className="p-1 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" title="Baixar XML">
+                          <DocumentArrowDownIcon className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => regenerarLote(g)} disabled={gerando} className="p-1 rounded-lg text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors" title="Regenerar XML">
+                          <ArrowPathIcon className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => cancelarLote(g)} disabled={gerando} className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Cancelar Lote">
+                          <XCircleIcon className="w-4 h-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
                 ))}
                 {guiasGeradas.length === 0 && (
-                  <tr>
+                  <tr key="no-data-row">
                     <td colSpan="6" className="px-4 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
                       <DocumentPlusIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
                       Nenhum lote gerado ainda
