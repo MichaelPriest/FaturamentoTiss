@@ -216,7 +216,7 @@ export const pacientesService = {
 };
 
 // ============================================
-// SERVIÇO DE PRESTADORES (CORRIGIDO)
+// SERVIÇO DE PRESTADORES (VERSÃO CORRIGIDA - FUNCIONA)
 // ============================================
 export const prestadoresService = {
   async listar() {
@@ -236,7 +236,7 @@ export const prestadoresService = {
     }
   },
 
-  // Listar prestadores com especialidades (corrigido - usando nomes corretos das colunas)
+  // Versão CORRIGIDA - usando consultas separadas (100% funcional)
   async listarComEspecialidades() {
     if (!isSupabaseAvailable()) {
       const prestadores = localStorageFallback.get(TABLES.PRESTADORES);
@@ -255,62 +255,65 @@ export const prestadoresService = {
     }
     
     try {
-      // Primeiro, buscar todos os prestadores
-      const { data: prestadores, error: prestadoresError } = await supabase
+      // 1. Buscar todos os prestadores
+      const { data: prestadores, error: errorPrestadores } = await supabase
         .from('prestadores')
         .select('*')
         .order('nome', { ascending: true });
       
-      if (prestadoresError) throw prestadoresError;
+      if (errorPrestadores) throw errorPrestadores;
+      if (!prestadores || prestadores.length === 0) return [];
       
-      if (!prestadores || prestadores.length === 0) {
-        return [];
-      }
-      
-      // Buscar todas as relações prestador_especialidade com os dados das especialidades
-      const { data: relacoes, error: relError } = await supabase
+      // 2. Buscar todas as relações
+      const { data: relacoes, error: errorRelacoes } = await supabase
         .from('prestador_especialidade')
-        .select(`
-          id,
-          prestador_id,
-          especialidade_id,
-          principal,
-          especialidades (
-            id,
-            nome,
-            cbos,
-            codigo_ans
-          )
-        `);
+        .select('*');
       
-      if (relError) throw relError;
+      if (errorRelacoes) throw errorRelacoes;
       
-      // Agrupar relações por prestador_id
-      const especialidadesPorPrestador = new Map();
+      // 3. Buscar todas as especialidades
+      const { data: especialidades, error: errorEspecialidades } = await supabase
+        .from('especialidades')
+        .select('*');
       
-      if (relacoes && relacoes.length > 0) {
-        for (const rel of relacoes) {
-          if (!especialidadesPorPrestador.has(rel.prestador_id)) {
-            especialidadesPorPrestador.set(rel.prestador_id, []);
-          }
-          
-          especialidadesPorPrestador.get(rel.prestador_id).push({
+      if (errorEspecialidades) throw errorEspecialidades;
+      
+      // Criar mapa de especialidades por ID
+      const mapaEspecialidades = new Map();
+      especialidades?.forEach(esp => {
+        mapaEspecialidades.set(esp.id, {
+          id: esp.id,
+          nome: esp.nome,
+          cbos: esp.cbos,
+          codigo_ans: esp.codigo_ans
+        });
+      });
+      
+      // Criar mapa de relações por prestador
+      const mapaRelacoes = new Map();
+      relacoes?.forEach(rel => {
+        if (!mapaRelacoes.has(rel.prestador_id)) {
+          mapaRelacoes.set(rel.prestador_id, []);
+        }
+        
+        const especialidade = mapaEspecialidades.get(rel.especialidade_id);
+        if (especialidade) {
+          mapaRelacoes.get(rel.prestador_id).push({
             id: rel.id,
             prestador_id: rel.prestador_id,
             especialidade_id: rel.especialidade_id,
             principal: rel.principal,
-            especialidade: rel.especialidades
+            especialidade: especialidade
           });
         }
-      }
+      });
       
-      // Montar o resultado final
+      // Montar resultado
       const resultado = prestadores.map(prestador => ({
         ...prestador,
-        especialidades: especialidadesPorPrestador.get(prestador.id) || []
+        especialidades: mapaRelacoes.get(prestador.id) || []
       }));
       
-      console.log('Resultado do service:', resultado[0]); // Para debug
       return resultado;
     } catch (err) {
       console.error('Erro ao listar prestadores com especialidades:', err);
