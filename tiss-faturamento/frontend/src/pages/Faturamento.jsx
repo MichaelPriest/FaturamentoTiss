@@ -267,12 +267,14 @@ export default function Faturamento() {
     try {
       await supabase
         .from('configuracoes')
-        .upsert({
-          chave: 'guias_bloqueadas',
-          valor: JSON.stringify(bloqueadosList),
-          descricao: 'Lista de guias bloqueadas para faturamento',
-          updated_at: new Date().toISOString()
-        });
+        .upsert([
+          {
+            chave: 'guias_bloqueadas',
+            valor: JSON.stringify(bloqueadosList),
+            descricao: 'Lista de guias bloqueadas para faturamento',
+            updated_at: new Date().toISOString()
+          }
+        ], { onConflict: 'chave' });
     } catch (error) {
       console.error('Erro ao salvar bloqueados:', error);
     }
@@ -282,12 +284,14 @@ export default function Faturamento() {
     try {
       await supabase
         .from('configuracoes')
-        .upsert({
-          chave: 'sequencial_faturamento',
-          valor: novoSequencial.toString(),
-          descricao: 'Sequencial para faturamento TISS',
-          updated_at: new Date().toISOString()
-        });
+        .upsert([
+          {
+            chave: 'sequencial_faturamento',
+            valor: novoSequencial.toString(),
+            descricao: 'Sequencial para faturamento TISS',
+            updated_at: new Date().toISOString()
+          }
+        ], { onConflict: 'chave' });
     } catch (error) {
       console.error('Erro ao atualizar sequencial:', error);
     }
