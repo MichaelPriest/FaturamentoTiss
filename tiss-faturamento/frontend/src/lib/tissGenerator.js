@@ -13,6 +13,9 @@ export const VERSAO_TISS = {
 let configGlobal = null;
 let versaoAtual = VERSAO_TISS['4.03.00'];
 
+// Contador global para sequencialTransacao (começa em 1)
+let sequencialTransacaoGlobal = 1;
+
 export function setConfig(config) {
   configGlobal = config;
 }
@@ -33,6 +36,24 @@ export function setVersao(versao) {
 
 export function getVersao() {
   return versaoAtual;
+}
+
+// Função para obter e incrementar o sequencial de transação
+export function getProximoSequencialTransacao() {
+  const atual = sequencialTransacaoGlobal;
+  sequencialTransacaoGlobal++;
+  // Garantir que tem 4 dígitos (começa em 0001)
+  return atual.toString().padStart(4, '0');
+}
+
+// Função para resetar o sequencial (útil para novo dia/ano)
+export function resetSequencialTransacao() {
+  sequencialTransacaoGlobal = 1;
+}
+
+// Função para definir o sequencial manualmente
+export function setSequencialTransacao(valor) {
+  sequencialTransacaoGlobal = valor;
 }
 
 // ============================================
@@ -107,14 +128,6 @@ function getGrauParticipacao(valor) {
   return GRAU_PARTICIPACAO[valor] || '12';
 }
 
-function gerarNumeroAleatorio(tamanho) {
-  let numero = '';
-  for (let i = 0; i < tamanho; i++) {
-    numero += Math.floor(Math.random() * 10).toString();
-  }
-  return numero;
-}
-
 function formatarHora(hora) {
   if (!hora) return '00:00:00';
   if (hora.includes(':')) {
@@ -147,7 +160,8 @@ export function gerarXMLTISS(dados) {
   const config = getConfig();
   const versao = dados.versao || versaoAtual;
   
-  const sequencialTransacao = dados.sequencialTransacao || gerarNumeroAleatorio(4);
+  // Usa o sequencial fornecido ou gera um novo sequencial (começando em 1)
+  const sequencialTransacao = dados.sequencialTransacao || getProximoSequencialTransacao();
   const dataRegistroTransacao = dados.dataRegistroTransacao || new Date().toISOString().split('T')[0];
   const horaRegistroTransacao = dados.horaRegistroTransacao || new Date().toLocaleTimeString('pt-BR', { hour12: false });
   const codigoPrestadorNaOperadora = dados.codigoPrestadorNaOperadora || '';
