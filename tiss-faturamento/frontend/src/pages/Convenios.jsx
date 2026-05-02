@@ -42,7 +42,6 @@ export default function Convenios() {
     try {
       const data = await conveniosService.listar();
       setConvenios(data);
-      console.log('Convênios carregados:', data);
     } catch (error) {
       console.error('Erro ao carregar convênios:', error);
       toast.error('Erro ao carregar convênios');
@@ -149,7 +148,7 @@ export default function Convenios() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400">Ativos</p>
-              <p className="text-2xl font-bold text-green-600">{convenios.filter(c => c.ativo).length}</p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">{convenios.filter(c => c.ativo).length}</p>
             </div>
             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
           </div>
@@ -158,7 +157,7 @@ export default function Convenios() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400">Inativos</p>
-              <p className="text-2xl font-bold text-red-600">{convenios.filter(c => !c.ativo).length}</p>
+              <p className="text-2xl font-bold text-red-600 dark:text-red-400">{convenios.filter(c => !c.ativo).length}</p>
             </div>
             <div className="w-2 h-2 bg-red-500 rounded-full"></div>
           </div>
@@ -167,7 +166,7 @@ export default function Convenios() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400">Ambiente Produção</p>
-              <p className="text-2xl font-bold text-purple-600">{convenios.filter(c => c.ambiente === 'producao').length}</p>
+              <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{convenios.filter(c => c.ambiente === 'producao').length}</p>
             </div>
             <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
           </div>
@@ -209,7 +208,7 @@ export default function Convenios() {
                   <td className="px-4 py-3 text-center">
                     <div className="flex gap-2 justify-center">
                       <button 
-                        onClick={() => { setEditing(c); setFormData(c); setShowModal(true); }} 
+                        onClick={() => { setEditing(c); setFormData(c); setAba('dados'); setShowModal(true); }} 
                         className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                         title="Editar"
                       >
@@ -224,7 +223,7 @@ export default function Convenios() {
                       </button>
                     </div>
                   </td>
-                </tr>
+                </table>
               ))}
               {convenios.length === 0 && (
                 <tr>
@@ -251,28 +250,28 @@ export default function Convenios() {
             
             <div className="p-5">
               {/* Tabs */}
-              <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 mb-5">
+              <div className="flex gap-1 border-b border-gray-200 dark:border-gray-700 mb-5 overflow-x-auto">
                 <button 
                   onClick={() => setAba('dados')} 
-                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${aba === 'dados' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 whitespace-nowrap ${aba === 'dados' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
                 >
                   Dados
                 </button>
                 <button 
                   onClick={() => setAba('prestador')} 
-                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${aba === 'prestador' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 whitespace-nowrap ${aba === 'prestador' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
                 >
                   Prestador
                 </button>
                 <button 
                   onClick={() => setAba('guias')} 
-                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${aba === 'guias' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 whitespace-nowrap ${aba === 'guias' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
                 >
                   Numeração Guias
                 </button>
                 <button 
                   onClick={() => setAba('financeiro')} 
-                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${aba === 'financeiro' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 whitespace-nowrap ${aba === 'financeiro' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
                 >
                   Financeiro
                 </button>
@@ -297,7 +296,7 @@ export default function Convenios() {
                       <input 
                         type="text" 
                         value={formData.razao_social} 
-                        onChange={e => setFormData({...formData, razao_social: e.target.value})} 
+                        onChange={e => setFormData({...formData, razao_social: e.target.value.toUpperCase()})} 
                         className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
                         required 
                       />
@@ -307,7 +306,7 @@ export default function Convenios() {
                       <input 
                         type="text" 
                         value={formData.nome_fantasia} 
-                        onChange={e => setFormData({...formData, nome_fantasia: e.target.value})} 
+                        onChange={e => setFormData({...formData, nome_fantasia: e.target.value.toUpperCase()})} 
                         className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
                       />
                     </div>
@@ -318,6 +317,7 @@ export default function Convenios() {
                         value={formData.cnpj} 
                         onChange={e => setFormData({...formData, cnpj: e.target.value})} 
                         className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
+                        placeholder="00.000.000/0000-00"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
@@ -328,8 +328,8 @@ export default function Convenios() {
                           onChange={e => setFormData({...formData, ambiente: e.target.value})} 
                           className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                         >
-                          <option value="homologacao">Homologação (Testes)</option>
-                          <option value="producao">Produção</option>
+                          <option value="homologacao">🏗️ Homologação (Testes)</option>
+                          <option value="producao">🚀 Produção</option>
                         </select>
                       </div>
                       <div>
@@ -339,6 +339,7 @@ export default function Convenios() {
                           value={formData.url_webservice} 
                           onChange={e => setFormData({...formData, url_webservice: e.target.value})} 
                           className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
+                          placeholder="https://..."
                         />
                       </div>
                     </div>
@@ -347,7 +348,7 @@ export default function Convenios() {
                         type="checkbox" 
                         checked={formData.ativo} 
                         onChange={e => setFormData({...formData, ativo: e.target.checked})} 
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600" 
                       />
                       <label className="text-sm text-gray-700 dark:text-gray-300">Convênio Ativo</label>
                     </div>
@@ -358,7 +359,7 @@ export default function Convenios() {
                 {aba === 'prestador' && (
                   <div className="space-y-4">
                     <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                      <p className="text-xs text-blue-700 dark:text-blue-300">Dados específicos para este convênio. Cada convênio pode ter um código de prestador diferente.</p>
+                      <p className="text-xs text-blue-700 dark:text-blue-300">⚠️ Dados específicos para este convênio. Cada convênio pode ter um código de prestador diferente e versão TISS própria.</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Código do Prestador na Operadora *</label>
@@ -369,6 +370,7 @@ export default function Convenios() {
                         className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
                         required 
                       />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Código do prestador cadastrado na operadora</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Senha do Prestador</label>
@@ -386,7 +388,28 @@ export default function Convenios() {
                         value={formData.cnes} 
                         onChange={e => setFormData({...formData, cnes: e.target.value})} 
                         className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
+                        placeholder="0000000"
                       />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Versão do Padrão TISS</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {['4.01.00', '4.02.00', '4.03.00'].map((versao) => (
+                          <button
+                            key={versao}
+                            type="button"
+                            onClick={() => setFormData({...formData, versao_tiss: versao})}
+                            className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                              formData.versao_tiss === versao
+                                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md'
+                                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                            }`}
+                          >
+                            TISS {versao}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Versão do padrão TISS utilizada para este convênio</p>
                     </div>
                   </div>
                 )}
@@ -395,7 +418,7 @@ export default function Convenios() {
                 {aba === 'guias' && (
                   <div className="space-y-4">
                     <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg">
-                      <p className="text-xs text-yellow-700 dark:text-yellow-300">Defina o número inicial para a sequência de guias deste convênio. O sistema incrementará automaticamente.</p>
+                      <p className="text-xs text-yellow-700 dark:text-yellow-300">📋 Defina o número inicial para a sequência de guias deste convênio. O sistema incrementará automaticamente a cada nova guia gerada.</p>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
@@ -444,13 +467,14 @@ export default function Convenios() {
                         onChange={e => setFormData({...formData, multiplicador: parseFloat(e.target.value)})} 
                         className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
                       />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Multiplicador aplicado sobre os valores da tabela (ex: 1.10 = +10%)</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <input 
                         type="checkbox" 
                         checked={formData.coparticipacao} 
                         onChange={e => setFormData({...formData, coparticipacao: e.target.checked})} 
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600" 
                       />
                       <label className="text-sm text-gray-700 dark:text-gray-300">Possui coparticipação</label>
                     </div>
