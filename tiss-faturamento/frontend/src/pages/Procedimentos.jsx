@@ -664,7 +664,7 @@ export default function Procedimentos() {
         )}
       </div>
 
-      {/* Modal de Cadastro/Edição - versão simplificada */}
+      {/* Modal de Cadastro/Edição */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -700,6 +700,31 @@ export default function Procedimentos() {
                     <input type="text" value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" required />
                   </div>
                   
+                  {/* CAMPO TABELA - ADICIONAR AQUI */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tabela</label>
+                    <select 
+                      value={formData.tabela} 
+                      onChange={e => setFormData({...formData, tabela: e.target.value})} 
+                      className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
+                    >
+                      {TIPOS_TABELA.map(t => (
+                        <option key={t.value} value={t.value}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Selecione a tabela de referência para este item
+                    </p>
+                  </div>
+                  
+                  {/* Grupo */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Grupo</label>
+                    <input type="text" value={formData.grupo} onChange={e => setFormData({...formData, grupo: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
+                  </div>
+                  
                   {/* Campos específicos para Materiais/Medicamentos/OPME */}
                   {(formData.tipo === 'MATERIAL' || formData.tipo === 'MEDICAMENTO' || formData.tipo === 'OPME') && (
                     <div className="grid grid-cols-3 gap-4">
@@ -717,6 +742,59 @@ export default function Procedimentos() {
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Valor Unitário (R$)</label>
                         <input type="number" step="0.01" value={formData.valor_unitario} onChange={e => setFormData({...formData, valor_unitario: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
                       </div>
+                    </div>
+                  )}
+                  
+                  {/* Campos específicos para procedimentos com CH (AMB 90/92) */}
+                  {(formData.tabela === 'AMB90' || formData.tabela === 'AMB92') && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CH (Coeficiente Honorário)</label>
+                      <input type="number" step="1" value={formData.ch} onChange={e => setFormData({...formData, ch: parseFloat(e.target.value)})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" placeholder="Ex: 200" />
+                      <p className="text-xs text-gray-500 mt-1">CH tabelado para este procedimento (ex: 200)</p>
+                    </div>
+                  )}
+                  
+                  {/* Campos específicos para procedimentos CBHPM */}
+                  {formData.tabela === 'CBHPM' && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Porte</label>
+                        <input type="number" step="1" value={formData.porte} onChange={e => setFormData({...formData, porte: parseFloat(e.target.value)})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" placeholder="Ex: 3" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UCO</label>
+                        <input type="number" step="1" value={formData.uco} onChange={e => setFormData({...formData, uco: parseFloat(e.target.value)})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" placeholder="Ex: 30" />
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Campos específicos para Brasíndice/SIMPRO */}
+                  {(formData.tabela === 'BRASINDICE' || formData.tabela === 'SIMPRO') && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pontos</label>
+                      <input type="number" step="1" value={formData.pontos} onChange={e => setFormData({...formData, pontos: parseFloat(e.target.value)})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" placeholder="Ex: 100" />
+                    </div>
+                  )}
+                  
+                  {/* Checkboxes para auxiliares e filme */}
+                  {(formData.tabela === 'AMB90' || formData.tabela === 'AMB92') && (
+                    <div className="flex flex-wrap gap-4">
+                      <label className="flex items-center gap-2">
+                        <input type="checkbox" checked={formData.auxiliar_1} onChange={e => setFormData({...formData, auxiliar_1: e.target.checked})} className="w-4 h-4" />
+                        <span className="text-sm">1º Auxiliar (30%)</span>
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <input type="checkbox" checked={formData.auxiliar_2} onChange={e => setFormData({...formData, auxiliar_2: e.target.checked})} className="w-4 h-4" />
+                        <span className="text-sm">2º Auxiliar (20%)</span>
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <input type="checkbox" checked={formData.auxiliar_3} onChange={e => setFormData({...formData, auxiliar_3: e.target.checked})} className="w-4 h-4" />
+                        <span className="text-sm">3º Auxiliar (15%)</span>
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <input type="checkbox" checked={formData.filme} onChange={e => setFormData({...formData, filme: e.target.checked})} className="w-4 h-4" />
+                        <span className="text-sm">Incluir Filme</span>
+                      </label>
                     </div>
                   )}
                   
