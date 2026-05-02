@@ -102,20 +102,45 @@ export default function Configuracoes() {
       toast.error('Nome do contratado (clínica/hospital) é obrigatório');
       return;
     }
-
+  
     setSaving(true);
     try {
-      const { error } = await supabase
+      // Verificar se já existe a configuração
+      const { data: existing } = await supabase
         .from('configuracoes')
-        .upsert({
-          chave: 'config_sistema',
-          valor: JSON.stringify(config),
-          descricao: 'Configurações do sistema de faturamento TISS',
-          updated_at: new Date().toISOString()
-        });
-
+        .select('chave')
+        .eq('chave', 'config_sistema')
+        .maybeSingle();
+  
+      let error;
+      
+      if (existing) {
+        // Atualizar configuração existente
+        const { error: updateError } = await supabase
+          .from('configuracoes')
+          .update({
+            valor: JSON.stringify(config),
+            descricao: 'Configurações do sistema de faturamento TISS',
+            updated_at: new Date().toISOString()
+          })
+          .eq('chave', 'config_sistema');
+        error = updateError;
+      } else {
+        // Inserir nova configuração
+        const { error: insertError } = await supabase
+          .from('configuracoes')
+          .insert({
+            chave: 'config_sistema',
+            valor: JSON.stringify(config),
+            descricao: 'Configurações do sistema de faturamento TISS',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+        error = insertError;
+      }
+  
       if (error) throw error;
-
+  
       localStorage.setItem('config_sistema', JSON.stringify(config));
       setTissConfig(config);
       setVersao(config.versao_tiss);
