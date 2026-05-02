@@ -128,14 +128,15 @@ export default function Prestadores() {
   const carregarPrestadores = async () => {
     setLoading(true);
     try {
-      // Buscar dados do serviço
       const data = await prestadoresService.listarComEspecialidades();
-      console.log('Dados recebidos do service:', data);
       console.log('Total de prestadores:', data.length);
       
-      if (data.length > 0) {
-        console.log('Primeiro prestador do service:', data[0]);
-        console.log('Especialidades do primeiro prestador do service:', data[0].especialidades);
+      // Verificar a Amanda especificamente
+      const amanda = data.find(p => p.nome.includes('AMANDA BROSCO'));
+      if (amanda) {
+        console.log('AMANDA BROSCO V. CARNEIRO:', amanda);
+        console.log('Especialidades da Amanda:', amanda.especialidades);
+        console.log('Primeira especialidade:', amanda.especialidades[0]?.especialidade);
       }
       
       setPrestadores(data);
