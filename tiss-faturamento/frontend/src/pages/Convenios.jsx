@@ -3,7 +3,7 @@ import { PlusIcon, PencilIcon, TrashIcon, BuildingOfficeIcon, Cog6ToothIcon } fr
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { conveniosService } from '../services/supabaseService';
-import { useTheme } from '../App';
+import { useTheme } from '../contexts/ThemeContext';
 
 const UFS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
 
