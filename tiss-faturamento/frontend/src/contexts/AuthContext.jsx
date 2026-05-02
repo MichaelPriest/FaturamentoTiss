@@ -10,70 +10,70 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Verificar sessão atual
-    const getSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('Erro ao obter sessão:', error);
+    const checkSession = () => {
+      const sessao = localStorage.getItem('tiss_sessao');
+      if (sessao) {
+        try {
+          const sessaoData = JSON.parse(sessao);
+          if (sessaoData.logado && sessaoData.user) {
+            setUser(sessaoData.user);
+          }
+        } catch (e) {
+          console.error('Erro ao parsear sessão:', e);
+        }
       }
-      
-      if (session?.user) {
-        // Buscar dados adicionais na tabela usuarios
-        const { data: userData } = await supabase
-          .from('usuarios')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        
-        setUser({
-          id: session.user.id,
-          email: session.user.email,
-          nome: userData?.nome || session.user.user_metadata?.nome,
-          perfil: userData?.perfil || 'usuario'
-        });
-      }
-      
       setLoading(false);
     };
 
-    getSession();
-
-    // Escutar mudanças na autenticação
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        const { data: userData } = await supabase
-          .from('usuarios')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        
-        setUser({
-          id: session.user.id,
-          email: session.user.email,
-          nome: userData?.nome || session.user.user_metadata?.nome,
-          perfil: userData?.perfil || 'usuario'
-        });
-      } else {
-        setUser(null);
-      }
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    checkSession();
   }, []);
 
-  const signIn = async (email, password) => {
+  const signIn = async (email, senha) => {
+    if (!supabase) {
+      toast.error('Supabase não disponível');
+      return { success: false };
+    }
+    
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      // Buscar na tabela usuarios (usando bigint ID)
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('email', email)
+        .eq('ativo', true)
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Erro ao buscar usuário:', error);
+        toast.error('Usuário não encontrado');
+        return { success: false };
+      }
 
-      toast.success(`Bem-vindo, ${data.user.user_metadata?.nome || data.user.email}!`);
-      return { success: true, user: data.user };
+      // Verificar senha
+      if (data && data.senha === senha) {
+        // Atualizar último acesso
+        await supabase
+          .from('usuarios')
+          .update({ ultimo_acesso: new Date().toISOString() })
+          .eq('id', data.id);
+
+        const userData = {
+          id: data.id,
+          email: data.email,
+          nome: data.nome,
+          perfil: data.perfil
+        };
+
+        const sessao = { user: userData, logado: true, data_hora: new Date().toISOString() };
+        localStorage.setItem('tiss_sessao', JSON.stringify(sessao));
+        
+        setUser(userData);
+        toast.success(`Bem-vindo, ${data.nome}!`);
+        return { success: true, user: userData };
+      } else {
+        toast.error('Senha incorreta!');
+        return { success: false, error: 'Senha incorreta' };
+      }
     } catch (error) {
       console.error('Erro ao fazer login:', error);
       toast.error(error.message || 'Erro ao fazer login');
@@ -83,14 +83,14 @@ export function AuthProvider({ children }) {
 
   const signOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      localStorage.removeItem('tiss_sessao');
+      setUser(null);
       toast.success('Logout realizado com sucesso');
       return { success: true };
     } catch (error) {
       console.error('Erro ao fazer logout:', error);
       toast.error(error.message || 'Erro ao fazer logout');
-      return { success: false, error: error.message };
+      return { success: false };
     }
   };
 
