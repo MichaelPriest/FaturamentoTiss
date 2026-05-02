@@ -3,39 +3,14 @@ import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, XMarkIcon } from 
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabaseClient';
 
-// Lista completa de UFs do Brasil (códigos ANS conforme schema)
+// Lista completa de UFs do Brasil
 const UFS = [
-  { sigla: 'SP', codigoANS: '35' },
-  { sigla: 'RJ', codigoANS: '33' },
-  { sigla: 'MG', codigoANS: '31' },
-  { sigla: 'PR', codigoANS: '41' },
-  { sigla: 'SC', codigoANS: '42' },
-  { sigla: 'RS', codigoANS: '43' },
-  { sigla: 'BA', codigoANS: '29' },
-  { sigla: 'PE', codigoANS: '26' },
-  { sigla: 'CE', codigoANS: '23' },
-  { sigla: 'DF', codigoANS: '53' },
-  { sigla: 'GO', codigoANS: '52' },
-  { sigla: 'MT', codigoANS: '51' },
-  { sigla: 'MS', codigoANS: '50' },
-  { sigla: 'AM', codigoANS: '13' },
-  { sigla: 'PA', codigoANS: '15' },
-  { sigla: 'MA', codigoANS: '21' },
-  { sigla: 'PI', codigoANS: '22' },
-  { sigla: 'RN', codigoANS: '24' },
-  { sigla: 'PB', codigoANS: '25' },
-  { sigla: 'AL', codigoANS: '27' },
-  { sigla: 'SE', codigoANS: '28' },
-  { sigla: 'ES', codigoANS: '32' },
-  { sigla: 'RO', codigoANS: '11' },
-  { sigla: 'AC', codigoANS: '12' },
-  { sigla: 'RR', codigoANS: '14' },
-  { sigla: 'AP', codigoANS: '16' },
-  { sigla: 'TO', codigoANS: '17' },
-  { sigla: 'EX', codigoANS: '98' }
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 
+  'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 
+  'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
 ];
 
-// Lista completa de Conselhos Profissionais (códigos ANS conforme schema dm_conselhoProfissional)
+// Lista completa de Conselhos Profissionais
 const CONSELHOS = [
   { sigla: 'CRM', nome: 'Conselho Regional de Medicina', codigoANS: '06' },
   { sigla: 'CRO', nome: 'Conselho Regional de Odontologia', codigoANS: '08' },
@@ -46,32 +21,24 @@ const CONSELHOS = [
   { sigla: 'CRBio', nome: 'Conselho Regional de Biomedicina', codigoANS: '12' },
   { sigla: 'CRN', nome: 'Conselho Regional de Nutrição', codigoANS: '07' },
   { sigla: 'CREF', nome: 'Conselho Regional de Educação Física', codigoANS: '13' },
-  { sigla: 'CRESS', nome: 'Conselho Regional de Serviço Social', codigoANS: '01' },
-  { sigla: 'CRA', nome: 'Conselho Regional de Administração', codigoANS: '14' },
-  { sigla: 'CRMV', nome: 'Conselho Regional de Medicina Veterinária', codigoANS: '15' },
-  { sigla: 'CRTR', nome: 'Conselho Regional de Técnicos em Radiologia', codigoANS: '16' },
-  { sigla: 'OUT', nome: 'Outros Conselhos', codigoANS: '10' }
+  { sigla: 'CRESS', nome: 'Conselho Regional de Serviço Social', codigoANS: '01' }
 ];
 
-// Lista de Especialidades com CBOS válidos (conforme schema dm_CBOS)
+// Lista de Especialidades com IDs CORRETOS (após limpeza da duplicidade)
 const ESPECIALIDADES = [
-  { id: 1, nome: 'Psicologia Clínica', cbos: '251510', codigo_ans: '08', conselhoPadrao: 'CRP' },
-  { id: 2, nome: 'Neuropsicologia', cbos: '251545', codigo_ans: '08', conselhoPadrao: 'CRP' },
-  { id: 3, nome: 'Psicopedagogia', cbos: '239425', codigo_ans: '08', conselhoPadrao: 'CRP' },
-  { id: 4, nome: 'Fonoaudiologia', cbos: '223810', codigo_ans: '03', conselhoPadrao: 'CREFITO' },
-  { id: 5, nome: 'Fisioterapia', cbos: '223605', codigo_ans: '03', conselhoPadrao: 'CREFITO' },
-  { id: 6, nome: 'Psicomotricidade', cbos: '223915', codigo_ans: '03', conselhoPadrao: 'CREFITO' },
-  { id: 7, nome: 'Terapia Ocupacional', cbos: '223905', codigo_ans: '03', conselhoPadrao: 'CREFITO' },
-  { id: 8, nome: 'Musicoterapia', cbos: '226305', codigo_ans: '03', conselhoPadrao: 'CREFITO' },
-  { id: 9, nome: 'Gerontologia', cbos: '131220', codigo_ans: '03', conselhoPadrao: 'CREFITO' },
-  { id: 10, nome: 'Nutrição', cbos: '223710', codigo_ans: '10', conselhoPadrao: 'CRN' },
-  { id: 11, nome: 'Educação Física', cbos: '224105', codigo_ans: '11', conselhoPadrao: 'CREF' },
-  { id: 12, nome: 'Serviço Social', cbos: '251605', codigo_ans: '13', conselhoPadrao: 'CRESS' },
-  { id: 13, nome: 'Enfermagem', cbos: '223505', codigo_ans: '04', conselhoPadrao: 'COREN' },
-  { id: 14, nome: 'Farmácia', cbos: '223405', codigo_ans: '05', conselhoPadrao: 'CRF' },
-  { id: 15, nome: 'Biomedicina', cbos: '223305', codigo_ans: '09', conselhoPadrao: 'CRBio' },
-  { id: 16, nome: 'Odontologia', cbos: '223105', codigo_ans: '07', conselhoPadrao: 'CRO' },
-  { id: 17, nome: 'Pedagogia', cbos: null, codigo_ans: null, conselhoPadrao: null }
+  { id: 14, nome: 'Psicologia', cbos: '251510', codigo_ans: '09', conselhoPadrao: 'CRP' },
+  { id: 15, nome: 'Neuropsicologia', cbos: '251510', codigo_ans: '09', conselhoPadrao: 'CRP' },
+  { id: 16, nome: 'Psicopedagogia', cbos: '251510', codigo_ans: '09', conselhoPadrao: 'CRP' },
+  { id: 17, nome: 'Fonoaudiologia', cbos: '223810', codigo_ans: '05', conselhoPadrao: 'CREFITO' },
+  { id: 18, nome: 'Fisioterapia', cbos: '223605', codigo_ans: '05', conselhoPadrao: 'CREFITO' },
+  { id: 19, nome: 'Psicomotricidade', cbos: '223605', codigo_ans: '05', conselhoPadrao: 'CREFITO' },
+  { id: 32, nome: 'Terapia Ocupacional', cbos: '223905', codigo_ans: '05', conselhoPadrao: 'CREFITO' },
+  { id: 21, nome: 'Musicoterapia', cbos: '226305', codigo_ans: '05', conselhoPadrao: 'CREFITO' },
+  { id: 22, nome: 'Nutrição', cbos: '223710', codigo_ans: '07', conselhoPadrao: 'CRN' },
+  { id: 23, nome: 'Pedagogia', cbos: null, codigo_ans: null, conselhoPadrao: null },
+  { id: 24, nome: 'Educação Física', cbos: '224105', codigo_ans: '13', conselhoPadrao: 'CREF' },
+  { id: 25, nome: 'Gerontologia', cbos: '131220', codigo_ans: '05', conselhoPadrao: 'CREFITO' },
+  { id: 26, nome: 'Estudante Psicologia', cbos: null, codigo_ans: null, conselhoPadrao: null }
 ];
 
 export default function Prestadores() {
@@ -91,7 +58,7 @@ export default function Prestadores() {
     conselho: 'CRM',
     codigo_conselho_ans: '06',
     numero_conselho: '',
-    uf_conselho: '35', // código ANS para SP
+    uf_conselho: 'SP',
     telefone: '',
     celular: '',
     email: '',
@@ -156,18 +123,6 @@ export default function Prestadores() {
     }
   };
 
-  // Converter UF para código ANS (dm_UF)
-  const getUFCodigoANS = (ufSigla) => {
-    const uf = UFS.find(u => u.sigla === ufSigla);
-    return uf?.codigoANS || '35';
-  };
-
-  // Obter UF a partir do código ANS
-  const getUFSigla = (codigoANS) => {
-    const uf = UFS.find(u => u.codigoANS === codigoANS);
-    return uf?.sigla || 'SP';
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.nome || !formData.codigo_prestador) {
@@ -180,14 +135,9 @@ export default function Prestadores() {
       return;
     }
 
-    // Converter UF para código ANS
-    const ufCodigoANS = getUFCodigoANS(formData.estado);
-
     try {
       if (editing) {
-        // Converter UF do conselho para código ANS
-        const ufConselhoCodigo = getUFCodigoANS(formData.uf_conselho);
-        
+        // Atualizar prestador
         const { error: updateError } = await supabase
           .from('prestadores')
           .update({
@@ -198,14 +148,14 @@ export default function Prestadores() {
             conselho: formData.conselho,
             codigo_conselho_ans: formData.codigo_conselho_ans,
             numero_conselho: formData.numero_conselho,
-            uf_conselho: ufConselhoCodigo, // Salva o código ANS
+            uf_conselho: formData.uf_conselho,
             telefone: formData.telefone.replace(/\D/g, ''),
             celular: formData.celular.replace(/\D/g, ''),
             email: formData.email,
             endereco: formData.endereco,
             cep: formData.cep.replace(/\D/g, ''),
             cidade: formData.cidade.toUpperCase(),
-            estado: ufCodigoANS, // Salva o código ANS
+            estado: formData.estado,
             ativo: formData.ativo,
             updated_at: new Date().toISOString()
           })
@@ -213,11 +163,13 @@ export default function Prestadores() {
         
         if (updateError) throw updateError;
         
+        // Remover especialidades antigas
         await supabase
           .from('prestador_especialidade')
           .delete()
           .eq('prestador_id', editing.id);
         
+        // Inserir novas especialidades
         const especialidadesInsert = especialidadesSelecionadas.map(esp => ({
           prestador_id: editing.id,
           especialidade_id: esp.id,
@@ -234,8 +186,7 @@ export default function Prestadores() {
         
         toast.success('Prestador atualizado com sucesso!');
       } else {
-        const ufConselhoCodigo = getUFCodigoANS(formData.uf_conselho);
-        
+        // Inserir novo prestador
         const { data: novoPrestador, error: insertError } = await supabase
           .from('prestadores')
           .insert({
@@ -246,14 +197,14 @@ export default function Prestadores() {
             conselho: formData.conselho,
             codigo_conselho_ans: formData.codigo_conselho_ans,
             numero_conselho: formData.numero_conselho,
-            uf_conselho: ufConselhoCodigo,
+            uf_conselho: formData.uf_conselho,
             telefone: formData.telefone.replace(/\D/g, ''),
             celular: formData.celular.replace(/\D/g, ''),
             email: formData.email,
             endereco: formData.endereco,
             cep: formData.cep.replace(/\D/g, ''),
             cidade: formData.cidade.toUpperCase(),
-            estado: ufCodigoANS,
+            estado: formData.estado,
             ativo: formData.ativo,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
@@ -263,6 +214,7 @@ export default function Prestadores() {
         
         if (insertError) throw insertError;
         
+        // Inserir especialidades
         const especialidadesInsert = especialidadesSelecionadas.map(esp => ({
           prestador_id: novoPrestador.id,
           especialidade_id: esp.id,
@@ -311,14 +263,14 @@ export default function Prestadores() {
       conselho: prestador.conselho || 'CRM',
       codigo_conselho_ans: prestador.codigo_conselho_ans || '06',
       numero_conselho: prestador.numero_conselho || '',
-      uf_conselho: getUFSigla(prestador.uf_conselho) || 'SP',
+      uf_conselho: prestador.uf_conselho || 'SP',
       telefone: prestador.telefone || '',
       celular: prestador.celular || '',
       email: prestador.email || '',
       endereco: prestador.endereco || '',
       cep: prestador.cep || '',
       cidade: prestador.cidade || '',
-      estado: getUFSigla(prestador.estado) || 'SP',
+      estado: prestador.estado || 'SP',
       ativo: prestador.ativo !== false
     });
     
@@ -414,18 +366,6 @@ export default function Prestadores() {
     }
   };
 
-  // Exibir UF em formato texto (sigla) para o usuário
-  const exibirUF = (codigoANS) => {
-    const uf = UFS.find(u => u.codigoANS === codigoANS);
-    return uf ? `${uf.sigla}` : codigoANS;
-  };
-
-  // Exibir conselho com UF legível
-  const exibirConselho = (prestador) => {
-    const ufExibida = exibirUF(prestador.uf_conselho);
-    return `${prestador.conselho} ${prestador.numero_conselho}/${ufExibida}`;
-  };
-
   const getEspecialidadesTexto = (prestador) => {
     if (!prestador.especialidades || prestador.especialidades.length === 0) return '-';
     const nomes = prestador.especialidades.map(esp => {
@@ -472,7 +412,7 @@ export default function Prestadores() {
             Prestadores
           </h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Cadastro de profissionais - Dados conforme padrão TISS ANS
+            Cadastro de profissionais e prestadores de serviços
           </p>
         </div>
         <button 
@@ -514,7 +454,7 @@ export default function Prestadores() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Especialidades</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">CBOS</th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Ações</th>
-              </tr>
+              <tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {filtered.map((p) => (
@@ -522,7 +462,7 @@ export default function Prestadores() {
                   <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">{p.codigo_prestador || '-'}</td>
                   <td className="px-4 py-3 text-sm text-gray-800 dark:text-gray-200">{p.nome}</td>
                   <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{p.cpf || p.cnpj || '-'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{exibirConselho(p)}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{p.conselho} {p.numero_conselho}/{p.uf_conselho}</td>
                   <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                     {getEspecialidadesTexto(p)}
                   </td>
@@ -545,7 +485,7 @@ export default function Prestadores() {
                       </button>
                     </div>
                   </td>
-                </tr>
+                </table>
               ))}
             </tbody>
           </table>
@@ -560,7 +500,7 @@ export default function Prestadores() {
         )}
       </div>
 
-      {/* Modal de Cadastro/Edição - manter o mesmo JSX do modal anterior, apenas ajustando os selects de UF para usar siglas */}
+      {/* Modal de Cadastro/Edição */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -572,7 +512,7 @@ export default function Prestadores() {
             
             <div className="p-5">
               <form onSubmit={handleSubmit}>
-                {/* Dados Pessoais - manter igual */}
+                {/* Dados Pessoais */}
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div className="col-span-2">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome Completo *</label>
@@ -617,7 +557,7 @@ export default function Prestadores() {
                   </div>
                 </div>
 
-                {/* Especialidades - manter igual */}
+                {/* Especialidades */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Especialidades *</label>
                   
@@ -718,7 +658,7 @@ export default function Prestadores() {
                       onChange={e => setFormData({...formData, uf_conselho: e.target.value})} 
                       className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     >
-                      {UFS.map(uf => <option key={uf.sigla} value={uf.sigla}>{uf.sigla}</option>)}
+                      {UFS.map(uf => <option key={uf} value={uf}>{uf}</option>)}
                     </select>
                   </div>
                 </div>
@@ -790,7 +730,7 @@ export default function Prestadores() {
                       onChange={e => setFormData({...formData, estado: e.target.value})} 
                       className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     >
-                      {UFS.map(uf => <option key={uf.sigla} value={uf.sigla}>{uf.sigla}</option>)}
+                      {UFS.map(uf => <option key={uf} value={uf}>{uf}</option>)}
                     </select>
                   </div>
                 </div>
