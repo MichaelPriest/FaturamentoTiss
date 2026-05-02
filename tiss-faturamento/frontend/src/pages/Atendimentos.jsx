@@ -236,8 +236,7 @@ export default function Atendimentos() {
     grau_participacao: '12',
     unidade_medida: '036',
     pendente_autorizacao: false,
-    saldo_autorizado: 0,
-    codigo_autorizacao: ''
+    saldo_autorizado: 0
   });
 
   const [formData, setFormData] = useState({
@@ -579,8 +578,7 @@ export default function Atendimentos() {
       grau_participacao: '12',
       unidade_medida: '036',
       pendente_autorizacao: false,
-      saldo_autorizado: 0,
-      codigo_autorizacao: ''
+      saldo_autorizado: 0
     });
     setSearchItemTerm('');
     toast.success('Item atualizado com sucesso!');
@@ -1285,7 +1283,7 @@ export default function Atendimentos() {
                     <div className="space-y-4">
                       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-4">
                         <p className="text-xs text-blue-700 dark:text-blue-300">
-                          <strong>📋 Autorização da Guia:</strong> Preencha os dados de autorização fornecidos pela operadora e inclua os códigos de autorização para cada lançamento.
+                          <strong>📋 Autorização da Guia:</strong> Preencha os dados de autorização fornecidos pela operadora e inclua os procedimentos realizados que serão lançados.
                         </p>
                       </div>
                       
@@ -1330,109 +1328,160 @@ export default function Atendimentos() {
                         </div>
                       </div>
 
-                      {/* Seção de Inclusão de Códigos de Autorização */}
+                      {/* FORMULÁRIO DE ADIÇÃO DE ITENS NA ABA AUTORIZAÇÃO */}
                       <div className="border-t pt-4 mt-4">
                         <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                          <CubeIcon className="w-4 h-4" />
-                          Códigos de Autorização por Item
+                          <PlusIcon className="w-4 h-4" />
+                          Incluir Procedimentos Realizados
                         </h4>
-                        
-                        {itensGuia.length === 0 ? (
-                          <div className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600">
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              Nenhum item adicionado ainda. Acesse a aba "Procedimentos" para adicionar itens à guia.
-                            </p>
+
+                        {/* Busca de Item */}
+                        <div className="mb-3">
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Procedimento (código ou descrição)</label>
+                          <div className="relative">
+                            <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                            <input
+                              type="text"
+                              value={searchItemTerm}
+                              onChange={e => setSearchItemTerm(e.target.value)}
+                              placeholder="Digite o código ou descrição do procedimento..."
+                              className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                              list="itens-suggestions"
+                            />
+                            <datalist id="itens-suggestions">
+                              {itensFiltrados.slice(0, 20).map(item => (
+                                <option key={item.codigo_tuss} value={item.codigo_tuss}>
+                                  {item.codigo_tuss} - {item.nome}
+                                </option>
+                              ))}
+                            </datalist>
                           </div>
-                        ) : (
-                          <div className="space-y-3">
-                            {itensGuia.map((item, idx) => (
-                              <div key={item.id} className="border rounded-xl p-4 bg-gray-50 dark:bg-gray-700/30">
-                                <div className="flex items-start justify-between mb-3">
-                                  <div>
-                                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                                      {idx + 1}. {item.nome}
-                                    </p>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                      Código: <span className="font-mono">{item.codigo}</span> | Qtd: <span className="font-semibold">{item.quantidade}</span> | Valor: <span className="font-semibold">R$ {item.valor_total?.toFixed(2)}</span>
-                                    </p>
-                                  </div>
-                                </div>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                  <div>
-                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                                      Código de Autorização *
-                                    </label>
-                                    <input
-                                      type="text"
-                                      placeholder="Ex: AUTH123456"
-                                      value={item.codigo_autorizacao || ''}
-                                      onChange={(e) => {
-                                        const novoItem = { ...item, codigo_autorizacao: e.target.value };
-                                        setItensGuia(itensGuia.map(i => i.id === item.id ? novoItem : i));
-                                      }}
-                                      className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                                      Quantidade Autorizada
-                                    </label>
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      placeholder="Qtd"
-                                      value={item.quantidade_autorizada || 0}
-                                      onChange={(e) => {
-                                        const qtdAut = parseInt(e.target.value) || 0;
-                                        const novoItem = { 
-                                          ...item, 
-                                          quantidade_autorizada: qtdAut,
-                                          saldo_autorizado: qtdAut - item.quantidade
-                                        };
-                                        setItensGuia(itensGuia.map(i => i.id === item.id ? novoItem : i));
-                                      }}
-                                      className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                                      Saldo
-                                    </label>
-                                    <div className={`w-full border rounded-lg px-3 py-2 text-sm text-center font-semibold ${
-                                      item.quantidade_autorizada > 0 
-                                        ? item.saldo_autorizado >= 0 
-                                          ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' 
-                                          : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
-                                        : 'bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
-                                    }`}>
-                                      {item.quantidade_autorizada > 0 ? item.saldo_autorizado : '-'}
-                                    </div>
-                                  </div>
-                                </div>
+                        </div>
 
-                                {item.codigo_autorizacao && (
-                                  <div className="mt-3 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                                    <p className="text-xs text-green-700 dark:text-green-400 flex items-center gap-1">
-                                      <CheckIcon className="w-3 h-3" />
-                                      ✓ Código de autorização preenchido
-                                    </p>
+                        {/* Seleção do Item */}
+                        {searchItemTerm && itensFiltrados.length > 0 && (
+                          <div className="border rounded-xl max-h-48 overflow-y-auto mb-3">
+                            {itensFiltrados.slice(0, 10).map(item => (
+                              <button
+                                key={item.codigo_tuss}
+                                type="button"
+                                onClick={() => {
+                                  handleProcedimentoItemChange(item.codigo_tuss);
+                                  setSearchItemTerm('');
+                                }}
+                                className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 border-b last:border-b-0 transition-colors"
+                              >
+                                <div className="flex justify-between items-center">
+                                  <div>
+                                    <span className="font-mono text-sm text-blue-600">{item.codigo_tuss}</span>
+                                    <span className="text-sm text-gray-700 dark:text-gray-300 ml-2">{item.nome}</span>
                                   </div>
-                                )}
-
-                                {item.quantidade_autorizada > 0 && item.quantidade > item.quantidade_autorizada && (
-                                  <div className="mt-3 p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
-                                    <p className="text-xs text-orange-700 dark:text-orange-400 flex items-center gap-1">
-                                      <ExclamationTriangleIcon className="w-3 h-3" />
-                                      Quantidade solicitada excede a autorizada
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
+                                  <span className="text-sm font-semibold text-green-600">R$ {item.valor_sugerido?.toFixed(2)}</span>
+                                </div>
+                              </button>
                             ))}
                           </div>
                         )}
+
+                        {/* Formulário do Item */}
+                        {currentItem.codigo && (
+                          <div className="border rounded-xl p-4 bg-gray-50 dark:bg-gray-700/30 mb-3">
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+                              <div className="md:col-span-2">
+                                <label className="block text-xs text-gray-500 mb-1">Data Execução</label>
+                                <input type="date" value={currentItem.data_execucao} onChange={e => setCurrentItem({...currentItem, data_execucao: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" />
+                              </div>
+                              <div className="md:col-span-3">
+                                <label className="block text-xs text-gray-500 mb-1">Procedimento</label>
+                                <input type="text" value={currentItem.nome} disabled className="w-full bg-gray-100 border rounded px-2 py-1.5 text-sm dark:bg-gray-600 dark:text-white" />
+                              </div>
+                              <div className="md:col-span-1">
+                                <label className="block text-xs text-gray-500 mb-1">Qtd</label>
+                                <input type="number" min="1" value={currentItem.quantidade} onChange={e => {
+                                  const qtd = parseInt(e.target.value) || 1;
+                                  setCurrentItem({...currentItem, quantidade: qtd, valor_total: qtd * currentItem.valor_unitario});
+                                }} className="w-full border rounded px-2 py-1.5 text-sm text-center dark:bg-gray-700 dark:text-white" />
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="block text-xs text-gray-500 mb-1">Valor Unit. (R$)</label>
+                                <input type="number" step="0.01" value={currentItem.valor_unitario} onChange={e => {
+                                  const valor = parseFloat(e.target.value) || 0;
+                                  setCurrentItem({...currentItem, valor_unitario: valor, valor_total: currentItem.quantidade * valor});
+                                }} className="w-full border rounded px-2 py-1.5 text-sm text-right dark:bg-gray-700 dark:text-white" />
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="block text-xs text-gray-500 mb-1">Profissional</label>
+                                <select value={currentItem.prestador_id} onChange={e => {
+                                  const prestador = prestadores.find(p => p.id === parseInt(e.target.value));
+                                  setCurrentItem({...currentItem, prestador_id: e.target.value, prestador_nome: prestador?.nome || ''});
+                                }} className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white">
+                                  <option value="">Selecione</option>
+                                  {prestadores.map(p => (<option key={p.id} value={p.id}>{p.nome}</option>))}
+                                </select>
+                              </div>
+                              <div className="md:col-span-1">
+                                <button type="button" onClick={handleAdicionarItem} className="w-full bg-green-600 text-white px-2 py-1.5 rounded-lg text-sm hover:bg-green-700 font-medium">+ Add</button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
+
+                      {/* Tabela de Itens Adicionados */}
+                      {itensGuia.length > 0 && (
+                        <div className="border-t pt-4">
+                          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Procedimentos Adicionados ({itensGuia.length})</h4>
+                          <div className="border rounded-xl overflow-hidden">
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm">
+                                <thead className="bg-gray-50 dark:bg-gray-700/50">
+                                  <tr>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Seq</th>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Código</th>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Procedimento</th>
+                                    <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd</th>
+                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">V. Unit.</th>
+                                    <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Total</th>
+                                    <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Profissional</th>
+                                    <th className="px-3 py-2 text-center w-16">Ações</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                  {itensGuia.map((item, idx) => (
+                                    <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                      <td className="px-3 py-2 text-xs text-center font-medium">{idx + 1}</td>
+                                      <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
+                                      <td className="px-3 py-2 text-xs">{item.nome}</td>
+                                      <td className="px-3 py-2 text-xs text-center">{item.quantidade}</td>
+                                      <td className="px-3 py-2 text-xs text-right">R$ {item.valor_unitario?.toFixed(2)}</td>
+                                      <td className="px-3 py-2 text-xs text-right font-semibold">R$ {item.valor_total?.toFixed(2)}</td>
+                                      <td className="px-3 py-2 text-xs text-center text-gray-600 dark:text-gray-400">{item.prestador_nome}</td>
+                                      <td className="px-3 py-2 text-center">
+                                        <div className="flex gap-1 justify-center">
+                                          <button type="button" onClick={() => handleEditItem(item)} className="text-blue-600 hover:text-blue-800" title="Editar">
+                                            <PencilIcon className="w-3 h-3" />
+                                          </button>
+                                          <button type="button" onClick={() => removerItem(item.id)} className="text-red-600 hover:text-red-800" title="Remover">
+                                            <TrashIcon className="w-3 h-3" />
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                                <tfoot className="bg-gray-50 dark:bg-gray-700/50">
+                                  <tr className="border-t">
+                                    <td colSpan="5" className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">Total:</td>
+                                    <td colSpan="3" className="px-3 py-2 text-right font-bold text-blue-600 dark:text-blue-400">
+                                      R$ {itensGuia.reduce((sum, i) => sum + i.valor_total, 0).toFixed(2)}
+                                    </td>
+                                  </tr>
+                                </tfoot>
+                              </table>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                     </div>
                   )}
