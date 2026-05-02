@@ -47,7 +47,6 @@ export default function Faturamento() {
   const [filtroEspecialidade, setFiltroEspecialidade] = useState('todos');
   const [filtroPrestador, setFiltroPrestador] = useState('todos');
   const [filtroTipoAtendimento, setFiltroTipoAtendimento] = useState('todos');
-  const [filtroStatus, setFiltroStatus] = useState('pendente'); // NOVO: filtrar por status
   const [ordem, setOrdem] = useState('guia');
   const [ordemDirecao, setOrdemDirecao] = useState('asc');
   const [versaoTISS, setVersaoTISS] = useState('4.03.00');
@@ -146,7 +145,7 @@ export default function Faturamento() {
       const { data } = await supabase
         .from('atendimentos')
         .select('*')
-        .eq('status', 'faturado')  // ← MUDAR AQUI: apenas faturado
+        .eq('status', 'faturado')
         .order('created_at', { ascending: false });
       
       console.log('Atendimentos FATURADOS carregados:', data?.length);
@@ -339,16 +338,8 @@ export default function Faturamento() {
   // FUNÇÕES DE FILTRAGEM E SELEÇÃO
   // ============================================
 
-  const pendentes = atendimentos.filter(a => a.status === 'pendente');
-  const faturados = atendimentos.filter(a => a.status === 'faturado');
-  
-  // FILTRO POR STATUS (pendente ou faturado)
-  const atendimentosFiltradosPorStatus = filtroStatus === 'pendente' ? pendentes : faturados;
-  
-  const todosAtendimentosFiltrados = atendimentosFiltradosPorStatus.filter(a => !bloqueados.includes(a.id));
-  
   const atendimentosFiltrados = useMemo(() => {
-    let filtrados = [...todosAtendimentosFiltrados];
+    let filtrados = [...atendimentos];
     
     if (filtroConvenio !== 'todos') {
       filtrados = filtrados.filter(a => a.paciente_convenio_id === parseInt(filtroConvenio));
@@ -394,7 +385,7 @@ export default function Faturamento() {
     });
     
     return filtrados;
-  }, [todosAtendimentosFiltrados, filtroConvenio, filtroEspecialidade, filtroPrestador, filtroTipoAtendimento, ordem, ordemDirecao]);
+  }, [atendimentos, filtroConvenio, filtroEspecialidade, filtroPrestador, filtroTipoAtendimento, ordem, ordemDirecao]);
 
   const atendimentosPorConvenio = useMemo(() => {
     return atendimentosFiltrados.reduce((acc, a) => {
@@ -405,36 +396,9 @@ export default function Faturamento() {
     }, {});
   }, [atendimentosFiltrados]);
 
-  const previewData = useMemo(() => {
-    if (selecionados.length === 0) return null;
-    const atendimentosSelecionados = atendimentosFiltrados.filter(a => selecionados.includes(a.id));
-    const valorTotal = atendimentosSelecionados.reduce((sum, a) => sum + (a.valor_total || 0), 0);
-    
-    return {
-      atendimentos: atendimentosSelecionados,
-      valorTotal,
-      quantidade: atendimentosSelecionados.length,
-      conveniosAgrupados: atendimentosSelecionados.reduce((acc, a) => {
-        const convenioId = a.paciente_convenio_id;
-        if (!acc[convenioId]) {
-          acc[convenioId] = {
-            convenio: convenios.find(c => c.id === convenioId),
-            atendimentos: [],
-            valorTotal: 0
-          };
-        }
-        acc[convenioId].atendimentos.push(a);
-        acc[convenioId].valorTotal += (a.valor_total || 0);
-        return acc;
-      }, {})
-    };
-  }, [selecionados, atendimentosFiltrados, convenios]);
-
   const totalSelecionados = selecionados.length;
-  const totalPendentes = pendentes.length;
-  const totalFaturados = faturados.length;
-  const valorTotalPendente = pendentes.reduce((sum, a) => sum + (a.valor_total || 0), 0);
-  const valorTotalFaturado = faturados.reduce((sum, a) => sum + (a.valor_total || 0), 0);
+  const totalFaturados = atendimentos.length;
+  const valorTotalFaturado = atendimentos.reduce((sum, a) => sum + (a.valor_total || 0), 0);
 
   // ============================================
   // FUNÇÕES DE INTERAÇÃO
@@ -454,7 +418,7 @@ export default function Faturamento() {
   };
 
   const selecionarTodos = () => {
-    const ids = atendimentosFiltrados.filter(a => !bloqueados.includes(a.id) && a.status === 'pendente').map(a => a.id);
+    const ids = atendimentosFiltrados.filter(a => !bloqueados.includes(a.id)).map(a => a.id);
     setSelecionados(ids);
   };
 
@@ -478,204 +442,49 @@ export default function Faturamento() {
     }
   };
 
-  const abrirPrevia = () => {
+  // ============================================
+  // FUNÇÃO PARA FINALIZAR GUIAS FATURADAS
+  // ============================================
+
+  const finalizarGuiasSelecionadas = async () => {
     if (selecionados.length === 0) {
-      toast.error('Selecione pelo menos uma guia para faturar');
+      toast.error('Selecione pelo menos uma guia para finalizar');
       return;
     }
-    if (previewData) {
-      const novoNumeroLote = gerarNumeroLote();
-      setNumeroLotePreview(novoNumeroLote);
-      atualizarTodosImpostos(previewData.valorTotal);
-      setShowPreviaModal(true);
-    }
-  };
-
-  const imprimirRelacao = () => {
-    if (!previewData) return;
     
-    const printWindow = window.open('', '_blank');
-    let conteudo = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Relação de Faturamento</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 20px; }
-          h1, h2 { text-align: center; }
-          table { border-collapse: collapse; width: 100%; margin-top: 20px; }
-          th { background-color: #2563eb; color: white; padding: 10px; text-align: left; }
-          td { border: 1px solid #ddd; padding: 8px; }
-          .total { font-weight: bold; text-align: right; }
-          .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
-          @media print { button { display: none; } }
-        </style>
-      </head>
-      <body>
-        <h1>Sistema de Faturamento TISS</h1>
-        <h2>Relação de Guias para Faturamento</h2>
-        <p><strong>Data da relação:</strong> ${new Date().toLocaleString()}</p>
-        <p><strong>Número do Lote:</strong> ${numeroLotePreview}</p>
-        <p><strong>Total de guias:</strong> ${previewData.quantidade}</p>
-        <p><strong>Valor total:</strong> R$ ${previewData.valorTotal.toFixed(2)}</p>
-    `;
-
-    Object.entries(previewData.conveniosAgrupados).forEach(([convenioId, data]) => {
-      conteudo += `
-        <h3>Convênio: ${data.convenio?.razao_social || 'Desconhecido'}</h3>
-        <table>
-          <thead>
-            <tr><th>Nº Guia</th><th>Nº Guia Operadora</th><th>Senha</th><th>Data</th><th>Paciente</th><th>Carteira</th><th>Profissional</th><th>Valor</th></tr>
-          </thead>
-          <tbody>
-      `;
-      data.atendimentos.forEach(a => {
-        conteudo += `
-          <tr>
-            <td>${a.numero_guia_prestador || '-'}</td>
-            <td>${a.numero_guia_operadora || '-'}</td>
-            <td>${a.senha_autorizacao || '-'}</td>
-            <td>${a.data_atendimento || '-'}</td>
-            <td>${a.paciente_nome || '-'}</td>
-            <td>${a.numero_carteira || '-'}</td>
-            <td>${a.prestador_nome || '-'}</td>
-            <td style="text-align: right;">R$ ${(a.valor_total || 0).toFixed(2)}</td>
-          </tr>
-        `;
-      });
-      conteudo += `
-          </tbody>
-          <tfoot><tr><td colspan="7" class="total">Total:</td><td class="total">R$ ${data.valorTotal.toFixed(2)}</td></tr></tfoot>
-        </table>
-      `;
-    });
-
-    conteudo += `<div class="footer"><p>Sistema de Faturamento TISS</p></div><script>window.onload = function() { window.print(); window.close(); };</script></body></html>`;
-    printWindow.document.write(conteudo);
-    printWindow.document.close();
-  };
-
-  const confirmarGeracaoLote = async () => {
-    if (!previewData) return;
-
+    if (!confirm(`Finalizar ${selecionados.length} guia(s) faturada(s)? Isso irá bloquear a edição permanentemente.`)) return;
+    
     setGerando(true);
-    setShowPreviaModal(false);
-
+    
     try {
-      const atendimentosPorConvenio = previewData.conveniosAgrupados;
-      let seq = sequencialGlobal;
-      const lotesGerados = [];
+      // Atualizar as guias para status 'finalizado'
+      const { error: updateError } = await supabase
+        .from('atendimentos')
+        .update({ 
+          status: 'finalizado',
+          updated_at: new Date().toISOString() 
+        })
+        .in('id', selecionados);
       
-      for (const [convenioId, data] of Object.entries(atendimentosPorConvenio)) {
-        const convenio = data.convenio;
-        
-        if (!convenio || !convenio.codigo_prestador) {
-          toast.error(`Convênio ${convenio?.razao_social || 'Desconhecido'} não possui código de prestador`);
-          continue;
-        }
-
-        const numeroLote = numeroLotePreview;
-        
-        const guias = data.atendimentos.map(atendimento => ({
-          ...converterAtendimentoParaTISS(atendimento, convenio),
-          codigoPrestadorExecutante: convenio.codigo_prestador,
-          versao: versaoTISS
-        }));
-
-        const xml = gerarXMLTISS({
-          versao: versaoTISS,
-          sequencialTransacao: seq.toString().padStart(4, '0'),
-          codigoPrestadorNaOperadora: convenio.codigo_prestador,
-          registroANS: convenio.registro_ans,
-          numeroLote: numeroLote,
-          guias: guias,
-          convenio: convenio
-        });
-
-        const nomeArquivo = `${numeroLote}_${convenio.registro_ans}_${format(new Date(), 'yyyyMMdd_HHmmss')}.xml`;
-
-        const novoLote = {
-          convenio_id: parseInt(convenioId),
-          convenio_nome: convenio.razao_social,
-          numero_lote: numeroLote,
-          data_envio: format(new Date(), 'yyyy-MM-dd'),
-          quantidade_guias: data.atendimentos.length,
-          guias_ids: data.atendimentos.map(a => a.id),
-          xml_content: xml,
-          status: 'faturado',
-          versao: versaoTISS,
-          dados_fatura: {
-            competencia: dadosFatura.competencia,
-            data_fechamento: dadosFatura.dataFechamento,
-            data_previsao_pagamento: dadosFatura.dataPrevisaoPagamento,
-            base_calculo: dadosFatura.baseCalculo,
-            aliquota_iss: dadosFatura.aliquotaISS,
-            valor_iss: dadosFatura.valorISS,
-            aliquota_ibs: dadosFatura.aliquotaIBS,
-            valor_ibs: dadosFatura.valorIBS,
-            aliquota_cbs: dadosFatura.aliquotaCBS,
-            valor_cbs: dadosFatura.valorCBS,
-            aliquota_ir: dadosFatura.aliquotaIR,
-            valor_ir: dadosFatura.valorIR,
-            aliquota_csll: dadosFatura.aliquotaCSLL,
-            valor_csll: dadosFatura.valorCSLL,
-            aliquota_pis: dadosFatura.aliquotaPIS,
-            valor_pis: dadosFatura.valorPIS,
-            aliquota_cofins: dadosFatura.aliquotaCOFINS,
-            valor_cofins: dadosFatura.valorCOFINS,
-            valor_liquido: dadosFatura.valorLiquido,
-            observacoes: dadosFatura.observacoes
-          },
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        
-        await supabase.from('lotes_faturamento').insert([novoLote]);
-        lotesGerados.push(novoLote);
-        
-        await registrarLog('GERACAO_LOTE', novoLote, `Lote gerado com ${data.atendimentos.length} guias`);
-        
-        const ids = data.atendimentos.map(a => a.id);
-        await supabase
-          .from('atendimentos')
-          .update({ 
-            status: 'faturado', 
-            fatura_lote: numeroLote,
-            data_faturamento: new Date().toISOString(),
-            updated_at: new Date().toISOString() 
-          })
-          .in('id', ids);
-        
-        const novosBloqueados = bloqueados.filter(id => !ids.includes(id));
-        setBloqueados(novosBloqueados);
-        await salvarBloqueados(novosBloqueados);
-        
-        const blob = new Blob([xml], { type: 'application/xml' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = nomeArquivo;
-        a.click();
-        URL.revokeObjectURL(url);
-        
-        seq++;
-      }
-
-      await atualizarSequencial(seq);
-      setSequencialGlobal(seq);
-      await carregarLotes();
+      if (updateError) throw updateError;
+      
+      // Registrar log das guias finalizadas
+      const loteInfo = {
+        numero_lote: 'FINALIZACAO_DIRETA',
+        convenio_nome: 'Múltiplos Convênios',
+        quantidade_guias: selecionados.length,
+        dados_fatura: { base_calculo: 0 }
+      };
+      
+      await registrarLog('FINALIZACAO_LOTE', loteInfo, `${selecionados.length} guias finalizadas diretamente. IDs: ${selecionados.join(', ')}`);
+      
       await carregarDados();
-      
       setSelecionados([]);
       
-      toast.success(`${lotesGerados.length} lote(s) gerado(s) com sucesso!`);
-      
-      if (confirm('Deseja imprimir a relação das guias faturadas?')) {
-        setTimeout(() => imprimirRelacao(), 500);
-      }
+      toast.success(`${selecionados.length} guia(s) finalizada(s) e bloqueada(s) para edição!`);
     } catch (error) {
-      console.error('Erro ao gerar lote:', error);
-      toast.error('Erro ao gerar lote');
+      console.error('Erro ao finalizar guias:', error);
+      toast.error('Erro ao finalizar guias: ' + (error.message || 'Erro desconhecido'));
     } finally {
       setGerando(false);
     }
@@ -859,9 +668,6 @@ export default function Faturamento() {
         return;
       }
       
-      console.log('Cancelando lote - IDs das guias:', guiasIds);
-      
-      // CORREÇÃO: Usar .in() corretamente com array de números
       const { error: updateError } = await supabase
         .from('atendimentos')
         .update({ 
@@ -870,18 +676,12 @@ export default function Faturamento() {
           data_faturamento: null,
           updated_at: new Date().toISOString() 
         })
-        .in('id', guiasIds); // Isso deve funcionar se guiasIds for um array de números
+        .in('id', guiasIds);
       
-      if (updateError) {
-        console.error('Erro ao atualizar guias:', updateError);
-        throw updateError;
-      }
-      
-      console.log(`${guiasIds.length} guia(s) atualizada(s) para status "pendente"`);
+      if (updateError) throw updateError;
       
       await registrarLog('CANCELAMENTO_LOTE', lote, `Lote cancelado. ${guiasIds.length} guias reabertas com status "pendente".`);
       
-      // Remover o lote da lista atual
       const { error: deleteError } = await supabase
         .from('lotes_faturamento')
         .delete()
@@ -914,9 +714,6 @@ export default function Faturamento() {
         return;
       }
       
-      console.log('Finalizando lote - IDs das guias:', guiasIds);
-      
-      // CORREÇÃO: Usar .in() corretamente com array de números
       const { error: updateError } = await supabase
         .from('atendimentos')
         .update({ 
@@ -925,16 +722,10 @@ export default function Faturamento() {
         })
         .in('id', guiasIds);
       
-      if (updateError) {
-        console.error('Erro ao finalizar guias:', updateError);
-        throw updateError;
-      }
-      
-      console.log(`${guiasIds.length} guia(s) atualizada(s) para status "finalizado"`);
+      if (updateError) throw updateError;
       
       await registrarLog('FINALIZACAO_LOTE', lote, `Lote finalizado. ${guiasIds.length} guias bloqueadas para edição.`);
       
-      // Atualizar status do lote para finalizado
       const { error: updateLoteError } = await supabase
         .from('lotes_faturamento')
         .update({ 
@@ -1014,10 +805,10 @@ export default function Faturamento() {
         <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
           <div>
             <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-              Faturamento TISS
+              Finalização de Guias Faturadas
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              Geração de lotes e arquivos XML no padrão TISS
+              Finalize guias faturadas para bloquear edição permanente
             </p>
           </div>
           <div className="flex gap-2">
@@ -1046,12 +837,12 @@ export default function Faturamento() {
             </button>
             {totalSelecionados > 0 && (
               <button 
-                onClick={abrirPrevia} 
+                onClick={finalizarGuiasSelecionadas} 
                 disabled={gerando} 
-                className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg"
+                className="bg-gradient-to-r from-purple-500 to-purple-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:from-purple-600 hover:to-purple-700 transition-all duration-200 shadow-lg"
               >
-                <ReceiptPercentIcon className="w-4 h-4" />
-                Faturar Selecionados ({totalSelecionados}/{MAX_GUIAS_POR_LOTE})
+                <LockClosedIcon className="w-4 h-4" />
+                Finalizar Selecionados ({totalSelecionados})
               </button>
             )}
           </div>
@@ -1089,13 +880,7 @@ export default function Faturamento() {
         )}
 
         {/* Cards de resumo */}
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
-          <div className="bg-white dark:bg-gray-800 rounded-xl border p-4 hover:shadow-md transition-shadow">
-            <div className="flex justify-between items-center">
-              <div><p className="text-xs text-gray-500 dark:text-gray-400">Total Pendentes</p><p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{totalPendentes}</p></div>
-              <ClockIcon className="w-8 h-8 text-yellow-500 opacity-50" />
-            </div>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-xl border p-4 hover:shadow-md transition-shadow">
             <div className="flex justify-between items-center">
               <div><p className="text-xs text-gray-500 dark:text-gray-400">Total Faturados</p><p className="text-2xl font-bold text-green-600 dark:text-green-400">{totalFaturados}</p></div>
@@ -1116,34 +901,14 @@ export default function Faturamento() {
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl border p-4 hover:shadow-md transition-shadow">
             <div className="flex justify-between items-center">
-              <div><p className="text-xs text-gray-500 dark:text-gray-400">Valor Pendente</p><p className="text-2xl font-bold text-purple-600 dark:text-purple-400">R$ {valorTotalPendente.toFixed(2)}</p></div>
+              <div><p className="text-xs text-gray-500 dark:text-gray-400">Valor Total</p><p className="text-2xl font-bold text-purple-600 dark:text-purple-400">R$ {valorTotalFaturado.toFixed(2)}</p></div>
               <CurrencyDollarIcon className="w-8 h-8 text-purple-500 opacity-50" />
-            </div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl border p-4 hover:shadow-md transition-shadow">
-            <div className="flex justify-between items-center">
-              <div><p className="text-xs text-gray-500 dark:text-gray-400">Próx. Sequencial</p><p className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">{sequencialGlobal}</p></div>
-              <ArrowPathIcon className="w-8 h-8 text-cyan-500 opacity-50" />
             </div>
           </div>
         </div>
 
         {/* Botões de Ação Rápida */}
         <div className="flex flex-wrap gap-2 mb-4">
-          <div className="flex gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-            <button 
-              onClick={() => setFiltroStatus('pendente')} 
-              className={`px-3 py-1.5 rounded-md text-sm transition-all ${filtroStatus === 'pendente' ? 'bg-yellow-500 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
-            >
-              <ClockIcon className="w-4 h-4 inline mr-1" /> Pendentes
-            </button>
-            <button 
-              onClick={() => setFiltroStatus('faturado')} 
-              className={`px-3 py-1.5 rounded-md text-sm transition-all ${filtroStatus === 'faturado' ? 'bg-green-500 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
-            >
-              <CheckIcon className="w-4 h-4 inline mr-1" /> Faturados
-            </button>
-          </div>
           <button onClick={selecionarTodos} className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-sm hover:from-blue-600 hover:to-blue-700 transition-all">Selecionar Todos (Não Bloqueados)</button>
           <button onClick={desmarcarTodos} className="px-3 py-1.5 bg-gray-500 text-white rounded-lg text-sm hover:bg-gray-600 transition-all">Desmarcar Todos</button>
           <button onClick={selecionarBloqueados} className="px-3 py-1.5 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600 transition-all">Selecionar Bloqueados</button>
@@ -1198,123 +963,118 @@ export default function Faturamento() {
         )}
 
         {/* Lista de atendimentos por convênio */}
-        <div className="space-y-4">
-          {Object.entries(atendimentosPorConvenio).map(([convenioId, convenioAtendimentos], index) => {
-            const convenio = convenios.find(c => c.id === parseInt(convenioId));
-            if (!convenio) return null;
-            const selecionadosCount = convenioAtendimentos.filter(a => selecionados.includes(a.id)).length;
-            const totalConvenio = convenioAtendimentos.reduce((sum, a) => sum + (a.valor_total || 0), 0);
-            const idsConvenio = convenioAtendimentos.filter(a => !bloqueados.includes(a.id) && a.status === 'pendente').map(a => a.id);
-            
-            return (
-              <div key={convenio.id || `convenio-${convenioId}-${index}`} className="bg-white dark:bg-gray-800 rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                <div className="p-4 border-b bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700/50 flex justify-between items-center flex-wrap gap-2">
-                  <div className="flex items-center gap-3">
-                    <BuildingOfficeIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                    <span className="font-semibold text-gray-800 dark:text-white">{convenio.razao_social}</span>
-                    <span className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-1 rounded-full">Código: {convenio.codigo_prestador}</span>
-                    <span className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-1 rounded-full">ANS: {convenio.registro_ans}</span>
+        {Object.entries(atendimentosPorConvenio).length > 0 ? (
+          <div className="space-y-4">
+            {Object.entries(atendimentosPorConvenio).map(([convenioId, convenioAtendimentos], index) => {
+              const convenio = convenios.find(c => c.id === parseInt(convenioId));
+              if (!convenio) return null;
+              const selecionadosCount = convenioAtendimentos.filter(a => selecionados.includes(a.id)).length;
+              const totalConvenio = convenioAtendimentos.reduce((sum, a) => sum + (a.valor_total || 0), 0);
+              const idsConvenio = convenioAtendimentos.filter(a => !bloqueados.includes(a.id)).map(a => a.id);
+              
+              return (
+                <div key={convenio.id || `convenio-${convenioId}-${index}`} className="bg-white dark:bg-gray-800 rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                  <div className="p-4 border-b bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700/50 flex justify-between items-center flex-wrap gap-2">
+                    <div className="flex items-center gap-3">
+                      <BuildingOfficeIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      <span className="font-semibold text-gray-800 dark:text-white">{convenio.razao_social}</span>
+                      <span className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-1 rounded-full">Código: {convenio.codigo_prestador}</span>
+                      <span className="text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-1 rounded-full">ANS: {convenio.registro_ans}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Total: R$ {totalConvenio.toFixed(2)}</span>
+                      <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-1 rounded-full">{selecionadosCount}/{convenioAtendimentos.length} selecionados</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Total: R$ {totalConvenio.toFixed(2)}</span>
-                    <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-1 rounded-full">{selecionadosCount}/{convenioAtendimentos.length} selecionados</span>
-                  </div>
-                </div>
-                
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-gray-50 dark:bg-gray-700/50">
-                      <tr>
-                        <th className="px-4 py-3 text-left w-8">
-                          <input 
-                            type="checkbox" 
-                            checked={selecionadosCount === idsConvenio.length && idsConvenio.length > 0} 
-                            onChange={() => {
-                              if (selecionadosCount === idsConvenio.length) {
-                                setSelecionados(selecionados.filter(id => !idsConvenio.includes(id)));
-                              } else {
-                                if (selecionados.length + idsConvenio.length <= MAX_GUIAS_POR_LOTE) {
-                                  setSelecionados([...selecionados, ...idsConvenio]);
-                                } else {
-                                  toast.warning(`Limite de ${MAX_GUIAS_POR_LOTE} guias por lote`);
-                                }
-                              }
-                            }} 
-                            disabled={filtroStatus === 'faturado'}
-                            className="rounded w-4 h-4 text-blue-600 focus:ring-blue-500 disabled:opacity-50" 
-                          />
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Nº Guia</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Nº Guia Operadora</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Senha</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Paciente</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Carteira</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Profissional</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor</th>
-                        <th className="px-4 py-3 text-center w-28">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                      {convenioAtendimentos.map((a) => (
-                        <tr key={a.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${bloqueados.includes(a.id) ? 'bg-orange-50 dark:bg-orange-900/20' : ''} ${a.status === 'faturado' ? 'bg-green-50 dark:bg-green-900/10' : ''}`}>
-                          <td className="px-4 py-3">
+                  
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 dark:bg-gray-700/50">
+                        <tr>
+                          <th className="px-4 py-3 text-left w-8">
                             <input 
                               type="checkbox" 
-                              checked={selecionados.includes(a.id)} 
-                              onChange={() => handleSelectItem(a.id)} 
-                              disabled={bloqueados.includes(a.id) || a.status === 'faturado'} 
-                              className="rounded w-4 h-4 text-blue-600 focus:ring-blue-500 disabled:opacity-50" 
+                              checked={selecionadosCount === idsConvenio.length && idsConvenio.length > 0} 
+                              onChange={() => {
+                                if (selecionadosCount === idsConvenio.length) {
+                                  setSelecionados(selecionados.filter(id => !idsConvenio.includes(id)));
+                                } else {
+                                  if (selecionados.length + idsConvenio.length <= MAX_GUIAS_POR_LOTE) {
+                                    setSelecionados([...selecionados, ...idsConvenio]);
+                                  } else {
+                                    toast.warning(`Limite de ${MAX_GUIAS_POR_LOTE} guias por lote`);
+                                  }
+                                }
+                              }} 
+                              className="rounded w-4 h-4 text-blue-600 focus:ring-blue-500" 
                             />
-                          </td>
-                          <td className="px-4 py-3 text-xs font-mono text-blue-600 dark:text-blue-400 font-medium">{a.numero_guia_prestador || '-'}</td>
-                          <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{a.numero_guia_operadora || '-'}</td>
-                          <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{a.senha_autorizacao || '-'}</td>
-                          <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{a.data_atendimento || (a.itens && a.itens[0]?.data_execucao) || '-'}</td>
-                          <td className="px-4 py-3 text-xs font-medium text-gray-800 dark:text-white">{a.paciente_nome || '-'}</td>
-                          <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{a.numero_carteira || '-'}</td>
-                          <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">{a.prestador_nome || '-'}</td>
-                          <td className="px-4 py-3 text-xs font-semibold text-right text-gray-700 dark:text-gray-300">R$ {(a.valor_total || 0).toFixed(2)}</td>
-                          <td className="px-4 py-3 text-center">
-                            <div className="flex gap-1 justify-center">
-                              <button 
-                                onClick={() => toggleBloqueio(a.id)} 
-                                disabled={a.status === 'faturado'} 
-                                className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50" 
-                                title={bloqueados.includes(a.id) ? 'Desbloquear' : 'Bloquear'}
-                              >
-                                {bloqueados.includes(a.id) ? <LockOpenIcon className="w-4 h-4 text-green-500" /> : <LockClosedIcon className="w-4 h-4 text-orange-500" />}
-                              </button>
-                            </div>
-                          </td>
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Nº Guia</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Nº Guia Operadora</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Senha</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Paciente</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Carteira</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Profissional</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor</th>
+                          <th className="px-4 py-3 text-center w-28">Ações</th>
                         </tr>
-                      ))}
-                    </tbody>
-                    <tfoot className="bg-gray-50 dark:bg-gray-700/50">
-                      <tr className="border-t">
-                        <td colSpan="8" className="px-4 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">Total do Convênio:</td>
-                        <td className="px-4 py-3 text-right font-bold text-blue-600 dark:text-blue-400">R$ {totalConvenio.toFixed(2)}</td>
-                        <td className="px-4 py-3"></td>
-                      </tr>
-                    </tfoot>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {convenioAtendimentos.map((a) => (
+                          <tr key={a.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${bloqueados.includes(a.id) ? 'bg-orange-50 dark:bg-orange-900/20' : ''}`}>
+                            <td className="px-4 py-3">
+                              <input 
+                                type="checkbox" 
+                                checked={selecionados.includes(a.id)} 
+                                onChange={() => handleSelectItem(a.id)} 
+                                disabled={bloqueados.includes(a.id)} 
+                                className="rounded w-4 h-4 text-blue-600 focus:ring-blue-500 disabled:opacity-50" 
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-xs font-mono text-blue-600 dark:text-blue-400 font-medium">{a.numero_guia_prestador || '-'}</td>
+                            <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{a.numero_guia_operadora || '-'}</table>
+                            <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{a.senha_autorizacao || '-'}</td>
+                            <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{a.data_atendimento || (a.itens && a.itens[0]?.data_execucao) || '-'}</td>
+                            <td className="px-4 py-3 text-xs font-medium text-gray-800 dark:text-white">{a.paciente_nome || '-'}</td>
+                            <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{a.numero_carteira || '-'}</td>
+                            <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">{a.prestador_nome || '-'}</td>
+                            <td className="px-4 py-3 text-xs font-semibold text-right text-gray-700 dark:text-gray-300">R$ {(a.valor_total || 0).toFixed(2)}</td>
+                            <td className="px-4 py-3 text-center">
+                              <div className="flex gap-1 justify-center">
+                                <button onClick={() => visualizarLote({...a, xml_content: a.xml_content || 'XML não disponível'})} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Visualizar">
+                                  <EyeIcon className="w-4 h-4" />
+                                </button>
+                                <button 
+                                  onClick={() => toggleBloqueio(a.id)} 
+                                  className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" 
+                                  title={bloqueados.includes(a.id) ? 'Desbloquear' : 'Bloquear'}
+                                >
+                                  {bloqueados.includes(a.id) ? <LockOpenIcon className="w-4 h-4 text-green-500" /> : <LockClosedIcon className="w-4 h-4 text-orange-500" />}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot className="bg-gray-50 dark:bg-gray-700/50">
+                        <tr className="border-t">
+                          <td colSpan="8" className="px-4 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">Total do Convênio:</td>
+                          <td className="px-4 py-3 text-right font-bold text-blue-600 dark:text-blue-400">R$ {totalConvenio.toFixed(2)}</td>
+                          <td className="px-4 py-3"></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {atendimentosFiltrados.length === 0 && filtroStatus === 'pendente' && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl border p-12 text-center">
-            <ClockIcon className="w-12 h-12 mx-auto mb-3 text-yellow-500 opacity-50" />
-            <p className="text-gray-500 dark:text-gray-400">Nenhum atendimento pendente de faturamento</p>
+              );
+            })}
           </div>
-        )}
-
-        {atendimentosFiltrados.length === 0 && filtroStatus === 'faturado' && (
+        ) : (
           <div className="bg-white dark:bg-gray-800 rounded-xl border p-12 text-center">
             <CheckIcon className="w-12 h-12 mx-auto mb-3 text-green-500 opacity-50" />
-            <p className="text-gray-500 dark:text-gray-400">Nenhum atendimento faturado encontrado</p>
+            <p className="text-gray-500 dark:text-gray-400">Nenhuma guia faturada encontrada</p>
+            <p className="text-xs text-gray-400 mt-2">As guias aparecerão aqui após serem faturadas no módulo de Atendimentos</p>
           </div>
         )}
 
@@ -1430,189 +1190,22 @@ export default function Faturamento() {
           </div>
         )}
 
-        {/* Modal de Prévia e Faturamento */}
-        {showPreviaModal && previewData && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Prévia do Faturamento</h3>
-                  <button onClick={() => setShowPreviaModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"><XMarkIcon className="w-5 h-5" /></button>
-                </div>
-              </div>
-              
-              <div className="p-5 space-y-6">
-                {/* Resumo dos Selecionados */}
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4">
-                  <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-3">Resumo dos Agendamentos Selecionados</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Total de Guias</p>
-                      <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{previewData.quantidade}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Valor Total</p>
-                      <p className="text-2xl font-bold text-green-600 dark:text-green-400">R$ {previewData.valorTotal.toFixed(2)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Convênios</p>
-                      <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{Object.keys(previewData.conveniosAgrupados).length}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Nº do Lote</p>
-                      <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 font-mono">{numeroLotePreview}</p>
-                    </div>
-                  </div>
-                  <div className="mt-4 flex gap-2">
-                    <button onClick={imprimirRelacao} className="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm flex items-center gap-1 hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">
-                      <PrinterIcon className="w-4 h-4" /> Imprimir Relação
-                    </button>
-                  </div>
-                </div>
-
-                {/* Detalhes por Convênio */}
-                {Object.entries(previewData.conveniosAgrupados).map(([convenioId, data], index) => (
-                  <div key={`preview-convenio-${convenioId}-${index}`} className="border rounded-xl overflow-hidden">
-                    <div className="bg-gray-50 dark:bg-gray-700/50 p-3 border-b">
-                      <div className="flex justify-between items-center">
-                        <span className="font-semibold text-gray-800 dark:text-white">{data.convenio?.razao_social || 'Desconhecido'}</span>
-                        <span className="text-sm font-bold text-green-600 dark:text-green-400">R$ {data.valorTotal.toFixed(2)}</span>
-                      </div>
-                    </div>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead className="bg-gray-50 dark:bg-gray-700/50">
-                          <tr>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Nº Guia</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Nº Guia Operadora</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Senha</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Data</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Paciente</th>
-                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Carteira</th>
-                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Valor</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {data.atendimentos.map(a => (
-                            <tr key={a.id}>
-                              <td className="px-3 py-2 text-xs font-mono text-blue-600">{a.numero_guia_prestador || '-'}</td>
-                              <td className="px-3 py-2 text-xs font-mono text-gray-600">{a.numero_guia_operadora || '-'}</td>
-                              <td className="px-3 py-2 text-xs font-mono text-gray-600">{a.senha_autorizacao || '-'}</td>
-                              <td className="px-3 py-2 text-xs text-gray-500">{a.data_atendimento || '-'}</td>
-                              <td className="px-3 py-2 text-xs text-gray-800">{a.paciente_nome || '-'}</td>
-                              <td className="px-3 py-2 text-xs text-gray-600">{a.numero_carteira || '-'}</td>
-                              <td className="px-3 py-2 text-xs text-right font-semibold text-gray-700">R$ {(a.valor_total || 0).toFixed(2)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                ))}
-
-                {/* Dados da Nota Fiscal */}
-                <div className="border rounded-xl p-4">
-                  <h4 className="font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
-                    <BanknotesIcon className="w-5 h-5" /> Dados da Nota Fiscal / Faturamento
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Competência</label>
-                      <input type="month" value={dadosFatura.competencia} onChange={e => setDadosFatura({...dadosFatura, competencia: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data de Fechamento</label>
-                      <input type="date" value={dadosFatura.dataFechamento} onChange={e => setDadosFatura({...dadosFatura, dataFechamento: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Previsão de Pagamento</label>
-                      <input type="date" value={dadosFatura.dataPrevisaoPagamento} onChange={e => setDadosFatura({...dadosFatura, dataPrevisaoPagamento: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4">
-                    <h5 className="font-medium text-sm text-gray-700 dark:text-gray-300 mb-2">Impostos e Deduções</h5>
-                    <div className="grid grid-cols-2 md:grid-cols-8 gap-2">
-                      <div>
-                        <label className="block text-xs text-gray-500">Base Cálculo</label>
-                        <input type="number" step="0.01" value={dadosFatura.baseCalculo} onChange={(e) => atualizarTodosImpostos(parseFloat(e.target.value) || 0)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500">ISS (%)</label>
-                        <input type="number" step="0.01" value={dadosFatura.aliquotaISS} onChange={(e) => atualizarAliquota('aliquotaISS', e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500">IBS (%)</label>
-                        <input type="number" step="0.01" value={dadosFatura.aliquotaIBS} onChange={(e) => atualizarAliquota('aliquotaIBS', e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500">CBS (%)</label>
-                        <input type="number" step="0.01" value={dadosFatura.aliquotaCBS} onChange={(e) => atualizarAliquota('aliquotaCBS', e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500">IR (%)</label>
-                        <input type="number" step="0.01" value={dadosFatura.aliquotaIR} onChange={(e) => atualizarAliquota('aliquotaIR', e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500">CSLL (%)</label>
-                        <input type="number" step="0.01" value={dadosFatura.aliquotaCSLL} onChange={(e) => atualizarAliquota('aliquotaCSLL', e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500">PIS (%)</label>
-                        <input type="number" step="0.01" value={dadosFatura.aliquotaPIS} onChange={(e) => atualizarAliquota('aliquotaPIS', e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500">COFINS (%)</label>
-                        <input type="number" step="0.01" value={dadosFatura.aliquotaCOFINS} onChange={(e) => atualizarAliquota('aliquotaCOFINS', e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none" />
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
-                      <div><label className="block text-xs text-gray-500">Valor ISS</label><input type="text" value={dadosFatura.valorISS.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border rounded-lg px-2 py-1 text-sm" /></div>
-                      <div><label className="block text-xs text-gray-500">Valor IBS</label><input type="text" value={dadosFatura.valorIBS.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border rounded-lg px-2 py-1 text-sm" /></div>
-                      <div><label className="block text-xs text-gray-500">Valor CBS</label><input type="text" value={dadosFatura.valorCBS.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border rounded-lg px-2 py-1 text-sm" /></div>
-                      <div><label className="block text-xs text-gray-500">Valor IR</label><input type="text" value={dadosFatura.valorIR.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border rounded-lg px-2 py-1 text-sm" /></div>
-                      <div><label className="block text-xs text-gray-500">Valor CSLL</label><input type="text" value={dadosFatura.valorCSLL.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border rounded-lg px-2 py-1 text-sm" /></div>
-                      <div><label className="block text-xs text-gray-500">Valor PIS</label><input type="text" value={dadosFatura.valorPIS.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border rounded-lg px-2 py-1 text-sm" /></div>
-                      <div><label className="block text-xs text-gray-500">Valor COFINS</label><input type="text" value={dadosFatura.valorCOFINS.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border rounded-lg px-2 py-1 text-sm" /></div>
-                      <div><label className="block text-xs text-gray-500">Valor Líquido</label><input type="text" value={dadosFatura.valorLiquido.toFixed(2)} disabled className="w-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg px-2 py-1 text-sm font-bold text-green-700 dark:text-green-400" /></div>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-3">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações</label>
-                    <textarea rows="2" value={dadosFatura.observacoes} onChange={e => setDadosFatura({...dadosFatura, observacoes: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" placeholder="Informações adicionais da fatura..." />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="p-5 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
-                <button onClick={() => setShowPreviaModal(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Cancelar</button>
-                <button onClick={confirmarGeracaoLote} disabled={gerando} className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-medium shadow-md flex items-center gap-2 hover:from-green-600 hover:to-emerald-700 transition-all duration-200 disabled:opacity-50">
-                  {gerando ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <PaperAirplaneIcon className="w-4 h-4" />}
-                  Confirmar e Gerar Lote
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Modal de Visualização do XML */}
         {showLoteModal && selectedLote && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-y-auto">
               <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white">XML do Lote - {selectedLote.numero_lote}</h3>
+                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white">XML do Lote / Guia</h3>
                   <button onClick={() => setShowLoteModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"><XMarkIcon className="w-5 h-5" /></button>
                 </div>
               </div>
               <div className="p-5">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Convênio:</span> <span className="text-sm font-medium">{selectedLote.convenio_nome}</span></div>
-                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Nº Lote:</span> <span className="text-sm font-mono">{selectedLote.numero_lote}</span></div>
-                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Data:</span> <span className="text-sm">{selectedLote.data_envio}</span></div>
-                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Guias:</span> <span className="text-sm font-bold">{selectedLote.quantidade_guias}</span></div>
+                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Número:</span> <span className="text-sm font-mono font-medium">{selectedLote.numero_lote || selectedLote.numero_guia_prestador}</span></div>
+                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Convênio:</span> <span className="text-sm font-medium">{selectedLote.convenio_nome || selectedLote.paciente_convenio_nome}</span></div>
+                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Data:</span> <span className="text-sm">{selectedLote.data_envio || selectedLote.data_atendimento}</span></div>
+                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Guias:</span> <span className="text-sm font-bold">{selectedLote.quantidade_guias || 1}</span></div>
                 </div>
                 {selectedLote.dados_fatura && (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
@@ -1623,10 +1216,10 @@ export default function Faturamento() {
                   </div>
                 )}
                 <div className="bg-gray-900 rounded-xl p-4 overflow-auto max-h-96">
-                  <pre className="text-xs text-green-400 font-mono whitespace-pre-wrap">{selectedLote.xml_content}</pre>
+                  <pre className="text-xs text-green-400 font-mono whitespace-pre-wrap">{selectedLote.xml_content || 'XML não disponível para esta guia'}</pre>
                 </div>
                 <div className="flex justify-end gap-3 mt-5 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <button onClick={() => { const blob = new Blob([selectedLote.xml_content], { type: 'application/xml' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${selectedLote.numero_lote}.xml`; a.click(); URL.revokeObjectURL(url); toast.success('XML baixado!'); }} className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg">Baixar XML</button>
+                  <button onClick={() => { if(selectedLote.xml_content) { const blob = new Blob([selectedLote.xml_content], { type: 'application/xml' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${selectedLote.numero_lote || selectedLote.numero_guia_prestador}.xml`; a.click(); URL.revokeObjectURL(url); toast.success('XML baixado!'); } else { toast.error('XML não disponível'); } }} className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg">Baixar XML</button>
                   <button onClick={() => setShowLoteModal(false)} className="px-4 py-2 border rounded-lg">Fechar</button>
                 </div>
               </div>
@@ -1638,14 +1231,13 @@ export default function Faturamento() {
         <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
           <h4 className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">📋 Informações</h4>
           <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-1">
-            <li>• <strong>Guias bloqueadas</strong> aparecem com fundo laranja e não podem ser faturadas</li>
-            <li>• Use os botões de bloqueio/desbloqueio para controlar quais guias entrarão no faturamento</li>
-            <li>• Após faturar, as guias ficam com status "faturado"</li>
+            <li>• Esta página exibe <strong>apenas guias com status "faturado"</strong></li>
+            <li>• Use os botões de bloqueio/desbloqueio para controlar quais guias serão finalizadas</li>
+            <li>• <strong>Finalizar uma guia</strong> altera o status para "finalizado" e bloqueia a edição permanentemente</li>
             <li>• <strong>Cancelar um lote</strong> reabre as guias com status "pendente" permitindo edição</li>
-            <li>• <strong>Finalizar um lote</strong> bloqueia as guias permanentemente (status "finalizado")</li>
+            <li>• Guias bloqueadas aparecem com fundo laranja</li>
             <li>• Use "Gerar por Nº Lote" para regenerar o XML de um lote específico</li>
-            <li>• Limite máximo de <strong>{MAX_GUIAS_POR_LOTE} guias por lote</strong></li>
-            <li>• O número do lote é gerado automaticamente no momento da baixa da fatura</li>
+            <li>• O faturamento das guias (geração de XML) é feito no módulo de Atendimentos</li>
           </ul>
         </div>
       </div>
