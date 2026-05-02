@@ -84,13 +84,6 @@ export default function Prestadores() {
       
       if (errorPrestadores) throw errorPrestadores;
       
-      // Buscar todas as especialidades
-      const { data: especialidadesList, error: errorEspecialidades } = await supabase
-        .from('especialidades')
-        .select('*');
-      
-      if (errorEspecialidades) throw errorEspecialidades;
-      
       // Buscar todas as relações
       const { data: relacoes, error: errorRelacoes } = await supabase
         .from('prestador_especialidade')
@@ -98,13 +91,11 @@ export default function Prestadores() {
       
       if (errorRelacoes) throw errorRelacoes;
       
-      console.log('Especialidades disponíveis:', especialidadesList.length);
       console.log('Relações encontradas:', relacoes.length);
-      console.log('Relação da Amanda:', relacoes.find(r => r.prestador_id === 105));
       
-      // Criar mapa de especialidades
+      // USAR A CONSTANTE ESPECIALIDADES do frontend (já está correta)
       const mapaEspecialidades = new Map();
-      especialidadesList.forEach(esp => {
+      ESPECIALIDADES.forEach(esp => {
         mapaEspecialidades.set(esp.id, esp);
       });
       
@@ -129,6 +120,8 @@ export default function Prestadores() {
               codigo_ans: esp.codigo_ans
             }
           });
+        } else {
+          console.warn(`Especialidade ID ${rel.especialidade_id} não encontrada na constante ESPECIALIDADES`);
         }
       });
       
@@ -140,8 +133,7 @@ export default function Prestadores() {
       
       // Verificar Amanda
       const amanda = resultado.find(p => p.id === 105);
-      console.log('Amanda no resultado:', amanda);
-      console.log('Especialidades da Amanda:', amanda?.especialidades);
+      console.log('Amanda especialidades:', amanda?.especialidades);
       
       setPrestadores(resultado);
     } catch (error) {
