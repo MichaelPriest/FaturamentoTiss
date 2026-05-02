@@ -1154,7 +1154,7 @@ return (
                             {bloqueados.includes(a.id) ? <LockOpenIcon className="w-4 h-4 text-green-500" /> : <LockClosedIcon className="w-4 h-4 text-orange-500" />}
                           </button>
                         </td>
-                      <tr>
+                      </tr>
                     ))}
                   </tbody>
                   <tfoot className="bg-gray-50 dark:bg-gray-700/50">
@@ -1189,7 +1189,7 @@ return (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-gray-700/50">
-                <td>
+                <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Convênio</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Nº Lote</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data</th>
@@ -1354,7 +1354,7 @@ return (
                         </tbody>
                       </table>
                     </div>
-                  </div>
+                  </div> 
                 ))}
 
                 {/* Dados da Nota Fiscal */}
