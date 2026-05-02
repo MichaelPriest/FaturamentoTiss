@@ -20,18 +20,20 @@ import {
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { supabase } from '../lib/supabaseClient'; // Ajuste o caminho conforme sua configuração
+import { supabase } from '../lib/supabaseClient';
 
 // ============================================
 // CONSTANTES E TABELAS
 // ============================================
 
 const CARATER_ATENDIMENTO = [
+  { value: '', label: 'Selecione' },  
   { value: '1', label: 'Eletivo' },
   { value: '2', label: 'Urgência/Emergência' }
 ];
 
 const TIPO_ATENDIMENTO = [
+  { value: '', label: 'Selecione' },  
   { value: '01', label: 'Remoção' },
   { value: '02', label: 'Pequena Cirurgia' },
   { value: '03', label: 'Outras Terapias' },
@@ -44,6 +46,7 @@ const TIPO_ATENDIMENTO = [
 ];
 
 const INDICADOR_ACIDENTE = [
+  { value: '', label: 'Selecione' },  
   { value: '0', label: 'Trabalho' },
   { value: '1', label: 'Trânsito' },
   { value: '2', label: 'Outros Acidentes' },
@@ -51,6 +54,7 @@ const INDICADOR_ACIDENTE = [
 ];
 
 const TIPO_CONSULTA = [
+  { value: '', label: 'Selecione' },  
   { value: '1', label: 'Primeira Consulta' },
   { value: '2', label: 'Seguimento' },
   { value: '3', label: 'Pré-Natal' },
@@ -74,6 +78,7 @@ const COBERTURA_ESPECIAL = [
 ];
 
 const REGIME_ATENDIMENTO = [
+  { value: '', label: 'Selecione' },  
   { value: '01', label: 'Ambulatorial' },
   { value: '02', label: 'Domiciliar' },
   { value: '03', label: 'Internação' },
@@ -82,6 +87,7 @@ const REGIME_ATENDIMENTO = [
 ];
 
 const SAUDE_OCUPACIONAL = [
+  { value: '', label: 'Selecione' }, 
   { value: '01', label: 'Admissional' },
   { value: '02', label: 'Demissional' },
   { value: '03', label: 'Periódico' },
@@ -122,7 +128,7 @@ const TIPOS_ITEM = [
 const TABELAS = {
   '22': { nome: 'TUSS - Procedimentos', tipo: 'procedimento' },
   '00': { nome: 'Tabela Própria', tipo: 'procedimento' },
-  '98': { nome: 'Pacotes', tipo: 'pacote' },
+  '98': { nome: 'Pacotes de Serviços', tipo: 'pacote' },
   '19': { nome: 'TUSS - Materiais/OPME', tipo: 'material' },
   '20': { nome: 'TUSS - Medicamentos', tipo: 'medicamento' },
   '18': { nome: 'TUSS - Diárias e Taxas', tipo: 'diaria' }
@@ -159,6 +165,18 @@ const CONSELHOS = [
   { value: '05', label: '05 - CREFITO (Fisioterapia)' },
   { value: '09', label: '09 - CRP (Psicologia)' },
   { value: '07', label: '07 - CRN (Nutrição)' }
+];
+
+// Unidades de medida
+const UNIDADES_MEDIDA = [
+  { value: '036', label: 'UN - Unidade' },
+  { value: '022', label: 'MG - Miligrama' },
+  { value: '018', label: 'G - Grama' },
+  { value: '023', label: 'ML - Mililitro' },
+  { value: '001', label: 'AMP - Ampola' },
+  { value: '013', label: 'FR - Frasco' },
+  { value: '005', label: 'CX - Caixa' },
+  { value: '040', label: 'KIT - Kit' }
 ];
 
 export default function Atendimentos() {
@@ -249,12 +267,11 @@ export default function Atendimentos() {
   const carregarDados = async () => {
     setLoading(true);
     try {
-      // Carregar todos os dados em paralelo
       const [atendimentosRes, pacientesRes, prestadoresRes, procedimentosRes, conveniosRes] = await Promise.all([
         supabase.from('atendimentos').select('*').order('created_at', { ascending: false }),
         supabase.from('pacientes').select('*').order('nome'),
         supabase.from('prestadores').select('*').order('nome'),
-        supabase.from('procedimentos').select('*').order('nome'),
+        supabase.from('procedimentos').select('*').order('codigo_tuss'),
         supabase.from('convenios').select('*').order('razao_social')
       ]);
 
@@ -435,6 +452,11 @@ export default function Atendimentos() {
     let valorBase = item.valor_sugerido || 0;
     const multiplicador = convenio?.multiplicador || 1;
     
+    // Para PACOTES (tabela 98) e códigos 666
+    if (item.tabela === 'PACOTE' || item.tabela === '98' || item.codigo_tuss?.startsWith('666')) {
+      valorBase = item.valor_sugerido || 100;
+    }
+    
     // Se for CBHPM, calcular por CH (Custo Hospitalar)
     if (item.tabela === 'CBHPM' && item.ch_base) {
       const ch = item.ch_base;
@@ -535,7 +557,8 @@ export default function Atendimentos() {
         valor_unitario: valorCalculado,
         valor_total: (currentItem.quantidade || 1) * valorCalculado,
         tabela_referencia: procedimento.tabela === 'CBHPM' ? '98' : 
-                          procedimento.tabela === 'AMB' ? '90' : '22'
+                          procedimento.tabela === 'AMB' ? '90' : 
+                          procedimento.tabela === 'PACOTE' ? '98' : '22'
       });
       setSearchItemTerm('');
     }
@@ -567,7 +590,7 @@ export default function Atendimentos() {
     if (convenio.proximo_numero_guia) {
       numeroGuiaPrestador = convenio.proximo_numero_guia.toString();
       await atualizarProximoNumeroGuia(convenio.id, convenio.proximo_numero_guia + 1);
-      await carregarDados(); // Recarregar convênios atualizados
+      await carregarDados();
     } else {
       numeroGuiaPrestador = Date.now().toString();
     }
@@ -600,6 +623,7 @@ export default function Atendimentos() {
       saude_ocupacional: formData.saude_ocupacional,
       itens: itensGuia,
       valor_total: valorTotalGuia,
+      data_atendimento: itensGuia[0]?.data_execucao || new Date().toISOString().split('T')[0],
       paciente_id: paciente.id,
       paciente_nome: paciente.nome,
       numero_carteira: paciente.numero_carteira,
@@ -748,12 +772,23 @@ export default function Atendimentos() {
               Registro de atendimentos e criação de guias TISS
             </p>
           </div>
-          <button 
-            onClick={() => { setEditing(null); resetModal(); setShowModal(true); }} 
-            className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg"
-          >
-            <PlusIcon className="w-4 h-4" /> Nova Guia
-          </button>
+          <div className="flex gap-2">
+            <button 
+              onClick={() => { carregarDados(); }} 
+              className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-xl text-sm flex items-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Recarregar
+            </button>
+            <button 
+              onClick={() => { setEditing(null); resetModal(); setShowModal(true); }} 
+              className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg"
+            >
+              <PlusIcon className="w-4 h-4" /> Nova Guia
+            </button>
+          </div>
         </div>
 
         {/* Cards de resumo */}
@@ -844,13 +879,14 @@ export default function Atendimentos() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Valor Total</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-32">Ações</th>
-                </tr>
+                <table>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {atendimentosFiltrados.map((a) => (
                   <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                      {a.itens && a.itens[0] ? format(new Date(a.itens[0].data_execucao), 'dd/MM/yyyy') : '-'}
+                      {a.data_atendimento ? format(new Date(a.data_atendimento), 'dd/MM/yyyy') : 
+                       (a.itens && a.itens[0] ? format(new Date(a.itens[0].data_execucao), 'dd/MM/yyyy') : '-')}
                     </td>
                     <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">{a.numero_guia_prestador}</td>
                     <td className="px-4 py-3 text-sm text-gray-800 dark:text-gray-200">{a.paciente_nome}</td>
@@ -965,7 +1001,7 @@ export default function Atendimentos() {
                           <td className="px-3 py-2 text-xs text-right">R$ {item.valor_unitario?.toFixed(2)}</td>
                           <td className="px-3 py-2 text-xs text-right font-semibold">R$ {item.valor_total?.toFixed(2)}</td>
                           <td className="px-3 py-2 text-xs text-gray-600">{item.prestador_nome}</td>
-                        </tr>
+                        </td>
                       ))}
                     </tbody>
                     <tfoot className="bg-gray-50 dark:bg-gray-700/50">
@@ -1354,7 +1390,7 @@ export default function Atendimentos() {
                       <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
                         <p className="text-sm text-blue-700 dark:text-blue-300">
                           <strong>ℹ️ Informações:</strong> Selecione o tipo de item, busque por código ou descrição, e preencha os dados do atendimento.
-                          Os valores podem ser calculados automaticamente com base nas tabelas TUSS, CBHPM ou AMB conforme configuração do convênio.
+                          Os valores podem ser calculados automaticamente com base nas tabelas TUSS, CBHPM, AMB ou PACOTES conforme configuração do convênio.
                         </p>
                       </div>
 
