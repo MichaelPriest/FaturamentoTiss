@@ -76,73 +76,75 @@ export default function Prestadores() {
   const carregarPrestadores = async () => {
     setLoading(true);
     try {
-      // Buscar prestadores
-      const { data: prestadores, error: errorPrestadores } = await supabase
+      // 1. Buscar todos os prestadores
+      const { data: prestadores, error: err1 } = await supabase
         .from('prestadores')
         .select('*')
         .order('nome', { ascending: true });
       
-      if (errorPrestadores) throw errorPrestadores;
+      if (err1) throw err1;
+      console.log('Prestadores:', prestadores.length);
       
-      // Buscar relações com especialidades
-      const { data: relacoes, error: errorRelacoes } = await supabase
+      // 2. Buscar todas as relações
+      const { data: relacoes, error: err2 } = await supabase
         .from('prestador_especialidade')
-        .select(`
-          id,
-          prestador_id,
-          especialidade_id,
-          principal,
-          especialidades (
-            id,
-            nome,
-            cbos,
-            codigo_ans
-          )
-        `);
+        .select('*');
       
-      if (errorRelacoes) throw errorRelacoes;
+      if (err2) throw err2;
+      console.log('Relações:', relacoes.length);
       
-      console.log('Relações encontradas:', relacoes?.length);
-      console.log('Relações da Amanda:', relacoes?.filter(r => r.prestador_id === 105));
+      // 3. Buscar todas as especialidades
+      const { data: especialidadesDB, error: err3 } = await supabase
+        .from('especialidades')
+        .select('*');
       
-      // Agrupar especialidades por prestador
-      const especialidadesPorPrestador = new Map();
+      if (err3) throw err3;
+      console.log('Especialidades:', especialidadesDB.length);
       
-      relacoes?.forEach(rel => {
-        if (!especialidadesPorPrestador.has(rel.prestador_id)) {
-          especialidadesPorPrestador.set(rel.prestador_id, []);
+      // Criar mapa de especialidades
+      const mapaEsp = new Map();
+      especialidadesDB.forEach(esp => {
+        mapaEsp.set(esp.id, esp);
+      });
+      
+      // Agrupar por prestador
+      const mapaPorPrestador = new Map();
+      relacoes.forEach(rel => {
+        if (!mapaPorPrestador.has(rel.prestador_id)) {
+          mapaPorPrestador.set(rel.prestador_id, []);
         }
         
-        if (rel.especialidades) {
-          especialidadesPorPrestador.get(rel.prestador_id).push({
+        const especialidade = mapaEsp.get(rel.especialidade_id);
+        if (especialidade) {
+          mapaPorPrestador.get(rel.prestador_id).push({
             id: rel.id,
             prestador_id: rel.prestador_id,
             especialidade_id: rel.especialidade_id,
             principal: rel.principal,
             especialidade: {
-              id: rel.especialidades.id,
-              nome: rel.especialidades.nome,
-              cbos: rel.especialidades.cbos,
-              codigo_ans: rel.especialidades.codigo_ans
+              id: especialidade.id,
+              nome: especialidade.nome,
+              cbos: especialidade.cbos,
+              codigo_ans: especialidade.codigo_ans
             }
           });
         }
       });
       
       // Montar resultado
-      const resultado = prestadores.map(prestador => ({
-        ...prestador,
-        especialidades: especialidadesPorPrestador.get(prestador.id) || []
+      const resultado = prestadores.map(p => ({
+        ...p,
+        especialidades: mapaPorPrestador.get(p.id) || []
       }));
       
-      // Log para debug
+      // Verificar Amanda
       const amanda = resultado.find(p => p.id === 105);
       console.log('Amanda final:', amanda);
-      console.log('Especialidades da Amanda final:', amanda?.especialidades);
+      console.log('Especialidades Amanda:', amanda?.especialidades);
       
       setPrestadores(resultado);
     } catch (error) {
-      console.error('Erro ao carregar prestadores:', error);
+      console.error('Erro:', error);
       toast.error('Erro ao carregar dados');
     } finally {
       setLoading(false);
