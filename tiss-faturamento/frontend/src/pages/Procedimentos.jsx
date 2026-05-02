@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, ArrowUpTrayIcon, BuildingOfficeIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { procedimentosService, conveniosService } from '../services/supabaseService';
-import { useTheme } from '../App';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function Procedimentos() {
   const { darkMode } = useTheme();
