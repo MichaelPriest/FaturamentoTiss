@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { setConfig as setTissConfig, setVersao, VERSAO_TISS } from '../lib/tissGenerator';
+import { setConfig as setTissConfig } from '../lib/tissGenerator';
 import { supabase } from '../lib/supabaseClient';
 import { 
   BuildingOfficeIcon, 
-  DocumentTextIcon, 
   CheckCircleIcon, 
   ArrowPathIcon,
   PlusIcon,
@@ -14,35 +13,11 @@ import {
   UserIcon
 } from '@heroicons/react/24/outline';
 
-// Lista de UFs com códigos ANS
+// Lista de UFs com siglas
 const UFS = [
-  { sigla: 'SP', nome: 'São Paulo', codigoANS: '35' },
-  { sigla: 'RJ', nome: 'Rio de Janeiro', codigoANS: '33' },
-  { sigla: 'MG', nome: 'Minas Gerais', codigoANS: '31' },
-  { sigla: 'RS', nome: 'Rio Grande do Sul', codigoANS: '43' },
-  { sigla: 'PR', nome: 'Paraná', codigoANS: '41' },
-  { sigla: 'SC', nome: 'Santa Catarina', codigoANS: '42' },
-  { sigla: 'BA', nome: 'Bahia', codigoANS: '29' },
-  { sigla: 'PE', nome: 'Pernambuco', codigoANS: '26' },
-  { sigla: 'CE', nome: 'Ceará', codigoANS: '23' },
-  { sigla: 'DF', nome: 'Distrito Federal', codigoANS: '53' },
-  { sigla: 'GO', nome: 'Goiás', codigoANS: '52' },
-  { sigla: 'MT', nome: 'Mato Grosso', codigoANS: '51' },
-  { sigla: 'MS', nome: 'Mato Grosso do Sul', codigoANS: '50' },
-  { sigla: 'AM', nome: 'Amazonas', codigoANS: '13' },
-  { sigla: 'PA', nome: 'Pará', codigoANS: '15' },
-  { sigla: 'MA', nome: 'Maranhão', codigoANS: '21' },
-  { sigla: 'PI', nome: 'Piauí', codigoANS: '22' },
-  { sigla: 'RN', nome: 'Rio Grande do Norte', codigoANS: '24' },
-  { sigla: 'PB', nome: 'Paraíba', codigoANS: '25' },
-  { sigla: 'AL', nome: 'Alagoas', codigoANS: '27' },
-  { sigla: 'SE', nome: 'Sergipe', codigoANS: '28' },
-  { sigla: 'ES', nome: 'Espírito Santo', codigoANS: '32' },
-  { sigla: 'RO', nome: 'Rondônia', codigoANS: '11' },
-  { sigla: 'AC', nome: 'Acre', codigoANS: '12' },
-  { sigla: 'RR', nome: 'Roraima', codigoANS: '14' },
-  { sigla: 'AP', nome: 'Amapá', codigoANS: '16' },
-  { sigla: 'TO', nome: 'Tocantins', codigoANS: '17' }
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 
+  'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 
+  'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
 ];
 
 export default function Configuracoes() {
@@ -52,10 +27,6 @@ export default function Configuracoes() {
     nome_empresa: 'Minha Clínica',
     nome_contratado: 'MINHA CLÍNICA LTDA',
     cnpj: '',
-    codigo_prestador: '',
-    registro_ans: '',
-    versao_tiss: '4.03.00',
-    ambiente: 'homologacao',
     cnes: '',
     conselho_clinica: '06',
     uf_clinica: 'SP',
@@ -80,11 +51,11 @@ export default function Configuracoes() {
   const carregarDados = async () => {
     setLoading(true);
     try {
-      // Carregar configurações do Supabase
+      // Carregar configurações da clínica
       const { data: configData, error: configError } = await supabase
         .from('configuracoes')
         .select('*')
-        .eq('chave', 'config_sistema')
+        .eq('chave', 'config_clinica')
         .maybeSingle();
 
       if (configError) throw configError;
@@ -93,7 +64,6 @@ export default function Configuracoes() {
         const parsedConfig = JSON.parse(configData.valor);
         setConfig(parsedConfig);
         setTissConfig(parsedConfig);
-        setVersao(parsedConfig.versao_tiss || '4.03.00');
       }
 
       // Carregar usuários
@@ -125,10 +95,6 @@ export default function Configuracoes() {
   };
 
   const salvarConfiguracoes = async () => {
-    if (!config.codigo_prestador || !config.registro_ans) {
-      toast.error('Código do prestador e Registro ANS são obrigatórios');
-      return;
-    }
     if (!config.nome_contratado) {
       toast.error('Nome do contratado (clínica/hospital) é obrigatório');
       return;
@@ -136,21 +102,42 @@ export default function Configuracoes() {
 
     setSaving(true);
     try {
-      // Usar upsert com onConflict
-      const { error } = await supabase
+      // Verificar se já existe a configuração
+      const { data: existing, error: checkError } = await supabase
         .from('configuracoes')
-        .upsert({
-          chave: 'config_sistema',
-          valor: JSON.stringify(config),
-          descricao: 'Configurações do sistema de faturamento TISS',
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'chave' });
+        .select('chave')
+        .eq('chave', 'config_clinica')
+        .maybeSingle();
+
+      if (checkError) throw checkError;
+
+      let error;
+      if (existing) {
+        const { error: updateError } = await supabase
+          .from('configuracoes')
+          .update({
+            valor: JSON.stringify(config),
+            updated_at: new Date().toISOString()
+          })
+          .eq('chave', 'config_clinica');
+        error = updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from('configuracoes')
+          .insert({
+            chave: 'config_clinica',
+            valor: JSON.stringify(config),
+            descricao: 'Configurações da clínica',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+        error = insertError;
+      }
 
       if (error) throw error;
 
-      localStorage.setItem('config_sistema', JSON.stringify(config));
+      localStorage.setItem('config_clinica', JSON.stringify(config));
       setTissConfig(config);
-      setVersao(config.versao_tiss);
       toast.success('Configurações salvas com sucesso!');
     } catch (error) {
       console.error('Erro ao salvar:', error);
@@ -303,105 +290,98 @@ export default function Configuracoes() {
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen p-6">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-              Configurações
+              Configurações da Clínica
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              Configure a clínica, versão TISS e gerencie usuários
+              Configure os dados da sua clínica/hospital
             </p>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={carregarDados}
-              className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-xl text-sm flex items-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
-            >
-              <ArrowPathIcon className="w-4 h-4" />
-              Recarregar
-            </button>
-          </div>
+          <button
+            onClick={carregarDados}
+            className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-xl text-sm flex items-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
+          >
+            <ArrowPathIcon className="w-4 h-4" />
+            Recarregar
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Configurações da Clínica */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="p-5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-              <div className="flex items-center gap-2">
-                <BuildingOfficeIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                <h3 className="font-semibold text-gray-800 dark:text-white">Dados da Clínica / Hospital</h3>
-              </div>
+        {/* Configurações da Clínica */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="p-5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+            <div className="flex items-center gap-2">
+              <BuildingOfficeIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <h3 className="font-semibold text-gray-800 dark:text-white">Dados da Clínica / Hospital</h3>
             </div>
-            
-            <div className="p-5">
-              <div className="space-y-4">
+          </div>
+          
+          <div className="p-5">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Nome da Clínica/Hospital *
+                </label>
+                <input 
+                  type="text" 
+                  value={config.nome_contratado} 
+                  onChange={e => setConfig({...config, nome_contratado: e.target.value.toUpperCase()})} 
+                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                  required 
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Nome da Clínica/Hospital *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CNPJ</label>
                   <input 
                     type="text" 
-                    value={config.nome_contratado} 
-                    onChange={e => setConfig({...config, nome_contratado: e.target.value.toUpperCase()})} 
+                    value={config.cnpj} 
+                    onChange={e => setConfig({...config, cnpj: e.target.value})} 
                     className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                    required 
+                    placeholder="00.000.000/0000-00"
                   />
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CNPJ</label>
-                    <input 
-                      type="text" 
-                      value={config.cnpj} 
-                      onChange={e => setConfig({...config, cnpj: e.target.value})} 
-                      className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                      placeholder="00.000.000/0000-00"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CNES</label>
-                    <input 
-                      type="text" 
-                      value={config.cnes} 
-                      onChange={e => setConfig({...config, cnes: e.target.value})} 
-                      className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                      placeholder="0000000"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CNES</label>
+                  <input 
+                    type="text" 
+                    value={config.cnes} 
+                    onChange={e => setConfig({...config, cnes: e.target.value})} 
+                    className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                    placeholder="0000000"
+                  />
                 </div>
+              </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Conselho</label>
-                    <select 
-                      value={config.conselho_clinica} 
-                      onChange={e => setConfig({...config, conselho_clinica: e.target.value})} 
-                      className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                    >
-                      <option value="06">CRM - Conselho Regional de Medicina</option>
-                      <option value="08">CRO - Conselho Regional de Odontologia</option>
-                      <option value="03">CRF - Conselho Regional de Farmácia</option>
-                      <option value="02">COREN - Conselho de Enfermagem</option>
-                      <option value="05">CREFITO - Conselho de Fisioterapia</option>
-                      <option value="09">CRP - Conselho de Psicologia</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UF</label>
-                    <select 
-                      value={config.uf_clinica} 
-                      onChange={e => setConfig({...config, uf_clinica: e.target.value})} 
-                      className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                    >
-                      {UFS.map(uf => (
-                        <option key={uf.sigla} value={uf.sigla}>{uf.sigla} - {uf.nome}</option>
-                      ))}
-                    </select>
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Conselho</label>
+                  <select 
+                    value={config.conselho_clinica} 
+                    onChange={e => setConfig({...config, conselho_clinica: e.target.value})} 
+                    className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                  >
+                    <option value="06">CRM - Conselho Regional de Medicina</option>
+                    <option value="08">CRO - Conselho Regional de Odontologia</option>
+                    <option value="03">CRF - Conselho Regional de Farmácia</option>
+                    <option value="02">COREN - Conselho de Enfermagem</option>
+                    <option value="05">CREFITO - Conselho de Fisioterapia</option>
+                    <option value="09">CRP - Conselho de Psicologia</option>
+                  </select>
                 </div>
-
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UF</label>
+                  <select 
+                    value={config.uf_clinica} 
+                    onChange={e => setConfig({...config, uf_clinica: e.target.value})} 
+                    className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                  >
+                    {UFS.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+                  </select>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CBOS</label>
                   <input 
@@ -411,82 +391,9 @@ export default function Configuracoes() {
                     className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
                     placeholder="225125"
                   />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Código Brasileiro de Ocupações (CBO)</p>
                 </div>
               </div>
-            </div>
-          </div>
-
-          {/* Configurações TISS */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="p-5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-              <div className="flex items-center gap-2">
-                <DocumentTextIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
-                <h3 className="font-semibold text-gray-800 dark:text-white">Configurações TISS</h3>
-              </div>
-            </div>
-            
-            <div className="p-5">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Código do Prestador *
-                  </label>
-                  <input 
-                    type="text" 
-                    value={config.codigo_prestador} 
-                    onChange={e => setConfig({...config, codigo_prestador: e.target.value})} 
-                    className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                    required 
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Código identificador na operadora</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Registro ANS *
-                  </label>
-                  <input 
-                    type="text" 
-                    value={config.registro_ans} 
-                    onChange={e => setConfig({...config, registro_ans: e.target.value})} 
-                    className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                    required 
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ambiente</label>
-                  <select 
-                    value={config.ambiente} 
-                    onChange={e => setConfig({...config, ambiente: e.target.value})} 
-                    className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                  >
-                    <option value="homologacao">🏗️ Homologação (Testes)</option>
-                    <option value="producao">🚀 Produção</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Versão do Padrão TISS</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {Object.keys(VERSAO_TISS).map((versao) => (
-                      <button
-                        key={versao}
-                        type="button"
-                        onClick={() => setConfig({...config, versao_tiss: versao})}
-                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                          config.versao_tiss === versao
-                            ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md'
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                        }`}
-                      >
-                        TISS {versao}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2">Código Brasileiro de Ocupações (CBO) da clínica</p>
             </div>
           </div>
         </div>
