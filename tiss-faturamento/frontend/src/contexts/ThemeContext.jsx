@@ -1,5 +1,6 @@
 // contexts/ThemeContext.jsx
 import { createContext, useContext, useState, useEffect } from 'react';
+import { toast } from 'sonner';
 
 const ThemeContext = createContext({ darkMode: false, toggleDarkMode: () => {} });
 
@@ -28,6 +29,7 @@ export function ThemeProvider({ children }) {
     setDarkMode(newDarkMode);
     localStorage.setItem('darkMode', newDarkMode);
     aplicarTema(newDarkMode);
+    toast.success(newDarkMode ? 'Modo escuro ativado' : 'Modo claro ativado');
   };
 
   return (
