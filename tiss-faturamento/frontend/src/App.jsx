@@ -1,11 +1,11 @@
-import { useState, useEffect, createContext, useContext } from 'react';
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
 import { 
   HomeIcon, BuildingOfficeIcon, UsersIcon, UserGroupIcon, 
   ClipboardDocumentListIcon, CalendarIcon, CurrencyDollarIcon,
-  ChartBarIcon, ExclamationTriangleIcon, DocumentTextIcon,
-  Cog6ToothIcon, Bars3Icon, XMarkIcon, ArrowRightOnRectangleIcon,
+  ChartBarIcon, ExclamationTriangleIcon, Cog6ToothIcon, 
+  Bars3Icon, XMarkIcon, ArrowRightOnRectangleIcon,
   ChevronLeftIcon, ChevronRightIcon, SunIcon, MoonIcon,
   CalendarDaysIcon, FolderIcon, ChevronDownIcon, ChevronUpIcon,
   HomeModernIcon
@@ -29,154 +29,8 @@ import Salas from './pages/Salas';
 import LoginPage from './pages/Login';
 
 import { setConfig } from './lib/tissGenerator';
-import { supabase, checkSupabaseConnection, TABLES } from './lib/supabaseClient';
-
-// Context para o tema
-const ThemeContext = createContext({ darkMode: false, toggleDarkMode: () => {} });
-export const useTheme = () => useContext(ThemeContext);
-
-// Context para autenticação
-const AuthContext = createContext({ user: null, loading: true, signOut: () => {}, isAuthenticated: false });
-export const useAuth = () => useContext(AuthContext);
-
-// Componente Provider do Tema
-function ThemeProvider({ children }) {
-  const [darkMode, setDarkMode] = useState(false);
-
-  useEffect(() => {
-    const savedDarkMode = localStorage.getItem('darkMode');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const shouldBeDark = savedDarkMode === 'true' || (savedDarkMode === null && prefersDark);
-    
-    setDarkMode(shouldBeDark);
-    aplicarTema(shouldBeDark);
-  }, []);
-
-  const aplicarTema = (isDark) => {
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  };
-
-  const toggleDarkMode = () => {
-    const newDarkMode = !darkMode;
-    setDarkMode(newDarkMode);
-    localStorage.setItem('darkMode', newDarkMode);
-    aplicarTema(newDarkMode);
-    toast.success(newDarkMode ? 'Modo escuro ativado' : 'Modo claro ativado');
-  };
-
-  return (
-    <ThemeContext.Provider value={{ darkMode, toggleDarkMode }}>
-      {children}
-    </ThemeContext.Provider>
-  );
-}
-
-// Componente Provider de Autenticação
-function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    checkSupabaseConnection();
-    
-    const checkSession = () => {
-      const sessao = localStorage.getItem('tiss_sessao');
-      if (sessao) {
-        try {
-          const sessaoData = JSON.parse(sessao);
-          if (sessaoData.logado && sessaoData.user) {
-            setUser(sessaoData.user);
-          }
-        } catch (e) {
-          console.error('Erro ao parsear sessão:', e);
-        }
-      }
-      setLoading(false);
-    };
-
-    checkSession();
-  }, []);
-
-  const signIn = async (email, senha) => {
-    if (!supabase) {
-      toast.error('Supabase não disponível');
-      return { success: false };
-    }
-    
-    try {
-      const { data, error } = await supabase
-        .from(TABLES.USUARIOS)
-        .select('*')
-        .eq('email', email)
-        .eq('ativo', true)
-        .single();
-
-      if (error) {
-        toast.error('Usuário não encontrado');
-        return { success: false };
-      }
-
-      if (data && data.senha === senha) {
-        await supabase
-          .from(TABLES.USUARIOS)
-          .update({ ultimo_acesso: new Date().toISOString() })
-          .eq('id', data.id);
-
-        const userData = {
-          id: data.id,
-          email: data.email,
-          nome: data.nome,
-          perfil: data.perfil
-        };
-
-        const sessao = { user: userData, logado: true, data_hora: new Date().toISOString() };
-        localStorage.setItem('tiss_sessao', JSON.stringify(sessao));
-        
-        setUser(userData);
-        toast.success(`Bem-vindo, ${data.nome}!`);
-        return { success: true, user: userData };
-      } else {
-        toast.error('Senha incorreta!');
-        return { success: false, error: 'Senha incorreta' };
-      }
-    } catch (error) {
-      console.error('Erro ao fazer login:', error);
-      toast.error(error.message || 'Erro ao fazer login');
-      return { success: false, error: error.message };
-    }
-  };
-
-  const signOut = async () => {
-    try {
-      localStorage.removeItem('tiss_sessao');
-      setUser(null);
-      toast.success('Logout realizado com sucesso');
-      return { success: true };
-    } catch (error) {
-      console.error('Erro ao fazer logout:', error);
-      toast.error(error.message || 'Erro ao fazer logout');
-      return { success: false };
-    }
-  };
-
-  const value = {
-    user,
-    loading,
-    signIn,
-    signOut,
-    isAuthenticated: !!user,
-  };
-
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 // Componente Principal do App (logado)
 function MainApp() {
@@ -303,8 +157,8 @@ function MainApp() {
     return subtitles[activeTab] || 'Cadastro e gerenciamento de dados';
   };
 
-  const nomeUsuario = user?.nome || 'Usuário';
-  const perfilUsuario = user?.perfil || 'Perfil';
+  const nomeUsuario = user?.user_metadata?.nome || user?.email?.split('@')[0] || 'Usuário';
+  const perfilUsuario = user?.user_metadata?.role || 'Usuário';
 
   if (loading) {
     return (
