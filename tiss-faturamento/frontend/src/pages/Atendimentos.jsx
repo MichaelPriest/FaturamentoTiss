@@ -1411,7 +1411,7 @@ export default function Atendimentos() {
                                 Autorizado
                               </span>
                             )}
-                           </td>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1421,7 +1421,7 @@ export default function Atendimentos() {
                         <td colSpan="2" className="px-3 py-2 text-right font-bold text-blue-600 dark:text-blue-400">R$ {selectedGuia.valor_total?.toFixed(2)}</td>
                       </tr>
                     </tfoot>
-                  <table>
+                  </table>
                 </div>
                 
                 {/* Itens Autorizados */}
