@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
+import { supabase } from '../lib/supabaseClient';
 import { prestadoresService } from '../services/supabaseService';
 
 // Lista completa de UFs do Brasil
@@ -128,18 +129,64 @@ export default function Prestadores() {
   const carregarPrestadores = async () => {
     setLoading(true);
     try {
-      const data = await prestadoresService.listarComEspecialidades();
-      console.log('Total de prestadores:', data.length);
+      // Buscar prestadores diretamente com Supabase
+      const { data: prestadoresData, error: errorPrestadores } = await supabase
+        .from('prestadores')
+        .select('*')
+        .order('nome', { ascending: true });
       
-      // Verificar a Amanda especificamente
-      const amanda = data.find(p => p.nome.includes('AMANDA BROSCO'));
+      if (errorPrestadores) throw errorPrestadores;
+      
+      // Buscar relações com especialidades
+      const { data: relacoesData, error: errorRelacoes } = await supabase
+        .from('prestador_especialidade')
+        .select(`
+          id,
+          prestador_id,
+          especialidade_id,
+          principal,
+          especialidades (
+            id,
+            nome,
+            cbos,
+            codigo_ans
+          )
+        `);
+      
+      if (errorRelacoes) throw errorRelacoes;
+      
+      // Agrupar especialidades por prestador
+      const especialidadesPorPrestador = new Map();
+      
+      relacoesData?.forEach(rel => {
+        if (!especialidadesPorPrestador.has(rel.prestador_id)) {
+          especialidadesPorPrestador.set(rel.prestador_id, []);
+        }
+        
+        especialidadesPorPrestador.get(rel.prestador_id).push({
+          id: rel.id,
+          prestador_id: rel.prestador_id,
+          especialidade_id: rel.especialidade_id,
+          principal: rel.principal,
+          especialidade: rel.especialidades // O objeto da especialidade
+        });
+      });
+      
+      // Combinar os dados
+      const prestadoresCompletos = prestadoresData.map(prestador => ({
+        ...prestador,
+        especialidades: especialidadesPorPrestador.get(prestador.id) || []
+      }));
+      
+      console.log('Total de prestadores:', prestadoresCompletos.length);
+      
+      // Verificar a Amanda
+      const amanda = prestadoresCompletos.find(p => p.nome.includes('AMANDA BROSCO'));
       if (amanda) {
-        console.log('AMANDA BROSCO V. CARNEIRO:', amanda);
-        console.log('Especialidades da Amanda:', amanda.especialidades);
-        console.log('Primeira especialidade:', amanda.especialidades[0]?.especialidade);
+        console.log('AMANDA - Especialidades:', amanda.especialidades);
       }
       
-      setPrestadores(data);
+      setPrestadores(prestadoresCompletos);
     } catch (error) {
       console.error('Erro ao carregar prestadores:', error);
       toast.error('Erro ao carregar dados');
