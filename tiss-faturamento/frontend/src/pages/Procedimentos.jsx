@@ -216,13 +216,6 @@ export default function Procedimentos() {
     }
   };
 
-  const salvarConfiguracoesTabelas = async (novaConfig) => {
-    setConfigTabelas(novaConfig);
-    localStorage.setItem('config_tabelas_procedimentos', JSON.stringify(novaConfig));
-    toast.success('Configurações das tabelas salvas!');
-    setShowConfigModal(false);
-  };
-
   const salvarConfiguracoesAjustes = async (novaConfig) => {
     // Registrar no histórico
     const historico = [...configAjustes.historico_ajustes, {
