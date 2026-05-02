@@ -129,7 +129,7 @@ export default function Prestadores() {
   const carregarPrestadores = async () => {
     setLoading(true);
     try {
-      // Usar uma consulta com JOIN que já retorna os dados estruturados
+      // Consulta com join correto
       const { data, error } = await supabase
         .from('prestadores')
         .select(`
@@ -138,7 +138,7 @@ export default function Prestadores() {
             id,
             principal,
             especialidade_id,
-            especialidades (
+            especialidades!inner (
               id,
               nome,
               cbos,
@@ -150,8 +150,8 @@ export default function Prestadores() {
       
       if (error) throw error;
       
-      // Transformar os dados para o formato esperado
-      const resultado = data.map(prestador => ({
+      // Transformar os dados para o formato esperado pelo componente
+      const resultado = (data || []).map(prestador => ({
         ...prestador,
         especialidades: (prestador.prestador_especialidade || []).map(pe => ({
           id: pe.id,
@@ -162,8 +162,11 @@ export default function Prestadores() {
         }))
       }));
       
-      console.log('Primeiro prestador com especialidades:', resultado[0]);
-      console.log('Especialidades:', resultado[0]?.especialidades);
+      console.log('Prestadores carregados:', resultado.length);
+      const amanda = resultado.find(p => p.id === 105);
+      if (amanda) {
+        console.log('Amanda - Especialidades:', amanda.especialidades);
+      }
       
       setPrestadores(resultado);
     } catch (error) {
