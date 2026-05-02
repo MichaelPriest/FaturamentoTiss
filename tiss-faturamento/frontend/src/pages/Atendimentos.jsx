@@ -236,7 +236,8 @@ export default function Atendimentos() {
     grau_participacao: '12',
     unidade_medida: '036',
     pendente_autorizacao: false,
-    saldo_autorizado: 0
+    saldo_autorizado: 0,
+    codigo_autorizacao: ''
   });
 
   const [formData, setFormData] = useState({
@@ -578,7 +579,8 @@ export default function Atendimentos() {
       grau_participacao: '12',
       unidade_medida: '036',
       pendente_autorizacao: false,
-      saldo_autorizado: 0
+      saldo_autorizado: 0,
+      codigo_autorizacao: ''
     });
     setSearchItemTerm('');
     toast.success('Item atualizado com sucesso!');
@@ -655,10 +657,9 @@ export default function Atendimentos() {
       grau_participacao: '12',
       unidade_medida: '036',
       pendente_autorizacao: false,
-      saldo_autorizado: 0
+      saldo_autorizado: 0,
+      codigo_autorizacao: ''
     });
-    setSearchItemTerm('');
-    toast.success('Item adicionado com sucesso!');
   };
 
   const removerItem = (itemId) => {
@@ -1284,7 +1285,7 @@ export default function Atendimentos() {
                     <div className="space-y-4">
                       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-4">
                         <p className="text-xs text-blue-700 dark:text-blue-300">
-                          <strong>📋 Autorização da Guia:</strong> Preencha os dados de autorização fornecidos pela operadora.
+                          <strong>📋 Autorização da Guia:</strong> Preencha os dados de autorização fornecidos pela operadora e inclua os códigos de autorização para cada lançamento.
                         </p>
                       </div>
                       
@@ -1328,77 +1329,111 @@ export default function Atendimentos() {
                           />
                         </div>
                       </div>
-                  
-                      {itensGuia.length > 0 && (
-                        <div className="mt-4">
-                          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Itens da Guia - Autorização</h4>
-                          <div className="border rounded-xl overflow-hidden">
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-sm">
-                                <thead className="bg-gray-50 dark:bg-gray-700/50">
-                                  <tr>
-                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Item</th>
-                                    <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Código</th>
-                                    <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd Solicitada</th>
-                                    <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd Autorizada</th>
-                                    <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Saldo</th>
-                                    <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Status</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                                  {itensGuia.map((item, idx) => {
-                                    const saldo = (item.quantidade_autorizada || 0) - (item.quantidade || 0);
-                                    const status = item.quantidade_autorizada === 0 ? 'Aguardando' :
-                                                   item.quantidade > item.quantidade_autorizada ? 'Excedido' :
-                                                   item.quantidade === item.quantidade_autorizada ? 'Completo' :
-                                                   item.quantidade < item.quantidade_autorizada ? 'Parcial' : 'Pendente';
-                                    const statusClass = item.quantidade_autorizada === 0 ? 'bg-gray-100 text-gray-600' :
-                                                        item.quantidade > item.quantidade_autorizada ? 'bg-red-100 text-red-700' :
-                                                        item.quantidade === item.quantidade_autorizada ? 'bg-green-100 text-green-700' :
-                                                        'bg-yellow-100 text-yellow-700';
-                                    
-                                    return (
-                                      <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                        <td className="px-3 py-2 text-xs">{item.nome}</td>
-                                        <td className="px-3 py-2 text-xs font-mono text-center">{item.codigo}</td>
-                                        <td className="px-3 py-2 text-xs text-center font-medium">{item.quantidade}</td>
-                                        <td className="px-3 py-2 text-xs text-center">
-                                          <input
-                                            type="number"
-                                            min="0"
-                                            value={item.quantidade_autorizada || 0}
-                                            onChange={(e) => {
-                                              const qtdAut = parseInt(e.target.value) || 0;
-                                              const novoItem = { ...item, quantidade_autorizada: qtdAut };
-                                              const saldoAutorizado = qtdAut - item.quantidade;
-                                              novoItem.saldo_autorizado = saldoAutorizado;
-                                              novoItem.pendente_autorizacao = qtdAut > 0 && item.quantidade < qtdAut;
-                                              
-                                              setItensGuia(itensGuia.map(i => i.id === item.id ? novoItem : i));
-                                            }}
-                                            className="w-20 border rounded px-2 py-1 text-xs text-center dark:bg-gray-700 dark:text-white"
-                                          />
-                                        </td>
-                                        <td className={`px-3 py-2 text-xs text-center font-semibold ${saldo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                          {saldo}
-                                        </td>
-                                        <td className="px-3 py-2 text-xs text-center">
-                                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusClass}`}>
-                                            {status}
-                                          </span>
-                                        </td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
+
+                      {/* Seção de Inclusão de Códigos de Autorização */}
+                      <div className="border-t pt-4 mt-4">
+                        <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                          <CubeIcon className="w-4 h-4" />
+                          Códigos de Autorização por Item
+                        </h4>
+                        
+                        {itensGuia.length === 0 ? (
+                          <div className="p-3 bg-gray-50 dark:bg-gray-700/30 rounded-lg border border-gray-200 dark:border-gray-600">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              Nenhum item adicionado ainda. Acesse a aba "Procedimentos" para adicionar itens à guia.
+                            </p>
                           </div>
-                          <p className="text-xs text-gray-500 mt-2">
-                            * Informe a quantidade autorizada pela operadora para cada item.
-                          </p>
-                        </div>
-                      )}
+                        ) : (
+                          <div className="space-y-3">
+                            {itensGuia.map((item, idx) => (
+                              <div key={item.id} className="border rounded-xl p-4 bg-gray-50 dark:bg-gray-700/30">
+                                <div className="flex items-start justify-between mb-3">
+                                  <div>
+                                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                                      {idx + 1}. {item.nome}
+                                    </p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                      Código: <span className="font-mono">{item.codigo}</span> | Qtd: <span className="font-semibold">{item.quantidade}</span> | Valor: <span className="font-semibold">R$ {item.valor_total?.toFixed(2)}</span>
+                                    </p>
+                                  </div>
+                                </div>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                      Código de Autorização *
+                                    </label>
+                                    <input
+                                      type="text"
+                                      placeholder="Ex: AUTH123456"
+                                      value={item.codigo_autorizacao || ''}
+                                      onChange={(e) => {
+                                        const novoItem = { ...item, codigo_autorizacao: e.target.value };
+                                        setItensGuia(itensGuia.map(i => i.id === item.id ? novoItem : i));
+                                      }}
+                                      className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                      Quantidade Autorizada
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      placeholder="Qtd"
+                                      value={item.quantidade_autorizada || 0}
+                                      onChange={(e) => {
+                                        const qtdAut = parseInt(e.target.value) || 0;
+                                        const novoItem = { 
+                                          ...item, 
+                                          quantidade_autorizada: qtdAut,
+                                          saldo_autorizado: qtdAut - item.quantidade
+                                        };
+                                        setItensGuia(itensGuia.map(i => i.id === item.id ? novoItem : i));
+                                      }}
+                                      className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                      Saldo
+                                    </label>
+                                    <div className={`w-full border rounded-lg px-3 py-2 text-sm text-center font-semibold ${
+                                      item.quantidade_autorizada > 0 
+                                        ? item.saldo_autorizado >= 0 
+                                          ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400' 
+                                          : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                                        : 'bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
+                                    }`}>
+                                      {item.quantidade_autorizada > 0 ? item.saldo_autorizado : '-'}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {item.codigo_autorizacao && (
+                                  <div className="mt-3 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                                    <p className="text-xs text-green-700 dark:text-green-400 flex items-center gap-1">
+                                      <CheckIcon className="w-3 h-3" />
+                                      ✓ Código de autorização preenchido
+                                    </p>
+                                  </div>
+                                )}
+
+                                {item.quantidade_autorizada > 0 && item.quantidade > item.quantidade_autorizada && (
+                                  <div className="mt-3 p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                                    <p className="text-xs text-orange-700 dark:text-orange-400 flex items-center gap-1">
+                                      <ExclamationTriangleIcon className="w-3 h-3" />
+                                      Quantidade solicitada excede a autorizada
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
                     </div>
                   )}
 
