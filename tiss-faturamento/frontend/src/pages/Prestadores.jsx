@@ -109,11 +109,18 @@ export default function Prestadores() {
     carregarPrestadores();
   }, []);
 
+  const debugPrestadores = async () => {
+    const data = await prestadoresService.listarComEspecialidades();
+    console.log('Prestadores carregados:', data);
+    console.log('Primeiro prestador:', data[0]);
+    console.log('Especialidades do primeiro:', data[0]?.especialidades);
+    setPrestadores(data);
+  };
+  
   const carregarPrestadores = async () => {
     setLoading(true);
     try {
-      const data = await prestadoresService.listarComEspecialidades();
-      setPrestadores(data);
+      await debugPrestadores();
     } catch (error) {
       console.error('Erro ao carregar prestadores:', error);
       toast.error('Erro ao carregar dados');
