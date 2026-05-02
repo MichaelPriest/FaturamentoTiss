@@ -391,21 +391,29 @@ export default function Prestadores() {
   };
 
   const getEspecialidadesTexto = (prestador) => {
-    if (!prestador.especialidades || prestador.especialidades.length === 0) return '-';
+    if (!prestador.especialidades || prestador.especialidades.length === 0) {
+      return '-';
+    }
+    
     const nomes = prestador.especialidades.map(esp => {
       const nome = esp.especialidade?.nome;
       if (!nome) return null;
       return esp.principal ? `${nome}*` : nome;
     }).filter(n => n);
+    
     return nomes.length > 0 ? nomes.join(', ') : '-';
   };
-
+  
   const getCBOSTexto = (prestador) => {
-    if (!prestador.especialidades || prestador.especialidades.length === 0) return '-';
+    if (!prestador.especialidades || prestador.especialidades.length === 0) {
+      return '-';
+    }
+    
     const principal = prestador.especialidades.find(esp => esp.principal === true);
     if (principal && principal.especialidade?.cbos) {
       return principal.especialidade.cbos;
     }
+    
     const primeira = prestador.especialidades[0];
     return primeira?.especialidade?.cbos || '-';
   };
