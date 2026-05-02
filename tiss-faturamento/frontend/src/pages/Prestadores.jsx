@@ -77,65 +77,96 @@ export default function Prestadores() {
   const carregarPrestadores = async () => {
     setLoading(true);
     try {
-      // Buscar prestadores
-      const { data: prestadoresData, error: errorPrestadores } = await supabase
+      console.log('=== INICIANDO CARREGAMENTO ===');
+      
+      // 1. Buscar prestadores
+      const { data: prestadores, error: err1 } = await supabase
         .from('prestadores')
         .select('*')
         .order('nome', { ascending: true });
       
-      if (errorPrestadores) throw errorPrestadores;
+      if (err1) throw err1;
+      console.log('Prestadores encontrados:', prestadores.length);
       
-      // Buscar relações com especialidades
-      const { data: relacoes, error: errorRelacoes } = await supabase
+      // 2. Buscar relações
+      const { data: relacoes, error: err2 } = await supabase
         .from('prestador_especialidade')
-        .select(`
-          id,
-          prestador_id,
-          especialidade_id,
-          principal,
-          especialidades (
-            id,
-            nome,
-            cbos,
-            codigo_ans
-          )
-        `);
+        .select('*');
       
-      if (errorRelacoes) throw errorRelacoes;
+      if (err2) throw err2;
+      console.log('Relações encontradas:', relacoes.length);
       
-      // Agrupar especialidades por prestador
-      const especialidadesPorPrestador = new Map();
+      // 3. Verificar especificamente a Amanda
+      const relacoesAmanda = relacoes.filter(r => r.prestador_id === 105);
+      console.log('Relações da Amanda:', relacoesAmanda);
       
-      relacoes?.forEach(rel => {
-        if (!especialidadesPorPrestador.has(rel.prestador_id)) {
-          especialidadesPorPrestador.set(rel.prestador_id, []);
-        }
-        
-        if (rel.especialidades) {
-          especialidadesPorPrestador.get(rel.prestador_id).push({
+      // 4. Buscar especialidades
+      const { data: especialidadesDB, error: err3 } = await supabase
+        .from('especialidades')
+        .select('*');
+      
+      if (err3) throw err3;
+      console.log('Especialidades encontradas:', especialidadesDB.length);
+      
+      // Criar mapa de especialidades
+      const mapaEsp = new Map();
+      especialidadesDB.forEach(esp => {
+        mapaEsp.set(esp.id, esp);
+      });
+      
+      // Para cada prestador, buscar suas especialidades
+      const resultado = prestadores.map(prestador => {
+        const relacoesDoPrestador = relacoes.filter(r => r.prestador_id === prestador.id);
+        const especialidades = relacoesDoPrestador.map(rel => {
+          const esp = mapaEsp.get(rel.especialidade_id);
+          return {
             id: rel.id,
             prestador_id: rel.prestador_id,
             especialidade_id: rel.especialidade_id,
             principal: rel.principal,
-            especialidade: {
-              id: rel.especialidades.id,
-              nome: rel.especialidades.nome,
-              cbos: rel.especialidades.cbos,
-              codigo_ans: rel.especialidades.codigo_ans
-            }
-          });
-        }
+            especialidade: esp ? {
+              id: esp.id,
+              nome: esp.nome,
+              cbos: esp.cbos,
+              codigo_ans: esp.codigo_ans
+            } : null
+          };
+        }).filter(e => e.especialidade !== null);
+        
+        return { ...prestador, especialidades };
       });
       
-      // Montar resultado final
-      const resultado = prestadoresData.map(prestador => ({
-        ...prestador,
-        especialidades: especialidadesPorPrestador.get(prestador.id) || []
-      }));
+      // Verificar Amanda no resultado
+      const amandaFinal = resultado.find(p => p.id === 105);
+      console.log('Amanda no resultado final:', amandaFinal);
+      console.log('Especialidades da Amanda:', amandaFinal?.especialidades);
+      
+      if (amandaFinal?.especialidades?.length === 0) {
+        console.log('⚠️ Amanda não tem especialidades! Vamos tentar inserir...');
+        
+        // Tentar inserir especialidade para Amanda
+        const { data: novaRelacao, error: insertError } = await supabase
+          .from('prestador_especialidade')
+          .insert({
+            prestador_id: 105,
+            especialidade_id: 20,  // Terapia Ocupacional
+            principal: true
+          })
+          .select();
+        
+        if (insertError) {
+          console.error('Erro ao inserir:', insertError);
+        } else {
+          console.log('Relação inserida com sucesso:', novaRelacao);
+          // Recarregar os dados
+          await carregarPrestadores();
+          return;
+        }
+      }
       
       setPrestadores(resultado);
     } catch (error) {
-      console.error('Erro ao carregar prestadores:', error);
+      console.error('Erro:', error);
       toast.error('Erro ao carregar dados');
     } finally {
       setLoading(false);
