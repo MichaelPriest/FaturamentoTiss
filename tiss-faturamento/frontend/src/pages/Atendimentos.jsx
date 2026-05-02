@@ -1342,7 +1342,7 @@ export default function Atendimentos() {
                               </span>
                             )}
                           </td>
-                        <tr>
+                        </tr>
                       ))}
                     </tbody>
                     <tfoot className="bg-gray-50 dark:bg-gray-700/50">
