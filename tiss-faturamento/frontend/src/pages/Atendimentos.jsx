@@ -965,7 +965,7 @@ export default function Atendimentos() {
                 <p className="text-xs text-gray-500 dark:text-gray-400">Autorização Parcial</p>
                 <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{parciais}</p>
               </div>
-              <AlertTriangleIcon className="w-8 h-8 text-orange-500 opacity-50" />
+              <ExclamationTriangleIcon className="w-8 h-8 text-orange-500 opacity-50" />
             </div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
@@ -1114,7 +1114,7 @@ export default function Atendimentos() {
                 {selectedGuia.status === 'parcial' && (
                   <div className="mb-4 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
                     <div className="flex items-center gap-2">
-                      <AlertTriangleIcon className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                      <ExclamationTriangleIcon className="w-5 h-5 text-orange-600 dark:text-orange-400" />
                       <span className="text-sm text-orange-700 dark:text-orange-300">
                         ⚠️ Esta guia possui itens pendentes de autorização ou com quantidade excedente.
                       </span>
@@ -1155,7 +1155,7 @@ export default function Atendimentos() {
                           <td className="px-3 py-2 text-center">
                             {item.pendente_autorizacao ? (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
-                                <AlertTriangleIcon className="w-3 h-3" />
+                                <ExclamationTriangleIcon className="w-3 h-3" />
                                 Pendente
                               </span>
                             ) : item.quantidade_autorizada > 0 && item.quantidade <= item.quantidade_autorizada ? (
@@ -1805,7 +1805,7 @@ export default function Atendimentos() {
                           {currentItem.quantidade_autorizada > 0 && currentItem.quantidade > currentItem.quantidade_autorizada && (
                             <div className="mt-2 p-2 bg-orange-50 rounded-lg">
                               <p className="text-xs text-orange-600 flex items-center gap-1">
-                                <AlertTriangleIcon className="w-4 h-4" />
+                                <ExclamationTriangleIcon className="w-4 h-4" />
                                 Atenção! Quantidade solicitada excede a autorizada. O item será marcado como pendente de autorização.
                               </p>
                             </div>
