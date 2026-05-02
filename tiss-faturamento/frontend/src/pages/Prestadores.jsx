@@ -109,13 +109,24 @@ export default function Prestadores() {
     carregarPrestadores();
   }, []);
 
-  const debugPrestadores = async () => {
-    const data = await prestadoresService.listarComEspecialidades();
-    console.log('Prestadores carregados:', data);
-    console.log('Primeiro prestador:', data[0]);
-    console.log('Especialidades do primeiro:', data[0]?.especialidades);
-    setPrestadores(data);
+  const debugPrestadores = () => {
+    console.log('Prestadores no estado:', prestadores);
+    if (prestadores.length > 0) {
+      console.log('Primeiro prestador:', prestadores[0]);
+      console.log('Especialidades do primeiro:', prestadores[0].especialidades);
+      if (prestadores[0].especialidades && prestadores[0].especialidades.length > 0) {
+        console.log('Primeira especialidade:', prestadores[0].especialidades[0]);
+        console.log('Nome da especialidade:', prestadores[0].especialidades[0].especialidade?.nome);
+      }
+    }
   };
+  
+  // Chame esta função depois de carregar os prestadores
+  useEffect(() => {
+    if (!loading && prestadores.length > 0) {
+      debugPrestadores();
+    }
+  }, [loading, prestadores]);
   
   const carregarPrestadores = async () => {
     setLoading(true);
