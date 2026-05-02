@@ -216,9 +216,10 @@ export const pacientesService = {
 };
 
 // ============================================
-// SERVIÇO DE PRESTADORES (ADICIONADO)
+// SERVIÇO DE PRESTADORES (ATUALIZADO COM ESPECIALIDADES)
 // ============================================
 export const prestadoresService = {
+  // Listar prestadores com suas especialidades
   async listar() {
     if (!isSupabaseAvailable()) {
       return localStorageFallback.get(TABLES.PRESTADORES);
@@ -236,6 +237,48 @@ export const prestadoresService = {
     }
   },
 
+  // Listar prestadores com especialidades (completo)
+  async listarComEspecialidades() {
+    if (!isSupabaseAvailable()) {
+      const prestadores = localStorageFallback.get(TABLES.PRESTADORES);
+      const especialidadesRel = localStorageFallback.get('prestador_especialidade') || [];
+      const especialidadesList = localStorageFallback.get('especialidades') || [];
+      
+      return prestadores.map(p => ({
+        ...p,
+        especialidades: especialidadesRel
+          .filter(rel => rel.prestador_id === p.id)
+          .map(rel => ({
+            ...rel,
+            especialidade: especialidadesList.find(e => e.id === rel.especialidade_id)
+          }))
+      }));
+    }
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.PRESTADORES)
+        .select(`
+          *,
+          especialidades:prestador_especialidade(
+            id,
+            principal,
+            especialidade:especialidades(
+              id,
+              nome,
+              cbos,
+              codigoANS
+            )
+          )
+        `)
+        .order('nome', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.error('Erro ao listar prestadores com especialidades:', err);
+      return this.listar();
+    }
+  },
+
   async buscar(id) {
     if (!isSupabaseAvailable()) {
       const data = localStorageFallback.get(TABLES.PRESTADORES);
@@ -244,7 +287,19 @@ export const prestadoresService = {
     try {
       const { data, error } = await supabase
         .from(TABLES.PRESTADORES)
-        .select('*')
+        .select(`
+          *,
+          especialidades:prestador_especialidade(
+            id,
+            principal,
+            especialidade:especialidades(
+              id,
+              nome,
+              cbos,
+              codigoANS
+            )
+          )
+        `)
         .eq('id', id)
         .single();
       if (error) throw error;
@@ -255,6 +310,7 @@ export const prestadoresService = {
     }
   },
 
+  // Criar prestador com especialidades
   async criar(prestador) {
     console.log('Chamando prestadoresService.criar:', prestador);
     if (!isSupabaseAvailable()) {
@@ -277,6 +333,62 @@ export const prestadoresService = {
       const newItem = { ...prestador, id: Date.now(), created_at: new Date().toISOString() };
       localStorageFallback.set(TABLES.PRESTADORES, [...data, newItem]);
       return newItem;
+    }
+  },
+
+  // Criar prestador com especialidades (versão completa)
+  async criarComEspecialidades(prestadorData) {
+    const { especialidades, ...dadosPrestador } = prestadorData;
+    
+    if (!isSupabaseAvailable()) {
+      // Fallback para localStorage
+      const prestadores = localStorageFallback.get(TABLES.PRESTADORES);
+      const newPrestador = { ...dadosPrestador, id: Date.now(), created_at: new Date().toISOString() };
+      localStorageFallback.set(TABLES.PRESTADORES, [...prestadores, newPrestador]);
+      
+      // Salvar especialidades
+      if (especialidades && especialidades.length > 0) {
+        const relacoes = localStorageFallback.get('prestador_especialidade') || [];
+        const novasRelacoes = especialidades.map(esp => ({
+          id: Date.now() + Math.random(),
+          prestador_id: newPrestador.id,
+          especialidade_id: esp.especialidade_id,
+          principal: esp.principal || false
+        }));
+        localStorageFallback.set('prestador_especialidade', [...relacoes, ...novasRelacoes]);
+      }
+      return newPrestador;
+    }
+    
+    try {
+      // Inserir prestador
+      const { data: prestador, error: prestadorError } = await supabase
+        .from(TABLES.PRESTADORES)
+        .insert([dadosPrestador])
+        .select()
+        .single();
+      
+      if (prestadorError) throw prestadorError;
+      
+      // Inserir especialidades
+      if (especialidades && especialidades.length > 0) {
+        const especialidadesInsert = especialidades.map(esp => ({
+          prestador_id: prestador.id,
+          especialidade_id: esp.especialidade_id,
+          principal: esp.principal || false
+        }));
+        
+        const { error: espError } = await supabase
+          .from('prestador_especialidade')
+          .insert(especialidadesInsert);
+        
+        if (espError) throw espError;
+      }
+      
+      return prestador;
+    } catch (err) {
+      console.error('Erro ao criar prestador com especialidades:', err);
+      throw err;
     }
   },
 
@@ -305,14 +417,92 @@ export const prestadoresService = {
     }
   },
 
+  // Atualizar prestador com especialidades
+  async atualizarComEspecialidades(id, prestadorData) {
+    const { especialidades, ...dadosPrestador } = prestadorData;
+    
+    if (!isSupabaseAvailable()) {
+      // Atualizar prestador
+      const prestadores = localStorageFallback.get(TABLES.PRESTADORES);
+      const index = prestadores.findIndex(item => item.id === id);
+      if (index !== -1) {
+        prestadores[index] = { ...dadosPrestador, id, updated_at: new Date().toISOString() };
+        localStorageFallback.set(TABLES.PRESTADORES, prestadores);
+      }
+      
+      // Atualizar especialidades (remover antigas e adicionar novas)
+      let relacoes = localStorageFallback.get('prestador_especialidade') || [];
+      relacoes = relacoes.filter(rel => rel.prestador_id !== id);
+      
+      if (especialidades && especialidades.length > 0) {
+        const novasRelacoes = especialidades.map(esp => ({
+          id: Date.now() + Math.random(),
+          prestador_id: id,
+          especialidade_id: esp.especialidade_id,
+          principal: esp.principal || false
+        }));
+        localStorageFallback.set('prestador_especialidade', [...relacoes, ...novasRelacoes]);
+      } else {
+        localStorageFallback.set('prestador_especialidade', relacoes);
+      }
+      
+      return { id };
+    }
+    
+    try {
+      // Atualizar prestador
+      const { error: prestadorError } = await supabase
+        .from(TABLES.PRESTADORES)
+        .update(dadosPrestador)
+        .eq('id', id);
+      
+      if (prestadorError) throw prestadorError;
+      
+      // Remover especialidades antigas
+      const { error: deleteError } = await supabase
+        .from('prestador_especialidade')
+        .delete()
+        .eq('prestador_id', id);
+      
+      if (deleteError) throw deleteError;
+      
+      // Inserir novas especialidades
+      if (especialidades && especialidades.length > 0) {
+        const especialidadesInsert = especialidades.map(esp => ({
+          prestador_id: id,
+          especialidade_id: esp.especialidade_id,
+          principal: esp.principal || false
+        }));
+        
+        const { error: espError } = await supabase
+          .from('prestador_especialidade')
+          .insert(especialidadesInsert);
+        
+        if (espError) throw espError;
+      }
+      
+      return { id };
+    } catch (err) {
+      console.error('Erro ao atualizar prestador com especialidades:', err);
+      throw err;
+    }
+  },
+
   async deletar(id) {
     if (!isSupabaseAvailable()) {
+      // Remover especialidades relacionadas
+      let relacoes = localStorageFallback.get('prestador_especialidade') || [];
+      relacoes = relacoes.filter(rel => rel.prestador_id !== id);
+      localStorageFallback.set('prestador_especialidade', relacoes);
+      
+      // Remover prestador
       const data = localStorageFallback.get(TABLES.PRESTADORES);
       const filtered = data.filter(item => item.id !== id);
       localStorageFallback.set(TABLES.PRESTADORES, filtered);
       return true;
     }
     try {
+      // As especialidades serão removidas automaticamente pelo CASCADE
       const { error } = await supabase
         .from(TABLES.PRESTADORES)
         .delete()
@@ -321,10 +511,132 @@ export const prestadoresService = {
       return true;
     } catch (err) {
       console.error('Erro ao deletar prestador:', err);
-      const data = localStorageFallback.get(TABLES.PRESTADORES);
+      return false;
+    }
+  }
+};
+
+// Serviço de Especialidades
+export const especialidadesService = {
+  async listar() {
+    if (!isSupabaseAvailable()) {
+      return localStorageFallback.get('especialidades') || [];
+    }
+    try {
+      const { data, error } = await supabase
+        .from('especialidades')
+        .select('*')
+        .order('nome', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.error('Erro ao listar especialidades:', err);
+      return localStorageFallback.get('especialidades') || [];
+    }
+  },
+
+  async criar(especialidade) {
+    if (!isSupabaseAvailable()) {
+      const data = localStorageFallback.get('especialidades') || [];
+      const newItem = { ...especialidade, id: Date.now() };
+      localStorageFallback.set('especialidades', [...data, newItem]);
+      return newItem;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('especialidades')
+        .insert([especialidade])
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('Erro ao criar especialidade:', err);
+      return null;
+    }
+  },
+
+  async atualizar(id, especialidade) {
+    if (!isSupabaseAvailable()) {
+      const data = localStorageFallback.get('especialidades') || [];
+      const index = data.findIndex(item => item.id === id);
+      if (index !== -1) {
+        data[index] = { ...especialidade, id };
+        localStorageFallback.set('especialidades', data);
+      }
+      return { ...especialidade, id };
+    }
+    try {
+      const { data, error } = await supabase
+        .from('especialidades')
+        .update(especialidade)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('Erro ao atualizar especialidade:', err);
+      return { ...especialidade, id };
+    }
+  },
+
+  async deletar(id) {
+    if (!isSupabaseAvailable()) {
+      const data = localStorageFallback.get('especialidades') || [];
       const filtered = data.filter(item => item.id !== id);
-      localStorageFallback.set(TABLES.PRESTADORES, filtered);
+      localStorageFallback.set('especialidades', filtered);
       return true;
+    }
+    try {
+      const { error } = await supabase
+        .from('especialidades')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      console.error('Erro ao deletar especialidade:', err);
+      return false;
+    }
+  },
+
+  // Seed inicial das especialidades
+  async seed() {
+    const especialidadesList = [
+      { nome: 'Clínica Médica', cbos: '225125', codigoANS: '06' },
+      { nome: 'Cardiologia', cbos: '225135', codigoANS: '06' },
+      { nome: 'Pediatria', cbos: '225140', codigoANS: '06' },
+      { nome: 'Ginecologia', cbos: '225145', codigoANS: '06' },
+      { nome: 'Obstetrícia', cbos: '225150', codigoANS: '06' },
+      { nome: 'Ortopedia', cbos: '225155', codigoANS: '06' },
+      { nome: 'Neurologia', cbos: '225170', codigoANS: '06' },
+      { nome: 'Psiquiatria', cbos: '225175', codigoANS: '06' },
+      { nome: 'Fisioterapia', cbos: '223605', codigoANS: '03' },
+      { nome: 'Fonoaudiologia', cbos: '223610', codigoANS: '03' },
+      { nome: 'Terapia Ocupacional', cbos: '223615', codigoANS: '03' },
+      { nome: 'Psicomotricidade', cbos: '223605', codigoANS: '03' },
+      { nome: 'Musicoterapia', cbos: '223610', codigoANS: '03' },
+      { nome: 'Gerontologia', cbos: '223615', codigoANS: '03' },
+      { nome: 'Nutrição', cbos: '223405', codigoANS: '10' },
+      { nome: 'Psicologia', cbos: '251510', codigoANS: '08' },
+      { nome: 'Neuropsicologia', cbos: '251510', codigoANS: '08' },
+      { nome: 'Psicopedagogia', cbos: '251510', codigoANS: '08' },
+      { nome: 'Farmácia', cbos: '223205', codigoANS: '05' },
+      { nome: 'Biomedicina', cbos: '223305', codigoANS: '09' },
+      { nome: 'Enfermagem', cbos: '223505', codigoANS: '04' },
+      { nome: 'Odontologia Clínica', cbos: '223105', codigoANS: '07' },
+      { nome: 'Odontopediatria', cbos: '223110', codigoANS: '07' },
+      { nome: 'Ortodontia', cbos: '223115', codigoANS: '07' },
+      { nome: 'Pedagogia', cbos: null, codigoANS: null },
+      { nome: 'Educação Física', cbos: '224105', codigoANS: '11' }
+    ];
+    
+    for (const esp of especialidadesList) {
+      const existente = await this.listar().then(list => list.find(e => e.nome === esp.nome));
+      if (!existente) {
+        await this.criar(esp);
+      }
     }
   }
 };
