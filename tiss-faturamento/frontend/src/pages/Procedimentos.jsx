@@ -150,15 +150,23 @@ export default function Procedimentos() {
   const [convenioSelecionado, setConvenioSelecionado] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);  // <-- MOVER PARA CÁ
   const [showAjustesModal, setShowAjustesModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [aba, setAba] = useState('tuss');
   const [configTabelas, setConfigTabelas] = useState(CONFIG_PADRAO_TABELAS);
   const [configAjustes, setConfigAjustes] = useState(CONFIG_AJUSTES_PADRAO);
-  const [tabelaConfigAtual, setTabelaConfigAtual] = useState('AMB90');
+  const [tabelaConfigAtual, setTabelaConfigAtual] = useState('AMB90');  // <-- MOVER PARA CÁ
   const [tipoAjusteAtual, setTipoAjusteAtual] = useState('materiais');
+
+  // Adicione a função aqui também, dentro do componente
+  const salvarConfiguracoesTabelas = async (novaConfig) => {
+    setConfigTabelas(novaConfig);
+    localStorage.setItem('config_tabelas_procedimentos', JSON.stringify(novaConfig));
+    toast.success('Configurações das tabelas salvas!');
+    setShowConfigModal(false);
+  };
   
   const [formData, setFormData] = useState({
     codigo: '',
@@ -830,6 +838,428 @@ export default function Procedimentos() {
           </div>
         </div>
       )}
+
+      {/* Modal de Configuração das Tabelas */}
+      {showConfigModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
+                  Configuração das Tabelas
+                </h3>
+                <button 
+                  onClick={() => setShowConfigModal(false)} 
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <XMarkIcon className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-5">
+              <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+                {Object.keys(configTabelas).map((tabela) => (
+                  <button
+                    key={tabela}
+                    onClick={() => setTabelaConfigAtual(tabela)}
+                    className={`px-4 py-2 text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                      tabelaConfigAtual === tabela
+                        ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+                    }`}
+                  >
+                    {TIPOS_TABELA.find(t => t.value === tabela)?.label || tabela}
+                  </button>
+                ))}
+              </div>
+              
+              {/* Configuração AMB 90/92 */}
+              {(tabelaConfigAtual === 'AMB90' || tabelaConfigAtual === 'AMB92') && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Valor CH Honorários Médicos (R$)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={configTabelas[tabelaConfigAtual]?.hm_ch || 0}
+                        onChange={(e) => setConfigTabelas({
+                          ...configTabelas,
+                          [tabelaConfigAtual]: {
+                            ...configTabelas[tabelaConfigAtual],
+                            hm_ch: parseFloat(e.target.value)
+                          }
+                        })}
+                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Valor do CH para consultas, cirurgias e procedimentos</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Valor CH SADT (R$)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={configTabelas[tabelaConfigAtual]?.sadt_ch || 0}
+                        onChange={(e) => setConfigTabelas({
+                          ...configTabelas,
+                          [tabelaConfigAtual]: {
+                            ...configTabelas[tabelaConfigAtual],
+                            sadt_ch: parseFloat(e.target.value)
+                          }
+                        })}
+                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Valor do CH para exames e terapias</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        1º Auxiliar (%)
+                      </label>
+                      <input
+                        type="number"
+                        step="1"
+                        value={configTabelas[tabelaConfigAtual]?.perc_aux_1 || 30}
+                        onChange={(e) => setConfigTabelas({
+                          ...configTabelas,
+                          [tabelaConfigAtual]: {
+                            ...configTabelas[tabelaConfigAtual],
+                            perc_aux_1: parseFloat(e.target.value)
+                          }
+                        })}
+                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        2º Auxiliar (%)
+                      </label>
+                      <input
+                        type="number"
+                        step="1"
+                        value={configTabelas[tabelaConfigAtual]?.perc_aux_2 || 20}
+                        onChange={(e) => setConfigTabelas({
+                          ...configTabelas,
+                          [tabelaConfigAtual]: {
+                            ...configTabelas[tabelaConfigAtual],
+                            perc_aux_2: parseFloat(e.target.value)
+                          }
+                        })}
+                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        3º Auxiliar (%)
+                      </label>
+                      <input
+                        type="number"
+                        step="1"
+                        value={configTabelas[tabelaConfigAtual]?.perc_aux_3 || 15}
+                        onChange={(e) => setConfigTabelas({
+                          ...configTabelas,
+                          [tabelaConfigAtual]: {
+                            ...configTabelas[tabelaConfigAtual],
+                            perc_aux_3: parseFloat(e.target.value)
+                          }
+                        })}
+                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Valor do Filme (R$)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={configTabelas[tabelaConfigAtual]?.valor_filme || 20}
+                      onChange={(e) => setConfigTabelas({
+                        ...configTabelas,
+                        [tabelaConfigAtual]: {
+                          ...configTabelas[tabelaConfigAtual],
+                          valor_filme: parseFloat(e.target.value)
+                        }
+                      })}
+                      className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
+                    />
+                  </div>
+                </div>
+              )}
+              
+              {/* Configuração AMB 96/99 (valores fixos) */}
+              {(tabelaConfigAtual === 'AMB96' || tabelaConfigAtual === 'AMB99') && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Consulta (R$)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={configTabelas[tabelaConfigAtual]?.consulta || 80}
+                        onChange={(e) => setConfigTabelas({
+                          ...configTabelas,
+                          [tabelaConfigAtual]: {
+                            ...configTabelas[tabelaConfigAtual],
+                            consulta: parseFloat(e.target.value)
+                          }
+                        })}
+                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Exame (R$)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={configTabelas[tabelaConfigAtual]?.exame || 45}
+                        onChange={(e) => setConfigTabelas({
+                          ...configTabelas,
+                          [tabelaConfigAtual]: {
+                            ...configTabelas[tabelaConfigAtual],
+                            exame: parseFloat(e.target.value)
+                          }
+                        })}
+                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Cirurgia Pequeno Porte (R$)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={configTabelas[tabelaConfigAtual]?.cirurgia_pequeno || 250}
+                        onChange={(e) => setConfigTabelas({
+                          ...configTabelas,
+                          [tabelaConfigAtual]: {
+                            ...configTabelas[tabelaConfigAtual],
+                            cirurgia_pequeno: parseFloat(e.target.value)
+                          }
+                        })}
+                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Cirurgia Médio Porte (R$)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={configTabelas[tabelaConfigAtual]?.cirurgia_medio || 500}
+                        onChange={(e) => setConfigTabelas({
+                          ...configTabelas,
+                          [tabelaConfigAtual]: {
+                            ...configTabelas[tabelaConfigAtual],
+                            cirurgia_medio: parseFloat(e.target.value)
+                          }
+                        })}
+                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Cirurgia Grande Porte (R$)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={configTabelas[tabelaConfigAtual]?.cirurgia_grande || 800}
+                        onChange={(e) => setConfigTabelas({
+                          ...configTabelas,
+                          [tabelaConfigAtual]: {
+                            ...configTabelas[tabelaConfigAtual],
+                            cirurgia_grande: parseFloat(e.target.value)
+                          }
+                        })}
+                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Anestesia (R$)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={configTabelas[tabelaConfigAtual]?.anestesia || 150}
+                      onChange={(e) => setConfigTabelas({
+                        ...configTabelas,
+                        [tabelaConfigAtual]: {
+                          ...configTabelas[tabelaConfigAtual],
+                          anestesia: parseFloat(e.target.value)
+                        }
+                      })}
+                      className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
+                    />
+                  </div>
+                </div>
+              )}
+              
+              {/* Configuração CBHPM */}
+              {tabelaConfigAtual === 'CBHPM' && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Valor UCO (R$)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={configTabelas.CBHPM?.valor_uco || 10}
+                        onChange={(e) => setConfigTabelas({
+                          ...configTabelas,
+                          CBHPM: {
+                            ...configTabelas.CBHPM,
+                            valor_uco: parseFloat(e.target.value)
+                          }
+                        })}
+                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Valor Porte Base (R$)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={configTabelas.CBHPM?.valor_porte_1 || 80}
+                        onChange={(e) => setConfigTabelas({
+                          ...configTabelas,
+                          CBHPM: {
+                            ...configTabelas.CBHPM,
+                            valor_porte_1: parseFloat(e.target.value)
+                          }
+                        })}
+                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Auxiliar 1 (%)
+                      </label>
+                      <input
+                        type="number"
+                        step="1"
+                        value={configTabelas.CBHPM?.perc_aux_1 || 30}
+                        onChange={(e) => setConfigTabelas({
+                          ...configTabelas,
+                          CBHPM: {
+                            ...configTabelas.CBHPM,
+                            perc_aux_1: parseFloat(e.target.value)
+                          }
+                        })}
+                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Auxiliar 2 (%)
+                      </label>
+                      <input
+                        type="number"
+                        step="1"
+                        value={configTabelas.CBHPM?.perc_aux_2 || 20}
+                        onChange={(e) => setConfigTabelas({
+                          ...configTabelas,
+                          CBHPM: {
+                            ...configTabelas.CBHPM,
+                            perc_aux_2: parseFloat(e.target.value)
+                          }
+                        })}
+                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Auxiliar 3 (%)
+                      </label>
+                      <input
+                        type="number"
+                        step="1"
+                        value={configTabelas.CBHPM?.perc_aux_3 || 15}
+                        onChange={(e) => setConfigTabelas({
+                          ...configTabelas,
+                          CBHPM: {
+                            ...configTabelas.CBHPM,
+                            perc_aux_3: parseFloat(e.target.value)
+                          }
+                        })}
+                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Configuração Brasíndice / SIMPRO */}
+              {(tabelaConfigAtual === 'BRASINDICE' || tabelaConfigAtual === 'SIMPRO') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Valor do Ponto (R$)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={configTabelas[tabelaConfigAtual]?.valor_ponto || (tabelaConfigAtual === 'BRASINDICE' ? 0.80 : 0.90)}
+                    onChange={(e) => setConfigTabelas({
+                      ...configTabelas,
+                      [tabelaConfigAtual]: {
+                        ...configTabelas[tabelaConfigAtual],
+                        valor_ponto: parseFloat(e.target.value)
+                      }
+                    })}
+                    className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Valor de cada ponto para cálculo do procedimento: Valor = Pontos × Valor do Ponto
+                  </p>
+                </div>
+              )}
+              
+              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <button 
+                  onClick={() => setShowConfigModal(false)} 
+                  className="px-4 py-2 border rounded-lg text-sm font-medium"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={() => salvarConfiguracoesTabelas(configTabelas)} 
+                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium shadow-md"
+                >
+                  Salvar Configurações
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}      
     </div>
   );
 }
