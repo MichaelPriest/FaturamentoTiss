@@ -1106,6 +1106,16 @@ export default function Atendimentos() {
   };
 
   const handleEdit = (atendimento) => {
+    // 🔒 BLOQUEAR EDIÇÃO SE FOR FATURADO OU FINALIZADO
+    if (atendimento.status === 'faturado') {
+      toast.error('❌ Não é possível editar: Guia já foi faturada!');
+      return;
+    }
+    if (atendimento.status === 'finalizado') {
+      toast.error('🔒 Não é possível editar: Guia está finalizada e bloqueada para edição!');
+      return;
+    }
+    
     setEditing(atendimento);
     setItensGuia(atendimento.itens || []);
     setItensAutorizados(atendimento.itens_autorizados || []);
@@ -1144,12 +1154,28 @@ export default function Atendimentos() {
     });
     setShowModal(true);
   };
-
+  
+  const handleDelete = (id) => {
+    const atendimento = atendimentos.find(a => a.id === id);
+    
+    // 🔒 BLOQUEAR EXCLUSÃO SE FOR FATURADO OU FINALIZADO
+    if (atendimento?.status === 'faturado') {
+      toast.error('❌ Não é possível excluir: Guia já foi faturada!');
+      return;
+    }
+    if (atendimento?.status === 'finalizado') {
+      toast.error('🔒 Não é possível excluir: Guia está finalizada!');
+      return;
+    }
+    
+    excluirAtendimento(id);
+  };
+  
   const handleViewItens = (atendimento) => {
     setSelectedGuia(atendimento);
     setShowItensModal(true);
   };
-
+  
   const getStatusCor = (status) => {
     const cores = {
       pendente: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
@@ -1161,7 +1187,7 @@ export default function Atendimentos() {
     };
     return cores[status] || 'bg-gray-100 text-gray-700';
   };
-
+  
   const atendimentosFiltrados = atendimentos.filter(a => {
     if (filtroStatus !== 'todos' && a.status !== filtroStatus) return false;
     if (filtroConvenio !== 'todos' && a.paciente_convenio_id !== parseInt(filtroConvenio)) return false;
@@ -1174,12 +1200,19 @@ export default function Atendimentos() {
     return true;
   });
   
+  // Adicionar função para verificar se pode editar (usada nos botões)
+  const podeEditar = (status) => {
+    return status !== 'faturado' && status !== 'finalizado';
+  };
+  
+  // Logo após as outras variáveis de contagem
   const pendentes = atendimentos.filter(a => a.status === 'pendente').length;
   const autorizados = atendimentos.filter(a => a.status === 'autorizado').length;
   const parciais = atendimentos.filter(a => a.status === 'parcial').length;
   const faturados = atendimentos.filter(a => a.status === 'faturado').length;
+  const finalizados = atendimentos.filter(a => a.status === 'finalizado').length; // NOVO
   const valorTotalPendente = atendimentos.filter(a => a.status === 'pendente' || a.status === 'parcial').reduce((sum, a) => sum + (a.valor_total || 0), 0);
-
+  
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -1221,7 +1254,7 @@ export default function Atendimentos() {
         </div>
 
         {/* Cards de resumo */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-7 gap-4 mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
@@ -1256,6 +1289,24 @@ export default function Atendimentos() {
                 <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">{parciais}</p>
               </div>
               <ExclamationTriangleIcon className="w-8 h-8 text-orange-500 opacity-50" />
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Faturados</p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-400">{faturados}</p>
+              </div>
+              <CurrencyDollarIcon className="w-8 h-8 text-green-500 opacity-50" />
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Finalizados</p>
+                <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">{finalizados}</p>
+              </div>
+              <LockClosedIcon className="w-8 h-8 text-purple-500 opacity-50" />
             </div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
@@ -1359,37 +1410,49 @@ export default function Atendimentos() {
                     </td>
                     {/* Célula de Ações */}
                     <td className="px-4 py-3 text-center">
-                      <div className="flex gap-1 justify-center flex-wrap">
+                      <div className="flex gap-1 justify-center">
                         <button onClick={() => handleViewItens(a)} className="p-1 rounded-lg text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Ver Itens">
                           <EyeIcon className="w-4 h-4" />
                         </button>
                         
-                        {/* Botão para Autorizar */}
+                        {/* Botão Autorizar - apenas para pendente/parcial */}
                         {(a.status === 'pendente' || a.status === 'parcial') && a.itens_autorizados?.length > 0 && (
                           <button onClick={() => alterarStatusManual(a.id, 'autorizado')} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Autorizar">
                             <CheckIcon className="w-4 h-4" />
                           </button>
                         )}
                         
-                        {/* Botão para Faturar */}
+                        {/* Botão Faturar - apenas para não faturados/finalizados */}
                         {a.status !== 'faturado' && a.status !== 'cancelado' && a.status !== 'finalizado' && (
                           <button onClick={() => handleEnviarFaturamento(a.id)} className="p-1 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" title="Faturar">
                             <CurrencyDollarIcon className="w-4 h-4" />
                           </button>
                         )}
                         
-                        {/* Botão para Cancelar */}
+                        {/* Botão Cancelar - apenas para não cancelados/faturados/finalizados */}
                         {a.status !== 'cancelado' && a.status !== 'faturado' && a.status !== 'finalizado' && (
                           <button onClick={() => alterarStatusManual(a.id, 'cancelado')} className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Cancelar">
                             <XMarkIcon className="w-4 h-4" />
                           </button>
                         )}
                         
-                        <button onClick={() => handleEdit(a)} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Editar">
+                        {/* Botão Editar - desabilitado para faturado/finalizado */}
+                        <button 
+                          onClick={() => handleEdit(a)} 
+                          disabled={!podeEditar(a.status)}
+                          className={`p-1 rounded-lg transition-colors ${podeEditar(a.status) ? 'text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20' : 'text-gray-400 cursor-not-allowed'}`} 
+                          title={!podeEditar(a.status) ? 'Guia bloqueada para edição' : 'Editar'}
+                        >
                           <PencilIcon className="w-4 h-4" />
                         </button>
                         
-                        <button onClick={() => handleDelete(a.id)} className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Excluir">
+                        {/* Botão Excluir - desabilitado para faturado/finalizado */}
+                        <button 
+                          onClick={() => handleDelete(a.id)} 
+                          disabled={!podeEditar(a.status)}
+                          className={`p-1 rounded-lg transition-colors ${podeEditar(a.status) ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20' : 'text-gray-400 cursor-not-allowed'}`} 
+                          title={!podeEditar(a.status) ? 'Guia bloqueada para exclusão' : 'Excluir'}
+                        >
                           <TrashIcon className="w-4 h-4" />
                         </button>
                       </div>
