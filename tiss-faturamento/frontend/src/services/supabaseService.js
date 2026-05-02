@@ -216,10 +216,9 @@ export const pacientesService = {
 };
 
 // ============================================
-// SERVIÇO DE PRESTADORES (ATUALIZADO COM ESPECIALIDADES)
+// SERVIÇO DE PRESTADORES (CORRIGIDO)
 // ============================================
 export const prestadoresService = {
-  // Listar prestadores com suas especialidades
   async listar() {
     if (!isSupabaseAvailable()) {
       return localStorageFallback.get(TABLES.PRESTADORES);
@@ -237,7 +236,7 @@ export const prestadoresService = {
     }
   },
 
-  // Listar prestadores com especialidades (completo)
+  // Listar prestadores com especialidades (corrigido - usando nomes corretos das colunas)
   async listarComEspecialidades() {
     if (!isSupabaseAvailable()) {
       const prestadores = localStorageFallback.get(TABLES.PRESTADORES);
@@ -255,24 +254,45 @@ export const prestadoresService = {
       }));
     }
     try {
-      const { data, error } = await supabase
+      // Consulta separada para evitar erro de alias
+      const { data: prestadores, error: prestadoresError } = await supabase
         .from(TABLES.PRESTADORES)
-        .select(`
-          *,
-          especialidades:prestador_especialidade(
-            id,
-            principal,
-            especialidade:especialidades(
-              id,
-              nome,
-              cbos,
-              codigoANS
-            )
-          )
-        `)
+        .select('*')
         .order('nome', { ascending: true });
-      if (error) throw error;
-      return data || [];
+      
+      if (prestadoresError) throw prestadoresError;
+      
+      // Buscar especialidades para cada prestador
+      const prestadoresComEspecialidades = await Promise.all(
+        (prestadores || []).map(async (prestador) => {
+          const { data: especialidadesRel, error: relError } = await supabase
+            .from('prestador_especialidade')
+            .select(`
+              id,
+              principal,
+              especialidade_id,
+              especialidades:especialidade_id (
+                id,
+                nome,
+                cbos,
+                codigo_ans
+              )
+            `)
+            .eq('prestador_id', prestador.id);
+          
+          if (relError) {
+            console.error('Erro ao buscar especialidades do prestador:', relError);
+            return { ...prestador, especialidades: [] };
+          }
+          
+          return {
+            ...prestador,
+            especialidades: especialidadesRel || []
+          };
+        })
+      );
+      
+      return prestadoresComEspecialidades;
     } catch (err) {
       console.error('Erro ao listar prestadores com especialidades:', err);
       return this.listar();
@@ -285,32 +305,45 @@ export const prestadoresService = {
       return data.find(item => item.id === id);
     }
     try {
-      const { data, error } = await supabase
+      const { data: prestador, error: prestadorError } = await supabase
         .from(TABLES.PRESTADORES)
-        .select(`
-          *,
-          especialidades:prestador_especialidade(
-            id,
-            principal,
-            especialidade:especialidades(
-              id,
-              nome,
-              cbos,
-              codigoANS
-            )
-          )
-        `)
+        .select('*')
         .eq('id', id)
         .single();
-      if (error) throw error;
-      return data;
+      
+      if (prestadorError) throw prestadorError;
+      
+      // Buscar especialidades
+      const { data: especialidadesRel, error: relError } = await supabase
+        .from('prestador_especialidade')
+        .select(`
+          id,
+          principal,
+          especialidade_id,
+          especialidades:especialidade_id (
+            id,
+            nome,
+            cbos,
+            codigo_ans
+          )
+        `)
+        .eq('prestador_id', id);
+      
+      if (relError) {
+        console.error('Erro ao buscar especialidades:', relError);
+        return prestador;
+      }
+      
+      return {
+        ...prestador,
+        especialidades: especialidadesRel || []
+      };
     } catch (err) {
       console.error('Erro ao buscar prestador:', err);
       return null;
     }
   },
 
-  // Criar prestador com especialidades
   async criar(prestador) {
     console.log('Chamando prestadoresService.criar:', prestador);
     if (!isSupabaseAvailable()) {
@@ -336,17 +369,14 @@ export const prestadoresService = {
     }
   },
 
-  // Criar prestador com especialidades (versão completa)
   async criarComEspecialidades(prestadorData) {
     const { especialidades, ...dadosPrestador } = prestadorData;
     
     if (!isSupabaseAvailable()) {
-      // Fallback para localStorage
       const prestadores = localStorageFallback.get(TABLES.PRESTADORES);
       const newPrestador = { ...dadosPrestador, id: Date.now(), created_at: new Date().toISOString() };
       localStorageFallback.set(TABLES.PRESTADORES, [...prestadores, newPrestador]);
       
-      // Salvar especialidades
       if (especialidades && especialidades.length > 0) {
         const relacoes = localStorageFallback.get('prestador_especialidade') || [];
         const novasRelacoes = especialidades.map(esp => ({
@@ -361,7 +391,6 @@ export const prestadoresService = {
     }
     
     try {
-      // Inserir prestador
       const { data: prestador, error: prestadorError } = await supabase
         .from(TABLES.PRESTADORES)
         .insert([dadosPrestador])
@@ -370,7 +399,6 @@ export const prestadoresService = {
       
       if (prestadorError) throw prestadorError;
       
-      // Inserir especialidades
       if (especialidades && especialidades.length > 0) {
         const especialidadesInsert = especialidades.map(esp => ({
           prestador_id: prestador.id,
@@ -417,12 +445,10 @@ export const prestadoresService = {
     }
   },
 
-  // Atualizar prestador com especialidades
   async atualizarComEspecialidades(id, prestadorData) {
     const { especialidades, ...dadosPrestador } = prestadorData;
     
     if (!isSupabaseAvailable()) {
-      // Atualizar prestador
       const prestadores = localStorageFallback.get(TABLES.PRESTADORES);
       const index = prestadores.findIndex(item => item.id === id);
       if (index !== -1) {
@@ -430,7 +456,6 @@ export const prestadoresService = {
         localStorageFallback.set(TABLES.PRESTADORES, prestadores);
       }
       
-      // Atualizar especialidades (remover antigas e adicionar novas)
       let relacoes = localStorageFallback.get('prestador_especialidade') || [];
       relacoes = relacoes.filter(rel => rel.prestador_id !== id);
       
@@ -450,7 +475,6 @@ export const prestadoresService = {
     }
     
     try {
-      // Atualizar prestador
       const { error: prestadorError } = await supabase
         .from(TABLES.PRESTADORES)
         .update(dadosPrestador)
@@ -458,7 +482,6 @@ export const prestadoresService = {
       
       if (prestadorError) throw prestadorError;
       
-      // Remover especialidades antigas
       const { error: deleteError } = await supabase
         .from('prestador_especialidade')
         .delete()
@@ -466,7 +489,6 @@ export const prestadoresService = {
       
       if (deleteError) throw deleteError;
       
-      // Inserir novas especialidades
       if (especialidades && especialidades.length > 0) {
         const especialidadesInsert = especialidades.map(esp => ({
           prestador_id: id,
@@ -490,19 +512,16 @@ export const prestadoresService = {
 
   async deletar(id) {
     if (!isSupabaseAvailable()) {
-      // Remover especialidades relacionadas
       let relacoes = localStorageFallback.get('prestador_especialidade') || [];
       relacoes = relacoes.filter(rel => rel.prestador_id !== id);
       localStorageFallback.set('prestador_especialidade', relacoes);
       
-      // Remover prestador
       const data = localStorageFallback.get(TABLES.PRESTADORES);
       const filtered = data.filter(item => item.id !== id);
       localStorageFallback.set(TABLES.PRESTADORES, filtered);
       return true;
     }
     try {
-      // As especialidades serão removidas automaticamente pelo CASCADE
       const { error } = await supabase
         .from(TABLES.PRESTADORES)
         .delete()
@@ -601,35 +620,34 @@ export const especialidadesService = {
     }
   },
 
-  // Seed inicial das especialidades
   async seed() {
     const especialidadesList = [
-      { nome: 'Clínica Médica', cbos: '225125', codigoANS: '06' },
-      { nome: 'Cardiologia', cbos: '225135', codigoANS: '06' },
-      { nome: 'Pediatria', cbos: '225140', codigoANS: '06' },
-      { nome: 'Ginecologia', cbos: '225145', codigoANS: '06' },
-      { nome: 'Obstetrícia', cbos: '225150', codigoANS: '06' },
-      { nome: 'Ortopedia', cbos: '225155', codigoANS: '06' },
-      { nome: 'Neurologia', cbos: '225170', codigoANS: '06' },
-      { nome: 'Psiquiatria', cbos: '225175', codigoANS: '06' },
-      { nome: 'Fisioterapia', cbos: '223605', codigoANS: '03' },
-      { nome: 'Fonoaudiologia', cbos: '223610', codigoANS: '03' },
-      { nome: 'Terapia Ocupacional', cbos: '223615', codigoANS: '03' },
-      { nome: 'Psicomotricidade', cbos: '223605', codigoANS: '03' },
-      { nome: 'Musicoterapia', cbos: '223610', codigoANS: '03' },
-      { nome: 'Gerontologia', cbos: '223615', codigoANS: '03' },
-      { nome: 'Nutrição', cbos: '223405', codigoANS: '10' },
-      { nome: 'Psicologia', cbos: '251510', codigoANS: '08' },
-      { nome: 'Neuropsicologia', cbos: '251510', codigoANS: '08' },
-      { nome: 'Psicopedagogia', cbos: '251510', codigoANS: '08' },
-      { nome: 'Farmácia', cbos: '223205', codigoANS: '05' },
-      { nome: 'Biomedicina', cbos: '223305', codigoANS: '09' },
-      { nome: 'Enfermagem', cbos: '223505', codigoANS: '04' },
-      { nome: 'Odontologia Clínica', cbos: '223105', codigoANS: '07' },
-      { nome: 'Odontopediatria', cbos: '223110', codigoANS: '07' },
-      { nome: 'Ortodontia', cbos: '223115', codigoANS: '07' },
-      { nome: 'Pedagogia', cbos: null, codigoANS: null },
-      { nome: 'Educação Física', cbos: '224105', codigoANS: '11' }
+      { nome: 'Clínica Médica', cbos: '225125', codigo_ans: '06' },
+      { nome: 'Cardiologia', cbos: '225135', codigo_ans: '06' },
+      { nome: 'Pediatria', cbos: '225140', codigo_ans: '06' },
+      { nome: 'Ginecologia', cbos: '225145', codigo_ans: '06' },
+      { nome: 'Obstetrícia', cbos: '225150', codigo_ans: '06' },
+      { nome: 'Ortopedia', cbos: '225155', codigo_ans: '06' },
+      { nome: 'Neurologia', cbos: '225170', codigo_ans: '06' },
+      { nome: 'Psiquiatria', cbos: '225175', codigo_ans: '06' },
+      { nome: 'Fisioterapia', cbos: '223605', codigo_ans: '03' },
+      { nome: 'Fonoaudiologia', cbos: '223610', codigo_ans: '03' },
+      { nome: 'Terapia Ocupacional', cbos: '223615', codigo_ans: '03' },
+      { nome: 'Psicomotricidade', cbos: '223605', codigo_ans: '03' },
+      { nome: 'Musicoterapia', cbos: '223610', codigo_ans: '03' },
+      { nome: 'Gerontologia', cbos: '223615', codigo_ans: '03' },
+      { nome: 'Nutrição', cbos: '223405', codigo_ans: '10' },
+      { nome: 'Psicologia', cbos: '251510', codigo_ans: '08' },
+      { nome: 'Neuropsicologia', cbos: '251510', codigo_ans: '08' },
+      { nome: 'Psicopedagogia', cbos: '251510', codigo_ans: '08' },
+      { nome: 'Farmácia', cbos: '223205', codigo_ans: '05' },
+      { nome: 'Biomedicina', cbos: '223305', codigo_ans: '09' },
+      { nome: 'Enfermagem', cbos: '223505', codigo_ans: '04' },
+      { nome: 'Odontologia Clínica', cbos: '223105', codigo_ans: '07' },
+      { nome: 'Odontopediatria', cbos: '223110', codigo_ans: '07' },
+      { nome: 'Ortodontia', cbos: '223115', codigo_ans: '07' },
+      { nome: 'Pedagogia', cbos: null, codigo_ans: null },
+      { nome: 'Educação Física', cbos: '224105', codigo_ans: '11' }
     ];
     
     for (const esp of especialidadesList) {
@@ -847,5 +865,225 @@ export const notificacoesService = {
       console.error('Erro ao marcar notificação como lida:', err);
       return false;
     }
+  }
+};
+
+// Serviço de Logs de Faturamento
+export const logsFaturamentoService = {
+  async listar(limite = 50) {
+    if (!isSupabaseAvailable()) {
+      return localStorageFallback.get(TABLES.LOGS_FATURAMENTO) || [];
+    }
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.LOGS_FATURAMENTO)
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(limite);
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.error('Erro ao listar logs:', err);
+      return localStorageFallback.get(TABLES.LOGS_FATURAMENTO) || [];
+    }
+  },
+
+  async criar(log) {
+    if (!isSupabaseAvailable()) {
+      const data = localStorageFallback.get(TABLES.LOGS_FATURAMENTO) || [];
+      const newItem = { ...log, id: Date.now(), created_at: new Date().toISOString() };
+      localStorageFallback.set(TABLES.LOGS_FATURAMENTO, [newItem, ...data]);
+      return newItem;
+    }
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.LOGS_FATURAMENTO)
+        .insert([log])
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('Erro ao criar log:', err);
+      return null;
+    }
+  }
+};
+
+// Serviço de Lotes de Faturamento
+export const lotesFaturamentoService = {
+  async listar() {
+    if (!isSupabaseAvailable()) {
+      return localStorageFallback.get(TABLES.LOTES_FATURAMENTO) || [];
+    }
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.LOTES_FATURAMENTO)
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.error('Erro ao listar lotes:', err);
+      return localStorageFallback.get(TABLES.LOTES_FATURAMENTO) || [];
+    }
+  },
+
+  async buscarPorNumeroLote(numeroLote) {
+    if (!isSupabaseAvailable()) {
+      const data = localStorageFallback.get(TABLES.LOTES_FATURAMENTO) || [];
+      return data.find(l => l.numero_lote === numeroLote);
+    }
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.LOTES_FATURAMENTO)
+        .select('*')
+        .eq('numero_lote', numeroLote)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('Erro ao buscar lote:', err);
+      return null;
+    }
+  },
+
+  async criar(lote) {
+    if (!isSupabaseAvailable()) {
+      const data = localStorageFallback.get(TABLES.LOTES_FATURAMENTO) || [];
+      const newItem = { ...lote, id: Date.now() };
+      localStorageFallback.set(TABLES.LOTES_FATURAMENTO, [...data, newItem]);
+      return newItem;
+    }
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.LOTES_FATURAMENTO)
+        .insert([lote])
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('Erro ao criar lote:', err);
+      return null;
+    }
+  },
+
+  async deletar(id) {
+    if (!isSupabaseAvailable()) {
+      const data = localStorageFallback.get(TABLES.LOTES_FATURAMENTO) || [];
+      const filtered = data.filter(item => item.id !== id);
+      localStorageFallback.set(TABLES.LOTES_FATURAMENTO, filtered);
+      return true;
+    }
+    try {
+      const { error } = await supabase
+        .from(TABLES.LOTES_FATURAMENTO)
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      console.error('Erro ao deletar lote:', err);
+      return false;
+    }
+  }
+};
+
+// Serviço de Configurações
+export const configuracoesService = {
+  async buscar(chave) {
+    if (!isSupabaseAvailable()) {
+      const data = localStorageFallback.get(TABLES.CONFIGURACOES) || [];
+      return data.find(c => c.chave === chave);
+    }
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.CONFIGURACOES)
+        .select('*')
+        .eq('chave', chave)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('Erro ao buscar configuração:', err);
+      return null;
+    }
+  },
+
+  async salvar(chave, valor, descricao = '') {
+    if (!isSupabaseAvailable()) {
+      const data = localStorageFallback.get(TABLES.CONFIGURACOES) || [];
+      const existingIndex = data.findIndex(c => c.chave === chave);
+      const configItem = { chave, valor, descricao, updated_at: new Date().toISOString() };
+      
+      if (existingIndex !== -1) {
+        data[existingIndex] = configItem;
+      } else {
+        data.push(configItem);
+      }
+      localStorageFallback.set(TABLES.CONFIGURACOES, data);
+      return configItem;
+    }
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.CONFIGURACOES)
+        .upsert([{ chave, valor, descricao, updated_at: new Date().toISOString() }], { onConflict: 'chave' })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('Erro ao salvar configuração:', err);
+      return null;
+    }
+  },
+
+  async buscarMultiplas(chaves) {
+    if (!isSupabaseAvailable()) {
+      const data = localStorageFallback.get(TABLES.CONFIGURACOES) || [];
+      return data.filter(c => chaves.includes(c.chave));
+    }
+    try {
+      const { data, error } = await supabase
+        .from(TABLES.CONFIGURACOES)
+        .select('*')
+        .in('chave', chaves);
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.error('Erro ao buscar configurações:', err);
+      return [];
+    }
+  }
+};
+
+// Função para inicializar dados padrão
+export const inicializarDadosPadrao = async () => {
+  try {
+    // Inicializar especialidades
+    await especialidadesService.seed();
+    
+    // Verificar se já existe configuração de versão TISS
+    const versaoExists = await configuracoesService.buscar('versao_tiss');
+    if (!versaoExists) {
+      await configuracoesService.salvar('versao_tiss', '4.03.00', 'Versão padrão do TISS');
+    }
+    
+    // Verificar se já existe sequencial de faturamento
+    const sequencialExists = await configuracoesService.buscar('sequencial_faturamento');
+    if (!sequencialExists) {
+      await configuracoesService.salvar('sequencial_faturamento', '1', 'Sequencial para faturamento TISS');
+    }
+    
+    // Verificar se já existe lista de guias bloqueadas
+    const bloqueadosExists = await configuracoesService.buscar('guias_bloqueadas');
+    if (!bloqueadosExists) {
+      await configuracoesService.salvar('guias_bloqueadas', '[]', 'Lista de guias bloqueadas para faturamento');
+    }
+    
+    console.log('Dados padrão inicializados com sucesso');
+  } catch (error) {
+    console.error('Erro ao inicializar dados padrão:', error);
   }
 };
