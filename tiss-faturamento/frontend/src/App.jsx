@@ -8,11 +8,12 @@ import {
   Cog6ToothIcon, Bars3Icon, XMarkIcon, ArrowRightOnRectangleIcon,
   ChevronLeftIcon, ChevronRightIcon, SunIcon, MoonIcon,
   CalendarDaysIcon, FolderIcon, ChevronDownIcon, ChevronUpIcon,
-  ClockIcon, HomeModernIcon
+  ClockIcon, HomeModernIcon, AdjustmentsHorizontalIcon
 } from '@heroicons/react/24/outline';
 
 import Dashboard from './pages/Dashboard';
 import Convenios from './pages/Convenios';
+import ConvenioConfig from './pages/ConvenioConfig';
 import Pacientes from './pages/Pacientes';
 import Prestadores from './pages/Prestadores';
 import Procedimentos from './pages/Procedimentos';
@@ -414,10 +415,18 @@ function MainApp() {
     }
   ];
 
+  // Função para renderizar o conteúdo baseado na rota atual
   const renderContent = () => {
-    // Verificar se é rota de prontuário (tratada separadamente)
-    if (window.location.pathname.includes('/prontuario/')) {
+    const pathname = window.location.pathname;
+    
+    // Verificar se é rota de prontuário
+    if (pathname.includes('/prontuario/')) {
       return <Prontuario />;
+    }
+    
+    // Verificar se é rota de configuração avançada de convênio
+    if (pathname.includes('/convenio-config/')) {
+      return <ConvenioConfig />;
     }
     
     switch(activeTab) {
@@ -435,6 +444,46 @@ function MainApp() {
       case 'configuracoes': return <Configuracoes />;
       default: return <Dashboard />;
     }
+  };
+
+  // Obter título da página atual
+  const getPageTitle = () => {
+    const pathname = window.location.pathname;
+    
+    if (pathname.includes('/prontuario/')) {
+      return 'Prontuário Eletrônico';
+    }
+    if (pathname.includes('/convenio-config/')) {
+      return 'Configurações Avançadas do Convênio';
+    }
+    
+    for (const group of menuGroups) {
+      const found = group.items.find(i => i.id === activeTab);
+      if (found) return found.name;
+    }
+    return 'Dashboard';
+  };
+
+  // Obter subtítulo da página atual
+  const getPageSubtitle = () => {
+    const pathname = window.location.pathname;
+    
+    if (pathname.includes('/prontuario/')) {
+      return 'Atendimento médico e registro clínico';
+    }
+    if (pathname.includes('/convenio-config/')) {
+      return 'Regras de faturamento, prazos, glosas e integrações';
+    }
+    
+    if (activeTab === 'dashboard') return 'Visão geral do sistema';
+    if (activeTab === 'faturamento') return 'Geração e envio de lotes TISS';
+    if (activeTab === 'atendimentos') return 'Registro de atendimentos e guias';
+    if (activeTab === 'agendamentos') return 'Gerenciamento de agenda e consultas';
+    if (activeTab === 'relatorios') return 'Análise de dados e métricas';
+    if (activeTab === 'salas') return 'Gerenciamento de salas da clínica';
+    if (activeTab === 'convenios' || activeTab === 'pacientes' || activeTab === 'prestadores' || activeTab === 'procedimentos') return 'Cadastro e gerenciamento de dados';
+    if (activeTab === 'configuracoes') return 'Configurações do sistema e usuários';
+    return '';
   };
 
   const nomeUsuario = user?.nome || 'Usuário';
@@ -575,28 +624,10 @@ function MainApp() {
               </button>
               <div>
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-                  {window.location.pathname.includes('/prontuario/') 
-                    ? 'Prontuário Eletrônico'
-                    : (() => {
-                        for (const group of menuGroups) {
-                          const found = group.items.find(i => i.id === activeTab);
-                          if (found) return found.name;
-                        }
-                        return 'Dashboard';
-                      })()
-                  }
+                  {getPageTitle()}
                 </h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  {window.location.pathname.includes('/prontuario/') 
-                    ? 'Atendimento médico e registro clínico'
-                    : activeTab === 'dashboard' && 'Visão geral do sistema'
-                  }
-                  {activeTab === 'faturamento' && 'Geração e envio de lotes TISS'}
-                  {activeTab === 'atendimentos' && 'Registro de atendimentos e guias'}
-                  {activeTab === 'agendamentos' && 'Gerenciamento de agenda e consultas'}
-                  {activeTab === 'relatorios' && 'Análise de dados e métricas'}
-                  {activeTab === 'salas' && 'Gerenciamento de salas da clínica'}
-                  {(activeTab === 'convenios' || activeTab === 'pacientes' || activeTab === 'prestadores' || activeTab === 'procedimentos') && 'Cadastro e gerenciamento de dados'}
+                  {getPageSubtitle()}
                 </p>
               </div>
             </div>
@@ -723,6 +754,7 @@ function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/prontuario/:id" element={<MainApp />} />
+            <Route path="/convenio-config/:id" element={<MainApp />} />
             <Route path="/*" element={<MainApp />} />
           </Routes>
         </BrowserRouter>
