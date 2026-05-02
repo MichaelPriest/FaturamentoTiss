@@ -26,6 +26,9 @@ import {
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabaseClient';
+import { useTheme } from '../App';
+
+const { darkMode } = useTheme();
 
 // Lista de especialidades disponíveis
 const ESPECIALIDADES = [
