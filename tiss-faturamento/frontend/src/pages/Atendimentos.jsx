@@ -211,8 +211,11 @@ export default function Atendimentos() {
   const [buscaProfissional, setBuscaProfissional] = useState('');
   const [editandoItem, setEditandoItem] = useState(null);
   
-  // Itens da guia
+  // Itens da guia (executados)
   const [itensGuia, setItensGuia] = useState([]);
+  // Itens autorizados pelo convênio
+  const [itensAutorizados, setItensAutorizados] = useState([]);
+  
   const [currentItem, setCurrentItem] = useState({
     tipo: 'procedimento',
     codigo: '',
@@ -275,6 +278,134 @@ export default function Atendimentos() {
   });
 
   // ============================================
+  // FUNÇÕES DE AUTORIZAÇÃO E VALIDAÇÃO
+  // ============================================
+
+  // Calcular status da guia baseado nos itens autorizados vs executados
+  const calcularStatusGuia = useCallback((itensExecutados, itensAutorizadosList) => {
+    if (!itensExecutados || itensExecutados.length === 0) return 'pendente';
+    if (!itensAutorizadosList || itensAutorizadosList.length === 0) return 'pendente';
+    
+    let todosAutorizados = true;
+    let algumPendente = false;
+    let algumParcial = false;
+    
+    itensExecutados.forEach(item => {
+      const itemAutorizado = itensAutorizadosList.find(aut => aut.codigo === item.codigo);
+      
+      if (!itemAutorizado) {
+        algumPendente = true;
+        todosAutorizados = false;
+      } else {
+        const saldo = itemAutorizado.quantidade_autorizada - (item.quantidade || 0);
+        if (saldo < 0) {
+          algumPendente = true;
+          todosAutorizados = false;
+        } else if (saldo > 0 && item.quantidade < itemAutorizado.quantidade_autorizada) {
+          algumParcial = true;
+        }
+      }
+    });
+    
+    if (algumPendente) return 'parcial';
+    if (algumParcial && !algumPendente) return 'parcial';
+    if (todosAutorizados && !algumPendente) return 'autorizado';
+    return 'pendente';
+  }, []);
+
+  // Verificar se um item pode ser adicionado (respeitando autorização)
+  const podeAdicionarItem = useCallback((itemCodigo, quantidade) => {
+    const itemAutorizado = itensAutorizados.find(aut => aut.codigo === itemCodigo);
+    
+    if (!itemAutorizado) {
+      // Item não autorizado - pode adicionar mas ficará pendente
+      return { pode: true, mensagem: 'Este procedimento não está autorizado. Será marcado como pendente.', pendente: true };
+    }
+    
+    const qtdAutorizada = itemAutorizado.quantidade_autorizada;
+    const qtdUtilizada = itemAutorizado.quantidade_utilizada || 0;
+    const saldo = qtdAutorizada - qtdUtilizada;
+    
+    if (quantidade > saldo) {
+      return { pode: false, mensagem: `Quantidade excede o saldo autorizado! Saldo disponível: ${saldo}`, pendente: false };
+    }
+    
+    return { pode: true, mensagem: '', pendente: false };
+  }, [itensAutorizados]);
+
+  // Atualizar quantidade utilizada nos itens autorizados
+  const atualizarQuantidadeUtilizada = useCallback((itemCodigo, quantidade, isAdicionando = true) => {
+    setItensAutorizados(prev => prev.map(aut => {
+      if (aut.codigo === itemCodigo) {
+        const novaQuantidadeUtilizada = isAdicionando 
+          ? (aut.quantidade_utilizada || 0) + quantidade
+          : (aut.quantidade_utilizada || 0) - quantidade;
+        
+        return {
+          ...aut,
+          quantidade_utilizada: Math.max(0, novaQuantidadeUtilizada),
+          saldo_autorizado: aut.quantidade_autorizada - Math.max(0, novaQuantidadeUtilizada)
+        };
+      }
+      return aut;
+    }));
+  }, []);
+
+  // Verificar se a guia pode ser faturada
+  const podeFaturar = useCallback((atendimento) => {
+    if (!atendimento.itens || atendimento.itens.length === 0) {
+      toast.error('Não é possível faturar: Nenhum item na guia');
+      return false;
+    }
+    
+    // Verificar se há itens autorizados não executados
+    const itensAutorizadosNaoExecutados = itensAutorizados.filter(aut => {
+      const itemExecutado = atendimento.itens.find(item => item.codigo === aut.codigo);
+      const quantidadeUtilizada = itemExecutado?.quantidade || 0;
+      return quantidadeUtilizada < aut.quantidade_autorizada;
+    });
+    
+    if (itensAutorizadosNaoExecutados.length > 0) {
+      toast.error(`Existem ${itensAutorizadosNaoExecutados.length} procedimento(s) autorizado(s) não executado(s) integralmente!`);
+      return false;
+    }
+    
+    // Verificar se algum item excedeu a quantidade autorizada
+    const itensExcedidos = atendimento.itens.filter(item => {
+      const itemAutorizado = itensAutorizados.find(aut => aut.codigo === item.codigo);
+      if (itemAutorizado && item.quantidade > itemAutorizado.quantidade_autorizada) {
+        return true;
+      }
+      return false;
+    });
+    
+    if (itensExcedidos.length > 0) {
+      toast.error(`${itensExcedidos.length} item(ns) excederam a quantidade autorizada!`);
+      return false;
+    }
+    
+    // Verificar se algum item está pendente de autorização
+    const itensPendentes = atendimento.itens.filter(item => {
+      const itemAutorizado = itensAutorizados.find(aut => aut.codigo === item.codigo);
+      return !itemAutorizado;
+    });
+    
+    if (itensPendentes.length > 0) {
+      toast.error(`${itensPendentes.length} item(ns) não possuem autorização!`);
+      return false;
+    }
+    
+    return true;
+  }, [itensAutorizados]);
+
+  // Calcular saldo autorizado
+  const calcularSaldoAutorizado = useCallback((itemCodigo, quantidadeAtual = 0) => {
+    const itemAutorizado = itensAutorizados.find(aut => aut.codigo === itemCodigo);
+    if (!itemAutorizado) return 0;
+    return itemAutorizado.quantidade_autorizada - (itemAutorizado.quantidade_utilizada || 0);
+  }, [itensAutorizados]);
+
+  // ============================================
   // CARREGAR DADOS DO SUPABASE
   // ============================================
 
@@ -312,34 +443,10 @@ export default function Atendimentos() {
     carregarDados();
   }, []);
 
-  // Verificar se a guia pode ser faturada
-  const podeFaturar = (atendimento) => {
-    if (!atendimento.itens || atendimento.itens.length === 0) return false;
-    
-    // Verificar se algum item está pendente de autorização
-    const itensPendentes = atendimento.itens.filter(item => item.pendente_autorizacao === true);
-    if (itensPendentes.length > 0) return false;
-    
-    // Verificar se algum item excedeu a quantidade autorizada
-    const itensExcedidos = atendimento.itens.filter(item => 
-      item.quantidade_autorizada > 0 && item.quantidade > item.quantidade_autorizada
-    );
-    if (itensExcedidos.length > 0) return false;
-    
-    return true;
-  };
-
-  // Calcular saldo autorizado
-  const calcularSaldoAutorizado = (item, quantidadeAutorizada) => {
-    if (!quantidadeAutorizada || quantidadeAutorizada === 0) return 0;
-    return quantidadeAutorizada - (item.quantidade || 0);
-  };
-
   // Salvar atendimento no Supabase
   const salvarAtendimento = async (atendimento) => {
     try {
       if (editing) {
-        // Não alterar o número da guia em edições
         const { numero_guia_prestador, ...dadosParaAtualizar } = atendimento;
         
         const { error } = await supabase
@@ -390,11 +497,10 @@ export default function Atendimentos() {
 
   // Atualizar status do atendimento
   const atualizarStatus = async (id, status) => {
-    // Verificar se pode faturar
+    const atendimento = atendimentos.find(a => a.id === id);
+    
     if (status === 'faturado') {
-      const atendimento = atendimentos.find(a => a.id === id);
       if (!podeFaturar(atendimento)) {
-        toast.error('Não é possível faturar: Existem itens pendentes de autorização ou com quantidade excedida!');
         return;
       }
     }
@@ -462,16 +568,18 @@ export default function Atendimentos() {
   }, []);
 
   const handlePacienteChange = (pacienteId) => {
-    if (!pacienteId) return;
-    const paciente = pacientes.find(p => p.id === parseInt(pacienteId));
+    const id = pacienteId ? parseInt(pacienteId) : null;
+    if (!id) return;
+    
+    const paciente = pacientes.find(p => p.id === id);
     if (paciente) {
       const convenio = convenios.find(c => c.id === paciente.convenio_id);
       setFormData({
         ...formData,
-        paciente_id: pacienteId,
+        paciente_id: id,
         paciente_nome: paciente.nome || '',
         paciente_carteira: paciente.numero_carteira || '',
-        convenio_id: paciente.convenio_id || '',
+        convenio_id: paciente.convenio_id || null,
         convenio_nome: convenio?.razao_social || 'Sem convênio',
         convenio_registro_ans: convenio?.registro_ans || '',
         convenio_codigo_prestador: convenio?.codigo_prestador || '',
@@ -522,31 +630,99 @@ export default function Atendimentos() {
     return valorBase * multiplicador;
   };
 
-  // Editar item da guia
-  const handleEditItem = (item) => {
-    setEditandoItem(item);
-    setCurrentItem({
-      ...item,
-      quantidade_autorizada: item.quantidade_autorizada || 0,
-      saldo_autorizado: calcularSaldoAutorizado(item, item.quantidade_autorizada)
-    });
-  };
-
-  // Atualizar item editado
-  const handleUpdateItem = () => {
+  // Adicionar item autorizado (do convênio)
+  const handleAdicionarItemAutorizado = () => {
     if (!currentItem.codigo) {
-      toast.error('Selecione um item');
+      toast.error('Selecione um procedimento');
       return;
     }
     
+    // Verificar se já existe
+    if (itensAutorizados.some(item => item.codigo === currentItem.codigo)) {
+      toast.warning('Este procedimento já foi autorizado!');
+      return;
+    }
+    
+    const itemSelecionado = procedimentos.find(p => p.codigo_tuss === currentItem.codigo);
+    const convenio = convenios.find(c => c.id === formData.convenio_id);
+    
+    let valorUnitario = currentItem.valor_unitario;
+    if (!valorUnitario && itemSelecionado) {
+      valorUnitario = calcularValor(itemSelecionado, convenio);
+    }
+    
+    const novoItemAutorizado = {
+      id: Date.now() + Math.random(),
+      tipo: 'procedimento',
+      codigo: currentItem.codigo,
+      nome: currentItem.nome || itemSelecionado?.nome,
+      quantidade_autorizada: currentItem.quantidade_autorizada || 1,
+      quantidade_utilizada: 0,
+      valor_unitario: valorUnitario,
+      valor_total: valorUnitario * (currentItem.quantidade_autorizada || 1),
+      data_autorizacao: formData.data_autorizacao || new Date().toISOString().split('T')[0],
+      saldo_autorizado: currentItem.quantidade_autorizada || 1,
+      pendente_autorizacao: false
+    };
+    
+    setItensAutorizados([...itensAutorizados, novoItemAutorizado]);
+    
+    // Limpar formulário
+    setCurrentItem({
+      ...currentItem,
+      codigo: '',
+      nome: '',
+      quantidade_autorizada: 0,
+      quantidade: 1,
+      valor_unitario: 0,
+      valor_total: 0
+    });
+    setSearchItemTerm('');
+    toast.success('Procedimento autorizado adicionado!');
+  };
+
+  // Editar item da guia (executado)
+  const handleEditItem = (item) => {
+    const saldo = calcularSaldoAutorizado(item.codigo, item.quantidade);
+    const itemAutorizado = itensAutorizados.find(aut => aut.codigo === item.codigo);
+    
+    setEditandoItem(item);
+    setCurrentItem({
+      ...item,
+      quantidade_autorizada: itemAutorizado?.quantidade_autorizada || 0,
+      saldo_autorizado: saldo
+    });
+  };
+
+  // Atualizar item editado (executado)
+  const handleUpdateItem = () => {
+    if (!currentItem.codigo) {
+      toast.error('Item inválido');
+      return;
+    }
+    
+    // Validar quantidade contra autorização
+    const validacao = podeAdicionarItem(currentItem.codigo, currentItem.quantidade);
+    if (!validacao.pode) {
+      toast.error(validacao.mensagem);
+      return;
+    }
+    
+    // Atualizar quantidade utilizada no item autorizado
+    const itemAntigo = itensGuia.find(item => item.id === editandoItem.id);
+    if (itemAntigo && itemAntigo.codigo === currentItem.codigo) {
+      const diferenca = currentItem.quantidade - itemAntigo.quantidade;
+      if (diferenca !== 0) {
+        atualizarQuantidadeUtilizada(currentItem.codigo, Math.abs(diferenca), diferenca > 0);
+      }
+    }
+    
     const valorTotal = currentItem.quantidade * currentItem.valor_unitario;
-    const saldoAutorizado = calcularSaldoAutorizado(currentItem, currentItem.quantidade_autorizada);
-    const pendenteAutorizacao = currentItem.quantidade_autorizada > 0 && currentItem.quantidade < currentItem.quantidade_autorizada;
+    const pendenteAutorizacao = validacao.pendente || !itensAutorizados.some(aut => aut.codigo === currentItem.codigo);
     
     const itemAtualizado = {
       ...currentItem,
       valor_total: valorTotal,
-      saldo_autorizado: saldoAutorizado,
       pendente_autorizacao: pendenteAutorizacao
     };
     
@@ -555,6 +731,66 @@ export default function Atendimentos() {
     ));
     
     setEditandoItem(null);
+    resetCurrentItem();
+    toast.success('Item atualizado com sucesso!');
+  };
+
+  // Adicionar item executado
+  const handleAdicionarItem = () => {
+    if (!currentItem.codigo) {
+      toast.error('Selecione um item');
+      return;
+    }
+    
+    if (currentItem.tipo === 'procedimento' && !currentItem.prestador_id) {
+      toast.error('Selecione o profissional que executou este procedimento');
+      return;
+    }
+    
+    // Validar contra autorização
+    const validacao = podeAdicionarItem(currentItem.codigo, currentItem.quantidade);
+    if (!validacao.pode) {
+      toast.error(validacao.mensagem);
+      return;
+    }
+    
+    const itemSelecionado = procedimentos.find(p => p.codigo_tuss === currentItem.codigo);
+    const convenio = convenios.find(c => c.id === formData.convenio_id);
+    
+    let valorUnitario = currentItem.valor_unitario;
+    if (!valorUnitario && itemSelecionado) {
+      valorUnitario = calcularValor(itemSelecionado, convenio);
+    }
+    
+    const valorTotal = currentItem.quantidade * valorUnitario;
+    const prestador = prestadores.find(p => p.id === parseInt(currentItem.prestador_id));
+    const pendenteAutorizacao = validacao.pendente || !itensAutorizados.some(aut => aut.codigo === currentItem.codigo);
+    
+    const novoItem = {
+      ...currentItem,
+      nome: currentItem.nome || itemSelecionado?.nome,
+      valor_unitario: valorUnitario,
+      valor_total: valorTotal,
+      prestador_id: prestador?.id,
+      prestador_nome: prestador?.nome,
+      prestador_cpf: prestador?.cpf || '00000000000',
+      prestador_conselho: prestador?.codigo_conselho_ans || '06',
+      prestador_numero_conselho: prestador?.numero_conselho || '00000',
+      prestador_uf_conselho: prestador?.uf_conselho || '35',
+      prestador_cbos: prestador?.cbos || '225125',
+      pendente_autorizacao: pendenteAutorizacao,
+      id: Date.now() + Math.random()
+    };
+    
+    // Atualizar quantidade utilizada nos itens autorizados
+    atualizarQuantidadeUtilizada(currentItem.codigo, currentItem.quantidade, true);
+    
+    setItensGuia([...itensGuia, novoItem]);
+    resetCurrentItem();
+    toast.success('Item adicionado à guia!');
+  };
+  
+  const resetCurrentItem = () => {
     setCurrentItem({
       tipo: 'procedimento',
       codigo: '',
@@ -580,88 +816,21 @@ export default function Atendimentos() {
       pendente_autorizacao: false,
       saldo_autorizado: 0
     });
-    setSearchItemTerm('');
-    toast.success('Item atualizado com sucesso!');
-  };
-
-  const handleAdicionarItem = () => {
-    if (!currentItem.codigo) {
-      toast.error('Selecione um item');
-      return;
-    }
-    
-    if (currentItem.tipo === 'procedimento' && !currentItem.prestador_id) {
-      toast.error('Selecione o profissional que executou este procedimento');
-      return;
-    }
-
-    const itemSelecionado = procedimentos.find(p => p.codigo_tuss === currentItem.codigo);
-    const convenio = convenios.find(c => c.id === formData.convenio_id);
-    
-    let valorUnitario = currentItem.valor_unitario;
-    if (!valorUnitario && itemSelecionado) {
-      valorUnitario = calcularValor(itemSelecionado, convenio);
-    }
-    
-    const valorTotal = currentItem.quantidade * valorUnitario;
-    const prestador = prestadores.find(p => p.id === parseInt(currentItem.prestador_id));
-    const saldoAutorizado = calcularSaldoAutorizado(currentItem, currentItem.quantidade_autorizada);
-    const pendenteAutorizacao = currentItem.quantidade_autorizada > 0 && currentItem.quantidade < currentItem.quantidade_autorizada;
-    
-    // Verificar se a quantidade solicitada excede a autorizada
-    if (currentItem.quantidade_autorizada > 0 && currentItem.quantidade > currentItem.quantidade_autorizada) {
-      toast.warning(`Atenção! Quantidade solicitada (${currentItem.quantidade}) excede a autorizada (${currentItem.quantidade_autorizada}). Item será marcado como pendente.`);
-    }
-    
-    const novoItem = {
-      ...currentItem,
-      nome: currentItem.nome || itemSelecionado?.nome,
-      valor_unitario: valorUnitario,
-      valor_total: valorTotal,
-      prestador_id: prestador?.id,
-      prestador_nome: prestador?.nome,
-      prestador_cpf: prestador?.cpf || '00000000000',
-      prestador_conselho: prestador?.codigo_conselho_ans || '06',
-      prestador_numero_conselho: prestador?.numero_conselho || '00000',
-      prestador_uf_conselho: prestador?.uf_conselho || '35',
-      prestador_cbos: prestador?.cbos || '225125',
-      saldo_autorizado: saldoAutorizado,
-      pendente_autorizacao: pendenteAutorizacao,
-      id: Date.now() + Math.random()
-    };
-
-    setItensGuia([...itensGuia, novoItem]);
-    
-    setCurrentItem({
-      tipo: 'procedimento',
-      codigo: '',
-      nome: '',
-      quantidade: 1,
-      quantidade_autorizada: 0,
-      valor_unitario: 0,
-      valor_total: 0,
-      data_execucao: new Date().toISOString().split('T')[0],
-      hora_inicial: '',
-      hora_final: '',
-      tabela_referencia: '22',
-      codigo_despesa: '',
-      prestador_id: '',
-      prestador_nome: '',
-      prestador_cpf: '',
-      prestador_conselho: '06',
-      prestador_numero_conselho: '',
-      prestador_uf_conselho: '35',
-      prestador_cbos: '225125',
-      grau_participacao: '12',
-      unidade_medida: '036',
-      pendente_autorizacao: false,
-      saldo_autorizado: 0,
-      codigo_autorizacao: ''
-    });
   };
 
   const removerItem = (itemId) => {
+    const itemRemovido = itensGuia.find(item => item.id === itemId);
+    if (itemRemovido) {
+      // Devolver a quantidade utilizada ao saldo autorizado
+      atualizarQuantidadeUtilizada(itemRemovido.codigo, itemRemovido.quantidade, false);
+    }
     setItensGuia(itensGuia.filter(item => item.id !== itemId));
+    toast.success('Item removido da guia');
+  };
+  
+  const removerItemAutorizado = (itemId) => {
+    setItensAutorizados(itensAutorizados.filter(item => item.id !== itemId));
+    toast.success('Item autorizado removido');
   };
 
   const handleProcedimentoItemChange = (codigo) => {
@@ -669,12 +838,16 @@ export default function Atendimentos() {
     if (procedimento) {
       const convenio = convenios.find(c => c.id === formData.convenio_id);
       const valorCalculado = calcularValor(procedimento, convenio);
+      const saldo = calcularSaldoAutorizado(codigo);
+      const itemAutorizado = itensAutorizados.find(aut => aut.codigo === codigo);
       
       setCurrentItem({
         ...currentItem,
         codigo: procedimento.codigo_tuss,
         nome: procedimento.nome,
         valor_unitario: valorCalculado,
+        quantidade_autorizada: itemAutorizado?.quantidade_autorizada || 0,
+        saldo_autorizado: saldo,
         valor_total: (currentItem.quantidade || 1) * valorCalculado,
         tabela_referencia: procedimento.tabela === 'CBHPM' ? '98' : 
                           procedimento.tabela === 'AMB' ? '90' : 
@@ -692,7 +865,7 @@ export default function Atendimentos() {
       return;
     }
     if (itensGuia.length === 0) {
-      toast.error('Adicione pelo menos um item à guia');
+      toast.error('Adicione pelo menos um item executado à guia');
       return;
     }
 
@@ -705,8 +878,7 @@ export default function Atendimentos() {
     }
     
     const valorTotalGuia = itensGuia.reduce((sum, item) => sum + item.valor_total, 0);
-    const itensPendentes = itensGuia.filter(item => item.pendente_autorizacao === true);
-    const statusGuia = itensPendentes.length > 0 ? 'parcial' : 'pendente';
+    const statusGuia = calcularStatusGuia(itensGuia, itensAutorizados);
     
     let numeroGuiaPrestador;
     if (editing) {
@@ -745,6 +917,7 @@ export default function Atendimentos() {
       regime_atendimento: formData.regime_atendimento,
       saude_ocupacional: formData.saude_ocupacional,
       itens: itensGuia,
+      itens_autorizados: itensAutorizados,
       valor_total: valorTotalGuia,
       data_atendimento: itensGuia[0]?.data_execucao || new Date().toISOString().split('T')[0],
       paciente_id: paciente.id,
@@ -773,6 +946,7 @@ export default function Atendimentos() {
     setEditing(null);
     setEditandoItem(null);
     setItensGuia([]);
+    setItensAutorizados([]);
     setAba('paciente');
     setFormData({
       paciente_id: '',
@@ -821,6 +995,7 @@ export default function Atendimentos() {
   const handleEdit = (atendimento) => {
     setEditing(atendimento);
     setItensGuia(atendimento.itens || []);
+    setItensAutorizados(atendimento.itens_autorizados || []);
     setAba('paciente');
     setFormData({
       ...atendimento,
@@ -886,8 +1061,6 @@ export default function Atendimentos() {
     return true;
   });
   
-  // Itens autorizados (separado dos itens executados)
-  const [itensAutorizados, setItensAutorizados] = useState([]);
   const pendentes = atendimentos.filter(a => a.status === 'pendente').length;
   const autorizados = atendimentos.filter(a => a.status === 'autorizado').length;
   const parciais = atendimentos.filter(a => a.status === 'parcial').length;
@@ -905,6 +1078,7 @@ export default function Atendimentos() {
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen p-6">
       <div className="max-w-7xl mx-auto">
+        {/* Header e Cards - Mantenha o mesmo do seu código original */}
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
@@ -1016,7 +1190,7 @@ export default function Atendimentos() {
           </div>
         </div>
 
-        {/* Tabela de Guias */}
+        {/* Tabela de Guias - Mantenha a mesma do seu código original */}
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -1093,10 +1267,10 @@ export default function Atendimentos() {
           </div>
         </div>
 
-        {/* Modal de Visualização de Itens */}
+        {/* Modal de Visualização de Itens - Atualizado para mostrar autorizações */}
         {showItensModal && selectedGuia && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[80vh] overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[80vh] overflow-y-auto">
               <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
                 <div className="flex justify-between items-center">
                   <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Itens da Guia</h3>
@@ -1125,7 +1299,12 @@ export default function Atendimentos() {
                   </div>
                 )}
                 
-                <div className="overflow-x-auto">
+                {/* Itens Executados */}
+                <h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+                  <CheckIcon className="w-4 h-4 text-green-600" />
+                  Itens Executados
+                </h4>
+                <div className="overflow-x-auto mb-6">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 dark:bg-gray-700/50">
                       <tr>
@@ -1134,7 +1313,6 @@ export default function Atendimentos() {
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Código</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Descrição</th>
                         <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd</th>
-                        <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd Aut.</th>
                         <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Unit.</th>
                         <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Total</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Profissional</th>
@@ -1148,10 +1326,7 @@ export default function Atendimentos() {
                           <td className="px-3 py-2 text-xs">{item.data_execucao || '-'}</td>
                           <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
                           <td className="px-3 py-2 text-xs">{item.nome}</td>
-                          <td className="px-3 py-2 text-xs text-center">{item.quantidade}</td>
-                          <td className="px-3 py-2 text-xs text-center">
-                            {item.quantidade_autorizada > 0 ? item.quantidade_autorizada : '-'}
-                          </td>
+                          <td className="px-3 py-2 text-xs text-center font-medium">{item.quantidade}</td>
                           <td className="px-3 py-2 text-xs text-right">R$ {item.valor_unitario?.toFixed(2)}</td>
                           <td className="px-3 py-2 text-xs text-right font-semibold">R$ {item.valor_total?.toFixed(2)}</td>
                           <td className="px-3 py-2 text-xs text-gray-600">{item.prestador_nome}</td>
@@ -1161,28 +1336,62 @@ export default function Atendimentos() {
                                 <ExclamationTriangleIcon className="w-3 h-3" />
                                 Pendente
                               </span>
-                            ) : item.quantidade_autorizada > 0 && item.quantidade <= item.quantidade_autorizada ? (
+                            ) : (
                               <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
                                 Autorizado
                               </span>
-                            ) : (
-                              <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                                Normal
-                              </span>
                             )}
                           </td>
-                        </tr>
+                        <tr>
                       ))}
                     </tbody>
                     <tfoot className="bg-gray-50 dark:bg-gray-700/50">
                       <tr className="border-t">
-                        <td colSpan="7" className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">Total da Guia:</td>
+                        <td colSpan="6" className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">Total da Guia:</td>
                         <td colSpan="2" className="px-3 py-2 text-right font-bold text-blue-600 dark:text-blue-400">R$ {selectedGuia.valor_total?.toFixed(2)}</td>
                         <td className="px-3 py-2"></td>
                       </tr>
                     </tfoot>
                   </table>
                 </div>
+                
+                {/* Itens Autorizados (se houver) */}
+                {selectedGuia.itens_autorizados && selectedGuia.itens_autorizados.length > 0 && (
+                  <>
+                    <h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+                      <DocumentPlusIcon className="w-4 h-4 text-blue-600" />
+                      Itens Autorizados pelo Convênio
+                    </h4>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 dark:bg-gray-700/50">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Código</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Descrição</th>
+                            <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd Autorizada</th>
+                            <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd Utilizada</th>
+                            <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Saldo</th>
+                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Unit.</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                          {selectedGuia.itens_autorizados.map((item, idx) => (
+                            <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                              <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
+                              <td className="px-3 py-2 text-xs">{item.nome}</td>
+                              <td className="px-3 py-2 text-xs text-center font-medium">{item.quantidade_autorizada}</td>
+                              <td className="px-3 py-2 text-xs text-center">{item.quantidade_utilizada || 0}</td>
+                              <td className={`px-3 py-2 text-xs text-center font-semibold ${(item.saldo_autorizado || item.quantidade_autorizada - (item.quantidade_utilizada || 0)) > 0 ? 'text-green-600' : 'text-gray-600'}`}>
+                                {item.saldo_autorizado || item.quantidade_autorizada - (item.quantidade_utilizada || 0)}
+                              </td>
+                              <td className="px-3 py-2 text-xs text-right">R$ {item.valor_unitario?.toFixed(2)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )}
                 
                 <div className="flex justify-end mt-5 pt-4 border-t border-gray-200 dark:border-gray-700">
                   <button onClick={() => setShowItensModal(false)} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-md">
@@ -1194,7 +1403,7 @@ export default function Atendimentos() {
           </div>
         )}
 
-        {/* Modal de Cadastro/Edição */}
+        {/* Modal de Cadastro/Edição - Aba Autorização atualizada */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
@@ -1230,7 +1439,7 @@ export default function Atendimentos() {
                 </div>
                 
                 <form onSubmit={handleSubmit}>
-                  {/* Aba Paciente */}
+                  {/* Aba Paciente - Mantenha igual */}
                   {aba === 'paciente' && (
                     <div className="space-y-4">
                       <div>
@@ -1280,7 +1489,7 @@ export default function Atendimentos() {
                     </div>
                   )}
 
-                  {/* Aba Autorização */}
+                  {/* Aba Autorização - ATUALIZADA COM FUNÇÕES CORRETAS */}
                   {aba === 'autorizacao' && (
                     <div className="space-y-4">
                       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-4">
@@ -1349,9 +1558,9 @@ export default function Atendimentos() {
                               onChange={e => setSearchItemTerm(e.target.value)}
                               placeholder="Digite o código ou descrição do procedimento autorizado..."
                               className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                              list="itens-suggestions"
+                              list="itens-suggestions-aut"
                             />
-                            <datalist id="itens-suggestions">
+                            <datalist id="itens-suggestions-aut">
                               {itensFiltrados.slice(0, 20).map(item => (
                                 <option key={item.codigo_tuss} value={item.codigo_tuss}>
                                   {item.codigo_tuss} - {item.nome}
@@ -1416,7 +1625,6 @@ export default function Atendimentos() {
                                     setCurrentItem({
                                       ...currentItem,
                                       quantidade_autorizada: qtd,
-                                      quantidade_solicitada: qtd,
                                       valor_total: qtd * currentItem.valor_unitario
                                     });
                                   }} 
@@ -1443,47 +1651,7 @@ export default function Atendimentos() {
                               <div className="md:col-span-1">
                                 <button 
                                   type="button" 
-                                  onClick={() => {
-                                    if (!currentItem.codigo) {
-                                      toast.error('Selecione um procedimento');
-                                      return;
-                                    }
-                                    
-                                    const novoItem = {
-                                      ...currentItem,
-                                      id: Date.now() + Math.random(),
-                                      quantidade_utilizada: 0,
-                                      saldo_autorizado: currentItem.quantidade_autorizada
-                                    };
-                                    
-                                    setItensAutorizados([...itensAutorizados, novoItem]);
-                                    setCurrentItem({
-                                      tipo: 'procedimento',
-                                      codigo: '',
-                                      nome: '',
-                                      quantidade: 1,
-                                      quantidade_autorizada: 0,
-                                      valor_unitario: 0,
-                                      valor_total: 0,
-                                      data_execucao: new Date().toISOString().split('T')[0],
-                                      hora_inicial: '',
-                                      hora_final: '',
-                                      tabela_referencia: '22',
-                                      codigo_despesa: '',
-                                      prestador_id: '',
-                                      prestador_nome: '',
-                                      prestador_cpf: '',
-                                      prestador_conselho: '06',
-                                      prestador_numero_conselho: '',
-                                      prestador_uf_conselho: '35',
-                                      prestador_cbos: '225125',
-                                      grau_participacao: '12',
-                                      unidade_medida: '036',
-                                      pendente_autorizacao: false,
-                                      saldo_autorizado: 0
-                                    });
-                                    toast.success('Procedimento autorizado adicionado!');
-                                  }} 
+                                  onClick={handleAdicionarItemAutorizado}
                                   className="w-full bg-green-600 text-white px-2 py-2 rounded-lg text-sm hover:bg-green-700 font-medium"
                                 >
                                   + Adicionar
@@ -1494,7 +1662,7 @@ export default function Atendimentos() {
                         )}
                   
                         {/* Tabela de Itens Autorizados */}
-                        {itensAutorizados.length > 0 ? (
+                        {itensAutorizados.length > 0 && (
                           <div className="mt-4">
                             <h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
                               <CheckIcon className="w-4 h-4 text-green-600" />
@@ -1523,24 +1691,7 @@ export default function Atendimentos() {
                                           <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
                                           <td className="px-3 py-2 text-xs text-gray-800 dark:text-gray-200">{item.nome}</td>
                                           <td className="px-3 py-2 text-xs text-center font-medium">{item.quantidade_autorizada}</td>
-                                          <td className="px-3 py-2 text-xs text-center">
-                                            <input
-                                              type="number"
-                                              min="0"
-                                              max={item.quantidade_autorizada}
-                                              value={item.quantidade_utilizada || 0}
-                                              onChange={(e) => {
-                                                const qtdUtil = parseInt(e.target.value) || 0;
-                                                const novosItens = itensAutorizados.map(i =>
-                                                  i.id === item.id
-                                                    ? { ...i, quantidade_utilizada: qtdUtil, saldo_autorizado: item.quantidade_autorizada - qtdUtil }
-                                                    : i
-                                                );
-                                                setItensAutorizados(novosItens);
-                                              }}
-                                              className="w-16 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                                            />
-                                          </td>
+                                          <td className="px-3 py-2 text-xs text-center">{item.quantidade_utilizada || 0}</td>
                                           <td className={`px-3 py-2 text-xs text-center font-semibold ${saldo > 0 ? 'text-green-600' : saldo === 0 ? 'text-gray-600' : 'text-red-600'}`}>
                                             {saldo}
                                           </td>
@@ -1549,7 +1700,7 @@ export default function Atendimentos() {
                                           <td className="px-3 py-2 text-center">
                                             <button 
                                               type="button" 
-                                              onClick={() => setItensAutorizados(itensAutorizados.filter(i => i.id !== item.id))} 
+                                              onClick={() => removerItemAutorizado(item.id)} 
                                               className="text-red-600 hover:text-red-800"
                                             >
                                               <TrashIcon className="w-4 h-4" />
@@ -1574,17 +1725,7 @@ export default function Atendimentos() {
                               </div>
                             </div>
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                              * Informe as quantidades UTILIZADAS para controle de saldo. O sistema não permitirá exceder a quantidade autorizada.
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="mt-6 p-8 text-center bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-200 dark:border-gray-700">
-                            <DocumentPlusIcon className="w-12 h-12 mx-auto mb-3 text-gray-400 opacity-50" />
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              Nenhum procedimento autorizado.
-                            </p>
-                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                              Busque e adicione os procedimentos autorizados pelo convênio/operadora.
+                              * Ao adicionar itens na aba "Procedimentos", as quantidades serão automaticamente descontadas do saldo autorizado.
                             </p>
                           </div>
                         )}
@@ -1592,7 +1733,7 @@ export default function Atendimentos() {
                     </div>
                   )}
 
-                  {/* Aba Solicitante */}
+                  {/* Aba Solicitante - Mantenha igual */}
                   {aba === 'solicitante' && (
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1685,7 +1826,7 @@ export default function Atendimentos() {
                     </div>
                   )}
 
-                  {/* Aba Atendimento */}
+                  {/* Aba Atendimento - Mantenha igual */}
                   {aba === 'atendimento' && (
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1803,12 +1944,18 @@ export default function Atendimentos() {
                     </div>
                   )}
 
-                  {/* Aba Procedimentos */}
+                  {/* Aba Procedimentos - ATUALIZADA */}
                   {aba === 'procedimentos' && (
                     <div className="space-y-4">
                       <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
                         <p className="text-sm text-blue-700 dark:text-blue-300">
                           <strong>ℹ️ Informações:</strong> Selecione o tipo de item e busque por código ou descrição.
+                          {itensAutorizados.length > 0 && (
+                            <span className="block mt-1 text-xs">
+                              ✅ Você possui {itensAutorizados.length} procedimento(s) autorizado(s). 
+                              Ao adicionar itens, o sistema verificará o saldo disponível.
+                            </span>
+                          )}
                         </p>
                       </div>
 
@@ -1829,11 +1976,16 @@ export default function Atendimentos() {
                               </thead>
                               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                                 {itensGuia.map((item, idx) => (
-                                  <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                  <tr key={item.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${item.pendente_autorizacao ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}>
                                     <td className="px-2 py-2 text-xs text-center">{idx + 1}</td>
                                     <td className="px-2 py-2 text-xs">{item.data_execucao}</td>
                                     <td className="px-2 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
-                                    <td className="px-2 py-2 text-xs">{item.nome}</td>
+                                    <td className="px-2 py-2 text-xs">
+                                      {item.nome}
+                                      {item.pendente_autorizacao && (
+                                        <span className="ml-2 text-xs text-orange-600">(Sem autorização)</span>
+                                      )}
+                                    </td>
                                     <td className="px-2 py-2 text-xs text-center font-medium">{item.quantidade}</td>
                                     <td className="px-2 py-2 text-xs text-right font-semibold">R$ {item.valor_total?.toFixed(2)}</td>
                                     <td className="px-2 py-2 text-center">
@@ -1927,9 +2079,9 @@ export default function Atendimentos() {
                             onChange={e => setSearchItemTerm(e.target.value)}
                             placeholder="Digite o código ou descrição..."
                             className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                            list="itens-suggestions"
+                            list="itens-suggestions-proc"
                           />
-                          <datalist id="itens-suggestions">
+                          <datalist id="itens-suggestions-proc">
                             {itensFiltrados.slice(0, 20).map(item => (
                               <option key={item.codigo_tuss} value={item.codigo_tuss}>
                                 {item.codigo_tuss} - {item.nome}
@@ -1942,25 +2094,41 @@ export default function Atendimentos() {
                       {/* Seleção do Item */}
                       {searchItemTerm && itensFiltrados.length > 0 && (
                         <div className="border rounded-xl max-h-48 overflow-y-auto">
-                          {itensFiltrados.slice(0, 10).map(item => (
-                            <button
-                              key={item.codigo_tuss}
-                              type="button"
-                              onClick={() => {
-                                handleProcedimentoItemChange(item.codigo_tuss);
-                                setSearchItemTerm('');
-                              }}
-                              className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 border-b last:border-b-0 transition-colors"
-                            >
-                              <div className="flex justify-between items-center">
-                                <div>
-                                  <span className="font-mono text-sm text-blue-600">{item.codigo_tuss}</span>
-                                  <span className="text-sm text-gray-700 dark:text-gray-300 ml-2">{item.nome}</span>
+                          {itensFiltrados.slice(0, 10).map(item => {
+                            const itemAutorizado = itensAutorizados.find(aut => aut.codigo === item.codigo_tuss);
+                            const saldo = itemAutorizado?.quantidade_autorizada - (itemAutorizado?.quantidade_utilizada || 0);
+                            return (
+                              <button
+                                key={item.codigo_tuss}
+                                type="button"
+                                onClick={() => {
+                                  handleProcedimentoItemChange(item.codigo_tuss);
+                                  setSearchItemTerm('');
+                                }}
+                                className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 border-b last:border-b-0 transition-colors"
+                              >
+                                <div className="flex justify-between items-center">
+                                  <div>
+                                    <span className="font-mono text-sm text-blue-600">{item.codigo_tuss}</span>
+                                    <span className="text-sm text-gray-700 dark:text-gray-300 ml-2">{item.nome}</span>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="text-sm font-semibold text-green-600">R$ {item.valor_sugerido?.toFixed(2)}</span>
+                                    {itemAutorizado && (
+                                      <span className="text-xs text-blue-600 ml-2 block">
+                                        ✅ Autorizado: {saldo} disponível
+                                      </span>
+                                    )}
+                                    {!itemAutorizado && (
+                                      <span className="text-xs text-orange-500 ml-2 block">
+                                        ⚠️ Sem autorização
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
-                                <span className="text-sm font-semibold text-green-600">R$ {item.valor_sugerido?.toFixed(2)}</span>
-                              </div>
-                            </button>
-                          ))}
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
 
@@ -1980,8 +2148,12 @@ export default function Atendimentos() {
                               <label className="block text-xs text-gray-500 mb-1">Qtd</label>
                               <input type="number" min="1" value={currentItem.quantidade} onChange={e => {
                                 const qtd = parseInt(e.target.value) || 1;
-                                setCurrentItem({...currentItem, quantidade: qtd, valor_total: qtd * currentItem.valor_unitario});
+                                const saldo = calcularSaldoAutorizado(currentItem.codigo, qtd);
+                                setCurrentItem({...currentItem, quantidade: qtd, saldo_autorizado: saldo, valor_total: qtd * currentItem.valor_unitario});
                               }} className="w-full border rounded px-2 py-1.5 text-sm text-center dark:bg-gray-700 dark:text-white" />
+                              {currentItem.saldo_autorizado > 0 && (
+                                <span className="text-xs text-green-600">Saldo: {currentItem.saldo_autorizado}</span>
+                              )}
                             </div>
                             <div className="md:col-span-2">
                               <label className="block text-xs text-gray-500 mb-1">Valor Unitário</label>
