@@ -1,4 +1,4 @@
-// src/contexts/AuthContext.jsx
+// contexts/AuthContext.jsx
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { toast } from 'sonner';
@@ -8,7 +8,6 @@ const AuthContext = createContext({});
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [session, setSession] = useState(null);
 
   useEffect(() => {
     // Verificar sessão atual
@@ -19,17 +18,45 @@ export function AuthProvider({ children }) {
         console.error('Erro ao obter sessão:', error);
       }
       
-      setSession(session);
-      setUser(session?.user ?? null);
+      if (session?.user) {
+        // Buscar dados adicionais na tabela usuarios
+        const { data: userData } = await supabase
+          .from('usuarios')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        
+        setUser({
+          id: session.user.id,
+          email: session.user.email,
+          nome: userData?.nome || session.user.user_metadata?.nome,
+          perfil: userData?.perfil || 'usuario'
+        });
+      }
+      
       setLoading(false);
     };
 
     getSession();
 
     // Escutar mudanças na autenticação
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        const { data: userData } = await supabase
+          .from('usuarios')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+        
+        setUser({
+          id: session.user.id,
+          email: session.user.email,
+          nome: userData?.nome || session.user.user_metadata?.nome,
+          perfil: userData?.perfil || 'usuario'
+        });
+      } else {
+        setUser(null);
+      }
       setLoading(false);
     });
 
@@ -45,61 +72,11 @@ export function AuthProvider({ children }) {
 
       if (error) throw error;
 
-      // Buscar dados do usuário na tabela usuarios
-      const { data: userData, error: userError } = await supabase
-        .from('usuarios')
-        .select('*')
-        .eq('id', data.user.id)
-        .single();
-
-      if (userError && userError.code !== 'PGRST116') {
-        console.error('Erro ao buscar dados do usuário:', userError);
-      }
-
-      toast.success(`Bem-vindo, ${userData?.nome || data.user.email}!`);
-      return { success: true, user: data.user, userData };
+      toast.success(`Bem-vindo, ${data.user.user_metadata?.nome || data.user.email}!`);
+      return { success: true, user: data.user };
     } catch (error) {
       console.error('Erro ao fazer login:', error);
       toast.error(error.message || 'Erro ao fazer login');
-      return { success: false, error: error.message };
-    }
-  };
-
-  const signUp = async (email, password, nome, role = 'usuario') => {
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            nome,
-            role
-          }
-        }
-      });
-
-      if (error) throw error;
-
-      if (data.user) {
-        // Inserir na tabela de usuários
-        const { error: dbError } = await supabase
-          .from('usuarios')
-          .insert({
-            id: data.user.id,
-            email,
-            nome,
-            role,
-            ativo: true
-          });
-
-        if (dbError) throw dbError;
-      }
-
-      toast.success('Usuário criado com sucesso!');
-      return { success: true, user: data.user };
-    } catch (error) {
-      console.error('Erro ao criar usuário:', error);
-      toast.error(error.message || 'Erro ao criar usuário');
       return { success: false, error: error.message };
     }
   };
@@ -119,10 +96,8 @@ export function AuthProvider({ children }) {
 
   const value = {
     user,
-    session,
     loading,
     signIn,
-    signUp,
     signOut,
     isAuthenticated: !!user,
   };
