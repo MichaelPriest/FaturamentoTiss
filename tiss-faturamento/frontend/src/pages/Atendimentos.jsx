@@ -1944,7 +1944,7 @@ export default function Atendimentos() {
                     </div>
                   )}
 
-                  {/* Aba Procedimentos - ATUALIZADA */}
+                  {/* Aba Procedimentos */}
                   {aba === 'procedimentos' && (
                     <div className="space-y-4">
                       <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
@@ -1958,7 +1958,7 @@ export default function Atendimentos() {
                           )}
                         </p>
                       </div>
-
+                  
                       {itensGuia.length > 0 && (
                         <div className="border rounded-xl overflow-hidden">
                           <div className="overflow-x-auto max-h-64">
@@ -1967,11 +1967,14 @@ export default function Atendimentos() {
                                 <tr>
                                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Seq</th>
                                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Hora Início</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Hora Fim</th>
                                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Código</th>
                                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Descrição</th>
                                   <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd</th>
                                   <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Total</th>
-                                  <th className="px-2 py-2 text-center w-16">Ações</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Profissional</th>
+                                  <th className="px-2 py-2 text-center w-20">Ações</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -1979,6 +1982,8 @@ export default function Atendimentos() {
                                   <tr key={item.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${item.pendente_autorizacao ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}>
                                     <td className="px-2 py-2 text-xs text-center">{idx + 1}</td>
                                     <td className="px-2 py-2 text-xs">{item.data_execucao}</td>
+                                    <td className="px-2 py-2 text-xs">{item.hora_inicial || '-'}</td>
+                                    <td className="px-2 py-2 text-xs">{item.hora_final || '-'}</td>
                                     <td className="px-2 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
                                     <td className="px-2 py-2 text-xs">
                                       {item.nome}
@@ -1988,6 +1993,20 @@ export default function Atendimentos() {
                                     </td>
                                     <td className="px-2 py-2 text-xs text-center font-medium">{item.quantidade}</td>
                                     <td className="px-2 py-2 text-xs text-right font-semibold">R$ {item.valor_total?.toFixed(2)}</td>
+                                    <td className="px-2 py-2 text-xs">
+                                      <div className="text-gray-700 dark:text-gray-300">{item.prestador_nome || '-'}</div>
+                                      {item.prestador_numero_conselho && (
+                                        <div className="text-xs text-gray-400">
+                                          {item.prestador_conselho === '06' ? 'CRM' : 
+                                           item.prestador_conselho === '08' ? 'CRO' :
+                                           item.prestador_conselho === '03' ? 'CRF' :
+                                           item.prestador_conselho === '02' ? 'COREN' :
+                                           item.prestador_conselho === '05' ? 'CREFITO' :
+                                           item.prestador_conselho === '09' ? 'CRP' :
+                                           item.prestador_conselho === '07' ? 'CRN' : ''} {item.prestador_numero_conselho} - {item.prestador_uf_conselho}
+                                        </div>
+                                      )}
+                                    </td>
                                     <td className="px-2 py-2 text-center">
                                       <div className="flex gap-1">
                                         <button type="button" onClick={() => handleEditItem(item)} className="text-blue-600 hover:text-blue-800">
@@ -2003,17 +2022,19 @@ export default function Atendimentos() {
                               </tbody>
                               <tfoot className="bg-gray-50 dark:bg-gray-700/50">
                                 <tr className="border-t">
-                                  <td colSpan="5" className="px-2 py-2 text-right font-semibold">Subtotal:</td>
+                                  <td colSpan="6" className="px-2 py-2 text-right font-semibold">Subtotal:</td>
                                   <td colSpan="2" className="px-2 py-2 text-right font-bold text-blue-600">
                                     R$ {itensGuia.reduce((sum, i) => sum + i.valor_total, 0).toFixed(2)}
                                   </td>
+                                  <td className="px-2 py-2"></td>
+                                  <td className="px-2 py-2"></td>
                                 </tr>
                               </tfoot>
                             </table>
                           </div>
                         </div>
                       )}
-
+                  
                       {editandoItem && (
                         <div className="border rounded-xl p-4 bg-blue-50 dark:bg-blue-900/20">
                           <div className="flex justify-between items-center mb-3">
@@ -2022,10 +2043,18 @@ export default function Atendimentos() {
                               <XMarkIcon className="w-4 h-4" />
                             </button>
                           </div>
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                          <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
                             <div>
                               <label className="block text-xs text-gray-500 mb-1">Data Execução</label>
                               <input type="date" value={currentItem.data_execucao} onChange={e => setCurrentItem({...currentItem, data_execucao: e.target.value})} className="w-full border rounded px-2 py-1 text-sm dark:bg-gray-700 dark:text-white" />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">Hora Início</label>
+                              <input type="time" value={currentItem.hora_inicial} onChange={e => setCurrentItem({...currentItem, hora_inicial: e.target.value})} className="w-full border rounded px-2 py-1 text-sm dark:bg-gray-700 dark:text-white" />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">Hora Fim</label>
+                              <input type="time" value={currentItem.hora_final} onChange={e => setCurrentItem({...currentItem, hora_final: e.target.value})} className="w-full border rounded px-2 py-1 text-sm dark:bg-gray-700 dark:text-white" />
                             </div>
                             <div>
                               <label className="block text-xs text-gray-500 mb-1">Quantidade</label>
@@ -2049,7 +2078,7 @@ export default function Atendimentos() {
                           </div>
                         </div>
                       )}
-
+                  
                       {/* Seletor de Tipo de Item */}
                       <div className="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700 pb-3">
                         {TIPOS_ITEM.map(tipo => (
@@ -2067,7 +2096,7 @@ export default function Atendimentos() {
                           </button>
                         ))}
                       </div>
-
+                  
                       {/* Busca de Item */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Item</label>
@@ -2090,7 +2119,7 @@ export default function Atendimentos() {
                           </datalist>
                         </div>
                       </div>
-
+                  
                       {/* Seleção do Item */}
                       {searchItemTerm && itensFiltrados.length > 0 && (
                         <div className="border rounded-xl max-h-48 overflow-y-auto">
@@ -2131,16 +2160,24 @@ export default function Atendimentos() {
                           })}
                         </div>
                       )}
-
+                  
                       {/* Formulário do Item */}
                       {currentItem.codigo && (
                         <div className="border-t pt-4 mt-2">
                           <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-                            <div className="md:col-span-2">
-                              <label className="block text-xs text-gray-500 mb-1">Data Execução</label>
+                            <div className="md:col-span-1">
+                              <label className="block text-xs text-gray-500 mb-1">Data</label>
                               <input type="date" value={currentItem.data_execucao} onChange={e => setCurrentItem({...currentItem, data_execucao: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" />
                             </div>
-                            <div className="md:col-span-3">
+                            <div className="md:col-span-1">
+                              <label className="block text-xs text-gray-500 mb-1">H.Início</label>
+                              <input type="time" value={currentItem.hora_inicial} onChange={e => setCurrentItem({...currentItem, hora_inicial: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" />
+                            </div>
+                            <div className="md:col-span-1">
+                              <label className="block text-xs text-gray-500 mb-1">H.Fim</label>
+                              <input type="time" value={currentItem.hora_final} onChange={e => setCurrentItem({...currentItem, hora_final: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" />
+                            </div>
+                            <div className="md:col-span-2">
                               <label className="block text-xs text-gray-500 mb-1">Item</label>
                               <input type="text" value={currentItem.nome} disabled className="w-full bg-gray-100 border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" />
                             </div>
@@ -2162,15 +2199,51 @@ export default function Atendimentos() {
                                 setCurrentItem({...currentItem, valor_unitario: valor, valor_total: currentItem.quantidade * valor});
                               }} className="w-full border rounded px-2 py-1.5 text-sm text-right dark:bg-gray-700 dark:text-white" />
                             </div>
-                            <div className="md:col-span-2">
-                              <label className="block text-xs text-gray-500 mb-1">Profissional</label>
-                              <select value={currentItem.prestador_id} onChange={e => {
-                                const prestador = prestadores.find(p => p.id === parseInt(e.target.value));
-                                setCurrentItem({...currentItem, prestador_id: e.target.value, prestador_nome: prestador?.nome || ''});
-                              }} className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white">
-                                <option value="">Selecione</option>
-                                {prestadores.map(p => (<option key={p.id} value={p.id}>{p.nome}</option>))}
+                            <div className="md:col-span-3">
+                              <label className="block text-xs text-gray-500 mb-1">Profissional (buscar por nome ou conselho)</label>
+                              <select 
+                                value={currentItem.prestador_id} 
+                                onChange={e => {
+                                  const prestador = prestadores.find(p => p.id === parseInt(e.target.value));
+                                  if (prestador) {
+                                    setCurrentItem({
+                                      ...currentItem, 
+                                      prestador_id: e.target.value, 
+                                      prestador_nome: prestador.nome || '',
+                                      prestador_cpf: prestador.cpf || '00000000000',
+                                      prestador_conselho: prestador.codigo_conselho_ans || '06',
+                                      prestador_numero_conselho: prestador.numero_conselho || '',
+                                      prestador_uf_conselho: prestador.uf_conselho || '35',
+                                      prestador_cbos: prestador.cbos || '225125'
+                                    });
+                                  }
+                                }} 
+                                className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white"
+                              >
+                                <option value="">Selecione um profissional</option>
+                                {prestadores.map(p => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.nome} - {p.codigo_conselho_ans === '06' ? 'CRM' : 
+                                                 p.codigo_conselho_ans === '08' ? 'CRO' :
+                                                 p.codigo_conselho_ans === '03' ? 'CRF' :
+                                                 p.codigo_conselho_ans === '02' ? 'COREN' :
+                                                 p.codigo_conselho_ans === '05' ? 'CREFITO' :
+                                                 p.codigo_conselho_ans === '09' ? 'CRP' :
+                                                 p.codigo_conselho_ans === '07' ? 'CRN' : ''} {p.numero_conselho} - {p.uf_conselho}
+                                  </option>
+                                ))}
                               </select>
+                              {currentItem.prestador_numero_conselho && (
+                                <div className="text-xs text-gray-400 mt-1">
+                                  Conselho: {currentItem.prestador_conselho === '06' ? 'CRM' : 
+                                             currentItem.prestador_conselho === '08' ? 'CRO' :
+                                             currentItem.prestador_conselho === '03' ? 'CRF' :
+                                             currentItem.prestador_conselho === '02' ? 'COREN' :
+                                             currentItem.prestador_conselho === '05' ? 'CREFITO' :
+                                             currentItem.prestador_conselho === '09' ? 'CRP' :
+                                             currentItem.prestador_conselho === '07' ? 'CRN' : ''} {currentItem.prestador_numero_conselho} - {currentItem.prestador_uf_conselho}
+                                </div>
+                              )}
                             </div>
                             <div className="md:col-span-1">
                               <button type="button" onClick={handleAdicionarItem} className="w-full bg-green-600 text-white px-2 py-1.5 rounded-lg text-sm hover:bg-green-700 mt-5">+ Add</button>
