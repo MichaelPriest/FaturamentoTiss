@@ -108,7 +108,7 @@ export default function Prestadores() {
   useEffect(() => {
     carregarPrestadores();
   }, []);
-
+  
   const debugPrestadores = () => {
     console.log('Prestadores no estado:', prestadores);
     if (prestadores.length > 0) {
@@ -117,21 +117,28 @@ export default function Prestadores() {
       if (prestadores[0].especialidades && prestadores[0].especialidades.length > 0) {
         console.log('Primeira especialidade:', prestadores[0].especialidades[0]);
         console.log('Nome da especialidade:', prestadores[0].especialidades[0].especialidade?.nome);
+      } else {
+        console.log('Nenhuma especialidade encontrada para o primeiro prestador');
       }
+    } else {
+      console.log('Nenhum prestador carregado ainda');
     }
   };
-  
-  // Chame esta função depois de carregar os prestadores
-  useEffect(() => {
-    if (!loading && prestadores.length > 0) {
-      debugPrestadores();
-    }
-  }, [loading, prestadores]);
   
   const carregarPrestadores = async () => {
     setLoading(true);
     try {
-      await debugPrestadores();
+      // Buscar dados do serviço
+      const data = await prestadoresService.listarComEspecialidades();
+      console.log('Dados recebidos do service:', data);
+      console.log('Total de prestadores:', data.length);
+      
+      if (data.length > 0) {
+        console.log('Primeiro prestador do service:', data[0]);
+        console.log('Especialidades do primeiro prestador do service:', data[0].especialidades);
+      }
+      
+      setPrestadores(data);
     } catch (error) {
       console.error('Erro ao carregar prestadores:', error);
       toast.error('Erro ao carregar dados');
@@ -139,6 +146,13 @@ export default function Prestadores() {
       setLoading(false);
     }
   };
+  
+  // Chame debugPrestadores depois que os dados forem carregados
+  useEffect(() => {
+    if (!loading && prestadores.length > 0) {
+      debugPrestadores();
+    }
+  }, [loading, prestadores]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
