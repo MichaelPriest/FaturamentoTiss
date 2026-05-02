@@ -3,11 +3,13 @@ import { PlusIcon, PencilIcon, TrashIcon, BuildingOfficeIcon, Cog6ToothIcon } fr
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { conveniosService } from '../services/supabaseService';
+import { useTheme } from '../App';
 
 const UFS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
 
 export default function Convenios() {
   const navigate = useNavigate();
+  const { darkMode } = useTheme();
   const [convenios, setConvenios] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -248,7 +250,7 @@ export default function Convenios() {
         </div>
       </div>
 
-      {/* Modal - manter igual ao existente, apenas adicionando campo versao_tiss */}
+      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -293,36 +295,36 @@ export default function Convenios() {
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Registro ANS *</label>
-                      <input type="text" value={formData.registro_ans} onChange={e => setFormData({...formData, registro_ans: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" required />
+                      <input type="text" value={formData.registro_ans} onChange={e => setFormData({...formData, registro_ans: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" required />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Razão Social *</label>
-                      <input type="text" value={formData.razao_social} onChange={e => setFormData({...formData, razao_social: e.target.value.toUpperCase()})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" required />
+                      <input type="text" value={formData.razao_social} onChange={e => setFormData({...formData, razao_social: e.target.value.toUpperCase()})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" required />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome Fantasia</label>
-                      <input type="text" value={formData.nome_fantasia} onChange={e => setFormData({...formData, nome_fantasia: e.target.value.toUpperCase()})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
+                      <input type="text" value={formData.nome_fantasia} onChange={e => setFormData({...formData, nome_fantasia: e.target.value.toUpperCase()})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CNPJ</label>
-                      <input type="text" value={formData.cnpj} onChange={e => setFormData({...formData, cnpj: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" placeholder="00.000.000/0000-00" />
+                      <input type="text" value={formData.cnpj} onChange={e => setFormData({...formData, cnpj: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" placeholder="00.000.000/0000-00" />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ambiente</label>
-                        <select value={formData.ambiente} onChange={e => setFormData({...formData, ambiente: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700">
+                        <select value={formData.ambiente} onChange={e => setFormData({...formData, ambiente: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white">
                           <option value="homologacao">🏗️ Homologação (Testes)</option>
                           <option value="producao">🚀 Produção</option>
                         </select>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL WebService</label>
-                        <input type="text" value={formData.url_webservice} onChange={e => setFormData({...formData, url_webservice: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" placeholder="https://..." />
+                        <input type="text" value={formData.url_webservice} onChange={e => setFormData({...formData, url_webservice: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" placeholder="https://..." />
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <input type="checkbox" checked={formData.ativo} onChange={e => setFormData({...formData, ativo: e.target.checked})} className="w-4 h-4 rounded" />
-                      <label className="text-sm">Convênio Ativo</label>
+                      <input type="checkbox" checked={formData.ativo} onChange={e => setFormData({...formData, ativo: e.target.checked})} className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600" />
+                      <label className="text-sm text-gray-700 dark:text-gray-300">Convênio Ativo</label>
                     </div>
                   </div>
                 )}
@@ -335,15 +337,15 @@ export default function Convenios() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Código do Prestador na Operadora *</label>
-                      <input type="text" value={formData.codigo_prestador} onChange={e => setFormData({...formData, codigo_prestador: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm font-mono dark:bg-gray-700" required />
+                      <input type="text" value={formData.codigo_prestador} onChange={e => setFormData({...formData, codigo_prestador: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" required />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Senha do Prestador</label>
-                      <input type="password" value={formData.senha_prestador} onChange={e => setFormData({...formData, senha_prestador: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
+                      <input type="password" value={formData.senha_prestador} onChange={e => setFormData({...formData, senha_prestador: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CNES</label>
-                      <input type="text" value={formData.cnes} onChange={e => setFormData({...formData, cnes: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" placeholder="0000000" />
+                      <input type="text" value={formData.cnes} onChange={e => setFormData({...formData, cnes: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" placeholder="0000000" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Versão do Padrão TISS</label>
@@ -366,12 +368,12 @@ export default function Convenios() {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-sm font-medium mb-1">Próximo Número da Guia</label>
-                        <input type="number" value={formData.proximo_numero_guia} onChange={e => setFormData({...formData, proximo_numero_guia: parseInt(e.target.value)})} className="w-full border rounded-lg px-3 py-2 text-sm font-mono dark:bg-gray-700" />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Próximo Número da Guia</label>
+                        <input type="number" value={formData.proximo_numero_guia} onChange={e => setFormData({...formData, proximo_numero_guia: parseInt(e.target.value)})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium mb-1">Último Número (Limite)</label>
-                        <input type="number" value={formData.ultimo_numero_guia} onChange={e => setFormData({...formData, ultimo_numero_guia: parseInt(e.target.value)})} className="w-full border rounded-lg px-3 py-2 text-sm font-mono dark:bg-gray-700" />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Último Número (Limite)</label>
+                        <input type="number" value={formData.ultimo_numero_guia} onChange={e => setFormData({...formData, ultimo_numero_guia: parseInt(e.target.value)})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" />
                       </div>
                     </div>
                   </div>
@@ -381,33 +383,33 @@ export default function Convenios() {
                 {aba === 'financeiro' && (
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium mb-1">Tipo de Tabela</label>
-                      <select value={formData.tipo_tabela} onChange={e => setFormData({...formData, tipo_tabela: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Tabela</label>
+                      <select value={formData.tipo_tabela} onChange={e => setFormData({...formData, tipo_tabela: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white">
                         <option value="TUSS">Tabela TUSS</option>
                         <option value="CBHPM">Tabela CBHPM</option>
                         <option value="PROPRIA">Tabela Própria</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-1">Multiplicador de valores (%)</label>
-                      <input type="number" step="0.01" value={formData.multiplicador} onChange={e => setFormData({...formData, multiplicador: parseFloat(e.target.value)})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Multiplicador de valores (%)</label>
+                      <input type="number" step="0.01" value={formData.multiplicador} onChange={e => setFormData({...formData, multiplicador: parseFloat(e.target.value)})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" />
                     </div>
                     <div className="flex items-center gap-2">
-                      <input type="checkbox" checked={formData.coparticipacao} onChange={e => setFormData({...formData, coparticipacao: e.target.checked})} className="w-4 h-4 rounded" />
-                      <label className="text-sm">Possui coparticipação</label>
+                      <input type="checkbox" checked={formData.coparticipacao} onChange={e => setFormData({...formData, coparticipacao: e.target.checked})} className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600" />
+                      <label className="text-sm text-gray-700 dark:text-gray-300">Possui coparticipação</label>
                     </div>
                     {formData.coparticipacao && (
                       <div>
-                        <label className="block text-sm font-medium mb-1">Percentual de coparticipação (%)</label>
-                        <input type="number" step="1" value={formData.percentual_coparticipacao} onChange={e => setFormData({...formData, percentual_coparticipacao: parseFloat(e.target.value)})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Percentual de coparticipação (%)</label>
+                        <input type="number" step="1" value={formData.percentual_coparticipacao} onChange={e => setFormData({...formData, percentual_coparticipacao: parseFloat(e.target.value)})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" />
                       </div>
                     )}
                   </div>
                 )}
 
-                <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-                  <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg">Cancelar</button>
-                  <button type="submit" className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg">{editing ? 'Atualizar' : 'Salvar'} Convênio</button>
+                <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Cancelar</button>
+                  <button type="submit" className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-md">{editing ? 'Atualizar' : 'Salvar'} Convênio</button>
                 </div>
               </form>
             </div>
