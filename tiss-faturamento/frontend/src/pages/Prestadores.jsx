@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { prestadoresService } from '../services/supabaseService';
-import SearchableSelect from '../components/SearchableSelect';
 
 // Lista completa de UFs do Brasil
 const UFS = [
@@ -26,61 +25,60 @@ const CONSELHOS = [
   { sigla: 'CRESS', nome: 'Conselho Regional de Serviço Social', codigoANS: '13', cbos: ['251605'] }
 ];
 
-// Lista de Especialidades com seus respectivos CBOS
+// Lista de Especialidades com seus respectivos CBOS (usando codigo_ans)
 const ESPECIALIDADES = [
-  { id: 1, nome: 'Clínica Médica', cbos: '225125', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 2, nome: 'Cardiologia', cbos: '225135', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 3, nome: 'Pediatria', cbos: '225140', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 4, nome: 'Ginecologia', cbos: '225145', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 5, nome: 'Obstetrícia', cbos: '225150', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 6, nome: 'Ortopedia', cbos: '225155', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 7, nome: 'Traumatologia', cbos: '225160', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 8, nome: 'Cirurgia Geral', cbos: '225165', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 9, nome: 'Neurologia', cbos: '225170', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 10, nome: 'Psiquiatria', cbos: '225175', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 11, nome: 'Dermatologia', cbos: '225180', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 12, nome: 'Oftalmologia', cbos: '225185', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 13, nome: 'Otorrinolaringologia', cbos: '225190', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 14, nome: 'Urologia', cbos: '225195', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 15, nome: 'Anestesiologia', cbos: '225200', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 16, nome: 'Radiologia', cbos: '225205', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 17, nome: 'Patologia', cbos: '225210', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 18, nome: 'Endocrinologia', cbos: '225215', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 19, nome: 'Gastroenterologia', cbos: '225220', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 20, nome: 'Nefrologia', cbos: '225225', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 21, nome: 'Pneumologia', cbos: '225230', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 22, nome: 'Reumatologia', cbos: '225235', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 23, nome: 'Infectologia', cbos: '225240', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 24, nome: 'Oncologia', cbos: '225245', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 25, nome: 'Hematologia', cbos: '225250', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 26, nome: 'Medicina do Trabalho', cbos: '225255', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 27, nome: 'Medicina Legal', cbos: '225260', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 28, nome: 'Acupuntura', cbos: '225265', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 29, nome: 'Homeopatia', cbos: '225270', codigoANS: '06', conselhoPadrao: 'CRM' },
-  { id: 30, nome: 'Fisioterapia', cbos: '223605', codigoANS: '03', conselhoPadrao: 'CREFITO' },
-  { id: 31, nome: 'Fonoaudiologia', cbos: '223610', codigoANS: '03', conselhoPadrao: 'CREFITO' },
-  { id: 32, nome: 'Terapia Ocupacional', cbos: '223615', codigoANS: '03', conselhoPadrao: 'CREFITO' },
-  { id: 33, nome: 'Psicomotricidade', cbos: '223605', codigoANS: '03', conselhoPadrao: 'CREFITO' },
-  { id: 34, nome: 'Musicoterapia', cbos: '223610', codigoANS: '03', conselhoPadrao: 'CREFITO' },
-  { id: 35, nome: 'Gerontologia', cbos: '223615', codigoANS: '03', conselhoPadrao: 'CREFITO' },
-  { id: 36, nome: 'Nutrição', cbos: '223405', codigoANS: '10', conselhoPadrao: 'CRN' },
-  { id: 37, nome: 'Psicologia', cbos: '251510', codigoANS: '08', conselhoPadrao: 'CRP' },
-  { id: 38, nome: 'Neuropsicologia', cbos: '251510', codigoANS: '08', conselhoPadrao: 'CRP' },
-  { id: 39, nome: 'Psicopedagogia', cbos: '251510', codigoANS: '08', conselhoPadrao: 'CRP' },
-  { id: 40, nome: 'Farmácia', cbos: '223205', codigoANS: '05', conselhoPadrao: 'CRF' },
-  { id: 41, nome: 'Biomedicina', cbos: '223305', codigoANS: '09', conselhoPadrao: 'CRBio' },
-  { id: 42, nome: 'Enfermagem', cbos: '223505', codigoANS: '04', conselhoPadrao: 'COREN' },
-  { id: 43, nome: 'Odontologia Clínica', cbos: '223105', codigoANS: '07', conselhoPadrao: 'CRO' },
-  { id: 44, nome: 'Odontopediatria', cbos: '223110', codigoANS: '07', conselhoPadrao: 'CRO' },
-  { id: 45, nome: 'Ortodontia', cbos: '223115', codigoANS: '07', conselhoPadrao: 'CRO' },
-  { id: 46, nome: 'Pedagogia', cbos: null, codigoANS: null, conselhoPadrao: null },
-  { id: 47, nome: 'Educação Física', cbos: '224105', codigoANS: '11', conselhoPadrao: 'CREF' },
-  { id: 48, nome: 'Estudante Psicologia', cbos: null, codigoANS: null, conselhoPadrao: null }
+  { id: 1, nome: 'Clínica Médica', cbos: '225125', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 2, nome: 'Cardiologia', cbos: '225135', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 3, nome: 'Pediatria', cbos: '225140', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 4, nome: 'Ginecologia', cbos: '225145', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 5, nome: 'Obstetrícia', cbos: '225150', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 6, nome: 'Ortopedia', cbos: '225155', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 7, nome: 'Traumatologia', cbos: '225160', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 8, nome: 'Cirurgia Geral', cbos: '225165', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 9, nome: 'Neurologia', cbos: '225170', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 10, nome: 'Psiquiatria', cbos: '225175', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 11, nome: 'Dermatologia', cbos: '225180', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 12, nome: 'Oftalmologia', cbos: '225185', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 13, nome: 'Otorrinolaringologia', cbos: '225190', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 14, nome: 'Urologia', cbos: '225195', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 15, nome: 'Anestesiologia', cbos: '225200', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 16, nome: 'Radiologia', cbos: '225205', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 17, nome: 'Patologia', cbos: '225210', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 18, nome: 'Endocrinologia', cbos: '225215', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 19, nome: 'Gastroenterologia', cbos: '225220', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 20, nome: 'Nefrologia', cbos: '225225', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 21, nome: 'Pneumologia', cbos: '225230', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 22, nome: 'Reumatologia', cbos: '225235', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 23, nome: 'Infectologia', cbos: '225240', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 24, nome: 'Oncologia', cbos: '225245', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 25, nome: 'Hematologia', cbos: '225250', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 26, nome: 'Medicina do Trabalho', cbos: '225255', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 27, nome: 'Medicina Legal', cbos: '225260', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 28, nome: 'Acupuntura', cbos: '225265', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 29, nome: 'Homeopatia', cbos: '225270', codigo_ans: '06', conselhoPadrao: 'CRM' },
+  { id: 30, nome: 'Fisioterapia', cbos: '223605', codigo_ans: '03', conselhoPadrao: 'CREFITO' },
+  { id: 31, nome: 'Fonoaudiologia', cbos: '223610', codigo_ans: '03', conselhoPadrao: 'CREFITO' },
+  { id: 32, nome: 'Terapia Ocupacional', cbos: '223615', codigo_ans: '03', conselhoPadrao: 'CREFITO' },
+  { id: 33, nome: 'Psicomotricidade', cbos: '223605', codigo_ans: '03', conselhoPadrao: 'CREFITO' },
+  { id: 34, nome: 'Musicoterapia', cbos: '223610', codigo_ans: '03', conselhoPadrao: 'CREFITO' },
+  { id: 35, nome: 'Gerontologia', cbos: '223615', codigo_ans: '03', conselhoPadrao: 'CREFITO' },
+  { id: 36, nome: 'Nutrição', cbos: '223405', codigo_ans: '10', conselhoPadrao: 'CRN' },
+  { id: 37, nome: 'Psicologia', cbos: '251510', codigo_ans: '08', conselhoPadrao: 'CRP' },
+  { id: 38, nome: 'Neuropsicologia', cbos: '251510', codigo_ans: '08', conselhoPadrao: 'CRP' },
+  { id: 39, nome: 'Psicopedagogia', cbos: '251510', codigo_ans: '08', conselhoPadrao: 'CRP' },
+  { id: 40, nome: 'Farmácia', cbos: '223205', codigo_ans: '05', conselhoPadrao: 'CRF' },
+  { id: 41, nome: 'Biomedicina', cbos: '223305', codigo_ans: '09', conselhoPadrao: 'CRBio' },
+  { id: 42, nome: 'Enfermagem', cbos: '223505', codigo_ans: '04', conselhoPadrao: 'COREN' },
+  { id: 43, nome: 'Odontologia Clínica', cbos: '223105', codigo_ans: '07', conselhoPadrao: 'CRO' },
+  { id: 44, nome: 'Odontopediatria', cbos: '223110', codigo_ans: '07', conselhoPadrao: 'CRO' },
+  { id: 45, nome: 'Ortodontia', cbos: '223115', codigo_ans: '07', conselhoPadrao: 'CRO' },
+  { id: 46, nome: 'Pedagogia', cbos: null, codigo_ans: null, conselhoPadrao: null },
+  { id: 47, nome: 'Educação Física', cbos: '224105', codigo_ans: '11', conselhoPadrao: 'CREF' },
+  { id: 48, nome: 'Estudante Psicologia', cbos: null, codigo_ans: null, conselhoPadrao: null }
 ];
 
 export default function Prestadores() {
   const [prestadores, setPrestadores] = useState([]);
-  const [especialidadesDisponiveis, setEspecialidadesDisponiveis] = useState(ESPECIALIDADES);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -215,7 +213,7 @@ export default function Prestadores() {
         id: esp.especialidade_id,
         nome: esp.especialidade?.nome,
         cbos: esp.especialidade?.cbos,
-        codigoANS: esp.especialidade?.codigoANS
+        codigo_ans: esp.especialidade?.codigo_ans
       }));
       setEspecialidadesSelecionadas(especialidades);
       
@@ -254,7 +252,7 @@ export default function Prestadores() {
   };
 
   const adicionarEspecialidade = (especialidadeId) => {
-    const especialidade = especialidadesDisponiveis.find(e => e.id === parseInt(especialidadeId));
+    const especialidade = ESPECIALIDADES.find(e => e.id === parseInt(especialidadeId));
     if (!especialidade) return;
     
     if (especialidadesSelecionadas.some(e => e.id === especialidade.id)) {
@@ -312,6 +310,7 @@ export default function Prestadores() {
   const getCBOSTexto = (prestador) => {
     const principal = prestador.especialidades?.find(esp => esp.principal);
     if (principal?.especialidade?.cbos) return principal.especialidade.cbos;
+    if (principal?.cbos) return principal.cbos;
     if (prestador.cbos) return prestador.cbos;
     return '-';
   };
