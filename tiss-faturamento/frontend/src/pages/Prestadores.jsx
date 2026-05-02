@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { prestadoresService } from '../services/supabaseService';
 import SearchableSelect from '../components/SearchableSelect';
@@ -17,7 +17,7 @@ const CONSELHOS = [
   { sigla: 'CRO', nome: 'Conselho Regional de Odontologia', codigoANS: '07', cbos: ['223105', '223110', '223115'] },
   { sigla: 'CRF', nome: 'Conselho Regional de Farmácia', codigoANS: '05', cbos: ['223205', '223210', '223215'] },
   { sigla: 'COREN', nome: 'Conselho Regional de Enfermagem', codigoANS: '04', cbos: ['223505', '223510', '223515'] },
-  { sigla: 'CREFITO', nome: 'Conselho Regional de Fisioterapia', codigoANS: '03', cbos: ['223605', '223610'] },
+  { sigla: 'CREFITO', nome: 'Conselho Regional de Fisioterapia e Terapia Ocupacional', codigoANS: '03', cbos: ['223605', '223610', '223615'] },
   { sigla: 'CRP', nome: 'Conselho Regional de Psicologia', codigoANS: '08', cbos: ['251510', '251515'] },
   { sigla: 'CRBio', nome: 'Conselho Regional de Biomedicina', codigoANS: '09', cbos: ['223305', '223310'] },
   { sigla: 'CRN', nome: 'Conselho Regional de Nutrição', codigoANS: '10', cbos: ['223405', '223410'] },
@@ -28,54 +28,66 @@ const CONSELHOS = [
 
 // Lista de Especialidades com seus respectivos CBOS
 const ESPECIALIDADES = [
-  { nome: 'Clínica Médica', cbos: '225125', codigoANS: '06' },
-  { nome: 'Cardiologia', cbos: '225135', codigoANS: '06' },
-  { nome: 'Pediatria', cbos: '225140', codigoANS: '06' },
-  { nome: 'Ginecologia', cbos: '225145', codigoANS: '06' },
-  { nome: 'Obstetrícia', cbos: '225150', codigoANS: '06' },
-  { nome: 'Ortopedia', cbos: '225155', codigoANS: '06' },
-  { nome: 'Traumatologia', cbos: '225160', codigoANS: '06' },
-  { nome: 'Cirurgia Geral', cbos: '225165', codigoANS: '06' },
-  { nome: 'Neurologia', cbos: '225170', codigoANS: '06' },
-  { nome: 'Psiquiatria', cbos: '225175', codigoANS: '06' },
-  { nome: 'Dermatologia', cbos: '225180', codigoANS: '06' },
-  { nome: 'Oftalmologia', cbos: '225185', codigoANS: '06' },
-  { nome: 'Otorrinolaringologia', cbos: '225190', codigoANS: '06' },
-  { nome: 'Urologia', cbos: '225195', codigoANS: '06' },
-  { nome: 'Anestesiologia', cbos: '225200', codigoANS: '06' },
-  { nome: 'Radiologia', cbos: '225205', codigoANS: '06' },
-  { nome: 'Patologia', cbos: '225210', codigoANS: '06' },
-  { nome: 'Endocrinologia', cbos: '225215', codigoANS: '06' },
-  { nome: 'Gastroenterologia', cbos: '225220', codigoANS: '06' },
-  { nome: 'Nefrologia', cbos: '225225', codigoANS: '06' },
-  { nome: 'Pneumologia', cbos: '225230', codigoANS: '06' },
-  { nome: 'Reumatologia', cbos: '225235', codigoANS: '06' },
-  { nome: 'Infectologia', cbos: '225240', codigoANS: '06' },
-  { nome: 'Oncologia', cbos: '225245', codigoANS: '06' },
-  { nome: 'Hematologia', cbos: '225250', codigoANS: '06' },
-  { nome: 'Medicina do Trabalho', cbos: '225255', codigoANS: '06' },
-  { nome: 'Medicina Legal', cbos: '225260', codigoANS: '06' },
-  { nome: 'Acupuntura', cbos: '225265', codigoANS: '06' },
-  { nome: 'Homeopatia', cbos: '225270', codigoANS: '06' },
-  { nome: 'Fisioterapia', cbos: '223605', codigoANS: '03' },
-  { nome: 'Fonoaudiologia', cbos: '223610', codigoANS: '03' },
-  { nome: 'Terapia Ocupacional', cbos: '223615', codigoANS: '03' },
-  { nome: 'Nutrição', cbos: '223405', codigoANS: '10' },
-  { nome: 'Psicologia', cbos: '251510', codigoANS: '08' },
-  { nome: 'Farmácia', cbos: '223205', codigoANS: '05' },
-  { nome: 'Biomedicina', cbos: '223305', codigoANS: '09' },
-  { nome: 'Enfermagem', cbos: '223505', codigoANS: '04' },
-  { nome: 'Odontologia Clínica', cbos: '223105', codigoANS: '07' },
-  { nome: 'Odontopediatria', cbos: '223110', codigoANS: '07' },
-  { nome: 'Ortodontia', cbos: '223115', codigoANS: '07' }
+  { id: 1, nome: 'Clínica Médica', cbos: '225125', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 2, nome: 'Cardiologia', cbos: '225135', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 3, nome: 'Pediatria', cbos: '225140', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 4, nome: 'Ginecologia', cbos: '225145', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 5, nome: 'Obstetrícia', cbos: '225150', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 6, nome: 'Ortopedia', cbos: '225155', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 7, nome: 'Traumatologia', cbos: '225160', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 8, nome: 'Cirurgia Geral', cbos: '225165', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 9, nome: 'Neurologia', cbos: '225170', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 10, nome: 'Psiquiatria', cbos: '225175', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 11, nome: 'Dermatologia', cbos: '225180', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 12, nome: 'Oftalmologia', cbos: '225185', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 13, nome: 'Otorrinolaringologia', cbos: '225190', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 14, nome: 'Urologia', cbos: '225195', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 15, nome: 'Anestesiologia', cbos: '225200', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 16, nome: 'Radiologia', cbos: '225205', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 17, nome: 'Patologia', cbos: '225210', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 18, nome: 'Endocrinologia', cbos: '225215', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 19, nome: 'Gastroenterologia', cbos: '225220', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 20, nome: 'Nefrologia', cbos: '225225', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 21, nome: 'Pneumologia', cbos: '225230', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 22, nome: 'Reumatologia', cbos: '225235', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 23, nome: 'Infectologia', cbos: '225240', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 24, nome: 'Oncologia', cbos: '225245', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 25, nome: 'Hematologia', cbos: '225250', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 26, nome: 'Medicina do Trabalho', cbos: '225255', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 27, nome: 'Medicina Legal', cbos: '225260', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 28, nome: 'Acupuntura', cbos: '225265', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 29, nome: 'Homeopatia', cbos: '225270', codigoANS: '06', conselhoPadrao: 'CRM' },
+  { id: 30, nome: 'Fisioterapia', cbos: '223605', codigoANS: '03', conselhoPadrao: 'CREFITO' },
+  { id: 31, nome: 'Fonoaudiologia', cbos: '223610', codigoANS: '03', conselhoPadrao: 'CREFITO' },
+  { id: 32, nome: 'Terapia Ocupacional', cbos: '223615', codigoANS: '03', conselhoPadrao: 'CREFITO' },
+  { id: 33, nome: 'Psicomotricidade', cbos: '223605', codigoANS: '03', conselhoPadrao: 'CREFITO' },
+  { id: 34, nome: 'Musicoterapia', cbos: '223610', codigoANS: '03', conselhoPadrao: 'CREFITO' },
+  { id: 35, nome: 'Gerontologia', cbos: '223615', codigoANS: '03', conselhoPadrao: 'CREFITO' },
+  { id: 36, nome: 'Nutrição', cbos: '223405', codigoANS: '10', conselhoPadrao: 'CRN' },
+  { id: 37, nome: 'Psicologia', cbos: '251510', codigoANS: '08', conselhoPadrao: 'CRP' },
+  { id: 38, nome: 'Neuropsicologia', cbos: '251510', codigoANS: '08', conselhoPadrao: 'CRP' },
+  { id: 39, nome: 'Psicopedagogia', cbos: '251510', codigoANS: '08', conselhoPadrao: 'CRP' },
+  { id: 40, nome: 'Farmácia', cbos: '223205', codigoANS: '05', conselhoPadrao: 'CRF' },
+  { id: 41, nome: 'Biomedicina', cbos: '223305', codigoANS: '09', conselhoPadrao: 'CRBio' },
+  { id: 42, nome: 'Enfermagem', cbos: '223505', codigoANS: '04', conselhoPadrao: 'COREN' },
+  { id: 43, nome: 'Odontologia Clínica', cbos: '223105', codigoANS: '07', conselhoPadrao: 'CRO' },
+  { id: 44, nome: 'Odontopediatria', cbos: '223110', codigoANS: '07', conselhoPadrao: 'CRO' },
+  { id: 45, nome: 'Ortodontia', cbos: '223115', codigoANS: '07', conselhoPadrao: 'CRO' },
+  { id: 46, nome: 'Pedagogia', cbos: null, codigoANS: null, conselhoPadrao: null },
+  { id: 47, nome: 'Educação Física', cbos: '224105', codigoANS: '11', conselhoPadrao: 'CREF' },
+  { id: 48, nome: 'Estudante Psicologia', cbos: null, codigoANS: null, conselhoPadrao: null }
 ];
 
 export default function Prestadores() {
   const [prestadores, setPrestadores] = useState([]);
+  const [especialidadesDisponiveis, setEspecialidadesDisponiveis] = useState(ESPECIALIDADES);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [especialidadesSelecionadas, setEspecialidadesSelecionadas] = useState([]);
+  const [especialidadePrincipal, setEspecialidadePrincipal] = useState(null);
+  
   const [formData, setFormData] = useState({
     nome: '',
     codigo_prestador: '',
@@ -85,8 +97,6 @@ export default function Prestadores() {
     codigo_conselho_ans: '06',
     numero_conselho: '',
     uf_conselho: 'SP',
-    especialidade: 'Clínica Médica',
-    cbos: '225125',
     telefone: '',
     celular: '',
     email: '',
@@ -104,7 +114,7 @@ export default function Prestadores() {
   const carregarPrestadores = async () => {
     setLoading(true);
     try {
-      const data = await prestadoresService.listar();
+      const data = await prestadoresService.listarComEspecialidades();
       setPrestadores(data);
     } catch (error) {
       console.error('Erro ao carregar prestadores:', error);
@@ -121,6 +131,11 @@ export default function Prestadores() {
       return;
     }
 
+    if (especialidadesSelecionadas.length === 0) {
+      toast.error('Selecione pelo menos uma especialidade');
+      return;
+    }
+
     const prestadorData = {
       nome: formData.nome.toUpperCase(),
       codigo_prestador: formData.codigo_prestador,
@@ -130,8 +145,6 @@ export default function Prestadores() {
       codigo_conselho_ans: formData.codigo_conselho_ans,
       numero_conselho: formData.numero_conselho,
       uf_conselho: formData.uf_conselho,
-      especialidade: formData.especialidade,
-      cbos: formData.cbos,
       telefone: formData.telefone.replace(/\D/g, ''),
       celular: formData.celular.replace(/\D/g, ''),
       email: formData.email,
@@ -139,15 +152,19 @@ export default function Prestadores() {
       cep: formData.cep.replace(/\D/g, ''),
       cidade: formData.cidade,
       estado: formData.estado,
-      ativo: formData.ativo
+      ativo: formData.ativo,
+      especialidades: especialidadesSelecionadas.map(esp => ({
+        especialidade_id: esp.id,
+        principal: esp.id === especialidadePrincipal?.id
+      }))
     };
 
     try {
       if (editing) {
-        await prestadoresService.atualizar(editing.id, prestadorData);
+        await prestadoresService.atualizarComEspecialidades(editing.id, prestadorData);
         toast.success('Prestador atualizado com sucesso!');
       } else {
-        await prestadoresService.criar(prestadorData);
+        await prestadoresService.criarComEspecialidades(prestadorData);
         toast.success('Prestador cadastrado com sucesso!');
       }
       await carregarPrestadores();
@@ -164,9 +181,54 @@ export default function Prestadores() {
     setFormData({
       nome: '', codigo_prestador: '', cpf: '', cnpj: '', conselho: 'CRM',
       codigo_conselho_ans: '06', numero_conselho: '', uf_conselho: 'SP',
-      especialidade: 'Clínica Médica', cbos: '225125', telefone: '', celular: '',
-      email: '', endereco: '', cep: '', cidade: '', estado: 'SP', ativo: true
+      telefone: '', celular: '', email: '', endereco: '', cep: '', 
+      cidade: '', estado: 'SP', ativo: true
     });
+    setEspecialidadesSelecionadas([]);
+    setEspecialidadePrincipal(null);
+  };
+
+  const handleEdit = (prestador) => {
+    setEditing(prestador);
+    setFormData({
+      nome: prestador.nome || '',
+      codigo_prestador: prestador.codigo_prestador || '',
+      cpf: prestador.cpf || '',
+      cnpj: prestador.cnpj || '',
+      conselho: prestador.conselho || 'CRM',
+      codigo_conselho_ans: prestador.codigo_conselho_ans || '06',
+      numero_conselho: prestador.numero_conselho || '',
+      uf_conselho: prestador.uf_conselho || 'SP',
+      telefone: prestador.telefone || '',
+      celular: prestador.celular || '',
+      email: prestador.email || '',
+      endereco: prestador.endereco || '',
+      cep: prestador.cep || '',
+      cidade: prestador.cidade || '',
+      estado: prestador.estado || 'SP',
+      ativo: prestador.ativo !== false
+    });
+    
+    // Carregar especialidades do prestador
+    if (prestador.especialidades && prestador.especialidades.length > 0) {
+      const especialidades = prestador.especialidades.map(esp => ({
+        id: esp.especialidade_id,
+        nome: esp.especialidade?.nome,
+        cbos: esp.especialidade?.cbos,
+        codigoANS: esp.especialidade?.codigoANS
+      }));
+      setEspecialidadesSelecionadas(especialidades);
+      
+      const principal = prestador.especialidades.find(esp => esp.principal);
+      if (principal) {
+        setEspecialidadePrincipal({
+          id: principal.especialidade_id,
+          nome: principal.especialidade?.nome
+        });
+      }
+    }
+    
+    setShowModal(true);
   };
 
   const handleDelete = async (id) => {
@@ -191,27 +253,74 @@ export default function Prestadores() {
     });
   };
 
-  const handleEspecialidadeChange = (especialidade) => {
-    const encontrada = ESPECIALIDADES.find(e => e.nome === especialidade);
-    setFormData({
-      ...formData,
-      especialidade: especialidade,
-      cbos: encontrada?.cbos || '225125',
-      conselho: encontrada?.codigoANS === '06' ? 'CRM' : 
-                 encontrada?.codigoANS === '07' ? 'CRO' :
-                 encontrada?.codigoANS === '05' ? 'CRF' :
-                 encontrada?.codigoANS === '04' ? 'COREN' :
-                 encontrada?.codigoANS === '03' ? 'CREFITO' :
-                 encontrada?.codigoANS === '08' ? 'CRP' : 'CRM',
-      codigo_conselho_ans: encontrada?.codigoANS || '06'
+  const adicionarEspecialidade = (especialidadeId) => {
+    const especialidade = especialidadesDisponiveis.find(e => e.id === parseInt(especialidadeId));
+    if (!especialidade) return;
+    
+    if (especialidadesSelecionadas.some(e => e.id === especialidade.id)) {
+      toast.warning('Especialidade já adicionada');
+      return;
+    }
+    
+    setEspecialidadesSelecionadas([...especialidadesSelecionadas, especialidade]);
+    
+    // Se for a primeira especialidade, define como principal
+    if (especialidadesSelecionadas.length === 0) {
+      setEspecialidadePrincipal(especialidade);
+      // Atualiza conselho baseado na especialidade principal
+      if (especialidade.conselhoPadrao) {
+        handleConselhoChange(especialidade.conselhoPadrao);
+      }
+    }
+  };
+
+  const removerEspecialidade = (especialidadeId) => {
+    const novaLista = especialidadesSelecionadas.filter(e => e.id !== especialidadeId);
+    setEspecialidadesSelecionadas(novaLista);
+    
+    if (especialidadePrincipal?.id === especialidadeId) {
+      if (novaLista.length > 0) {
+        setEspecialidadePrincipal(novaLista[0]);
+        // Atualiza conselho baseado na nova especialidade principal
+        if (novaLista[0].conselhoPadrao) {
+          handleConselhoChange(novaLista[0].conselhoPadrao);
+        }
+      } else {
+        setEspecialidadePrincipal(null);
+      }
+    }
+  };
+
+  const definirPrincipal = (especialidadeId) => {
+    const especialidade = especialidadesSelecionadas.find(e => e.id === especialidadeId);
+    setEspecialidadePrincipal(especialidade);
+    // Atualiza conselho baseado na especialidade principal
+    if (especialidade.conselhoPadrao) {
+      handleConselhoChange(especialidade.conselhoPadrao);
+    }
+  };
+
+  const getEspecialidadesTexto = (prestador) => {
+    if (!prestador.especialidades || prestador.especialidades.length === 0) return '-';
+    const nomes = prestador.especialidades.map(esp => {
+      const nome = esp.especialidade?.nome || esp.nome;
+      return esp.principal ? `${nome}*` : nome;
     });
+    return nomes.join(', ');
+  };
+
+  const getCBOSTexto = (prestador) => {
+    const principal = prestador.especialidades?.find(esp => esp.principal);
+    if (principal?.especialidade?.cbos) return principal.especialidade.cbos;
+    if (prestador.cbos) return prestador.cbos;
+    return '-';
   };
 
   const filtered = prestadores.filter(p => 
     p.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.codigo_prestador?.includes(searchTerm) ||
     p.cpf?.includes(searchTerm) ||
-    p.especialidade?.toLowerCase().includes(searchTerm.toLowerCase())
+    getEspecialidadesTexto(p).toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) {
@@ -272,7 +381,7 @@ export default function Prestadores() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nome</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">CPF/CNPJ</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Conselho</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Especialidade</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Especialidades</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">CBOS</th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Ações</th>
               </tr>
@@ -284,12 +393,17 @@ export default function Prestadores() {
                   <td className="px-4 py-3 text-sm text-gray-800 dark:text-gray-200">{p.nome}</td>
                   <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{p.cpf || p.cnpj || '-'}</td>
                   <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{p.conselho} {p.numero_conselho}/{p.uf_conselho}</td>
-                  <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{p.especialidade}</td>
-                  <td className="px-4 py-3 text-sm font-mono text-gray-500 dark:text-gray-400">{p.cbos}</td>
+                  <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                    {getEspecialidadesTexto(p)}
+                    {p.especialidades?.some(e => e.principal) && (
+                      <span className="ml-1 text-xs text-blue-600 dark:text-blue-400" title="Especialidade Principal">*</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-sm font-mono text-gray-500 dark:text-gray-400">{getCBOSTexto(p)}</td>
                   <td className="px-4 py-3 text-center">
                     <div className="flex gap-1 justify-center">
                       <button 
-                        onClick={() => { setEditing(p); setFormData(p); setShowModal(true); }} 
+                        onClick={() => handleEdit(p)} 
                         className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" 
                         title="Editar"
                       >
@@ -322,7 +436,7 @@ export default function Prestadores() {
       {/* Modal de Cadastro/Edição */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
               <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
                 {editing ? 'Editar Prestador' : 'Novo Prestador'}
@@ -376,6 +490,70 @@ export default function Prestadores() {
                   </div>
                 </div>
 
+                {/* Especialidades */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Especialidades *</label>
+                  
+                  {/* Seleção de especialidades */}
+                  <div className="flex gap-2 mb-3">
+                    <select 
+                      onChange={(e) => adicionarEspecialidade(e.target.value)}
+                      className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      defaultValue=""
+                    >
+                      <option value="" disabled>Selecione uma especialidade...</option>
+                      {ESPECIALIDADES.filter(e => !especialidadesSelecionadas.some(sel => sel.id === e.id)).map(e => (
+                        <option key={e.id} value={e.id}>{e.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  {/* Lista de especialidades selecionadas */}
+                  {especialidadesSelecionadas.length > 0 && (
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 dark:bg-gray-700/50">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Especialidade</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">CBOS</th>
+                            <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 w-24">Principal</th>
+                            <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 w-16">Ação</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                          {especialidadesSelecionadas.map(esp => (
+                            <tr key={esp.id}>
+                              <td className="px-3 py-2 text-sm text-gray-800 dark:text-gray-200">{esp.nome}</td>
+                              <td className="px-3 py-2 text-sm font-mono text-gray-500">{esp.cbos || '-'}</td>
+                              <td className="px-3 py-2 text-center">
+                                <input 
+                                  type="radio" 
+                                  name="especialidadePrincipal"
+                                  checked={especialidadePrincipal?.id === esp.id}
+                                  onChange={() => definirPrincipal(esp.id)}
+                                  className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                                />
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                <button 
+                                  type="button"
+                                  onClick={() => removerEspecialidade(esp.id)}
+                                  className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                >
+                                  <XMarkIcon className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    * Selecione uma ou mais especialidades. Marque o rádio para definir a especialidade principal (usada para CBOS no XML TISS).
+                  </p>
+                </div>
+
                 {/* Conselho */}
                 <div className="grid grid-cols-4 gap-4 mb-4">
                   <div>
@@ -417,32 +595,6 @@ export default function Prestadores() {
                     >
                       {UFS.map(uf => <option key={uf} value={uf}>{uf}</option>)}
                     </select>
-                  </div>
-                </div>
-
-                {/* Especialidade e CBOS */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Especialidade</label>
-                    <select 
-                      value={formData.especialidade} 
-                      onChange={e => handleEspecialidadeChange(e.target.value)} 
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                    >
-                      {ESPECIALIDADES.map(e => (
-                        <option key={e.nome} value={e.nome}>{e.nome}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CBOS</label>
-                    <input 
-                      type="text" 
-                      value={formData.cbos} 
-                      disabled 
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-gray-100 dark:bg-gray-800 dark:text-gray-400 font-mono" 
-                    />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Código de ocupação da especialidade</p>
                   </div>
                 </div>
 
