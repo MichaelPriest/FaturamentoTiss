@@ -20,6 +20,7 @@ export function AuthProvider({ children }) {
           }
         } catch (e) {
           console.error('Erro ao parsear sessão:', e);
+          localStorage.removeItem('tiss_sessao');
         }
       }
       setLoading(false);
@@ -35,7 +36,9 @@ export function AuthProvider({ children }) {
     }
     
     try {
-      // Buscar na tabela usuarios (usando bigint ID)
+      console.log('Tentando login com:', email);
+      
+      // Buscar na tabela usuarios
       const { data, error } = await supabase
         .from('usuarios')
         .select('*')
@@ -48,6 +51,8 @@ export function AuthProvider({ children }) {
         toast.error('Usuário não encontrado');
         return { success: false };
       }
+
+      console.log('Usuário encontrado:', data?.nome);
 
       // Verificar senha
       if (data && data.senha === senha) {
@@ -64,7 +69,12 @@ export function AuthProvider({ children }) {
           perfil: data.perfil
         };
 
-        const sessao = { user: userData, logado: true, data_hora: new Date().toISOString() };
+        const sessao = { 
+          user: userData, 
+          logado: true, 
+          data_hora: new Date().toISOString() 
+        };
+        
         localStorage.setItem('tiss_sessao', JSON.stringify(sessao));
         
         setUser(userData);
