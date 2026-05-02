@@ -142,12 +142,14 @@ export default function Faturamento() {
 
   const carregarDados = async () => {
     try {
-      // Carregar atendimentos com status pendente E faturado
+      // Carregar APENAS atendimentos com status 'faturado'
       const { data } = await supabase
         .from('atendimentos')
         .select('*')
-        .in('status', ['pendente', 'faturado'])
+        .eq('status', 'faturado')  // ← MUDAR AQUI: apenas faturado
         .order('created_at', { ascending: false });
+      
+      console.log('Atendimentos FATURADOS carregados:', data?.length);
       
       setAtendimentos(data || []);
       
@@ -156,11 +158,11 @@ export default function Faturamento() {
         supabase.from('prestadores').select('*').order('nome'),
         supabase.from('procedimentos').select('*').order('nome')
       ]);
-
+  
       if (conveniosRes.error) throw conveniosRes.error;
       if (prestadoresRes.error) throw prestadoresRes.error;
       if (procedimentosRes.error) throw procedimentosRes.error;
-
+  
       setConvenios(conveniosRes.data || []);
       setPrestadores(prestadoresRes.data || []);
       setProcedimentos(procedimentosRes.data || []);
@@ -168,9 +170,6 @@ export default function Faturamento() {
       console.error('Erro ao carregar dados:', error);
       toast.error('Erro ao carregar dados');
       setAtendimentos([]);
-      setConvenios([]);
-      setPrestadores([]);
-      setProcedimentos([]);
     }
   };
 
@@ -852,8 +851,18 @@ export default function Faturamento() {
     setGerando(true);
     
     try {
-      // Reabrir as guias para status "pendente"
-      await supabase
+      const guiasIds = lote.guias_ids || [];
+      
+      if (guiasIds.length === 0) {
+        toast.error('Nenhuma guia encontrada neste lote');
+        setGerando(false);
+        return;
+      }
+      
+      console.log('Cancelando lote - IDs das guias:', guiasIds);
+      
+      // CORREÇÃO: Usar .in() corretamente com array de números
+      const { error: updateError } = await supabase
         .from('atendimentos')
         .update({ 
           status: 'pendente', 
@@ -861,46 +870,72 @@ export default function Faturamento() {
           data_faturamento: null,
           updated_at: new Date().toISOString() 
         })
-        .in('id', lote.guias_ids || []);
+        .in('id', guiasIds); // Isso deve funcionar se guiasIds for um array de números
       
-      await registrarLog('CANCELAMENTO_LOTE', lote, `Lote cancelado. Guias reabertas com status "pendente".`);
+      if (updateError) {
+        console.error('Erro ao atualizar guias:', updateError);
+        throw updateError;
+      }
+      
+      console.log(`${guiasIds.length} guia(s) atualizada(s) para status "pendente"`);
+      
+      await registrarLog('CANCELAMENTO_LOTE', lote, `Lote cancelado. ${guiasIds.length} guias reabertas com status "pendente".`);
       
       // Remover o lote da lista atual
-      await supabase
+      const { error: deleteError } = await supabase
         .from('lotes_faturamento')
         .delete()
         .eq('id', lote.id);
       
+      if (deleteError) throw deleteError;
+      
       await carregarLotes();
       await carregarDados();
-      toast.success('Lote cancelado e guias reabertas com status "pendente"!');
+      toast.success(`${guiasIds.length} guia(s) reaberta(s) com status "pendente"!`);
     } catch (error) {
-      console.error('Erro:', error);
-      toast.error('Erro ao cancelar lote');
+      console.error('Erro ao cancelar lote:', error);
+      toast.error('Erro ao cancelar lote: ' + (error.message || 'Erro desconhecido'));
     } finally {
       setGerando(false);
     }
   };
-
+  
   const finalizarLote = async (lote) => {
     if (!confirm(`Finalizar o lote ${lote.numero_lote}? As guias serão bloqueadas para edição permanente.`)) return;
     
     setGerando(true);
     
     try {
-      // Bloquear as guias para edição (status finalizado)
-      await supabase
+      const guiasIds = lote.guias_ids || [];
+      
+      if (guiasIds.length === 0) {
+        toast.error('Nenhuma guia encontrada neste lote');
+        setGerando(false);
+        return;
+      }
+      
+      console.log('Finalizando lote - IDs das guias:', guiasIds);
+      
+      // CORREÇÃO: Usar .in() corretamente com array de números
+      const { error: updateError } = await supabase
         .from('atendimentos')
         .update({ 
           status: 'finalizado',
           updated_at: new Date().toISOString() 
         })
-        .in('id', lote.guias_ids || []);
+        .in('id', guiasIds);
       
-      await registrarLog('FINALIZACAO_LOTE', lote, `Lote finalizado. Guias bloqueadas para edição.`);
+      if (updateError) {
+        console.error('Erro ao finalizar guias:', updateError);
+        throw updateError;
+      }
+      
+      console.log(`${guiasIds.length} guia(s) atualizada(s) para status "finalizado"`);
+      
+      await registrarLog('FINALIZACAO_LOTE', lote, `Lote finalizado. ${guiasIds.length} guias bloqueadas para edição.`);
       
       // Atualizar status do lote para finalizado
-      await supabase
+      const { error: updateLoteError } = await supabase
         .from('lotes_faturamento')
         .update({ 
           status: 'finalizado',
@@ -908,12 +943,14 @@ export default function Faturamento() {
         })
         .eq('id', lote.id);
       
+      if (updateLoteError) throw updateLoteError;
+      
       await carregarLotes();
       await carregarDados();
-      toast.success('Lote finalizado e guias bloqueadas para edição!');
+      toast.success(`${guiasIds.length} guia(s) finalizada(s) e bloqueada(s) para edição!`);
     } catch (error) {
-      console.error('Erro:', error);
-      toast.error('Erro ao finalizar lote');
+      console.error('Erro ao finalizar lote:', error);
+      toast.error('Erro ao finalizar lote: ' + (error.message || 'Erro desconhecido'));
     } finally {
       setGerando(false);
     }
