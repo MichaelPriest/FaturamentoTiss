@@ -227,6 +227,9 @@ export default function Atendimentos() {
     data_execucao: new Date().toISOString().split('T')[0],
     hora_inicial: '',
     hora_final: '',
+    viaAcesso: '1',        // 1=Ambulatorial, 2=Hospitalar, 3=Domiciliar, 4=Outros
+    tecnicaUtilizada: '1', // 1=Convencional, 2=Vídeo, 3=Robótica, 4=Outras
+    reducaoAcrescimo: '1.00',    
     tabela_referencia: '22',
     codigo_despesa: '',
     prestador_id: '',
@@ -844,6 +847,10 @@ export default function Atendimentos() {
       prestador_uf_conselho: prestador?.uf_conselho || '35',
       prestador_cbos: prestador?.cbos || '225125',
       pendente_autorizacao: pendenteAutorizacao,
+      // NOVOS CAMPOS
+      viaAcesso: currentItem.viaAcesso || '1',
+      tecnicaUtilizada: currentItem.tecnicaUtilizada || '1',
+      reducaoAcrescimo: currentItem.reducaoAcrescimo || '1.00',
       id: Date.now() + Math.random()
     };
     
@@ -1095,10 +1102,6 @@ export default function Atendimentos() {
       convenio_codigo_prestador: '',
       convenio_proximo_numero_guia: null
     });
-  };
-
-  const handleDelete = (id) => {
-    excluirAtendimento(id);
   };
 
   const handleEnviarFaturamento = (id) => {
@@ -2216,12 +2219,14 @@ export default function Atendimentos() {
                                 <tr>
                                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Seq</th>
                                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data</th>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Hora Início</th>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Hora Fim</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">H.Início</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">H.Fim</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Via Acesso</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Técnica</th>
                                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Código</th>
                                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Descrição</th>
                                   <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd</th>
-                                  <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Total</th>
+                                  <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor</th>
                                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Profissional</th>
                                   <th className="px-2 py-2 text-center w-20">Ações</th>
                                 </tr>
@@ -2425,6 +2430,27 @@ export default function Atendimentos() {
                               <label className="block text-xs text-gray-500 mb-1">H.Fim</label>
                               <input type="time" value={currentItem.hora_final} onChange={e => setCurrentItem({...currentItem, hora_final: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" />
                             </div>
+                           {/* NOVOS CAMPOS TISS */}
+                            <div className="md:col-span-1">
+                              <label className="block text-xs text-gray-500 mb-1">Via Acesso</label>
+                              <select value={currentItem.viaAcesso} onChange={e => setCurrentItem({...currentItem, viaAcesso: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm">
+                                <option value="1">Única</option>
+                                <option value="2">Mesma via</option>
+                                <option value="3">Diferentes vias</option>
+                              </select>
+                            </div>
+                            <div className="md:col-span-1">
+                              <label className="block text-xs text-gray-500 mb-1">Técnica Utilizada</label>
+                              <select value={currentItem.tecnicaUtilizada} onChange={e => setCurrentItem({...currentItem, tecnicaUtilizada: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm">
+                                <option value="1">Convencional</option>
+                                <option value="2">Vídeo</option>
+                                <option value="3">Robótica</option>
+                              </select>
+                            </div>
+                            <div className="md:col-span-1">
+                              <label className="block text-xs text-gray-500 mb-1">Redução/Acréscimo (%)</label>
+                              <input type="number" step="0.01" min="0" max="100" value={currentItem.reducaoAcrescimo} onChange={e => setCurrentItem({...currentItem, reducaoAcrescimo: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm text-center" />
+                            </div>                         
                             <div className="md:col-span-2">
                               <label className="block text-xs text-gray-500 mb-1">Item</label>
                               <input type="text" value={currentItem.nome} disabled className="w-full bg-gray-100 border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" />
