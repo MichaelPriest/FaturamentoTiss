@@ -856,9 +856,11 @@ export default function Atendimentos() {
   
   const [searchPacienteTerm, setSearchPacienteTerm] = useState('');
 
-  // Filtrar pacientes por nome, CPF ou data de nascimento
+  // Filtrar pacientes por nome, CPF ou data de nascimento - VERSÃO CORRIGIDA
   const pacientesFiltrados = useMemo(() => {
-    if (!searchPacienteTerm) return pacientes;
+    if (!searchPacienteTerm || searchPacienteTerm.trim() === '') {
+      return pacientes;
+    }
     
     const term = searchPacienteTerm.toLowerCase().trim();
     
@@ -877,14 +879,16 @@ export default function Atendimentos() {
       }
     }
     
+    // Tentar interpretar como CPF (remover pontos e traços)
+    const termLimpo = term.replace(/[\.\-]/g, '');
+    
     return pacientes.filter(p => {
       // Buscar por nome
-      if (p.nome?.toLowerCase().includes(term)) return true;
+      if (p.nome && p.nome.toLowerCase().includes(term)) return true;
       
       // Buscar por CPF (remover pontos e traços)
-      const cpfLimpo = p.cpf?.replace(/[\.\-]/g, '');
-      const termLimpo = term.replace(/[\.\-]/g, '');
-      if (cpfLimpo?.includes(termLimpo)) return true;
+      const cpfLimpo = p.cpf ? p.cpf.replace(/[\.\-]/g, '') : '';
+      if (cpfLimpo && cpfLimpo.includes(termLimpo)) return true;
       
       // Buscar por data de nascimento
       if (dataBusca && p.data_nascimento) {
@@ -894,7 +898,7 @@ export default function Atendimentos() {
       }
       
       // Buscar por número da carteira
-      if (p.numero_carteira?.toLowerCase().includes(term)) return true;
+      if (p.numero_carteira && p.numero_carteira.toLowerCase().includes(term)) return true;
       
       return false;
     });
@@ -1311,9 +1315,9 @@ export default function Atendimentos() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Carteira</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Convênio</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Itens</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Valor Total</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Valor Total</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-32">Ações</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-36">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -1323,22 +1327,45 @@ export default function Atendimentos() {
                       {a.data_atendimento ? format(new Date(a.data_atendimento), 'dd/MM/yyyy') : 
                        (a.itens && a.itens[0] ? format(new Date(a.itens[0].data_execucao), 'dd/MM/yyyy') : '-')}
                     </td>
-                    <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">{a.numero_guia_prestador}</td>
-                    <td className="px-4 py-3 text-sm text-gray-800 dark:text-gray-200">{a.paciente_nome}</td>
-                    <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">{a.numero_carteira}</td>
+                    <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
+                      {a.numero_guia_prestador}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-800 dark:text-gray-200">
+                      {a.paciente_nome}
+                    </td>
+                    <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
+                      {a.numero_carteira}
+                    </td>
                     <td className="px-4 py-3 text-sm">
                       <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${a.paciente_convenio_nome && a.paciente_convenio_nome !== 'Sem convênio' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
                         {a.paciente_convenio_nome || '-'}
                       </span>
                     </td>
+                    <td className="px-4 py-3 text-sm text-center">
+                      <button onClick={() => handleViewItens(a)} className="text-blue-600 hover:text-blue-800 flex items-center gap-1 mx-auto" title="Ver itens">
+                        <DocumentPlusIcon className="w-4 h-4" />
+                        <span className="font-bold">{a.itens?.length || 0}</span>
+                      </button>
+                    </td>
+                    {/* Célula do Valor Total */}
+                    <td className="px-4 py-3 text-sm text-right font-semibold text-gray-700 dark:text-gray-300">
+                      {a.valor_total ? `R$ ${a.valor_total.toFixed(2)}` : 'R$ 0,00'}
+                    </td>
+                    {/* Célula do Status */}
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getStatusCor(a.status || 'pendente')}`}>
+                        {STATUS_ATENDIMENTO.find(s => s.value === (a.status || 'pendente'))?.label || (a.status || 'Pendente')}
+                      </span>
+                    </td>
+                    {/* Célula de Ações */}
                     <td className="px-4 py-3 text-center">
-                      <div className="flex gap-1 justify-center">
+                      <div className="flex gap-1 justify-center flex-wrap">
                         <button onClick={() => handleViewItens(a)} className="p-1 rounded-lg text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Ver Itens">
                           <EyeIcon className="w-4 h-4" />
                         </button>
                         
                         {/* Botão para Autorizar */}
-                        {a.status === 'pendente' && a.itens_autorizados?.length > 0 && (
+                        {(a.status === 'pendente' || a.status === 'parcial') && a.itens_autorizados?.length > 0 && (
                           <button onClick={() => alterarStatusManual(a.id, 'autorizado')} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Autorizar">
                             <CheckIcon className="w-4 h-4" />
                           </button>
@@ -1585,6 +1612,11 @@ export default function Atendimentos() {
                             className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
                           />
                         </div>
+                        {searchPacienteTerm && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            {pacientesFiltrados.length} paciente(s) encontrado(s)
+                          </p>
+                        )}
                       </div>
                       
                       <div>
@@ -1602,6 +1634,11 @@ export default function Atendimentos() {
                             </option>
                           ))}
                         </select>
+                        {pacientesFiltrados.length === 0 && searchPacienteTerm && (
+                          <p className="text-xs text-red-500 mt-1">
+                            Nenhum paciente encontrado com o termo "{searchPacienteTerm}"
+                          </p>
+                        )}
                         {formData.paciente_carteira && (
                           <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                             <p className="text-xs text-blue-700 dark:text-blue-300">
