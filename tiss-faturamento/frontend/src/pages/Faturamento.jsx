@@ -22,7 +22,9 @@ import {
   CalendarIcon,
   XCircleIcon,
   PrinterIcon,
-  ArchiveBoxIcon
+  ArchiveBoxIcon,
+  PlayIcon,
+  StopIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -45,6 +47,7 @@ export default function Faturamento() {
   const [filtroEspecialidade, setFiltroEspecialidade] = useState('todos');
   const [filtroPrestador, setFiltroPrestador] = useState('todos');
   const [filtroTipoAtendimento, setFiltroTipoAtendimento] = useState('todos');
+  const [filtroStatus, setFiltroStatus] = useState('pendente'); // NOVO: filtrar por status
   const [ordem, setOrdem] = useState('guia');
   const [ordemDirecao, setOrdemDirecao] = useState('asc');
   const [versaoTISS, setVersaoTISS] = useState('4.03.00');
@@ -139,19 +142,25 @@ export default function Faturamento() {
 
   const carregarDados = async () => {
     try {
-      const [atendimentosRes, conveniosRes, prestadoresRes, procedimentosRes] = await Promise.all([
-        supabase.from('atendimentos').select('*').eq('status', 'pendente').order('created_at', { ascending: false }),
+      // Carregar atendimentos com status pendente E faturado
+      const { data } = await supabase
+        .from('atendimentos')
+        .select('*')
+        .in('status', ['pendente', 'faturado'])
+        .order('created_at', { ascending: false });
+      
+      setAtendimentos(data || []);
+      
+      const [conveniosRes, prestadoresRes, procedimentosRes] = await Promise.all([
         supabase.from('convenios').select('*').eq('ativo', true).order('razao_social'),
         supabase.from('prestadores').select('*').order('nome'),
         supabase.from('procedimentos').select('*').order('nome')
       ]);
 
-      if (atendimentosRes.error) throw atendimentosRes.error;
       if (conveniosRes.error) throw conveniosRes.error;
       if (prestadoresRes.error) throw prestadoresRes.error;
       if (procedimentosRes.error) throw procedimentosRes.error;
 
-      setAtendimentos(atendimentosRes.data || []);
       setConvenios(conveniosRes.data || []);
       setPrestadores(prestadoresRes.data || []);
       setProcedimentos(procedimentosRes.data || []);
@@ -192,7 +201,7 @@ export default function Faturamento() {
   };
 
   // ============================================
-  // FUNÇÕES DE UTILIDADE - CORRIGIDAS
+  // FUNÇÕES DE UTILIDADE
   // ============================================
 
   const gerarNumeroLote = () => {
@@ -200,12 +209,10 @@ export default function Faturamento() {
     const ano = data.getFullYear().toString().slice(-2);
     const mes = (data.getMonth() + 1).toString().padStart(2, '0');
     const dia = data.getDate().toString().padStart(2, '0');
-    // O sequencialGlobal começa em 1 por padrão
     const seq = sequencialGlobal.toString().padStart(6, '0');
     return `${ano}${mes}${dia}${seq}`;
   };
 
-  // Função pura para calcular impostos (não usa estado)
   const calcularImpostos = (baseCalculo, aliquotaISS, aliquotaIBS, aliquotaCBS, aliquotaIR, aliquotaCSLL, aliquotaPIS, aliquotaCOFINS) => {
     const iss = (baseCalculo * aliquotaISS) / 100;
     const ibs = (baseCalculo * aliquotaIBS) / 100;
@@ -219,7 +226,6 @@ export default function Faturamento() {
     return { iss, ibs, cbs, ir, csll, pis, cofins, totalImpostos, valorLiquido };
   };
 
-  // Função para atualizar o estado (sem useCallback para evitar dependências desnecessárias)
   const atualizarTodosImpostos = (baseCalculo) => {
     setDadosFatura(prev => {
       const impostos = calcularImpostos(
@@ -247,7 +253,6 @@ export default function Faturamento() {
     });
   };
 
-  // Função para atualizar uma alíquota específica
   const atualizarAliquota = (campo, valor) => {
     const novaAliquota = parseFloat(valor) || 0;
     
@@ -335,11 +340,16 @@ export default function Faturamento() {
   // FUNÇÕES DE FILTRAGEM E SELEÇÃO
   // ============================================
 
-  const pendentes = Array.isArray(atendimentos) ? atendimentos.filter(a => a.status === 'pendente') : [];
-  const todosAtendimentos = [...pendentes, ...(Array.isArray(atendimentos) ? atendimentos.filter(a => bloqueados.includes(a.id) && a.status === 'pendente') : [])];
+  const pendentes = atendimentos.filter(a => a.status === 'pendente');
+  const faturados = atendimentos.filter(a => a.status === 'faturado');
   
-  const pendentesFiltrados = useMemo(() => {
-    let filtrados = [...todosAtendimentos];
+  // FILTRO POR STATUS (pendente ou faturado)
+  const atendimentosFiltradosPorStatus = filtroStatus === 'pendente' ? pendentes : faturados;
+  
+  const todosAtendimentosFiltrados = atendimentosFiltradosPorStatus.filter(a => !bloqueados.includes(a.id));
+  
+  const atendimentosFiltrados = useMemo(() => {
+    let filtrados = [...todosAtendimentosFiltrados];
     
     if (filtroConvenio !== 'todos') {
       filtrados = filtrados.filter(a => a.paciente_convenio_id === parseInt(filtroConvenio));
@@ -385,21 +395,20 @@ export default function Faturamento() {
     });
     
     return filtrados;
-  }, [todosAtendimentos, filtroConvenio, filtroEspecialidade, filtroPrestador, filtroTipoAtendimento, ordem, ordemDirecao]);
+  }, [todosAtendimentosFiltrados, filtroConvenio, filtroEspecialidade, filtroPrestador, filtroTipoAtendimento, ordem, ordemDirecao]);
 
-  const pendentesPorConvenio = useMemo(() => {
-    return pendentesFiltrados.reduce((acc, a) => {
+  const atendimentosPorConvenio = useMemo(() => {
+    return atendimentosFiltrados.reduce((acc, a) => {
       const convenioId = a.paciente_convenio_id;
       if (!acc[convenioId]) acc[convenioId] = [];
       acc[convenioId].push(a);
       return acc;
     }, {});
-  }, [pendentesFiltrados]);
+  }, [atendimentosFiltrados]);
 
-  // previewData CORRIGIDO - sem atualização de estado dentro do useMemo
   const previewData = useMemo(() => {
     if (selecionados.length === 0) return null;
-    const atendimentosSelecionados = pendentes.filter(a => selecionados.includes(a.id));
+    const atendimentosSelecionados = atendimentosFiltrados.filter(a => selecionados.includes(a.id));
     const valorTotal = atendimentosSelecionados.reduce((sum, a) => sum + (a.valor_total || 0), 0);
     
     return {
@@ -420,11 +429,13 @@ export default function Faturamento() {
         return acc;
       }, {})
     };
-  }, [selecionados, pendentes, convenios]);
+  }, [selecionados, atendimentosFiltrados, convenios]);
 
   const totalSelecionados = selecionados.length;
   const totalPendentes = pendentes.length;
+  const totalFaturados = faturados.length;
   const valorTotalPendente = pendentes.reduce((sum, a) => sum + (a.valor_total || 0), 0);
+  const valorTotalFaturado = faturados.reduce((sum, a) => sum + (a.valor_total || 0), 0);
 
   // ============================================
   // FUNÇÕES DE INTERAÇÃO
@@ -444,7 +455,7 @@ export default function Faturamento() {
   };
 
   const selecionarTodos = () => {
-    const ids = pendentesFiltrados.filter(a => !bloqueados.includes(a.id)).map(a => a.id);
+    const ids = atendimentosFiltrados.filter(a => !bloqueados.includes(a.id) && a.status === 'pendente').map(a => a.id);
     setSelecionados(ids);
   };
 
@@ -468,7 +479,6 @@ export default function Faturamento() {
     }
   };
 
-  // abrirPrevia CORRIGIDO - gerando o número do lote aqui
   const abrirPrevia = () => {
     if (selecionados.length === 0) {
       toast.error('Selecione pelo menos uma guia para faturar');
@@ -536,7 +546,7 @@ export default function Faturamento() {
       });
       conteudo += `
           </tbody>
-          <tfoot><tr><td colspan="7" class="total">Total:</td><td class="total">R$ ${data.valorTotal.toFixed(2)}</td></tr>
+          <tfoot><tr><td colspan="7" class="total">Total:</td><td class="total">R$ ${data.valorTotal.toFixed(2)}</td></tr></tfoot>
         </table>
       `;
     });
@@ -837,11 +847,12 @@ export default function Faturamento() {
   };
 
   const cancelarLote = async (lote) => {
-    if (!confirm(`Cancelar o lote ${lote.numero_lote}? As guias serão reabertas.`)) return;
+    if (!confirm(`Cancelar o lote ${lote.numero_lote}? As guias serão reabertas com status "pendente".`)) return;
     
     setGerando(true);
     
     try {
+      // Reabrir as guias para status "pendente"
       await supabase
         .from('atendimentos')
         .update({ 
@@ -852,8 +863,9 @@ export default function Faturamento() {
         })
         .in('id', lote.guias_ids || []);
       
-      await registrarLog('CANCELAMENTO_LOTE', lote, `Lote cancelado. Guias reabertas.`);
+      await registrarLog('CANCELAMENTO_LOTE', lote, `Lote cancelado. Guias reabertas com status "pendente".`);
       
+      // Remover o lote da lista atual
       await supabase
         .from('lotes_faturamento')
         .delete()
@@ -861,10 +873,47 @@ export default function Faturamento() {
       
       await carregarLotes();
       await carregarDados();
-      toast.success('Lote cancelado e guias reabertas!');
+      toast.success('Lote cancelado e guias reabertas com status "pendente"!');
     } catch (error) {
       console.error('Erro:', error);
       toast.error('Erro ao cancelar lote');
+    } finally {
+      setGerando(false);
+    }
+  };
+
+  const finalizarLote = async (lote) => {
+    if (!confirm(`Finalizar o lote ${lote.numero_lote}? As guias serão bloqueadas para edição permanente.`)) return;
+    
+    setGerando(true);
+    
+    try {
+      // Bloquear as guias para edição (status finalizado)
+      await supabase
+        .from('atendimentos')
+        .update({ 
+          status: 'finalizado',
+          updated_at: new Date().toISOString() 
+        })
+        .in('id', lote.guias_ids || []);
+      
+      await registrarLog('FINALIZACAO_LOTE', lote, `Lote finalizado. Guias bloqueadas para edição.`);
+      
+      // Atualizar status do lote para finalizado
+      await supabase
+        .from('lotes_faturamento')
+        .update({ 
+          status: 'finalizado',
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', lote.id);
+      
+      await carregarLotes();
+      await carregarDados();
+      toast.success('Lote finalizado e guias bloqueadas para edição!');
+    } catch (error) {
+      console.error('Erro:', error);
+      toast.error('Erro ao finalizar lote');
     } finally {
       setGerando(false);
     }
@@ -887,7 +936,7 @@ export default function Faturamento() {
   };
 
   // ============================================
-  // EFECTS
+  // EFFECTS
   // ============================================
 
   useEffect(() => {
@@ -1003,11 +1052,17 @@ export default function Faturamento() {
         )}
 
         {/* Cards de resumo */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-xl border p-4 hover:shadow-md transition-shadow">
             <div className="flex justify-between items-center">
               <div><p className="text-xs text-gray-500 dark:text-gray-400">Total Pendentes</p><p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{totalPendentes}</p></div>
               <ClockIcon className="w-8 h-8 text-yellow-500 opacity-50" />
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl border p-4 hover:shadow-md transition-shadow">
+            <div className="flex justify-between items-center">
+              <div><p className="text-xs text-gray-500 dark:text-gray-400">Total Faturados</p><p className="text-2xl font-bold text-green-600 dark:text-green-400">{totalFaturados}</p></div>
+              <CheckIcon className="w-8 h-8 text-green-500 opacity-50" />
             </div>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl border p-4 hover:shadow-md transition-shadow">
@@ -1038,6 +1093,20 @@ export default function Faturamento() {
 
         {/* Botões de Ação Rápida */}
         <div className="flex flex-wrap gap-2 mb-4">
+          <div className="flex gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+            <button 
+              onClick={() => setFiltroStatus('pendente')} 
+              className={`px-3 py-1.5 rounded-md text-sm transition-all ${filtroStatus === 'pendente' ? 'bg-yellow-500 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
+            >
+              <ClockIcon className="w-4 h-4 inline mr-1" /> Pendentes
+            </button>
+            <button 
+              onClick={() => setFiltroStatus('faturado')} 
+              className={`px-3 py-1.5 rounded-md text-sm transition-all ${filtroStatus === 'faturado' ? 'bg-green-500 text-white' : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
+            >
+              <CheckIcon className="w-4 h-4 inline mr-1" /> Faturados
+            </button>
+          </div>
           <button onClick={selecionarTodos} className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg text-sm hover:from-blue-600 hover:to-blue-700 transition-all">Selecionar Todos (Não Bloqueados)</button>
           <button onClick={desmarcarTodos} className="px-3 py-1.5 bg-gray-500 text-white rounded-lg text-sm hover:bg-gray-600 transition-all">Desmarcar Todos</button>
           <button onClick={selecionarBloqueados} className="px-3 py-1.5 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600 transition-all">Selecionar Bloqueados</button>
@@ -1049,7 +1118,7 @@ export default function Faturamento() {
         {/* Filtros Avançados */}
         {showFiltrosAvancados && (
           <div className="bg-white dark:bg-gray-800 rounded-xl border p-4 mb-4 shadow-sm">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Convênio</label>
                 <select value={filtroConvenio} onChange={(e) => setFiltroConvenio(e.target.value)} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white">
@@ -1093,13 +1162,12 @@ export default function Faturamento() {
 
         {/* Lista de atendimentos por convênio */}
         <div className="space-y-4">
-          {Object.entries(pendentesPorConvenio).map(([convenioId, convenioAtendimentos], index) => {
+          {Object.entries(atendimentosPorConvenio).map(([convenioId, convenioAtendimentos], index) => {
             const convenio = convenios.find(c => c.id === parseInt(convenioId));
             if (!convenio) return null;
             const selecionadosCount = convenioAtendimentos.filter(a => selecionados.includes(a.id)).length;
             const totalConvenio = convenioAtendimentos.reduce((sum, a) => sum + (a.valor_total || 0), 0);
-            
-            const idsConvenio = convenioAtendimentos.filter(a => !bloqueados.includes(a.id)).map(a => a.id);
+            const idsConvenio = convenioAtendimentos.filter(a => !bloqueados.includes(a.id) && a.status === 'pendente').map(a => a.id);
             
             return (
               <div key={convenio.id || `convenio-${convenioId}-${index}`} className="bg-white dark:bg-gray-800 rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow">
@@ -1135,7 +1203,8 @@ export default function Faturamento() {
                                 }
                               }
                             }} 
-                            className="rounded w-4 h-4 text-blue-600 focus:ring-blue-500" 
+                            disabled={filtroStatus === 'faturado'}
+                            className="rounded w-4 h-4 text-blue-600 focus:ring-blue-500 disabled:opacity-50" 
                           />
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Nº Guia</th>
@@ -1146,18 +1215,18 @@ export default function Faturamento() {
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Carteira</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Profissional</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor</th>
-                        <th className="px-4 py-3 text-center w-24">Ações</th>
+                        <th className="px-4 py-3 text-center w-28">Ações</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                       {convenioAtendimentos.map((a) => (
-                        <tr key={a.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${bloqueados.includes(a.id) ? 'bg-orange-50 dark:bg-orange-900/20' : ''}`}>
+                        <tr key={a.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${bloqueados.includes(a.id) ? 'bg-orange-50 dark:bg-orange-900/20' : ''} ${a.status === 'faturado' ? 'bg-green-50 dark:bg-green-900/10' : ''}`}>
                           <td className="px-4 py-3">
                             <input 
                               type="checkbox" 
                               checked={selecionados.includes(a.id)} 
                               onChange={() => handleSelectItem(a.id)} 
-                              disabled={bloqueados.includes(a.id)} 
+                              disabled={bloqueados.includes(a.id) || a.status === 'faturado'} 
                               className="rounded w-4 h-4 text-blue-600 focus:ring-blue-500 disabled:opacity-50" 
                             />
                           </td>
@@ -1170,18 +1239,25 @@ export default function Faturamento() {
                           <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">{a.prestador_nome || '-'}</td>
                           <td className="px-4 py-3 text-xs font-semibold text-right text-gray-700 dark:text-gray-300">R$ {(a.valor_total || 0).toFixed(2)}</td>
                           <td className="px-4 py-3 text-center">
-                            <button onClick={() => toggleBloqueio(a.id)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title={bloqueados.includes(a.id) ? 'Desbloquear' : 'Bloquear'}>
-                              {bloqueados.includes(a.id) ? <LockOpenIcon className="w-4 h-4 text-green-500" /> : <LockClosedIcon className="w-4 h-4 text-orange-500" />}
-                            </button>
-                           </td>
-                         </tr>
+                            <div className="flex gap-1 justify-center">
+                              <button 
+                                onClick={() => toggleBloqueio(a.id)} 
+                                disabled={a.status === 'faturado'} 
+                                className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50" 
+                                title={bloqueados.includes(a.id) ? 'Desbloquear' : 'Bloquear'}
+                              >
+                                {bloqueados.includes(a.id) ? <LockOpenIcon className="w-4 h-4 text-green-500" /> : <LockClosedIcon className="w-4 h-4 text-orange-500" />}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
                       ))}
                     </tbody>
                     <tfoot className="bg-gray-50 dark:bg-gray-700/50">
                       <tr className="border-t">
                         <td colSpan="8" className="px-4 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">Total do Convênio:</td>
                         <td className="px-4 py-3 text-right font-bold text-blue-600 dark:text-blue-400">R$ {totalConvenio.toFixed(2)}</td>
-                        <td></td>
+                        <td className="px-4 py-3"></td>
                       </tr>
                     </tfoot>
                   </table>
@@ -1191,10 +1267,17 @@ export default function Faturamento() {
           })}
         </div>
 
-        {totalPendentes === 0 && (
+        {atendimentosFiltrados.length === 0 && filtroStatus === 'pendente' && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl border p-12 text-center">
+            <ClockIcon className="w-12 h-12 mx-auto mb-3 text-yellow-500 opacity-50" />
+            <p className="text-gray-500 dark:text-gray-400">Nenhum atendimento pendente de faturamento</p>
+          </div>
+        )}
+
+        {atendimentosFiltrados.length === 0 && filtroStatus === 'faturado' && (
           <div className="bg-white dark:bg-gray-800 rounded-xl border p-12 text-center">
             <CheckIcon className="w-12 h-12 mx-auto mb-3 text-green-500 opacity-50" />
-            <p className="text-gray-500 dark:text-gray-400">Nenhum atendimento pendente de faturamento</p>
+            <p className="text-gray-500 dark:text-gray-400">Nenhum atendimento faturado encontrado</p>
           </div>
         )}
 
@@ -1215,7 +1298,7 @@ export default function Faturamento() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Guias</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Valor</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 w-48">Ações</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 w-56">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -1237,8 +1320,11 @@ export default function Faturamento() {
                           <button onClick={() => regenerarLote(g)} disabled={gerando} className="p-1 rounded-lg text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors" title="Regenerar XML">
                             <ArrowPathIcon className="w-4 h-4" />
                           </button>
-                          <button onClick={() => cancelarLote(g)} disabled={gerando} className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Cancelar Lote">
+                          <button onClick={() => cancelarLote(g)} disabled={gerando} className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Cancelar Lote (Reabrir Guias)">
                             <XCircleIcon className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => finalizarLote(g)} disabled={gerando} className="p-1 rounded-lg text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors" title="Finalizar Lote (Bloquear Edição)">
+                            <LockClosedIcon className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -1284,8 +1370,8 @@ export default function Faturamento() {
                       <tr key={log.id || `log-${log.created_at}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                         <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{new Date(log.created_at).toLocaleString()}</td>
                         <td className="px-4 py-3 text-xs">
-                          <span className={`px-2 py-1 rounded-full text-xs ${log.acao === 'GERACAO_LOTE' ? 'bg-green-100 text-green-700' : log.acao === 'CANCELAMENTO_LOTE' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                            {log.acao === 'GERACAO_LOTE' ? 'Geração' : log.acao === 'CANCELAMENTO_LOTE' ? 'Cancelamento' : 'Regeneração'}
+                          <span className={`px-2 py-1 rounded-full text-xs ${log.acao === 'GERACAO_LOTE' ? 'bg-green-100 text-green-700' : log.acao === 'CANCELAMENTO_LOTE' ? 'bg-red-100 text-red-700' : log.acao === 'FINALIZACAO_LOTE' ? 'bg-purple-100 text-purple-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                            {log.acao === 'GERACAO_LOTE' ? 'Geração' : log.acao === 'CANCELAMENTO_LOTE' ? 'Cancelamento' : log.acao === 'FINALIZACAO_LOTE' ? 'Finalização' : 'Regeneração'}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-xs font-mono text-blue-600">{log.numero_lote}</td>
@@ -1517,10 +1603,10 @@ export default function Faturamento() {
           <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-1">
             <li>• <strong>Guias bloqueadas</strong> aparecem com fundo laranja e não podem ser faturadas</li>
             <li>• Use os botões de bloqueio/desbloqueio para controlar quais guias entrarão no faturamento</li>
-            <li>• Após faturar, as guias ficam bloqueadas e não podem ser alteradas no módulo de atendimentos</li>
-            <li>• Para reabrir as guias, cancele o lote no histórico</li>
+            <li>• Após faturar, as guias ficam com status "faturado"</li>
+            <li>• <strong>Cancelar um lote</strong> reabre as guias com status "pendente" permitindo edição</li>
+            <li>• <strong>Finalizar um lote</strong> bloqueia as guias permanentemente (status "finalizado")</li>
             <li>• Use "Gerar por Nº Lote" para regenerar o XML de um lote específico</li>
-            <li>• Cancelar um lote move o registro para o histórico de logs e remove da lista principal</li>
             <li>• Limite máximo de <strong>{MAX_GUIAS_POR_LOTE} guias por lote</strong></li>
             <li>• O número do lote é gerado automaticamente no momento da baixa da fatura</li>
           </ul>
