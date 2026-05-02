@@ -774,6 +774,7 @@ export default function Atendimentos() {
     setEditing(null);
     setEditandoItem(null);
     setItensGuia([]);
+    setAba('paciente');
     setFormData({
       paciente_id: '',
       observacao: '',
@@ -821,6 +822,7 @@ export default function Atendimentos() {
   const handleEdit = (atendimento) => {
     setEditing(atendimento);
     setItensGuia(atendimento.itens || []);
+    setAba('paciente');
     setFormData({
       ...atendimento,
       paciente_id: atendimento.paciente_id,
@@ -930,7 +932,7 @@ export default function Atendimentos() {
           </div>
         </div>
 
-        {/* Cards de resumo com novos status */}
+        {/* Cards de resumo */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
@@ -1090,7 +1092,7 @@ export default function Atendimentos() {
           </div>
         </div>
 
-        {/* Modal de Visualização de Itens - Incluir alerta de pendência */}
+        {/* Modal de Visualização de Itens */}
         {showItensModal && selectedGuia && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[80vh] overflow-y-auto">
@@ -1191,11 +1193,11 @@ export default function Atendimentos() {
           </div>
         )}
 
-        {/* Modal de Cadastro/Edição - continua igual mas com campos de quantidade autorizada */}
+        {/* Modal de Cadastro/Edição */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
+              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5 z-10">
                 <div className="flex justify-between items-center">
                   <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
                     {editing ? 'Editar Guia' : 'Nova Guia'}
@@ -1207,7 +1209,7 @@ export default function Atendimentos() {
               </div>
               
               <div className="p-5">
-                {/* Tabs - mesmo código anterior */}
+                {/* Tabs */}
                 <div className="flex flex-wrap gap-1 border-b border-gray-200 dark:border-gray-700 mb-5">
                   <button onClick={() => setAba('paciente')} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${aba === 'paciente' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}>
                     <UserGroupIcon className="w-4 h-4 inline mr-1" /> Paciente
@@ -1227,7 +1229,7 @@ export default function Atendimentos() {
                 </div>
                 
                 <form onSubmit={handleSubmit}>
-                  {/* Aba Paciente - mesmo código */}
+                  {/* Aba Paciente */}
                   {aba === 'paciente' && (
                     <div className="space-y-4">
                       <div>
@@ -1277,13 +1279,12 @@ export default function Atendimentos() {
                     </div>
                   )}
 
-                  {/* Aba Autorização - com controle de quantidades autorizadas por item */}
+                  {/* Aba Autorização */}
                   {aba === 'autorizacao' && (
                     <div className="space-y-4">
                       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-4">
                         <p className="text-xs text-blue-700 dark:text-blue-300">
                           <strong>📋 Autorização da Guia:</strong> Preencha os dados de autorização fornecidos pela operadora.
-                          Para cada item, informe a <strong>Quantidade Autorizada</strong> para controle de saldo.
                         </p>
                       </div>
                       
@@ -1328,7 +1329,6 @@ export default function Atendimentos() {
                         </div>
                       </div>
                   
-                      {/* Tabela de itens com quantidade autorizada */}
                       {itensGuia.length > 0 && (
                         <div className="mt-4">
                           <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Itens da Guia - Autorização</h4>
@@ -1376,7 +1376,7 @@ export default function Atendimentos() {
                                               
                                               setItensGuia(itensGuia.map(i => i.id === item.id ? novoItem : i));
                                             }}
-                                            className="w-20 border rounded px-2 py-1 text-xs text-center dark:bg-gray-700"
+                                            className="w-20 border rounded px-2 py-1 text-xs text-center dark:bg-gray-700 dark:text-white"
                                           />
                                         </td>
                                         <td className={`px-3 py-2 text-xs text-center font-semibold ${saldo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -1395,14 +1395,14 @@ export default function Atendimentos() {
                             </div>
                           </div>
                           <p className="text-xs text-gray-500 mt-2">
-                            * Informe a quantidade autorizada pela operadora para cada item. O sistema calculará o saldo automaticamente.
+                            * Informe a quantidade autorizada pela operadora para cada item.
                           </p>
                         </div>
                       )}
                     </div>
                   )}
 
-                  {/* Aba Solicitante - mesmo código com busca por conselho */}
+                  {/* Aba Solicitante */}
                   {aba === 'solicitante' && (
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1434,7 +1434,7 @@ export default function Atendimentos() {
                                 setBuscaProfissional(e.target.value);
                                 buscarProfissionalPorConselho(e.target.value);
                               }}
-                              placeholder="Digite o número do conselho (ex: 124182)" 
+                              placeholder="Digite o número do conselho" 
                               className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
                             />
                             {buscandoProfissional && (
@@ -1483,20 +1483,19 @@ export default function Atendimentos() {
                           </select>
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CBOS (Código CBO)</label>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CBOS</label>
                           <input 
                             type="text" 
                             value={formData.cbos_solicitante} 
                             onChange={e => setFormData({...formData, cbos_solicitante: e.target.value})} 
                             className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                            placeholder="Ex: 225125 - Médico neurologista" 
                           />
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {/* Aba Atendimento - mesmo código */}
+                  {/* Aba Atendimento */}
                   {aba === 'atendimento' && (
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1614,13 +1613,12 @@ export default function Atendimentos() {
                     </div>
                   )}
 
-                  {/* Aba Procedimentos - com edição e controle de quantidade autorizada */}
+                  {/* Aba Procedimentos */}
                   {aba === 'procedimentos' && (
                     <div className="space-y-4">
                       <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
                         <p className="text-sm text-blue-700 dark:text-blue-300">
-                          <strong>ℹ️ Informações:</strong> Selecione o tipo de item, busque por código ou descrição, e preencha os dados do atendimento.
-                          Se houver autorização, informe a <strong>Quantidade Autorizada</strong> para controle de saldo.
+                          <strong>ℹ️ Informações:</strong> Selecione o tipo de item e busque por código ou descrição.
                         </p>
                       </div>
 
@@ -1635,33 +1633,19 @@ export default function Atendimentos() {
                                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Código</th>
                                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Descrição</th>
                                   <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd</th>
-                                  <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd Aut.</th>
-                                  <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Saldo</th>
-                                  <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Unit.</th>
                                   <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Total</th>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Profissional</th>
                                   <th className="px-2 py-2 text-center w-16">Ações</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                                 {itensGuia.map((item, idx) => (
-                                  <tr key={item.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${item.pendente_autorizacao ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}>
+                                  <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                                     <td className="px-2 py-2 text-xs text-center">{idx + 1}</td>
                                     <td className="px-2 py-2 text-xs">{item.data_execucao}</td>
                                     <td className="px-2 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
                                     <td className="px-2 py-2 text-xs">{item.nome}</td>
                                     <td className="px-2 py-2 text-xs text-center font-medium">{item.quantidade}</td>
-                                    <td className="px-2 py-2 text-xs text-center">{item.quantidade_autorizada > 0 ? item.quantidade_autorizada : '-'}</td>
-                                    <td className="px-2 py-2 text-xs text-center">
-                                      {item.quantidade_autorizada > 0 ? (
-                                        <span className={`font-semibold ${item.saldo_autorizado >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                          {item.saldo_autorizado}
-                                        </span>
-                                      ) : '-'}
-                                    </td>
-                                    <td className="px-2 py-2 text-xs text-right">R$ {item.valor_unitario?.toFixed(2)}</td>
                                     <td className="px-2 py-2 text-xs text-right font-semibold">R$ {item.valor_total?.toFixed(2)}</td>
-                                    <td className="px-2 py-2 text-xs text-gray-600">{item.prestador_nome}</td>
                                     <td className="px-2 py-2 text-center">
                                       <div className="flex gap-1">
                                         <button type="button" onClick={() => handleEditItem(item)} className="text-blue-600 hover:text-blue-800">
@@ -1677,7 +1661,7 @@ export default function Atendimentos() {
                               </tbody>
                               <tfoot className="bg-gray-50 dark:bg-gray-700/50">
                                 <tr className="border-t">
-                                  <td colSpan="8" className="px-2 py-2 text-right font-semibold">Subtotal:</td>
+                                  <td colSpan="5" className="px-2 py-2 text-right font-semibold">Subtotal:</td>
                                   <td colSpan="2" className="px-2 py-2 text-right font-bold text-blue-600">
                                     R$ {itensGuia.reduce((sum, i) => sum + i.valor_total, 0).toFixed(2)}
                                   </td>
@@ -1699,34 +1683,27 @@ export default function Atendimentos() {
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                             <div>
                               <label className="block text-xs text-gray-500 mb-1">Data Execução</label>
-                              <input type="date" value={currentItem.data_execucao} onChange={e => setCurrentItem({...currentItem, data_execucao: e.target.value})} className="w-full border rounded px-2 py-1 text-sm" />
+                              <input type="date" value={currentItem.data_execucao} onChange={e => setCurrentItem({...currentItem, data_execucao: e.target.value})} className="w-full border rounded px-2 py-1 text-sm dark:bg-gray-700 dark:text-white" />
                             </div>
                             <div>
                               <label className="block text-xs text-gray-500 mb-1">Quantidade</label>
                               <input type="number" min="1" value={currentItem.quantidade} onChange={e => {
                                 const qtd = parseInt(e.target.value) || 1;
                                 setCurrentItem({...currentItem, quantidade: qtd, valor_total: qtd * currentItem.valor_unitario});
-                              }} className="w-full border rounded px-2 py-1 text-sm text-center" />
-                            </div>
-                            <div>
-                              <label className="block text-xs text-gray-500 mb-1">Quantidade Autorizada</label>
-                              <input type="number" min="0" value={currentItem.quantidade_autorizada} onChange={e => {
-                                const qtdAut = parseInt(e.target.value) || 0;
-                                setCurrentItem({...currentItem, quantidade_autorizada: qtdAut});
-                              }} className="w-full border rounded px-2 py-1 text-sm text-center" />
+                              }} className="w-full border rounded px-2 py-1 text-sm text-center dark:bg-gray-700 dark:text-white" />
                             </div>
                             <div>
                               <label className="block text-xs text-gray-500 mb-1">Valor Unitário (R$)</label>
                               <input type="number" step="0.01" value={currentItem.valor_unitario} onChange={e => {
                                 const valor = parseFloat(e.target.value) || 0;
                                 setCurrentItem({...currentItem, valor_unitario: valor, valor_total: currentItem.quantidade * valor});
-                              }} className="w-full border rounded px-2 py-1 text-sm text-right" />
+                              }} className="w-full border rounded px-2 py-1 text-sm text-right dark:bg-gray-700 dark:text-white" />
                             </div>
-                          </div>
-                          <div className="flex justify-end mt-3">
-                            <button type="button" onClick={handleUpdateItem} className="bg-green-600 text-white px-3 py-1 rounded-lg text-sm hover:bg-green-700">
-                              Atualizar Item
-                            </button>
+                            <div>
+                              <button type="button" onClick={handleUpdateItem} className="w-full bg-green-600 text-white px-3 py-1 rounded-lg text-sm hover:bg-green-700 mt-5">
+                                Atualizar
+                              </button>
+                            </div>
                           </div>
                         </div>
                       )}
@@ -1740,49 +1717,25 @@ export default function Atendimentos() {
                             onClick={() => {
                               setTipoItem(tipo.value);
                               setTabelaSelecionada(tipo.tabelas[0]);
-                              setCurrentItem({
-                                ...currentItem,
-                                tipo: tipo.value,
-                                tabela_referencia: tipo.tabelas[0]
-                              });
+                              setCurrentItem({...currentItem, tipo: tipo.value, tabela_referencia: tipo.tabelas[0]});
                             }}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
-                              tipoItem === tipo.value
-                                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md'
-                                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                            }`}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${tipoItem === tipo.value ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
                           >
                             {tipo.label}
                           </button>
                         ))}
                       </div>
 
-                      {/* Seletor de Tabela */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tabela de Referência</label>
-                        <select
-                          value={currentItem.tabela_referencia}
-                          onChange={e => setCurrentItem({...currentItem, tabela_referencia: e.target.value})}
-                          className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                        >
-                          {TIPOS_ITEM.find(t => t.value === tipoItem)?.tabelas.map(tabela => (
-                            <option key={tabela} value={tabela}>
-                              {TABELAS[tabela]?.nome || tabela} ({tabela})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
                       {/* Busca de Item */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Item (código ou descrição)</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Item</label>
                         <div className="relative">
                           <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                           <input
                             type="text"
                             value={searchItemTerm}
                             onChange={e => setSearchItemTerm(e.target.value)}
-                            placeholder="Digite o código ou descrição do procedimento..."
+                            placeholder="Digite o código ou descrição..."
                             className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
                             list="itens-suggestions"
                           />
@@ -1814,110 +1767,64 @@ export default function Atendimentos() {
                                   <span className="font-mono text-sm text-blue-600">{item.codigo_tuss}</span>
                                   <span className="text-sm text-gray-700 dark:text-gray-300 ml-2">{item.nome}</span>
                                 </div>
-                                <span className="text-sm font-semibold text-green-600">
-                                  R$ {item.valor_sugerido?.toFixed(2)}
-                                </span>
+                                <span className="text-sm font-semibold text-green-600">R$ {item.valor_sugerido?.toFixed(2)}</span>
                               </div>
                             </button>
                           ))}
                         </div>
                       )}
 
-                      {/* Formulário do Item - sem campo de quantidade autorizada */}
+                      {/* Formulário do Item */}
                       {currentItem.codigo && (
                         <div className="border-t pt-4 mt-2">
                           <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
                             <div className="md:col-span-2">
                               <label className="block text-xs text-gray-500 mb-1">Data Execução</label>
-                              <input type="date" value={currentItem.data_execucao} onChange={e => setCurrentItem({...currentItem, data_execucao: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm" />
-                            </div>
-                            <div className="md:col-span-1">
-                              <label className="block text-xs text-gray-500 mb-1">H.I</label>
-                              <input type="time" value={currentItem.hora_inicial} onChange={e => setCurrentItem({...currentItem, hora_inicial: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm" />
-                            </div>
-                            <div className="md:col-span-1">
-                              <label className="block text-xs text-gray-500 mb-1">H.F</label>
-                              <input type="time" value={currentItem.hora_final} onChange={e => setCurrentItem({...currentItem, hora_final: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm" />
+                              <input type="date" value={currentItem.data_execucao} onChange={e => setCurrentItem({...currentItem, data_execucao: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" />
                             </div>
                             <div className="md:col-span-3">
                               <label className="block text-xs text-gray-500 mb-1">Item</label>
-                              <input type="text" value={currentItem.nome} disabled className="w-full bg-gray-100 border rounded px-2 py-1.5 text-sm" />
+                              <input type="text" value={currentItem.nome} disabled className="w-full bg-gray-100 border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" />
                             </div>
                             <div className="md:col-span-1">
                               <label className="block text-xs text-gray-500 mb-1">Qtd</label>
                               <input type="number" min="1" value={currentItem.quantidade} onChange={e => {
                                 const qtd = parseInt(e.target.value) || 1;
-                                setCurrentItem({
-                                  ...currentItem,
-                                  quantidade: qtd,
-                                  valor_total: qtd * currentItem.valor_unitario
-                                });
-                              }} className="w-full border rounded px-2 py-1.5 text-sm text-center" />
+                                setCurrentItem({...currentItem, quantidade: qtd, valor_total: qtd * currentItem.valor_unitario});
+                              }} className="w-full border rounded px-2 py-1.5 text-sm text-center dark:bg-gray-700 dark:text-white" />
                             </div>
                             <div className="md:col-span-2">
                               <label className="block text-xs text-gray-500 mb-1">Valor Unitário</label>
                               <input type="number" step="0.01" value={currentItem.valor_unitario} onChange={e => {
                                 const valor = parseFloat(e.target.value) || 0;
-                                setCurrentItem({
-                                  ...currentItem,
-                                  valor_unitario: valor,
-                                  valor_total: currentItem.quantidade * valor
-                                });
-                              }} className="w-full border rounded px-2 py-1.5 text-sm text-right" />
-                            </div>
-                            <div className="md:col-span-1">
-                              <label className="block text-xs text-gray-500 mb-1">Grau Part.</label>
-                              <select value={currentItem.grau_participacao} onChange={e => setCurrentItem({...currentItem, grau_participacao: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm">
-                                {GRAU_PARTICIPACAO.map(g => <option key={g.value} value={g.value}>{g.label}</option>)}
-                              </select>
+                                setCurrentItem({...currentItem, valor_unitario: valor, valor_total: currentItem.quantidade * valor});
+                              }} className="w-full border rounded px-2 py-1.5 text-sm text-right dark:bg-gray-700 dark:text-white" />
                             </div>
                             <div className="md:col-span-2">
-                              <label className="block text-xs text-gray-500 mb-1">Profissional (executante)</label>
+                              <label className="block text-xs text-gray-500 mb-1">Profissional</label>
                               <select value={currentItem.prestador_id} onChange={e => {
                                 const prestador = prestadores.find(p => p.id === parseInt(e.target.value));
-                                setCurrentItem({
-                                  ...currentItem,
-                                  prestador_id: e.target.value,
-                                  prestador_nome: prestador?.nome || '',
-                                  prestador_cpf: prestador?.cpf || '',
-                                  prestador_conselho: prestador?.codigo_conselho_ans || '06',
-                                  prestador_numero_conselho: prestador?.numero_conselho || '',
-                                  prestador_uf_conselho: prestador?.uf_conselho || '35',
-                                  prestador_cbos: prestador?.cbos || '225125'
-                                });
-                              }} className="w-full border rounded px-2 py-1.5 text-sm">
+                                setCurrentItem({...currentItem, prestador_id: e.target.value, prestador_nome: prestador?.nome || ''});
+                              }} className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white">
                                 <option value="">Selecione</option>
-                                {prestadores.map(p => (<option key={p.id} value={p.id}>{p.nome} - {p.especialidade} ({p.conselho} {p.numero_conselho})</option>))}
+                                {prestadores.map(p => (<option key={p.id} value={p.id}>{p.nome}</option>))}
                               </select>
                             </div>
                             <div className="md:col-span-1">
-                              <button type="button" onClick={handleAdicionarItem} className="w-full bg-green-600 text-white px-2 py-1.5 rounded-lg text-sm hover:bg-green-700">+ Add</button>
+                              <button type="button" onClick={handleAdicionarItem} className="w-full bg-green-600 text-white px-2 py-1.5 rounded-lg text-sm hover:bg-green-700 mt-5">+ Add</button>
                             </div>
                           </div>
-                          {/* Aviso de saldo insuficiente */}
-                          {currentItem.quantidade_autorizada > 0 && currentItem.quantidade > currentItem.quantidade_autorizada && (
-                            <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                              <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
-                                <ExclamationTriangleIcon className="w-4 h-4" />
-                                Atenção! Quantidade executada ({currentItem.quantidade}) excede a quantidade autorizada ({currentItem.quantidade_autorizada}).
-                                Será necessário solicitar autorização complementar.
-                              </p>
-                            </div>
-                          )}
-                          {currentItem.quantidade_autorizada > 0 && currentItem.quantidade < currentItem.quantidade_autorizada && (
-                            <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                              <p className="text-xs text-yellow-600 dark:text-yellow-400 flex items-center gap-1">
-                                <ExclamationTriangleIcon className="w-4 h-4" />
-                                Saldo restante autorizado: {currentItem.quantidade_autorizada - currentItem.quantidade} unidades.
-                              </p>
-                            </div>
-                          )}
                         </div>
                       )}
+                    </div>
+                  )}
 
+                  {/* Botões de Ação */}
                   <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <button type="button" onClick={resetModal} className="px-4 py-2 border rounded-lg text-sm font-medium">Cancelar</button>
-                    <button type="submit" className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium shadow-md">
+                    <button type="button" onClick={resetModal} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                      Cancelar
+                    </button>
+                    <button type="submit" className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium shadow-md hover:from-blue-600 hover:to-indigo-700">
                       {editing ? 'Atualizar' : 'Salvar'} Guia
                     </button>
                   </div>
