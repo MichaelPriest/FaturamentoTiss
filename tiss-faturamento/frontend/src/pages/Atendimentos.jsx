@@ -1277,15 +1277,16 @@ export default function Atendimentos() {
                     </div>
                   )}
 
-                  {/* Aba Autorização - adicionar campos de autorização de itens */}
+                  {/* Aba Autorização - com controle de quantidades autorizadas por item */}
                   {aba === 'autorizacao' && (
                     <div className="space-y-4">
                       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-4">
                         <p className="text-xs text-blue-700 dark:text-blue-300">
                           <strong>📋 Autorização da Guia:</strong> Preencha os dados de autorização fornecidos pela operadora.
-                          Após autorizada, você poderá controlar a quantidade autorizada por item na aba "Procedimentos".
+                          Para cada item, informe a <strong>Quantidade Autorizada</strong> para controle de saldo.
                         </p>
                       </div>
+                      
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número da Guia (Operadora)</label>
@@ -1326,6 +1327,78 @@ export default function Atendimentos() {
                           />
                         </div>
                       </div>
+                  
+                      {/* Tabela de itens com quantidade autorizada */}
+                      {itensGuia.length > 0 && (
+                        <div className="mt-4">
+                          <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Itens da Guia - Autorização</h4>
+                          <div className="border rounded-xl overflow-hidden">
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-sm">
+                                <thead className="bg-gray-50 dark:bg-gray-700/50">
+                                  <tr>
+                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Item</th>
+                                    <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Código</th>
+                                    <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd Solicitada</th>
+                                    <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd Autorizada</th>
+                                    <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Saldo</th>
+                                    <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Status</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                  {itensGuia.map((item, idx) => {
+                                    const saldo = (item.quantidade_autorizada || 0) - (item.quantidade || 0);
+                                    const status = item.quantidade_autorizada === 0 ? 'Aguardando' :
+                                                   item.quantidade > item.quantidade_autorizada ? 'Excedido' :
+                                                   item.quantidade === item.quantidade_autorizada ? 'Completo' :
+                                                   item.quantidade < item.quantidade_autorizada ? 'Parcial' : 'Pendente';
+                                    const statusClass = item.quantidade_autorizada === 0 ? 'bg-gray-100 text-gray-600' :
+                                                        item.quantidade > item.quantidade_autorizada ? 'bg-red-100 text-red-700' :
+                                                        item.quantidade === item.quantidade_autorizada ? 'bg-green-100 text-green-700' :
+                                                        'bg-yellow-100 text-yellow-700';
+                                    
+                                    return (
+                                      <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                        <td className="px-3 py-2 text-xs">{item.nome}</td>
+                                        <td className="px-3 py-2 text-xs font-mono text-center">{item.codigo}</td>
+                                        <td className="px-3 py-2 text-xs text-center font-medium">{item.quantidade}</td>
+                                        <td className="px-3 py-2 text-xs text-center">
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            value={item.quantidade_autorizada || 0}
+                                            onChange={(e) => {
+                                              const qtdAut = parseInt(e.target.value) || 0;
+                                              const novoItem = { ...item, quantidade_autorizada: qtdAut };
+                                              const saldoAutorizado = qtdAut - item.quantidade;
+                                              novoItem.saldo_autorizado = saldoAutorizado;
+                                              novoItem.pendente_autorizacao = qtdAut > 0 && item.quantidade < qtdAut;
+                                              
+                                              setItensGuia(itensGuia.map(i => i.id === item.id ? novoItem : i));
+                                            }}
+                                            className="w-20 border rounded px-2 py-1 text-xs text-center dark:bg-gray-700"
+                                          />
+                                        </td>
+                                        <td className={`px-3 py-2 text-xs text-center font-semibold ${saldo >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                          {saldo}
+                                        </td>
+                                        <td className="px-3 py-2 text-xs text-center">
+                                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusClass}`}>
+                                            {status}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-2">
+                            * Informe a quantidade autorizada pela operadora para cada item. O sistema calculará o saldo automaticamente.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -1750,7 +1823,7 @@ export default function Atendimentos() {
                         </div>
                       )}
 
-                      {/* Formulário do Item com campos de autorização */}
+                      {/* Formulário do Item - sem campo de quantidade autorizada */}
                       {currentItem.codigo && (
                         <div className="border-t pt-4 mt-2">
                           <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
@@ -1766,21 +1839,31 @@ export default function Atendimentos() {
                               <label className="block text-xs text-gray-500 mb-1">H.F</label>
                               <input type="time" value={currentItem.hora_final} onChange={e => setCurrentItem({...currentItem, hora_final: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm" />
                             </div>
-                            <div className="md:col-span-2">
+                            <div className="md:col-span-3">
                               <label className="block text-xs text-gray-500 mb-1">Item</label>
                               <input type="text" value={currentItem.nome} disabled className="w-full bg-gray-100 border rounded px-2 py-1.5 text-sm" />
                             </div>
                             <div className="md:col-span-1">
                               <label className="block text-xs text-gray-500 mb-1">Qtd</label>
-                              <input type="number" min="1" value={currentItem.quantidade} onChange={e => setCurrentItem({...currentItem, quantidade: parseInt(e.target.value) || 1, valor_total: (parseInt(e.target.value) || 1) * currentItem.valor_unitario})} className="w-full border rounded px-2 py-1.5 text-sm text-center" />
-                            </div>
-                            <div className="md:col-span-1">
-                              <label className="block text-xs text-gray-500 mb-1">Qtd Autorizada</label>
-                              <input type="number" min="0" value={currentItem.quantidade_autorizada} onChange={e => setCurrentItem({...currentItem, quantidade_autorizada: parseInt(e.target.value) || 0})} className="w-full border rounded px-2 py-1.5 text-sm text-center" />
+                              <input type="number" min="1" value={currentItem.quantidade} onChange={e => {
+                                const qtd = parseInt(e.target.value) || 1;
+                                setCurrentItem({
+                                  ...currentItem,
+                                  quantidade: qtd,
+                                  valor_total: qtd * currentItem.valor_unitario
+                                });
+                              }} className="w-full border rounded px-2 py-1.5 text-sm text-center" />
                             </div>
                             <div className="md:col-span-2">
                               <label className="block text-xs text-gray-500 mb-1">Valor Unitário</label>
-                              <input type="number" step="0.01" value={currentItem.valor_unitario} onChange={e => setCurrentItem({...currentItem, valor_unitario: parseFloat(e.target.value) || 0, valor_total: currentItem.quantidade * (parseFloat(e.target.value) || 0)})} className="w-full border rounded px-2 py-1.5 text-sm text-right" />
+                              <input type="number" step="0.01" value={currentItem.valor_unitario} onChange={e => {
+                                const valor = parseFloat(e.target.value) || 0;
+                                setCurrentItem({
+                                  ...currentItem,
+                                  valor_unitario: valor,
+                                  valor_total: currentItem.quantidade * valor
+                                });
+                              }} className="w-full border rounded px-2 py-1.5 text-sm text-right" />
                             </div>
                             <div className="md:col-span-1">
                               <label className="block text-xs text-gray-500 mb-1">Grau Part.</label>
@@ -1792,7 +1875,16 @@ export default function Atendimentos() {
                               <label className="block text-xs text-gray-500 mb-1">Profissional (executante)</label>
                               <select value={currentItem.prestador_id} onChange={e => {
                                 const prestador = prestadores.find(p => p.id === parseInt(e.target.value));
-                                setCurrentItem({...currentItem, prestador_id: e.target.value, prestador_nome: prestador?.nome || '', prestador_cpf: prestador?.cpf || '', prestador_conselho: prestador?.codigo_conselho_ans || '06', prestador_numero_conselho: prestador?.numero_conselho || '', prestador_uf_conselho: prestador?.uf_conselho || '35', prestador_cbos: prestador?.cbos || '225125'});
+                                setCurrentItem({
+                                  ...currentItem,
+                                  prestador_id: e.target.value,
+                                  prestador_nome: prestador?.nome || '',
+                                  prestador_cpf: prestador?.cpf || '',
+                                  prestador_conselho: prestador?.codigo_conselho_ans || '06',
+                                  prestador_numero_conselho: prestador?.numero_conselho || '',
+                                  prestador_uf_conselho: prestador?.uf_conselho || '35',
+                                  prestador_cbos: prestador?.cbos || '225125'
+                                });
                               }} className="w-full border rounded px-2 py-1.5 text-sm">
                                 <option value="">Selecione</option>
                                 {prestadores.map(p => (<option key={p.id} value={p.id}>{p.nome} - {p.especialidade} ({p.conselho} {p.numero_conselho})</option>))}
@@ -1802,18 +1894,26 @@ export default function Atendimentos() {
                               <button type="button" onClick={handleAdicionarItem} className="w-full bg-green-600 text-white px-2 py-1.5 rounded-lg text-sm hover:bg-green-700">+ Add</button>
                             </div>
                           </div>
+                          {/* Aviso de saldo insuficiente */}
                           {currentItem.quantidade_autorizada > 0 && currentItem.quantidade > currentItem.quantidade_autorizada && (
-                            <div className="mt-2 p-2 bg-orange-50 rounded-lg">
-                              <p className="text-xs text-orange-600 flex items-center gap-1">
+                            <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg">
+                              <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
                                 <ExclamationTriangleIcon className="w-4 h-4" />
-                                Atenção! Quantidade solicitada excede a autorizada. O item será marcado como pendente de autorização.
+                                Atenção! Quantidade executada ({currentItem.quantidade}) excede a quantidade autorizada ({currentItem.quantidade_autorizada}).
+                                Será necessário solicitar autorização complementar.
+                              </p>
+                            </div>
+                          )}
+                          {currentItem.quantidade_autorizada > 0 && currentItem.quantidade < currentItem.quantidade_autorizada && (
+                            <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                              <p className="text-xs text-yellow-600 dark:text-yellow-400 flex items-center gap-1">
+                                <ExclamationTriangleIcon className="w-4 h-4" />
+                                Saldo restante autorizado: {currentItem.quantidade_autorizada - currentItem.quantidade} unidades.
                               </p>
                             </div>
                           )}
                         </div>
                       )}
-                    </div>
-                  )}
 
                   <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                     <button type="button" onClick={resetModal} className="px-4 py-2 border rounded-lg text-sm font-medium">Cancelar</button>
