@@ -712,16 +712,40 @@ export const procedimentosService = {
       return newItem;
     }
     try {
+      // Preparar dados para inserção
+      const { dados_adicionais, ...dadosBase } = procedimento;
+      
+      const dadosParaInserir = {
+        codigo_tuss: dadosBase.codigo_tuss,
+        nome: dadosBase.nome,
+        tipo: dadosBase.tipo || 'PROCEDIMENTO',
+        grupo: dadosBase.grupo || '',
+        valor_sugerido: dadosBase.valor_sugerido || 0,
+        tabela: dadosBase.tabela || 'TUSS',
+        convenio_id: dadosBase.convenio_id || null,
+        dados_adicionais: dados_adicionais || {},
+        ativo: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      console.log('Inserindo procedimento:', dadosParaInserir);
+      
       const { data, error } = await supabase
         .from(TABLES.PROCEDIMENTOS)
-        .insert([procedimento])
+        .insert([dadosParaInserir])
         .select()
         .single();
+        
       if (error) throw error;
       return data;
     } catch (err) {
       console.error('Erro ao criar procedimento:', err);
-      return null;
+      // Fallback para localStorage
+      const data = localStorageFallback.get(TABLES.PROCEDIMENTOS);
+      const newItem = { ...procedimento, id: Date.now() };
+      localStorageFallback.set(TABLES.PROCEDIMENTOS, [...data, newItem]);
+      return newItem;
     }
   },
 
@@ -730,18 +754,34 @@ export const procedimentosService = {
       const data = localStorageFallback.get(TABLES.PROCEDIMENTOS);
       const index = data.findIndex(item => item.id === id);
       if (index !== -1) {
-        data[index] = { ...procedimento, id };
+        data[index] = { ...procedimento, id, updated_at: new Date().toISOString() };
         localStorageFallback.set(TABLES.PROCEDIMENTOS, data);
       }
       return { ...procedimento, id };
     }
     try {
+      const { dados_adicionais, ...dadosBase } = procedimento;
+      
+      const dadosParaAtualizar = {
+        codigo_tuss: dadosBase.codigo_tuss,
+        nome: dadosBase.nome,
+        tipo: dadosBase.tipo,
+        grupo: dadosBase.grupo,
+        valor_sugerido: dadosBase.valor_sugerido,
+        valor_convenio: dadosBase.valor_convenio,
+        tabela: dadosBase.tabela,
+        convenio_id: dadosBase.convenio_id || null,
+        dados_adicionais: dados_adicionais || {},
+        updated_at: new Date().toISOString()
+      };
+      
       const { data, error } = await supabase
         .from(TABLES.PROCEDIMENTOS)
-        .update(procedimento)
+        .update(dadosParaAtualizar)
         .eq('id', id)
         .select()
         .single();
+        
       if (error) throw error;
       return data;
     } catch (err) {
