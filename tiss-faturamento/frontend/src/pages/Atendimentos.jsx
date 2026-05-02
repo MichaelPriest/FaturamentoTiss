@@ -17,7 +17,9 @@ import {
   ChevronUpIcon,
   ChevronDownIcon,
   ClockIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  LockClosedIcon,      // ADICIONAR ESTE
+  LockOpenIcon         // ADICIONAR ESTE TAMBÉM (se for usado)
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
