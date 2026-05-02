@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
 import { 
   HomeIcon, BuildingOfficeIcon, UsersIcon, UserGroupIcon, 
@@ -32,6 +32,29 @@ import { setConfig } from './lib/tissGenerator';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
+// Componente de Proteção de Rota
+function ProtectedRoute({ children }) {
+  const { isAuthenticated, loading } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      navigate('/login', { replace: true });
+    }
+  }, [isAuthenticated, loading, navigate]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  return isAuthenticated ? children : null;
+}
+
 // Componente Principal do App (logado)
 function MainApp() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -44,14 +67,12 @@ function MainApp() {
     relatorios: true
   });
   const { darkMode, toggleDarkMode } = useTheme();
-  const { user, signOut, loading, isAuthenticated } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      navigate('/login');
-    }
-  }, [loading, isAuthenticated, navigate]);
+  // Verificar se é rota de prontuário ou convenio-config
+  const isSpecialRoute = location.pathname.includes('/prontuario/') || location.pathname.includes('/convenio-config/');
 
   useEffect(() => {
     const storedConfig = localStorage.getItem('config_sistema');
@@ -62,7 +83,7 @@ function MainApp() {
 
   const handleLogout = async () => {
     await signOut();
-    navigate('/login');
+    navigate('/login', { replace: true });
   };
 
   const toggleGroup = (group) => {
@@ -109,7 +130,7 @@ function MainApp() {
   ];
 
   const renderContent = () => {
-    const pathname = window.location.pathname;
+    const pathname = location.pathname;
     
     if (pathname.includes('/prontuario/')) return <Prontuario />;
     if (pathname.includes('/convenio-config/')) return <ConvenioConfig />;
@@ -132,7 +153,7 @@ function MainApp() {
   };
 
   const getPageTitle = () => {
-    const pathname = window.location.pathname;
+    const pathname = location.pathname;
     if (pathname.includes('/prontuario/')) return 'Prontuário Eletrônico';
     if (pathname.includes('/convenio-config/')) return 'Configurações Avançadas do Convênio';
     
@@ -141,7 +162,7 @@ function MainApp() {
   };
 
   const getPageSubtitle = () => {
-    const pathname = window.location.pathname;
+    const pathname = location.pathname;
     if (pathname.includes('/prontuario/')) return 'Atendimento médico e registro clínico';
     if (pathname.includes('/convenio-config/')) return 'Regras de faturamento, prazos, glosas e integrações';
     
@@ -157,18 +178,19 @@ function MainApp() {
     return subtitles[activeTab] || 'Cadastro e gerenciamento de dados';
   };
 
-  const nomeUsuario = user?.user_metadata?.nome || user?.email?.split('@')[0] || 'Usuário';
-  const perfilUsuario = user?.user_metadata?.role || 'Usuário';
+  const nomeUsuario = user?.nome?.split(' ')[0] || user?.email?.split('@')[0] || 'Usuário';
 
-  if (loading) {
+  // Se for rota especial, não mostra sidebar
+  if (isSpecialRoute) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <Toaster position="top-right" richColors />
+        <div className="p-6">
+          {renderContent()}
+        </div>
       </div>
     );
   }
-
-  if (!isAuthenticated) return null;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
@@ -202,12 +224,12 @@ function MainApp() {
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
                 <span className="text-white font-semibold text-sm">
-                  {nomeUsuario.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) || 'U'}
+                  {nomeUsuario.substring(0, 2).toUpperCase()}
                 </span>
               </div>
               <div className="flex-1">
-                <p className="text-sm font-medium text-white">{nomeUsuario}</p>
-                <p className="text-xs text-gray-400">{perfilUsuario}</p>
+                <p className="text-sm font-medium text-white">{user?.nome || nomeUsuario}</p>
+                <p className="text-xs text-gray-400">{user?.perfil || 'Usuário'}</p>
               </div>
             </div>
           </div>
@@ -218,7 +240,10 @@ function MainApp() {
             <div key={group.id} className="space-y-1">
               {sidebarOpen && (
                 <button onClick={() => toggleGroup(group.id)} className="w-full flex items-center justify-between px-2 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-300 transition-colors">
-                  <div className="flex items-center gap-2"><group.icon className="w-3 h-3" /><span>{group.name}</span></div>
+                  <div className="flex items-center gap-2">
+                    <group.icon className="w-3 h-3" />
+                    <span>{group.name}</span>
+                  </div>
                   {openGroups[group.id] ? <ChevronUpIcon className="w-3 h-3" /> : <ChevronDownIcon className="w-3 h-3" />}
                 </button>
               )}
@@ -228,10 +253,18 @@ function MainApp() {
                     const isActive = activeTab === item.id;
                     const Icon = item.icon;
                     return (
-                      <button key={item.id} onClick={() => setActiveTab(item.id)} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group ${isActive ? `bg-gradient-to-r ${item.color} text-white shadow-lg` : 'text-gray-400 hover:text-white hover:bg-gray-800/50'} ${!sidebarOpen ? 'justify-center' : ''}`} title={!sidebarOpen ? item.name : ''}>
+                      <button
+                        key={item.id}
+                        onClick={() => setActiveTab(item.id)}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group ${
+                          isActive 
+                            ? `bg-gradient-to-r ${item.color} text-white shadow-lg` 
+                            : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+                        } ${!sidebarOpen ? 'justify-center' : ''}`}
+                        title={!sidebarOpen ? item.name : ''}
+                      >
                         <Icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'group-hover:text-white'}`} />
                         {sidebarOpen && <span className="text-sm font-medium">{item.name}</span>}
-                        {isActive && sidebarOpen && <div className="ml-auto w-1.5 h-6 bg-white rounded-full opacity-60"></div>}
                       </button>
                     );
                   })}
@@ -270,11 +303,11 @@ function MainApp() {
               <NotificationBell />
               <div className="flex items-center gap-3 pl-3 border-l border-gray-200 dark:border-gray-700">
                 <div className="w-9 h-9 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-md">
-                  <span className="text-white font-semibold text-sm">{nomeUsuario.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) || 'U'}</span>
+                  <span className="text-white font-semibold text-sm">{nomeUsuario.substring(0, 2).toUpperCase()}</span>
                 </div>
                 <div className="hidden sm:block">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{nomeUsuario}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{perfilUsuario}</p>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{user?.nome || nomeUsuario}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{user?.perfil || 'Usuário'}</p>
                 </div>
                 <button onClick={handleLogout} className="hidden sm:flex items-center gap-2 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors text-sm">
                   <ArrowRightOnRectangleIcon className="w-4 h-4" /><span>Sair</span>
@@ -299,21 +332,32 @@ function MainApp() {
 
         <div className="mx-4 mt-6 p-3 bg-gradient-to-r from-gray-800 to-gray-750 rounded-xl">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center"><span className="text-white font-semibold text-sm">{nomeUsuario.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) || 'U'}</span></div>
-            <div className="flex-1"><p className="text-sm font-medium text-white">{nomeUsuario}</p><p className="text-xs text-gray-400">{perfilUsuario}</p></div>
+            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+              <span className="text-white font-semibold text-sm">{nomeUsuario.substring(0, 2).toUpperCase()}</span>
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-white">{user?.nome || nomeUsuario}</p>
+              <p className="text-xs text-gray-400">{user?.perfil || 'Usuário'}</p>
+            </div>
           </div>
         </div>
 
         <nav className="p-4 space-y-2 mt-4 overflow-y-auto max-h-[calc(100vh-180px)]">
           {menuGroups.map((group) => (
             <div key={group.id} className="space-y-1">
-              <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wider"><div className="flex items-center gap-2"><group.icon className="w-3 h-3" /><span>{group.name}</span></div></div>
+              <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <div className="flex items-center gap-2"><group.icon className="w-3 h-3" /><span>{group.name}</span></div>
+              </div>
               <div className="space-y-1">
                 {group.items.map((item) => {
                   const isActive = activeTab === item.id;
                   const Icon = item.icon;
                   return (
-                    <button key={item.id} onClick={() => { setActiveTab(item.id); setMobileSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 ${isActive ? `bg-gradient-to-r ${item.color} text-white shadow-lg` : 'text-gray-400 hover:text-white hover:bg-gray-800/50'}`}>
+                    <button
+                      key={item.id}
+                      onClick={() => { setActiveTab(item.id); setMobileSidebarOpen(false); }}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 ${isActive ? `bg-gradient-to-r ${item.color} text-white shadow-lg` : 'text-gray-400 hover:text-white hover:bg-gray-800/50'}`}
+                    >
                       <Icon className="w-5 h-5" /><span className="text-sm font-medium">{item.name}</span>
                     </button>
                   );
@@ -341,9 +385,21 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/prontuario/:id" element={<MainApp />} />
-            <Route path="/convenio-config/:id" element={<MainApp />} />
-            <Route path="/*" element={<MainApp />} />
+            <Route path="/prontuario/:id" element={
+              <ProtectedRoute>
+                <MainApp />
+              </ProtectedRoute>
+            } />
+            <Route path="/convenio-config/:id" element={
+              <ProtectedRoute>
+                <MainApp />
+              </ProtectedRoute>
+            } />
+            <Route path="/*" element={
+              <ProtectedRoute>
+                <MainApp />
+              </ProtectedRoute>
+            } />
           </Routes>
         </BrowserRouter>
       </AuthProvider>
