@@ -513,12 +513,14 @@ export default function Atendimentos() {
       return;
     }
     
+    // Se for para faturado, validar
     if (status === 'faturado') {
       if (!podeFaturar(atendimento)) {
         return;
       }
     }
     
+    // Para outros status, permitir diretamente
     try {
       const { error } = await supabase
         .from('atendimentos')
@@ -527,7 +529,7 @@ export default function Atendimentos() {
       
       if (error) throw error;
       
-      toast.success(`Atendimento ${status === 'faturado' ? 'enviado para faturamento!' : 'atualizado!'}`);
+      toast.success(`Atendimento ${status === 'faturado' ? 'enviado para faturamento!' : 'atualizado para ' + STATUS_ATENDIMENTO.find(s => s.value === status)?.label || status}`);
       await carregarDados();
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
@@ -535,6 +537,60 @@ export default function Atendimentos() {
     }
   };
 
+  // Recalcular status da guia baseado nos itens atuais
+  const recalcularStatus = useCallback(() => {
+    const novoStatus = calcularStatusGuia(itensGuia, itensAutorizados);
+    setFormData(prev => ({ ...prev, status: novoStatus }));
+  }, [itensGuia, itensAutorizados, calcularStatusGuia]);
+  
+  // Chamar recalcularStatus sempre que itensGuia ou itensAutorizados mudarem
+  useEffect(() => {
+    if (!editing && (itensGuia.length > 0 || itensAutorizados.length > 0)) {
+      recalcularStatus();
+    }
+  }, [itensGuia, itensAutorizados, recalcularStatus, editing]);
+
+  // Alterar status manualmente via botão
+  const alterarStatusManual = async (id, novoStatus) => {
+    const atendimento = atendimentos.find(a => a.id === id);
+    
+    if (!atendimento) {
+      toast.error('Atendimento não encontrado');
+      return;
+    }
+    
+    // Se for mudar para autorizado, verificar se tem itens autorizados
+    if (novoStatus === 'autorizado') {
+      const itensAutorizadosDoAtendimento = atendimento.itens_autorizados || [];
+      if (itensAutorizadosDoAtendimento.length === 0) {
+        toast.error('Não é possível autorizar: Não há itens autorizados pelo convênio');
+        return;
+      }
+    }
+    
+    // Se for mudar para faturado, validar
+    if (novoStatus === 'faturado') {
+      if (!podeFaturar(atendimento)) {
+        return;
+      }
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('atendimentos')
+        .update({ status: novoStatus, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      toast.success(`Status alterado para ${STATUS_ATENDIMENTO.find(s => s.value === novoStatus)?.label || novoStatus}`);
+      await carregarDados();
+    } catch (error) {
+      console.error('Erro ao alterar status:', error);
+      toast.error('Erro ao alterar status');
+    }
+  };
+  
   // Atualizar número da guia no convênio
   const atualizarProximoNumeroGuia = async (convenioId, proximoNumero) => {
     try {
@@ -1275,31 +1331,37 @@ export default function Atendimentos() {
                         {a.paciente_convenio_nome || '-'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-center">
-                      <button onClick={() => handleViewItens(a)} className="text-blue-600 hover:text-blue-800 flex items-center gap-1 mx-auto" title="Ver itens">
-                        <DocumentPlusIcon className="w-4 h-4" />
-                        <span className="font-bold">{a.itens?.length || 0}</span>
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300">R$ {a.valor_total?.toFixed(2)}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getStatusCor(a.status)}`}>
-                        {STATUS_ATENDIMENTO.find(s => s.value === a.status)?.label || a.status}
-                      </span>
-                    </td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex gap-1 justify-center">
                         <button onClick={() => handleViewItens(a)} className="p-1 rounded-lg text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Ver Itens">
                           <EyeIcon className="w-4 h-4" />
                         </button>
-                        {a.status !== 'faturado' && a.status !== 'cancelado' && a.status !== 'finalizado' && (
-                          <button onClick={() => handleEnviarFaturamento(a.id)} className="p-1 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" title="Faturar">
+                        
+                        {/* Botão para Autorizar */}
+                        {a.status === 'pendente' && a.itens_autorizados?.length > 0 && (
+                          <button onClick={() => alterarStatusManual(a.id, 'autorizado')} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Autorizar">
                             <CheckIcon className="w-4 h-4" />
                           </button>
                         )}
+                        
+                        {/* Botão para Faturar */}
+                        {a.status !== 'faturado' && a.status !== 'cancelado' && a.status !== 'finalizado' && (
+                          <button onClick={() => handleEnviarFaturamento(a.id)} className="p-1 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" title="Faturar">
+                            <CurrencyDollarIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                        
+                        {/* Botão para Cancelar */}
+                        {a.status !== 'cancelado' && a.status !== 'faturado' && a.status !== 'finalizado' && (
+                          <button onClick={() => alterarStatusManual(a.id, 'cancelado')} className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Cancelar">
+                            <XMarkIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                        
                         <button onClick={() => handleEdit(a)} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Editar">
                           <PencilIcon className="w-4 h-4" />
                         </button>
+                        
                         <button onClick={() => handleDelete(a.id)} className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Excluir">
                           <TrashIcon className="w-4 h-4" />
                         </button>
@@ -1566,10 +1628,14 @@ export default function Atendimentos() {
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
                           <select 
                             value={formData.status} 
-                            onChange={e => setFormData({...formData, status: e.target.value})} 
+                            onChange={e => {
+                              setFormData({...formData, status: e.target.value});
+                            }} 
                             className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
                           >
-                            {STATUS_ATENDIMENTO.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                            {STATUS_ATENDIMENTO.map(s => (
+                              <option key={s.value} value={s.value}>{s.label}</option>
+                            ))}
                           </select>
                         </div>
                       )}
