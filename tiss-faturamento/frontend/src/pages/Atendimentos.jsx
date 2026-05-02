@@ -318,7 +318,6 @@ export default function Atendimentos() {
     const itemAutorizado = itensAutorizados.find(aut => aut.codigo === itemCodigo);
     
     if (!itemAutorizado) {
-      // Item não autorizado - pode adicionar mas ficará pendente
       return { pode: true, mensagem: 'Este procedimento não está autorizado. Será marcado como pendente.', pendente: true };
     }
     
@@ -351,15 +350,24 @@ export default function Atendimentos() {
     }));
   }, []);
 
-  // Verificar se a guia pode ser faturada
+  // Verificar se a guia pode ser faturada - USANDO OS ITENS DO ATENDIMENTO
   const podeFaturar = useCallback((atendimento) => {
     if (!atendimento.itens || atendimento.itens.length === 0) {
       toast.error('Não é possível faturar: Nenhum item na guia');
       return false;
     }
     
+    // USAR OS ITENS AUTORIZADOS DO PRÓPRIO ATENDIMENTO
+    const itensAutorizadosDoAtendimento = atendimento.itens_autorizados || [];
+    
+    // Se não há itens autorizados, não pode faturar
+    if (itensAutorizadosDoAtendimento.length === 0) {
+      toast.error('Não é possível faturar: Nenhum procedimento autorizado pelo convênio');
+      return false;
+    }
+    
     // Verificar se há itens autorizados não executados
-    const itensAutorizadosNaoExecutados = itensAutorizados.filter(aut => {
+    const itensAutorizadosNaoExecutados = itensAutorizadosDoAtendimento.filter(aut => {
       const itemExecutado = atendimento.itens.find(item => item.codigo === aut.codigo);
       const quantidadeUtilizada = itemExecutado?.quantidade || 0;
       return quantidadeUtilizada < aut.quantidade_autorizada;
@@ -372,7 +380,7 @@ export default function Atendimentos() {
     
     // Verificar se algum item excedeu a quantidade autorizada
     const itensExcedidos = atendimento.itens.filter(item => {
-      const itemAutorizado = itensAutorizados.find(aut => aut.codigo === item.codigo);
+      const itemAutorizado = itensAutorizadosDoAtendimento.find(aut => aut.codigo === item.codigo);
       if (itemAutorizado && item.quantidade > itemAutorizado.quantidade_autorizada) {
         return true;
       }
@@ -384,9 +392,9 @@ export default function Atendimentos() {
       return false;
     }
     
-    // Verificar se algum item está pendente de autorização
+    // Verificar se algum item está pendente de autorização (não autorizado)
     const itensPendentes = atendimento.itens.filter(item => {
-      const itemAutorizado = itensAutorizados.find(aut => aut.codigo === item.codigo);
+      const itemAutorizado = itensAutorizadosDoAtendimento.find(aut => aut.codigo === item.codigo);
       return !itemAutorizado;
     });
     
@@ -396,9 +404,9 @@ export default function Atendimentos() {
     }
     
     return true;
-  }, [itensAutorizados]);
+  }, []); // Sem dependências - usa os dados do atendimento
 
-  // Calcular saldo autorizado
+  // Calcular saldo autorizado para edição (usando estado local)
   const calcularSaldoAutorizado = useCallback((itemCodigo, quantidadeAtual = 0) => {
     const itemAutorizado = itensAutorizados.find(aut => aut.codigo === itemCodigo);
     if (!itemAutorizado) return 0;
@@ -497,7 +505,13 @@ export default function Atendimentos() {
 
   // Atualizar status do atendimento
   const atualizarStatus = async (id, status) => {
+    // Buscar o atendimento atualizado com todos os dados
     const atendimento = atendimentos.find(a => a.id === id);
+    
+    if (!atendimento) {
+      toast.error('Atendimento não encontrado');
+      return;
+    }
     
     if (status === 'faturado') {
       if (!podeFaturar(atendimento)) {
@@ -637,7 +651,6 @@ export default function Atendimentos() {
       return;
     }
     
-    // Verificar se já existe
     if (itensAutorizados.some(item => item.codigo === currentItem.codigo)) {
       toast.warning('Este procedimento já foi autorizado!');
       return;
@@ -667,7 +680,6 @@ export default function Atendimentos() {
     
     setItensAutorizados([...itensAutorizados, novoItemAutorizado]);
     
-    // Limpar formulário
     setCurrentItem({
       ...currentItem,
       codigo: '',
@@ -701,14 +713,12 @@ export default function Atendimentos() {
       return;
     }
     
-    // Validar quantidade contra autorização
     const validacao = podeAdicionarItem(currentItem.codigo, currentItem.quantidade);
     if (!validacao.pode) {
       toast.error(validacao.mensagem);
       return;
     }
     
-    // Atualizar quantidade utilizada no item autorizado
     const itemAntigo = itensGuia.find(item => item.id === editandoItem.id);
     if (itemAntigo && itemAntigo.codigo === currentItem.codigo) {
       const diferenca = currentItem.quantidade - itemAntigo.quantidade;
@@ -747,7 +757,6 @@ export default function Atendimentos() {
       return;
     }
     
-    // Validar contra autorização
     const validacao = podeAdicionarItem(currentItem.codigo, currentItem.quantidade);
     if (!validacao.pode) {
       toast.error(validacao.mensagem);
@@ -782,13 +791,58 @@ export default function Atendimentos() {
       id: Date.now() + Math.random()
     };
     
-    // Atualizar quantidade utilizada nos itens autorizados
     atualizarQuantidadeUtilizada(currentItem.codigo, currentItem.quantidade, true);
     
     setItensGuia([...itensGuia, novoItem]);
     resetCurrentItem();
     toast.success('Item adicionado à guia!');
   };
+  
+  const [searchPacienteTerm, setSearchPacienteTerm] = useState('');
+
+  // Filtrar pacientes por nome, CPF ou data de nascimento
+  const pacientesFiltrados = useMemo(() => {
+    if (!searchPacienteTerm) return pacientes;
+    
+    const term = searchPacienteTerm.toLowerCase().trim();
+    
+    // Tentar interpretar como data (formato DD/MM/AAAA)
+    let dataBusca = null;
+    if (term.includes('/')) {
+      const partes = term.split('/');
+      if (partes.length === 3) {
+        const dia = parseInt(partes[0]);
+        const mes = parseInt(partes[1]) - 1;
+        const ano = parseInt(partes[2]);
+        if (!isNaN(dia) && !isNaN(mes) && !isNaN(ano)) {
+          dataBusca = new Date(ano, mes, dia);
+          dataBusca.setHours(0, 0, 0, 0);
+        }
+      }
+    }
+    
+    return pacientes.filter(p => {
+      // Buscar por nome
+      if (p.nome?.toLowerCase().includes(term)) return true;
+      
+      // Buscar por CPF (remover pontos e traços)
+      const cpfLimpo = p.cpf?.replace(/[\.\-]/g, '');
+      const termLimpo = term.replace(/[\.\-]/g, '');
+      if (cpfLimpo?.includes(termLimpo)) return true;
+      
+      // Buscar por data de nascimento
+      if (dataBusca && p.data_nascimento) {
+        const dataPaciente = new Date(p.data_nascimento);
+        dataPaciente.setHours(0, 0, 0, 0);
+        if (dataPaciente.getTime() === dataBusca.getTime()) return true;
+      }
+      
+      // Buscar por número da carteira
+      if (p.numero_carteira?.toLowerCase().includes(term)) return true;
+      
+      return false;
+    });
+  }, [pacientes, searchPacienteTerm]);
   
   const resetCurrentItem = () => {
     setCurrentItem({
@@ -821,7 +875,6 @@ export default function Atendimentos() {
   const removerItem = (itemId) => {
     const itemRemovido = itensGuia.find(item => item.id === itemId);
     if (itemRemovido) {
-      // Devolver a quantidade utilizada ao saldo autorizado
       atualizarQuantidadeUtilizada(itemRemovido.codigo, itemRemovido.quantidade, false);
     }
     setItensGuia(itensGuia.filter(item => item.id !== itemId));
@@ -1078,7 +1131,7 @@ export default function Atendimentos() {
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header e Cards - Mantenha o mesmo do seu código original */}
+        {/* Header e Cards */}
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
@@ -1190,7 +1243,7 @@ export default function Atendimentos() {
           </div>
         </div>
 
-        {/* Tabela de Guias - Mantenha a mesma do seu código original */}
+        {/* Tabela de Guias */}
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -1267,7 +1320,7 @@ export default function Atendimentos() {
           </div>
         </div>
 
-        {/* Modal de Visualização de Itens - Atualizado para mostrar autorizações */}
+        {/* Modal de Visualização de Itens */}
         {showItensModal && selectedGuia && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[80vh] overflow-y-auto">
@@ -1310,6 +1363,8 @@ export default function Atendimentos() {
                       <tr>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Seq</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">H.Início</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">H.Fim</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Código</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Descrição</th>
                         <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd</th>
@@ -1324,12 +1379,27 @@ export default function Atendimentos() {
                         <tr key={idx} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${item.pendente_autorizacao ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}>
                           <td className="px-3 py-2 text-xs text-center font-medium">{idx + 1}</td>
                           <td className="px-3 py-2 text-xs">{item.data_execucao || '-'}</td>
+                          <td className="px-3 py-2 text-xs">{item.hora_inicial || '-'}</td>
+                          <td className="px-3 py-2 text-xs">{item.hora_final || '-'}</td>
                           <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
                           <td className="px-3 py-2 text-xs">{item.nome}</td>
                           <td className="px-3 py-2 text-xs text-center font-medium">{item.quantidade}</td>
                           <td className="px-3 py-2 text-xs text-right">R$ {item.valor_unitario?.toFixed(2)}</td>
                           <td className="px-3 py-2 text-xs text-right font-semibold">R$ {item.valor_total?.toFixed(2)}</td>
-                          <td className="px-3 py-2 text-xs text-gray-600">{item.prestador_nome}</td>
+                          <td className="px-3 py-2 text-xs">
+                            <div>{item.prestador_nome || '-'}</div>
+                            {item.prestador_numero_conselho && (
+                              <div className="text-xs text-gray-400">
+                                {item.prestador_conselho === '06' ? 'CRM' : 
+                                 item.prestador_conselho === '08' ? 'CRO' :
+                                 item.prestador_conselho === '03' ? 'CRF' :
+                                 item.prestador_conselho === '02' ? 'COREN' :
+                                 item.prestador_conselho === '05' ? 'CREFITO' :
+                                 item.prestador_conselho === '09' ? 'CRP' :
+                                 item.prestador_conselho === '07' ? 'CRN' : ''} {item.prestador_numero_conselho} - {item.prestador_uf_conselho}
+                              </div>
+                            )}
+                          </td>
                           <td className="px-3 py-2 text-center">
                             {item.pendente_autorizacao ? (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
@@ -1341,21 +1411,20 @@ export default function Atendimentos() {
                                 Autorizado
                               </span>
                             )}
-                          </td>
+                           </td>
                         </tr>
                       ))}
                     </tbody>
                     <tfoot className="bg-gray-50 dark:bg-gray-700/50">
                       <tr className="border-t">
-                        <td colSpan="6" className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">Total da Guia:</td>
+                        <td colSpan="9" className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">Total da Guia:</td>
                         <td colSpan="2" className="px-3 py-2 text-right font-bold text-blue-600 dark:text-blue-400">R$ {selectedGuia.valor_total?.toFixed(2)}</td>
-                        <td className="px-3 py-2"></td>
                       </tr>
                     </tfoot>
-                  </table>
+                  <table>
                 </div>
                 
-                {/* Itens Autorizados (se houver) */}
+                {/* Itens Autorizados */}
                 {selectedGuia.itens_autorizados && selectedGuia.itens_autorizados.length > 0 && (
                   <>
                     <h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
@@ -1403,7 +1472,7 @@ export default function Atendimentos() {
           </div>
         )}
 
-        {/* Modal de Cadastro/Edição - Aba Autorização atualizada */}
+        {/* Modal de Cadastro/Edição */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
@@ -1439,9 +1508,23 @@ export default function Atendimentos() {
                 </div>
                 
                 <form onSubmit={handleSubmit}>
-                  {/* Aba Paciente - Mantenha igual */}
+                  {/* Aba Paciente */}
                   {aba === 'paciente' && (
                     <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Paciente</label>
+                        <div className="relative">
+                          <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                          <input
+                            type="text"
+                            placeholder="Digite nome, CPF ou data de nascimento (DD/MM/AAAA)..."
+                            value={searchPacienteTerm}
+                            onChange={(e) => setSearchPacienteTerm(e.target.value)}
+                            className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                          />
+                        </div>
+                      </div>
+                      
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paciente *</label>
                         <select 
@@ -1451,8 +1534,10 @@ export default function Atendimentos() {
                           required
                         >
                           <option value="">Selecione um paciente</option>
-                          {pacientes.map(p => (
-                            <option key={p.id} value={p.id}>{p.nome} - {p.numero_carteira}</option>
+                          {pacientesFiltrados.map(p => (
+                            <option key={p.id} value={p.id}>
+                              {p.nome} - {p.cpf || 'SEM CPF'} - Nasc: {p.data_nascimento ? format(new Date(p.data_nascimento), 'dd/MM/yyyy') : '---'} - Carteira: {p.numero_carteira}
+                            </option>
                           ))}
                         </select>
                         {formData.paciente_carteira && (
@@ -1464,6 +1549,7 @@ export default function Atendimentos() {
                           </div>
                         )}
                       </div>
+                      
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações</label>
                         <textarea 
@@ -1474,6 +1560,7 @@ export default function Atendimentos() {
                           placeholder="Informações adicionais sobre o atendimento..."
                         />
                       </div>
+                      
                       {editing && (
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
@@ -1489,7 +1576,7 @@ export default function Atendimentos() {
                     </div>
                   )}
 
-                  {/* Aba Autorização - ATUALIZADA COM FUNÇÕES CORRETAS */}
+                  {/* Aba Autorização */}
                   {aba === 'autorizacao' && (
                     <div className="space-y-4">
                       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-4">
@@ -1547,7 +1634,6 @@ export default function Atendimentos() {
                           Procedimentos Autorizados pelo Convênio
                         </h4>
                         
-                        {/* Busca de Procedimento */}
                         <div className="mb-4">
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Procedimento</label>
                           <div className="relative">
@@ -1570,7 +1656,6 @@ export default function Atendimentos() {
                           </div>
                         </div>
                   
-                        {/* Seleção do Item */}
                         {searchItemTerm && itensFiltrados.length > 0 && (
                           <div className="border border-gray-200 dark:border-gray-700 rounded-xl max-h-48 overflow-y-auto mb-4">
                             {itensFiltrados.slice(0, 10).map(item => (
@@ -1602,7 +1687,6 @@ export default function Atendimentos() {
                           </div>
                         )}
                   
-                        {/* Formulário para adicionar item autorizado */}
                         {currentItem.codigo && (
                           <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gray-50 dark:bg-gray-700/30 mb-4">
                             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
@@ -1661,7 +1745,6 @@ export default function Atendimentos() {
                           </div>
                         )}
                   
-                        {/* Tabela de Itens Autorizados */}
                         {itensAutorizados.length > 0 && (
                           <div className="mt-4">
                             <h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
@@ -1733,7 +1816,7 @@ export default function Atendimentos() {
                     </div>
                   )}
 
-                  {/* Aba Solicitante - Mantenha igual */}
+                  {/* Aba Solicitante */}
                   {aba === 'solicitante' && (
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1826,7 +1909,7 @@ export default function Atendimentos() {
                     </div>
                   )}
 
-                  {/* Aba Atendimento - Mantenha igual */}
+                  {/* Aba Atendimento */}
                   {aba === 'atendimento' && (
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2022,11 +2105,10 @@ export default function Atendimentos() {
                               </tbody>
                               <tfoot className="bg-gray-50 dark:bg-gray-700/50">
                                 <tr className="border-t">
-                                  <td colSpan="6" className="px-2 py-2 text-right font-semibold">Subtotal:</td>
+                                  <td colSpan="7" className="px-2 py-2 text-right font-semibold">Subtotal:</td>
                                   <td colSpan="2" className="px-2 py-2 text-right font-bold text-blue-600">
                                     R$ {itensGuia.reduce((sum, i) => sum + i.valor_total, 0).toFixed(2)}
                                   </td>
-                                  <td className="px-2 py-2"></td>
                                   <td className="px-2 py-2"></td>
                                 </tr>
                               </tfoot>
