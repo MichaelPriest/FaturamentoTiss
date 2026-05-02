@@ -3,12 +3,49 @@ import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, XMarkIcon } from 
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabaseClient';
 
-// Lista completa de UFs do Brasil
+// Lista completa de UFs do Brasil com código ANS e sigla
 const UFS = [
-  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 
-  'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 
-  'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
+  { sigla: 'AC', nome: 'Acre', codigoANS: '12' },
+  { sigla: 'AL', nome: 'Alagoas', codigoANS: '27' },
+  { sigla: 'AP', nome: 'Amapá', codigoANS: '16' },
+  { sigla: 'AM', nome: 'Amazonas', codigoANS: '13' },
+  { sigla: 'BA', nome: 'Bahia', codigoANS: '29' },
+  { sigla: 'CE', nome: 'Ceará', codigoANS: '23' },
+  { sigla: 'DF', nome: 'Distrito Federal', codigoANS: '53' },
+  { sigla: 'ES', nome: 'Espírito Santo', codigoANS: '32' },
+  { sigla: 'GO', nome: 'Goiás', codigoANS: '52' },
+  { sigla: 'MA', nome: 'Maranhão', codigoANS: '21' },
+  { sigla: 'MT', nome: 'Mato Grosso', codigoANS: '51' },
+  { sigla: 'MS', nome: 'Mato Grosso do Sul', codigoANS: '50' },
+  { sigla: 'MG', nome: 'Minas Gerais', codigoANS: '31' },
+  { sigla: 'PA', nome: 'Pará', codigoANS: '15' },
+  { sigla: 'PB', nome: 'Paraíba', codigoANS: '25' },
+  { sigla: 'PR', nome: 'Paraná', codigoANS: '41' },
+  { sigla: 'PE', nome: 'Pernambuco', codigoANS: '26' },
+  { sigla: 'PI', nome: 'Piauí', codigoANS: '22' },
+  { sigla: 'RJ', nome: 'Rio de Janeiro', codigoANS: '33' },
+  { sigla: 'RN', nome: 'Rio Grande do Norte', codigoANS: '24' },
+  { sigla: 'RS', nome: 'Rio Grande do Sul', codigoANS: '43' },
+  { sigla: 'RO', nome: 'Rondônia', codigoANS: '11' },
+  { sigla: 'RR', nome: 'Roraima', codigoANS: '14' },
+  { sigla: 'SC', nome: 'Santa Catarina', codigoANS: '42' },
+  { sigla: 'SP', nome: 'São Paulo', codigoANS: '35' },
+  { sigla: 'SE', nome: 'Sergipe', codigoANS: '28' },
+  { sigla: 'TO', nome: 'Tocantins', codigoANS: '17' },
+  { sigla: 'EX', nome: 'Exterior', codigoANS: '98' }
 ];
+
+// Função para obter código ANS a partir da sigla
+const getCodigoANSUF = (sigla) => {
+  const uf = UFS.find(u => u.sigla === sigla);
+  return uf?.codigoANS || '35';
+};
+
+// Função para obter sigla a partir do código ANS
+const getSiglaUF = (codigoANS) => {
+  const uf = UFS.find(u => u.codigoANS === codigoANS);
+  return uf?.sigla || 'SP';
+};
 
 // Lista completa de Conselhos Profissionais
 const CONSELHOS = [
@@ -682,7 +719,7 @@ export default function Prestadores() {
                       onChange={e => setFormData({...formData, uf_conselho: e.target.value})} 
                       className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     >
-                      {UFS.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+                      {UFS.map(uf => <option key={uf.sigla} value={uf.sigla}>{uf.sigla} - {uf.nome}</option>)}
                     </select>
                   </div>
                 </div>
@@ -754,7 +791,7 @@ export default function Prestadores() {
                       onChange={e => setFormData({...formData, estado: e.target.value})} 
                       className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     >
-                      {UFS.map(uf => <option key={uf} value={uf}>{uf}</option>)}
+                      {UFS.map(uf => <option key={uf.sigla} value={uf.sigla}>{uf.sigla} - {uf.nome}</option>)}
                     </select>
                   </div>
                 </div>
