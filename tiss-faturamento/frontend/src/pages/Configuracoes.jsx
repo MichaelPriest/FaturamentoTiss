@@ -14,6 +14,37 @@ import {
   UserIcon
 } from '@heroicons/react/24/outline';
 
+// Lista de UFs com códigos ANS
+const UFS = [
+  { sigla: 'SP', nome: 'São Paulo', codigoANS: '35' },
+  { sigla: 'RJ', nome: 'Rio de Janeiro', codigoANS: '33' },
+  { sigla: 'MG', nome: 'Minas Gerais', codigoANS: '31' },
+  { sigla: 'RS', nome: 'Rio Grande do Sul', codigoANS: '43' },
+  { sigla: 'PR', nome: 'Paraná', codigoANS: '41' },
+  { sigla: 'SC', nome: 'Santa Catarina', codigoANS: '42' },
+  { sigla: 'BA', nome: 'Bahia', codigoANS: '29' },
+  { sigla: 'PE', nome: 'Pernambuco', codigoANS: '26' },
+  { sigla: 'CE', nome: 'Ceará', codigoANS: '23' },
+  { sigla: 'DF', nome: 'Distrito Federal', codigoANS: '53' },
+  { sigla: 'GO', nome: 'Goiás', codigoANS: '52' },
+  { sigla: 'MT', nome: 'Mato Grosso', codigoANS: '51' },
+  { sigla: 'MS', nome: 'Mato Grosso do Sul', codigoANS: '50' },
+  { sigla: 'AM', nome: 'Amazonas', codigoANS: '13' },
+  { sigla: 'PA', nome: 'Pará', codigoANS: '15' },
+  { sigla: 'MA', nome: 'Maranhão', codigoANS: '21' },
+  { sigla: 'PI', nome: 'Piauí', codigoANS: '22' },
+  { sigla: 'RN', nome: 'Rio Grande do Norte', codigoANS: '24' },
+  { sigla: 'PB', nome: 'Paraíba', codigoANS: '25' },
+  { sigla: 'AL', nome: 'Alagoas', codigoANS: '27' },
+  { sigla: 'SE', nome: 'Sergipe', codigoANS: '28' },
+  { sigla: 'ES', nome: 'Espírito Santo', codigoANS: '32' },
+  { sigla: 'RO', nome: 'Rondônia', codigoANS: '11' },
+  { sigla: 'AC', nome: 'Acre', codigoANS: '12' },
+  { sigla: 'RR', nome: 'Roraima', codigoANS: '14' },
+  { sigla: 'AP', nome: 'Amapá', codigoANS: '16' },
+  { sigla: 'TO', nome: 'Tocantins', codigoANS: '17' }
+];
+
 export default function Configuracoes() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -102,45 +133,21 @@ export default function Configuracoes() {
       toast.error('Nome do contratado (clínica/hospital) é obrigatório');
       return;
     }
-  
+
     setSaving(true);
     try {
-      // Verificar se já existe a configuração
-      const { data: existing } = await supabase
+      // Usar upsert com onConflict
+      const { error } = await supabase
         .from('configuracoes')
-        .select('chave')
-        .eq('chave', 'config_sistema')
-        .maybeSingle();
-  
-      let error;
-      
-      if (existing) {
-        // Atualizar configuração existente
-        const { error: updateError } = await supabase
-          .from('configuracoes')
-          .update({
-            valor: JSON.stringify(config),
-            descricao: 'Configurações do sistema de faturamento TISS',
-            updated_at: new Date().toISOString()
-          })
-          .eq('chave', 'config_sistema');
-        error = updateError;
-      } else {
-        // Inserir nova configuração
-        const { error: insertError } = await supabase
-          .from('configuracoes')
-          .insert({
-            chave: 'config_sistema',
-            valor: JSON.stringify(config),
-            descricao: 'Configurações do sistema de faturamento TISS',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
-        error = insertError;
-      }
-  
+        .upsert({
+          chave: 'config_sistema',
+          valor: JSON.stringify(config),
+          descricao: 'Configurações do sistema de faturamento TISS',
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'chave' });
+
       if (error) throw error;
-  
+
       localStorage.setItem('config_sistema', JSON.stringify(config));
       setTissConfig(config);
       setVersao(config.versao_tiss);
@@ -388,16 +395,9 @@ export default function Configuracoes() {
                       onChange={e => setConfig({...config, uf_clinica: e.target.value})} 
                       className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
                     >
-                      <option value="SP">São Paulo</option>
-                      <option value="RJ">Rio de Janeiro</option>
-                      <option value="MG">Minas Gerais</option>
-                      <option value="RS">Rio Grande do Sul</option>
-                      <option value="PR">Paraná</option>
-                      <option value="SC">Santa Catarina</option>
-                      <option value="BA">Bahia</option>
-                      <option value="PE">Pernambuco</option>
-                      <option value="CE">Ceará</option>
-                      <option value="DF">Distrito Federal</option>
+                      {UFS.map(uf => (
+                        <option key={uf.sigla} value={uf.sigla}>{uf.sigla} - {uf.nome}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
