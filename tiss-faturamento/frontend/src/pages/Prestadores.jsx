@@ -24,7 +24,7 @@ const CONSELHOS = [
   { sigla: 'CRESS', nome: 'Conselho Regional de Serviço Social', codigoANS: '01' }
 ];
 
-// Lista de Especialidades com IDs CORRETOS (após limpeza da duplicidade)
+// Lista de Especialidades
 const ESPECIALIDADES = [
   { id: 14, nome: 'Psicologia', cbos: '251510', codigo_ans: '09', conselhoPadrao: 'CRP' },
   { id: 15, nome: 'Neuropsicologia', cbos: '251510', codigo_ans: '09', conselhoPadrao: 'CRP' },
@@ -137,7 +137,6 @@ export default function Prestadores() {
 
     try {
       if (editing) {
-        // Atualizar prestador
         const { error: updateError } = await supabase
           .from('prestadores')
           .update({
@@ -163,13 +162,11 @@ export default function Prestadores() {
         
         if (updateError) throw updateError;
         
-        // Remover especialidades antigas
         await supabase
           .from('prestador_especialidade')
           .delete()
           .eq('prestador_id', editing.id);
         
-        // Inserir novas especialidades
         const especialidadesInsert = especialidadesSelecionadas.map(esp => ({
           prestador_id: editing.id,
           especialidade_id: esp.id,
@@ -186,7 +183,6 @@ export default function Prestadores() {
         
         toast.success('Prestador atualizado com sucesso!');
       } else {
-        // Inserir novo prestador
         const { data: novoPrestador, error: insertError } = await supabase
           .from('prestadores')
           .insert({
@@ -214,7 +210,6 @@ export default function Prestadores() {
         
         if (insertError) throw insertError;
         
-        // Inserir especialidades
         const especialidadesInsert = especialidadesSelecionadas.map(esp => ({
           prestador_id: novoPrestador.id,
           especialidade_id: esp.id,
@@ -454,7 +449,7 @@ export default function Prestadores() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Especialidades</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">CBOS</th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Ações</th>
-              <tr>
+              </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {filtered.map((p) => (
@@ -485,7 +480,7 @@ export default function Prestadores() {
                       </button>
                     </div>
                   </td>
-                </table>
+                </tr>
               ))}
             </tbody>
           </table>
