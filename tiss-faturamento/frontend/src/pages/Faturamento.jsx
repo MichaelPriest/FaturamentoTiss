@@ -192,7 +192,7 @@ export default function Faturamento() {
   };
 
   // ============================================
-  // FUNÇÕES DE UTILIDADE
+  // FUNÇÕES DE UTILIDADE - CORRIGIDAS
   // ============================================
 
   const gerarNumeroLote = () => {
@@ -204,6 +204,7 @@ export default function Faturamento() {
     return `${ano}${mes}${dia}${seq}`;
   };
 
+  // Função pura para calcular impostos (não usa estado)
   const calcularImpostos = (baseCalculo, aliquotaISS, aliquotaIBS, aliquotaCBS, aliquotaIR, aliquotaCSLL, aliquotaPIS, aliquotaCOFINS) => {
     const iss = (baseCalculo * aliquotaISS) / 100;
     const ibs = (baseCalculo * aliquotaIBS) / 100;
@@ -217,58 +218,62 @@ export default function Faturamento() {
     return { iss, ibs, cbs, ir, csll, pis, cofins, totalImpostos, valorLiquido };
   };
 
-  const atualizarTodosImpostos = useCallback((baseCalculo) => {
-    const impostos = calcularImpostos(
-      baseCalculo,
-      dadosFatura.aliquotaISS,
-      dadosFatura.aliquotaIBS,
-      dadosFatura.aliquotaCBS,
-      dadosFatura.aliquotaIR,
-      dadosFatura.aliquotaCSLL,
-      dadosFatura.aliquotaPIS,
-      dadosFatura.aliquotaCOFINS
-    );
-    setDadosFatura(prev => ({
-      ...prev,
-      baseCalculo: baseCalculo,
-      valorISS: impostos.iss,
-      valorIBS: impostos.ibs,
-      valorCBS: impostos.cbs,
-      valorIR: impostos.ir,
-      valorCSLL: impostos.csll,
-      valorPIS: impostos.pis,
-      valorCOFINS: impostos.cofins,
-      valorLiquido: impostos.valorLiquido
-    }));
-  }, [dadosFatura.aliquotaISS, dadosFatura.aliquotaIBS, dadosFatura.aliquotaCBS, 
-      dadosFatura.aliquotaIR, dadosFatura.aliquotaCSLL, dadosFatura.aliquotaPIS, 
-      dadosFatura.aliquotaCOFINS]);
+  // Função para atualizar o estado (sem useCallback para evitar dependências desnecessárias)
+  const atualizarTodosImpostos = (baseCalculo) => {
+    setDadosFatura(prev => {
+      const impostos = calcularImpostos(
+        baseCalculo,
+        prev.aliquotaISS,
+        prev.aliquotaIBS,
+        prev.aliquotaCBS,
+        prev.aliquotaIR,
+        prev.aliquotaCSLL,
+        prev.aliquotaPIS,
+        prev.aliquotaCOFINS
+      );
+      return {
+        ...prev,
+        baseCalculo: baseCalculo,
+        valorISS: impostos.iss,
+        valorIBS: impostos.ibs,
+        valorCBS: impostos.cbs,
+        valorIR: impostos.ir,
+        valorCSLL: impostos.csll,
+        valorPIS: impostos.pis,
+        valorCOFINS: impostos.cofins,
+        valorLiquido: impostos.valorLiquido
+      };
+    });
+  };
 
+  // Função para atualizar uma alíquota específica
   const atualizarAliquota = (campo, valor) => {
     const novaAliquota = parseFloat(valor) || 0;
-    setDadosFatura(prev => ({ ...prev, [campo]: novaAliquota }));
-    const impostos = calcularImpostos(
-      dadosFatura.baseCalculo,
-      campo === 'aliquotaISS' ? novaAliquota : dadosFatura.aliquotaISS,
-      campo === 'aliquotaIBS' ? novaAliquota : dadosFatura.aliquotaIBS,
-      campo === 'aliquotaCBS' ? novaAliquota : dadosFatura.aliquotaCBS,
-      campo === 'aliquotaIR' ? novaAliquota : dadosFatura.aliquotaIR,
-      campo === 'aliquotaCSLL' ? novaAliquota : dadosFatura.aliquotaCSLL,
-      campo === 'aliquotaPIS' ? novaAliquota : dadosFatura.aliquotaPIS,
-      campo === 'aliquotaCOFINS' ? novaAliquota : dadosFatura.aliquotaCOFINS
-    );
-    setDadosFatura(prev => ({
-      ...prev,
-      [campo]: novaAliquota,
-      valorISS: impostos.iss,
-      valorIBS: impostos.ibs,
-      valorCBS: impostos.cbs,
-      valorIR: impostos.ir,
-      valorCSLL: impostos.csll,
-      valorPIS: impostos.pis,
-      valorCOFINS: impostos.cofins,
-      valorLiquido: impostos.valorLiquido
-    }));
+    
+    setDadosFatura(prev => {
+      const novosDados = { ...prev, [campo]: novaAliquota };
+      const impostos = calcularImpostos(
+        novosDados.baseCalculo,
+        campo === 'aliquotaISS' ? novaAliquota : novosDados.aliquotaISS,
+        campo === 'aliquotaIBS' ? novaAliquota : novosDados.aliquotaIBS,
+        campo === 'aliquotaCBS' ? novaAliquota : novosDados.aliquotaCBS,
+        campo === 'aliquotaIR' ? novaAliquota : novosDados.aliquotaIR,
+        campo === 'aliquotaCSLL' ? novaAliquota : novosDados.aliquotaCSLL,
+        campo === 'aliquotaPIS' ? novaAliquota : novosDados.aliquotaPIS,
+        campo === 'aliquotaCOFINS' ? novaAliquota : novosDados.aliquotaCOFINS
+      );
+      return {
+        ...novosDados,
+        valorISS: impostos.iss,
+        valorIBS: impostos.ibs,
+        valorCBS: impostos.cbs,
+        valorIR: impostos.ir,
+        valorCSLL: impostos.csll,
+        valorPIS: impostos.pis,
+        valorCOFINS: impostos.cofins,
+        valorLiquido: impostos.valorLiquido
+      };
+    });
   };
 
   const salvarBloqueados = async (bloqueadosList) => {
@@ -390,18 +395,16 @@ export default function Faturamento() {
     }, {});
   }, [pendentesFiltrados]);
 
+  // previewData CORRIGIDO - sem atualização de estado dentro do useMemo
   const previewData = useMemo(() => {
     if (selecionados.length === 0) return null;
     const atendimentosSelecionados = pendentes.filter(a => selecionados.includes(a.id));
     const valorTotal = atendimentosSelecionados.reduce((sum, a) => sum + (a.valor_total || 0), 0);
-    const numeroLote = gerarNumeroLote();
-    setNumeroLotePreview(numeroLote);
     
     return {
       atendimentos: atendimentosSelecionados,
       valorTotal,
       quantidade: atendimentosSelecionados.length,
-      numeroLote: numeroLote,
       conveniosAgrupados: atendimentosSelecionados.reduce((acc, a) => {
         const convenioId = a.paciente_convenio_id;
         if (!acc[convenioId]) {
@@ -464,27 +467,15 @@ export default function Faturamento() {
     }
   };
 
-  const handleSelectAllConvenio = (convenioId, convenioAtendimentos) => {
-    const ids = convenioAtendimentos.filter(a => !bloqueados.includes(a.id)).map(a => a.id);
-    const selecionadosCount = ids.filter(id => selecionados.includes(id)).length;
-    
-    if (selecionadosCount === ids.length) {
-      setSelecionados(selecionados.filter(id => !ids.includes(id)));
-    } else {
-      if (selecionados.length + ids.length <= MAX_GUIAS_POR_LOTE) {
-        setSelecionados([...selecionados, ...ids]);
-      } else {
-        toast.warning(`Limite de ${MAX_GUIAS_POR_LOTE} guias por lote`);
-      }
-    }
-  };
-
+  // abrirPrevia CORRIGIDO - gerando o número do lote aqui
   const abrirPrevia = () => {
     if (selecionados.length === 0) {
       toast.error('Selecione pelo menos uma guia para faturar');
       return;
     }
     if (previewData) {
+      const novoNumeroLote = gerarNumeroLote();
+      setNumeroLotePreview(novoNumeroLote);
       atualizarTodosImpostos(previewData.valorTotal);
       setShowPreviaModal(true);
     }
@@ -514,7 +505,7 @@ export default function Faturamento() {
         <h1>Sistema de Faturamento TISS</h1>
         <h2>Relação de Guias para Faturamento</h2>
         <p><strong>Data da relação:</strong> ${new Date().toLocaleString()}</p>
-        <p><strong>Número do Lote:</strong> ${previewData.numeroLote}</p>
+        <p><strong>Número do Lote:</strong> ${numeroLotePreview}</p>
         <p><strong>Total de guias:</strong> ${previewData.quantidade}</p>
         <p><strong>Valor total:</strong> R$ ${previewData.valorTotal.toFixed(2)}</p>
     `;
@@ -544,7 +535,7 @@ export default function Faturamento() {
       });
       conteudo += `
           </tbody>
-          <tfoot><tr><td colspan="7" class="total">Total:</td><td class="total">R$ ${data.valorTotal.toFixed(2)}</td></tr></tfoot>
+          <tfoot><tr><td colspan="7" class="total">Total:</td><td class="total">R$ ${data.valorTotal.toFixed(2)}</td></tr>
         </table>
       `;
     });
@@ -573,7 +564,7 @@ export default function Faturamento() {
           continue;
         }
 
-        const numeroLote = previewData.numeroLote;
+        const numeroLote = numeroLotePreview;
         
         const guias = data.atendimentos.map(atendimento => ({
           ...converterAtendimentoParaTISS(atendimento, convenio),
@@ -1107,6 +1098,8 @@ export default function Faturamento() {
             const selecionadosCount = convenioAtendimentos.filter(a => selecionados.includes(a.id)).length;
             const totalConvenio = convenioAtendimentos.reduce((sum, a) => sum + (a.valor_total || 0), 0);
             
+            const idsConvenio = convenioAtendimentos.filter(a => !bloqueados.includes(a.id)).map(a => a.id);
+            
             return (
               <div key={convenio.id || `convenio-${convenioId}-${index}`} className="bg-white dark:bg-gray-800 rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 <div className="p-4 border-b bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700/50 flex justify-between items-center flex-wrap gap-2">
@@ -1129,14 +1122,13 @@ export default function Faturamento() {
                         <th className="px-4 py-3 text-left w-8">
                           <input 
                             type="checkbox" 
-                            checked={selecionadosCount === convenioAtendimentos.filter(a => !bloqueados.includes(a.id)).length} 
+                            checked={selecionadosCount === idsConvenio.length && idsConvenio.length > 0} 
                             onChange={() => {
-                              const ids = convenioAtendimentos.filter(a => !bloqueados.includes(a.id)).map(a => a.id);
-                              if (selecionadosCount === ids.length) {
-                                setSelecionados(selecionados.filter(id => !ids.includes(id)));
+                              if (selecionadosCount === idsConvenio.length) {
+                                setSelecionados(selecionados.filter(id => !idsConvenio.includes(id)));
                               } else {
-                                if (selecionados.length + ids.length <= MAX_GUIAS_POR_LOTE) {
-                                  setSelecionados([...selecionados, ...ids]);
+                                if (selecionados.length + idsConvenio.length <= MAX_GUIAS_POR_LOTE) {
+                                  setSelecionados([...selecionados, ...idsConvenio]);
                                 } else {
                                   toast.warning(`Limite de ${MAX_GUIAS_POR_LOTE} guias por lote`);
                                 }
@@ -1180,8 +1172,8 @@ export default function Faturamento() {
                             <button onClick={() => toggleBloqueio(a.id)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title={bloqueados.includes(a.id) ? 'Desbloquear' : 'Bloquear'}>
                               {bloqueados.includes(a.id) ? <LockOpenIcon className="w-4 h-4 text-green-500" /> : <LockClosedIcon className="w-4 h-4 text-orange-500" />}
                             </button>
-                          </td>
-                        </tr>
+                           </td>
+                         </tr>
                       ))}
                     </tbody>
                     <tfoot className="bg-gray-50 dark:bg-gray-700/50">
@@ -1344,7 +1336,7 @@ export default function Faturamento() {
                     </div>
                     <div>
                       <p className="text-xs text-gray-500 dark:text-gray-400">Nº do Lote</p>
-                      <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 font-mono">{previewData.numeroLote}</p>
+                      <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 font-mono">{numeroLotePreview}</p>
                     </div>
                   </div>
                   <div className="mt-4 flex gap-2">
