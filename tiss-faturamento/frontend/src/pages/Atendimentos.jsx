@@ -1608,7 +1608,6 @@ export default function Atendimentos() {
                                   <td colSpan="2" className="px-2 py-2 text-right font-bold text-blue-600">
                                     R$ {itensGuia.reduce((sum, i) => sum + i.valor_total, 0).toFixed(2)}
                                   </td>
-                                  <td>
                                 </tr>
                               </tfoot>
                             </table>
