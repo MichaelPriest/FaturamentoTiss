@@ -76,75 +76,60 @@ export default function Prestadores() {
   const carregarPrestadores = async () => {
     setLoading(true);
     try {
-      // 1. Buscar todos os prestadores
-      const { data: prestadores, error: err1 } = await supabase
+      // Buscar prestadores com suas especialidades em UMA ÚNICA CONSULTA
+      const { data, error } = await supabase
         .from('prestadores')
-        .select('*')
+        .select(`
+          *,
+          prestador_especialidade (
+            id,
+            principal,
+            especialidade_id,
+            especialidades (
+              id,
+              nome,
+              cbos,
+              codigo_ans
+            )
+          )
+        `)
         .order('nome', { ascending: true });
       
-      if (err1) throw err1;
-      console.log('Prestadores:', prestadores.length);
+      if (error) throw error;
       
-      // 2. Buscar todas as relações
-      const { data: relacoes, error: err2 } = await supabase
-        .from('prestador_especialidade')
-        .select('*');
+      console.log('Dados brutos do Supabase:', data);
       
-      if (err2) throw err2;
-      console.log('Relações:', relacoes.length);
-      
-      // 3. Buscar todas as especialidades
-      const { data: especialidadesDB, error: err3 } = await supabase
-        .from('especialidades')
-        .select('*');
-      
-      if (err3) throw err3;
-      console.log('Especialidades:', especialidadesDB.length);
-      
-      // Criar mapa de especialidades
-      const mapaEsp = new Map();
-      especialidadesDB.forEach(esp => {
-        mapaEsp.set(esp.id, esp);
-      });
-      
-      // Agrupar por prestador
-      const mapaPorPrestador = new Map();
-      relacoes.forEach(rel => {
-        if (!mapaPorPrestador.has(rel.prestador_id)) {
-          mapaPorPrestador.set(rel.prestador_id, []);
-        }
-        
-        const especialidade = mapaEsp.get(rel.especialidade_id);
-        if (especialidade) {
-          mapaPorPrestador.get(rel.prestador_id).push({
-            id: rel.id,
-            prestador_id: rel.prestador_id,
-            especialidade_id: rel.especialidade_id,
-            principal: rel.principal,
+      // Transformar os dados
+      const resultado = (data || []).map(prestador => {
+        const especialidades = (prestador.prestador_especialidade || [])
+          .filter(pe => pe.especialidades !== null)
+          .map(pe => ({
+            id: pe.id,
+            prestador_id: prestador.id,
+            especialidade_id: pe.especialidade_id,
+            principal: pe.principal,
             especialidade: {
-              id: especialidade.id,
-              nome: especialidade.nome,
-              cbos: especialidade.cbos,
-              codigo_ans: especialidade.codigo_ans
+              id: pe.especialidades.id,
+              nome: pe.especialidades.nome,
+              cbos: pe.especialidades.cbos,
+              codigo_ans: pe.especialidades.codigo_ans
             }
-          });
-        }
+          }));
+        
+        return {
+          ...prestador,
+          especialidades
+        };
       });
-      
-      // Montar resultado
-      const resultado = prestadores.map(p => ({
-        ...p,
-        especialidades: mapaPorPrestador.get(p.id) || []
-      }));
       
       // Verificar Amanda
       const amanda = resultado.find(p => p.id === 105);
-      console.log('Amanda final:', amanda);
-      console.log('Especialidades Amanda:', amanda?.especialidades);
+      console.log('Amanda no resultado:', amanda);
+      console.log('Especialidades da Amanda:', amanda?.especialidades);
       
       setPrestadores(resultado);
     } catch (error) {
-      console.error('Erro:', error);
+      console.error('Erro ao carregar prestadores:', error);
       toast.error('Erro ao carregar dados');
     } finally {
       setLoading(false);
