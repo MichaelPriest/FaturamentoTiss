@@ -26,7 +26,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabaseClient';
-import { useTheme } from '../App';
+import { useTheme } from '../contexts/ThemeContext';
 
 const { darkMode } = useTheme();
 
