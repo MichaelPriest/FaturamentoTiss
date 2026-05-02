@@ -253,8 +253,9 @@ export const prestadoresService = {
           }))
       }));
     }
+    
     try {
-      // Consulta separada para evitar erro de alias
+      // Primeiro, buscar todos os prestadores
       const { data: prestadores, error: prestadoresError } = await supabase
         .from(TABLES.PRESTADORES)
         .select('*')
@@ -262,37 +263,52 @@ export const prestadoresService = {
       
       if (prestadoresError) throw prestadoresError;
       
-      // Buscar especialidades para cada prestador
-      const prestadoresComEspecialidades = await Promise.all(
-        (prestadores || []).map(async (prestador) => {
-          const { data: especialidadesRel, error: relError } = await supabase
-            .from('prestador_especialidade')
-            .select(`
-              id,
-              principal,
-              especialidade_id,
-              especialidades:especialidade_id (
-                id,
-                nome,
-                cbos,
-                codigo_ans
-              )
-            `)
-            .eq('prestador_id', prestador.id);
-          
-          if (relError) {
-            console.error('Erro ao buscar especialidades do prestador:', relError);
-            return { ...prestador, especialidades: [] };
-          }
-          
-          return {
-            ...prestador,
-            especialidades: especialidadesRel || []
-          };
-        })
-      );
+      if (!prestadores || prestadores.length === 0) {
+        return [];
+      }
       
-      return prestadoresComEspecialidades;
+      // Buscar todas as especialidades primeiro
+      const { data: todasEspecialidades, error: espError } = await supabase
+        .from('especialidades')
+        .select('*');
+      
+      if (espError) throw espError;
+      
+      // Criar um mapa de especialidades por ID
+      const especialidadesMap = new Map();
+      todasEspecialidades?.forEach(esp => {
+        especialidadesMap.set(esp.id, esp);
+      });
+      
+      // Buscar todas as relações prestador_especialidade
+      const { data: relacoes, error: relError } = await supabase
+        .from('prestador_especialidade')
+        .select('*');
+      
+      if (relError) throw relError;
+      
+      // Agrupar relações por prestador_id
+      const relacoesPorPrestador = new Map();
+      relacoes?.forEach(rel => {
+        if (!relacoesPorPrestador.has(rel.prestador_id)) {
+          relacoesPorPrestador.set(rel.prestador_id, []);
+        }
+        relacoesPorPrestador.get(rel.prestador_id).push({
+          id: rel.id,
+          prestador_id: rel.prestador_id,
+          especialidade_id: rel.especialidade_id,
+          principal: rel.principal,
+          especialidade: especialidadesMap.get(rel.especialidade_id)
+        });
+      });
+      
+      // Montar o resultado final
+      const resultado = prestadores.map(prestador => ({
+        ...prestador,
+        especialidades: relacoesPorPrestador.get(prestador.id) || []
+      }));
+      
+      return resultado;
     } catch (err) {
       console.error('Erro ao listar prestadores com especialidades:', err);
       return this.listar();
