@@ -885,7 +885,9 @@ export default function Atendimentos() {
     }
     return true;
   });
-
+  
+  // Itens autorizados (separado dos itens executados)
+  const [itensAutorizados, setItensAutorizados] = useState([]);
   const pendentes = atendimentos.filter(a => a.status === 'pendente').length;
   const autorizados = atendimentos.filter(a => a.status === 'autorizado').length;
   const parciais = atendimentos.filter(a => a.status === 'parcial').length;
@@ -1281,25 +1283,311 @@ export default function Atendimentos() {
                   {/* Aba Autorização */}
                   {aba === 'autorizacao' && (
                     <div className="space-y-4">
-                      <div className="bg-blue-50 p-3 rounded-lg mb-4"><p className="text-xs text-blue-700"><strong>📋 Autorização da Guia:</strong> Preencha os dados de autorização fornecidos pela operadora e inclua os procedimentos que serão realizados.</p></div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><label className="block text-sm font-medium mb-1">Número da Guia (Operadora)</label><input type="text" value={formData.numero_guia_operadora} onChange={e => setFormData({...formData, numero_guia_operadora: e.target.value})} placeholder="Número fornecido pela operadora" className="w-full bg-white dark:bg-gray-700 border rounded-lg px-3 py-2 text-sm font-mono" /></div>
-                        <div><label className="block text-sm font-medium mb-1">Data da Autorização</label><input type="date" value={formData.data_autorizacao} onChange={e => setFormData({...formData, data_autorizacao: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-lg px-3 py-2 text-sm" /></div>
-                        <div><label className="block text-sm font-medium mb-1">Data Validade da Senha</label><input type="date" value={formData.data_validade_senha} onChange={e => setFormData({...formData, data_validade_senha: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-lg px-3 py-2 text-sm" /></div>
-                        <div><label className="block text-sm font-medium mb-1">Senha de Autorização</label><input type="text" value={formData.senha_autorizacao} onChange={e => setFormData({...formData, senha_autorizacao: e.target.value})} placeholder="Pode conter letras e números" className="w-full bg-white dark:bg-gray-700 border rounded-lg px-3 py-2 text-sm" /></div>
+                      <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-4">
+                        <p className="text-xs text-blue-700 dark:text-blue-300">
+                          <strong>📋 Autorização da Guia:</strong> Registre aqui os procedimentos autorizados PELO CONVÊNIO/OPERADORA, com suas respectivas quantidades autorizadas.
+                          Estes procedimentos serão usados como base para o faturamento e controle de saldo.
+                        </p>
                       </div>
-
-                      {/* Inclusão de Procedimentos na Autorização */}
-                      <div className="border-t pt-4 mt-4">
-                        <h4 className="text-sm font-semibold mb-3 flex items-center gap-2"><PlusIcon className="w-4 h-4" /> Incluir Procedimentos</h4>
-                        <div className="mb-3"><label className="block text-sm font-medium mb-1">Buscar Procedimento</label><div className="relative"><MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" /><input type="text" value={searchItemTerm} onChange={e => setSearchItemTerm(e.target.value)} placeholder="Digite o código ou descrição..." className="w-full bg-white dark:bg-gray-700 border rounded-lg pl-8 pr-3 py-2 text-sm" list="itens-suggestions" /><datalist id="itens-suggestions">{itensFiltrados.slice(0, 20).map(item => (<option key={item.codigo_tuss} value={item.codigo_tuss}>{item.codigo_tuss} - {item.nome}</option>))}</datalist></div></div>
-                        {searchItemTerm && itensFiltrados.length > 0 && (<div className="border rounded-xl max-h-48 overflow-y-auto mb-3">{itensFiltrados.slice(0, 10).map(item => (<button key={item.codigo_tuss} type="button" onClick={() => { handleProcedimentoItemChange(item.codigo_tuss); setSearchItemTerm(''); }} className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b last:border-b-0"><div className="flex justify-between"><div><span className="font-mono text-sm text-blue-600">{item.codigo_tuss}</span><span className="text-sm text-gray-700 ml-2">{item.nome}</span></div><span className="text-sm font-semibold text-green-600">R$ {item.valor_sugerido?.toFixed(2)}</span></div></button>))}</div>)}
-                        {currentItem.codigo && (<div className="border rounded-xl p-4 bg-gray-50 mb-3"><div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end"><div className="md:col-span-2"><label className="block text-xs text-gray-500 mb-1">Data Execução</label><input type="date" value={currentItem.data_execucao} onChange={e => setCurrentItem({...currentItem, data_execucao: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm" /></div><div className="md:col-span-1"><label className="block text-xs text-gray-500 mb-1">H.I</label><input type="time" value={currentItem.hora_inicial} onChange={e => setCurrentItem({...currentItem, hora_inicial: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm" /></div><div className="md:col-span-1"><label className="block text-xs text-gray-500 mb-1">H.F</label><input type="time" value={currentItem.hora_final} onChange={e => setCurrentItem({...currentItem, hora_final: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm" /></div><div className="md:col-span-3"><label className="block text-xs text-gray-500 mb-1">Procedimento</label><input type="text" value={currentItem.nome} disabled className="w-full bg-gray-100 border rounded px-2 py-1.5 text-sm" /></div><div className="md:col-span-1"><label className="block text-xs text-gray-500 mb-1">Qtd</label><input type="number" min="1" value={currentItem.quantidade} onChange={e => { const qtd = parseInt(e.target.value) || 1; setCurrentItem({...currentItem, quantidade: qtd, valor_total: qtd * currentItem.valor_unitario}); }} className="w-full border rounded px-2 py-1.5 text-sm text-center" /></div><div className="md:col-span-2"><label className="block text-xs text-gray-500 mb-1">Valor Unit. (R$)</label><input type="number" step="0.01" value={currentItem.valor_unitario} onChange={e => { const valor = parseFloat(e.target.value) || 0; setCurrentItem({...currentItem, valor_unitario: valor, valor_total: currentItem.quantidade * valor}); }} className="w-full border rounded px-2 py-1.5 text-sm text-right" /></div><div className="md:col-span-2"><label className="block text-xs text-gray-500 mb-1">Profissional</label>
-                          <div className="relative"><input type="text" placeholder="Digite o nome do profissional" value={currentItem.prestador_nome} onChange={e => { setCurrentItem({...currentItem, prestador_nome: e.target.value}); buscarProfissionalExecutantePorNome(e.target.value); }} className="w-full border rounded px-2 py-1.5 text-sm" /></div>
-                        </div><div className="md:col-span-1"><button type="button" onClick={handleAdicionarItem} className="w-full bg-green-600 text-white px-2 py-1.5 rounded-lg text-sm hover:bg-green-700 font-medium">+ Add</button></div></div></div>)}
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número da Guia (Operadora)</label>
+                          <input 
+                            type="text" 
+                            value={formData.numero_guia_operadora} 
+                            onChange={e => setFormData({...formData, numero_guia_operadora: e.target.value})} 
+                            placeholder="Número fornecido pela operadora" 
+                            className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data da Autorização</label>
+                          <input 
+                            type="date" 
+                            value={formData.data_autorizacao} 
+                            onChange={e => setFormData({...formData, data_autorizacao: e.target.value})} 
+                            className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data Validade da Senha</label>
+                          <input 
+                            type="date" 
+                            value={formData.data_validade_senha} 
+                            onChange={e => setFormData({...formData, data_validade_senha: e.target.value})} 
+                            className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Senha de Autorização</label>
+                          <input 
+                            type="text" 
+                            value={formData.senha_autorizacao} 
+                            onChange={e => setFormData({...formData, senha_autorizacao: e.target.value})} 
+                            placeholder="Senha de acesso" 
+                            className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                          />
+                        </div>
+                      </div>
+                  
+                      {/* Busca e Inclusão de Itens Autorizados */}
+                      <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+                        <h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+                          <PlusIcon className="w-4 h-4 text-green-600" />
+                          Procedimentos Autorizados pelo Convênio
+                        </h4>
                         
-                        {/* Tabela de Itens Adicionados */}
-                        {itensGuia.length > 0 && (<div className="border-t pt-4"><h4 className="text-sm font-semibold mb-2">Procedimentos ({itensGuia.length})</h4><div className="border rounded-xl overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-gray-50"><tr><th className="px-2 py-1 text-left text-xs">Seq</th><th className="px-2 py-1 text-left text-xs">Data</th><th className="px-2 py-1 text-left text-xs">H.I</th><th className="px-2 py-1 text-left text-xs">H.F</th><th className="px-2 py-1 text-left text-xs">Código</th><th className="px-2 py-1 text-left text-xs">Procedimento</th><th className="px-2 py-1 text-center text-xs">Qtd</th><th className="px-2 py-1 text-right text-xs">V. Unit.</th><th className="px-2 py-1 text-right text-xs">Total</th><th className="px-2 py-1 text-center w-16">Ações</th></tr></thead><tbody className="divide-y">{itensGuia.map((item, idx) => (<tr key={item.id} className="hover:bg-gray-50"><td className="px-2 py-1 text-xs text-center">{idx + 1}</td><td className="px-2 py-1 text-xs">{item.data_execucao}</td><td className="px-2 py-1 text-xs">{item.hora_inicial}</td><td className="px-2 py-1 text-xs">{item.hora_final}</td><td className="px-2 py-1 text-xs font-mono text-blue-600">{item.codigo}</td><td className="px-2 py-1 text-xs">{item.nome}</td><td className="px-2 py-1 text-xs text-center">{item.quantidade}</td><td className="px-2 py-1 text-xs text-right">R$ {item.valor_unitario?.toFixed(2)}</td><td className="px-2 py-1 text-xs text-right font-semibold">R$ {item.valor_total?.toFixed(2)}</td><td className="px-2 py-1 text-center"><div className="flex gap-1"><button type="button" onClick={() => removerItem(item.id)} className="text-red-600 hover:text-red-800"><TrashIcon className="w-3 h-3" /></button></div></td></tr>))}</tbody><tfoot className="bg-gray-50"><tr className="border-t"><td colSpan="8" className="px-2 py-1 text-right font-semibold">Total:</td><td colSpan="2" className="px-2 py-1 text-right font-bold text-blue-600">R$ {itensGuia.reduce((sum, i) => sum + i.valor_total, 0).toFixed(2)}</td></tr></tfoot></table></div></div></div>)}
+                        {/* Busca de Procedimento */}
+                        <div className="mb-4">
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Procedimento</label>
+                          <div className="relative">
+                            <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                            <input
+                              type="text"
+                              value={searchItemTerm}
+                              onChange={e => setSearchItemTerm(e.target.value)}
+                              placeholder="Digite o código ou descrição do procedimento autorizado..."
+                              className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                              list="itens-suggestions"
+                            />
+                            <datalist id="itens-suggestions">
+                              {itensFiltrados.slice(0, 20).map(item => (
+                                <option key={item.codigo_tuss} value={item.codigo_tuss}>
+                                  {item.codigo_tuss} - {item.nome}
+                                </option>
+                              ))}
+                            </datalist>
+                          </div>
+                        </div>
+                  
+                        {/* Seleção do Item */}
+                        {searchItemTerm && itensFiltrados.length > 0 && (
+                          <div className="border border-gray-200 dark:border-gray-700 rounded-xl max-h-48 overflow-y-auto mb-4">
+                            {itensFiltrados.slice(0, 10).map(item => (
+                              <button
+                                key={item.codigo_tuss}
+                                type="button"
+                                onClick={() => {
+                                  setCurrentItem({
+                                    ...currentItem,
+                                    codigo: item.codigo_tuss,
+                                    nome: item.nome,
+                                    quantidade_autorizada: 1,
+                                    valor_unitario: item.valor_sugerido || 0,
+                                    valor_total: item.valor_sugerido || 0
+                                  });
+                                  setSearchItemTerm('');
+                                }}
+                                className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 border-b last:border-b-0 transition-colors"
+                              >
+                                <div className="flex justify-between items-center">
+                                  <div>
+                                    <span className="font-mono text-sm text-blue-600">{item.codigo_tuss}</span>
+                                    <span className="text-sm text-gray-700 dark:text-gray-300 ml-2">{item.nome}</span>
+                                  </div>
+                                  <span className="text-sm font-semibold text-green-600">R$ {item.valor_sugerido?.toFixed(2)}</span>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                  
+                        {/* Formulário para adicionar item autorizado */}
+                        {currentItem.codigo && (
+                          <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gray-50 dark:bg-gray-700/30 mb-4">
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                              <div className="md:col-span-3">
+                                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Código</label>
+                                <input type="text" value={currentItem.codigo} disabled className="w-full bg-gray-100 dark:bg-gray-600 border rounded-lg px-2 py-2 text-sm font-mono" />
+                              </div>
+                              <div className="md:col-span-4">
+                                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Procedimento</label>
+                                <input type="text" value={currentItem.nome} disabled className="w-full bg-gray-100 dark:bg-gray-600 border rounded-lg px-2 py-2 text-sm" />
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Qtd. Autorizada</label>
+                                <input 
+                                  type="number" 
+                                  min="1" 
+                                  value={currentItem.quantidade_autorizada} 
+                                  onChange={e => {
+                                    const qtd = parseInt(e.target.value) || 1;
+                                    setCurrentItem({
+                                      ...currentItem,
+                                      quantidade_autorizada: qtd,
+                                      quantidade_solicitada: qtd,
+                                      valor_total: qtd * currentItem.valor_unitario
+                                    });
+                                  }} 
+                                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
+                                />
+                              </div>
+                              <div className="md:col-span-2">
+                                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Valor Unit. (R$)</label>
+                                <input 
+                                  type="number" 
+                                  step="0.01" 
+                                  value={currentItem.valor_unitario} 
+                                  onChange={e => {
+                                    const valor = parseFloat(e.target.value) || 0;
+                                    setCurrentItem({
+                                      ...currentItem,
+                                      valor_unitario: valor,
+                                      valor_total: currentItem.quantidade_autorizada * valor
+                                    });
+                                  }} 
+                                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
+                                />
+                              </div>
+                              <div className="md:col-span-1">
+                                <button 
+                                  type="button" 
+                                  onClick={() => {
+                                    if (!currentItem.codigo) {
+                                      toast.error('Selecione um procedimento');
+                                      return;
+                                    }
+                                    
+                                    const novoItem = {
+                                      ...currentItem,
+                                      id: Date.now() + Math.random(),
+                                      quantidade_utilizada: 0,
+                                      saldo_autorizado: currentItem.quantidade_autorizada
+                                    };
+                                    
+                                    setItensAutorizados([...itensAutorizados, novoItem]);
+                                    setCurrentItem({
+                                      tipo: 'procedimento',
+                                      codigo: '',
+                                      nome: '',
+                                      quantidade: 1,
+                                      quantidade_autorizada: 0,
+                                      valor_unitario: 0,
+                                      valor_total: 0,
+                                      data_execucao: new Date().toISOString().split('T')[0],
+                                      hora_inicial: '',
+                                      hora_final: '',
+                                      tabela_referencia: '22',
+                                      codigo_despesa: '',
+                                      prestador_id: '',
+                                      prestador_nome: '',
+                                      prestador_cpf: '',
+                                      prestador_conselho: '06',
+                                      prestador_numero_conselho: '',
+                                      prestador_uf_conselho: '35',
+                                      prestador_cbos: '225125',
+                                      grau_participacao: '12',
+                                      unidade_medida: '036',
+                                      pendente_autorizacao: false,
+                                      saldo_autorizado: 0
+                                    });
+                                    toast.success('Procedimento autorizado adicionado!');
+                                  }} 
+                                  className="w-full bg-green-600 text-white px-2 py-2 rounded-lg text-sm hover:bg-green-700 font-medium"
+                                >
+                                  + Adicionar
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                  
+                        {/* Tabela de Itens Autorizados */}
+                        {itensAutorizados.length > 0 ? (
+                          <div className="mt-4">
+                            <h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+                              <CheckIcon className="w-4 h-4 text-green-600" />
+                              Procedimentos Autorizados ({itensAutorizados.length})
+                            </h4>
+                            <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                  <thead className="bg-gray-50 dark:bg-gray-700/50">
+                                    <tr>
+                                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Código</th>
+                                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Procedimento</th>
+                                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd. Autorizada</th>
+                                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd. Utilizada</th>
+                                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Saldo</th>
+                                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Unit.</th>
+                                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Total</th>
+                                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 w-16">Ações</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                    {itensAutorizados.map((item, idx) => {
+                                      const saldo = item.quantidade_autorizada - (item.quantidade_utilizada || 0);
+                                      return (
+                                        <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                          <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
+                                          <td className="px-3 py-2 text-xs text-gray-800 dark:text-gray-200">{item.nome}</td>
+                                          <td className="px-3 py-2 text-xs text-center font-medium">{item.quantidade_autorizada}</td>
+                                          <td className="px-3 py-2 text-xs text-center">
+                                            <input
+                                              type="number"
+                                              min="0"
+                                              max={item.quantidade_autorizada}
+                                              value={item.quantidade_utilizada || 0}
+                                              onChange={(e) => {
+                                                const qtdUtil = parseInt(e.target.value) || 0;
+                                                const novosItens = itensAutorizados.map(i =>
+                                                  i.id === item.id
+                                                    ? { ...i, quantidade_utilizada: qtdUtil, saldo_autorizado: item.quantidade_autorizada - qtdUtil }
+                                                    : i
+                                                );
+                                                setItensAutorizados(novosItens);
+                                              }}
+                                              className="w-16 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                                            />
+                                          </td>
+                                          <td className={`px-3 py-2 text-xs text-center font-semibold ${saldo > 0 ? 'text-green-600' : saldo === 0 ? 'text-gray-600' : 'text-red-600'}`}>
+                                            {saldo}
+                                          </td>
+                                          <td className="px-3 py-2 text-xs text-right">R$ {item.valor_unitario?.toFixed(2)}</td>
+                                          <td className="px-3 py-2 text-xs text-right font-semibold">R$ {(item.valor_unitario * (item.quantidade_utilizada || 0)).toFixed(2)}</td>
+                                          <td className="px-3 py-2 text-center">
+                                            <button 
+                                              type="button" 
+                                              onClick={() => setItensAutorizados(itensAutorizados.filter(i => i.id !== item.id))} 
+                                              className="text-red-600 hover:text-red-800"
+                                            >
+                                              <TrashIcon className="w-4 h-4" />
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                  <tfoot className="bg-gray-50 dark:bg-gray-700/50">
+                                    <tr className="border-t">
+                                      <td colSpan="6" className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">
+                                        Total Autorizado:
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-bold text-blue-600 dark:text-blue-400">
+                                        R$ {itensAutorizados.reduce((sum, i) => sum + (i.valor_unitario * (i.quantidade_utilizada || 0)), 0).toFixed(2)}
+                                      </td>
+                                      <td className="px-3 py-2"></td>
+                                    </tr>
+                                  </tfoot>
+                                </table>
+                              </div>
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                              * Informe as quantidades UTILIZADAS para controle de saldo. O sistema não permitirá exceder a quantidade autorizada.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="mt-6 p-8 text-center bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-200 dark:border-gray-700">
+                            <DocumentPlusIcon className="w-12 h-12 mx-auto mb-3 text-gray-400 opacity-50" />
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              Nenhum procedimento autorizado.
+                            </p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                              Busque e adicione os procedimentos autorizados pelo convênio/operadora.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
