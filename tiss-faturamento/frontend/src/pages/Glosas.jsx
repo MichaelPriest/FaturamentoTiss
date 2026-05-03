@@ -556,22 +556,22 @@ export default function Glosas() {
         {showLoteGuias && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[85vh] overflow-y-auto">
-              <div className="p-5 border-b flex justify-between items-center">
-                <h3 className="text-lg font-semibold">
+              <div className="p-5 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
                   Guias do Lote {selectedLote?.numero_lote || ''}
-                  {selectedLote && <span className="text-sm text-gray-500 ml-2">- {selectedLote.convenio_nome}</span>}
+                  {selectedLote && <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">- {selectedLote.convenio_nome}</span>}
                 </h3>
-                <button onClick={() => setShowLoteGuias(false)} className="p-2 rounded-lg hover:bg-gray-100">
+                <button onClick={() => setShowLoteGuias(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400">
                   <XCircleIcon className="w-5 h-5" />
                 </button>
               </div>
-
+        
               {/* Seleção de lote */}
               {!selectedLote && (
                 <div className="p-5">
-                  <label className="block text-sm font-medium mb-2">Selecione o Lote</label>
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Selecione o Lote</label>
                   <select
-                    className="w-full border rounded-lg px-3 py-2"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
                     onChange={(e) => carregarGuiasDoLote(e.target.value)}
                     defaultValue=""
                   >
@@ -584,52 +584,54 @@ export default function Glosas() {
                   </select>
                 </div>
               )}
-
+        
               {/* Lista de guias */}
               {selectedLote && (
                 <div className="p-5">
                   {carregandoGuias ? (
                     <div className="text-center py-8">
-                      <ArrowPathIcon className="w-8 h-8 animate-spin mx-auto mb-2" />
-                      <p className="text-sm text-gray-500">Carregando guias...</p>
+                      <ArrowPathIcon className="w-8 h-8 animate-spin mx-auto mb-2 text-gray-400" />
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Carregando guias...</p>
                     </div>
                   ) : (
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-3 py-2 text-left text-xs">Nº Guia</th>
-                          <th className="px-3 py-2 text-left text-xs">Paciente</th>
-                          <th className="px-3 py-2 text-left text-xs">Carteira</th>
-                          <th className="px-3 py-2 text-left text-xs">Profissional</th>
-                          <th className="px-3 py-2 text-right text-xs">Valor</th>
-                          <th className="px-3 py-2 text-center text-xs w-24">Ação</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {guiasDoLote.map(guia => (
-                          <tr key={guia.id} className="hover:bg-gray-50">
-                            <td className="px-3 py-2 text-xs font-mono text-blue-600">{guia.numero_guia_prestador}</td>
-                            <td className="px-3 py-2 text-xs">{guia.paciente_nome}</td>
-                            <td className="px-3 py-2 text-xs font-mono">{guia.numero_carteira}</td>
-                            <td className="px-3 py-2 text-xs">{guia.profissional_exibicao}</td>
-                            <td className="px-3 py-2 text-xs text-right font-semibold">R$ {(guia.valor_total || 0).toFixed(2)}</td>
-                            <td className="px-3 py-2 text-center">
-                              <button
-                                onClick={() => selecionarGuiaParaGlosa(guia)}
-                                className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
-                              >
-                                Glosar
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                        {guiasDoLote.length === 0 && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50 dark:bg-gray-700/50">
                           <tr>
-                            <td colSpan="6" className="px-4 py-8 text-center text-gray-500">Nenhuma guia encontrada</td>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Nº Guia</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Paciente</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Carteira</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Profissional</th>
+                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor</th>
+                            <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 w-24">Ação</th>
                           </tr>
-                        )}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                          {guiasDoLote.map(guia => (
+                            <tr key={guia.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                              <td className="px-3 py-2 text-xs font-mono text-blue-600 dark:text-blue-400">{guia.numero_guia_prestador}</td>
+                              <td className="px-3 py-2 text-xs text-gray-800 dark:text-white">{guia.paciente_nome}</td>
+                              <td className="px-3 py-2 text-xs font-mono text-gray-600 dark:text-gray-400">{guia.numero_carteira}</td>
+                              <td className="px-3 py-2 text-xs text-gray-600 dark:text-gray-400">{guia.profissional_exibicao}</td>
+                              <td className="px-3 py-2 text-xs text-right font-semibold text-gray-700 dark:text-gray-300">R$ {(guia.valor_total || 0).toFixed(2)}</td>
+                              <td className="px-3 py-2 text-center">
+                                <button
+                                  onClick={() => selecionarGuiaParaGlosa(guia)}
+                                  className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 transition-colors"
+                                >
+                                  Glosar
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                          {guiasDoLote.length === 0 && (
+                            <tr>
+                              <td colSpan="6" className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">Nenhuma guia encontrada</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
               )}
