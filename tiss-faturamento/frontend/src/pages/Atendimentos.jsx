@@ -339,20 +339,26 @@ export default function Atendimentos() {
 
   // Atualizar quantidade utilizada nos itens autorizados
   const atualizarQuantidadeUtilizada = useCallback((itemCodigo, quantidade, isAdicionando = true) => {
-    setItensAutorizados(prev => prev.map(aut => {
-      if (aut.codigo === itemCodigo) {
-        const novaQuantidadeUtilizada = isAdicionando 
-          ? (aut.quantidade_utilizada || 0) + quantidade
-          : (aut.quantidade_utilizada || 0) - quantidade;
-        
-        return {
-          ...aut,
-          quantidade_utilizada: Math.max(0, novaQuantidadeUtilizada),
-          saldo_autorizado: aut.quantidade_autorizada - Math.max(0, novaQuantidadeUtilizada)
-        };
-      }
-      return aut;
-    }));
+    setItensAutorizados(prev => {
+      const novosItens = prev.map(aut => {
+        if (aut.codigo === itemCodigo) {
+          const quantidadeAtual = aut.quantidade_utilizada || 0;
+          const novaQuantidadeUtilizada = isAdicionando 
+            ? quantidadeAtual + quantidade
+            : Math.max(0, quantidadeAtual - quantidade);
+          
+          return {
+            ...aut,
+            quantidade_utilizada: novaQuantidadeUtilizada,
+            saldo_autorizado: aut.quantidade_autorizada - novaQuantidadeUtilizada
+          };
+        }
+        return aut;
+      });
+      
+      console.log('📊 Itens autorizados atualizados:', novosItens); // Debug
+      return novosItens;
+    });
   }, []);
 
   // Verificar se a guia pode ser faturada - USANDO OS ITENS DO ATENDIMENTO
@@ -1157,7 +1163,26 @@ export default function Atendimentos() {
     
     setEditing(atendimento);
     setItensGuia(atendimento.itens || []);
-    setItensAutorizados(atendimento.itens_autorizados || []);
+    
+    // RECALCULAR SALDOS DOS ITENS AUTORIZADOS
+    const itensAutorizadosAtualizados = (atendimento.itens_autorizados || []).map(aut => {
+      // Somar quantidades utilizadas pelos itens executados
+      let quantidadeUtilizada = 0;
+      (atendimento.itens || []).forEach(itemExecutado => {
+        if (itemExecutado.codigo === aut.codigo) {
+          quantidadeUtilizada += (itemExecutado.quantidade || 0);
+        }
+      });
+      
+      return {
+        ...aut,
+        quantidade_utilizada: quantidadeUtilizada,
+        saldo_autorizado: aut.quantidade_autorizada - quantidadeUtilizada
+      };
+    });
+    
+    setItensAutorizados(itensAutorizadosAtualizados);
+    
     setAba('paciente');
     setFormData({
       ...atendimento,
@@ -1191,6 +1216,9 @@ export default function Atendimentos() {
       convenio_id: atendimento.paciente_convenio_id,
       convenio_nome: atendimento.paciente_convenio_nome
     });
+    
+    console.log('📊 Itens autorizados recalculados:', itensAutorizadosAtualizados);
+    
     setShowModal(true);
   };
   
