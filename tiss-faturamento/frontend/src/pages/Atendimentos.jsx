@@ -1598,7 +1598,11 @@ export default function Atendimentos() {
                             <XMarkIcon className="w-4 h-4" />
                           </button>
                         )}
-                        
+                         {a.status !== 'cancelado' && a.status !== 'finalizado' && (
+                          <button onClick={() => recalcularGuia(a.id)} className="p-1 rounded-lg text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors" title="Recalcular saldos das autorizações">
+                            <ArrowPathIcon className="w-4 h-4" />
+                          </button>
+                        )}                       
                         {/* Botão Editar - desabilitado para faturado/finalizado */}
                         <button 
                           onClick={() => handleEdit(a)} 
