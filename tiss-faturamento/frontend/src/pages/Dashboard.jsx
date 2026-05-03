@@ -11,7 +11,8 @@ import {
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
   ArrowPathIcon,
-  ArchiveBoxIcon
+  ArchiveBoxIcon,
+  BanknotesIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabaseClient';
@@ -25,19 +26,22 @@ export default function Dashboard() {
     totalProcedimentos: 0,
     totalAtendimentos: 0,
     atendimentosFaturados: 0,      // status = 'faturado' (aguardando baixa)
-    atendimentosFinalizados: 0,    // status = 'finalizada' (lote gerado)
-    atendimentosPendentes: 0,      // outros status
+    atendimentosFinalizados: 0,    // status = 'finalizado' (lote gerado)
+    atendimentosPendentes: 0,
     totalLotes: 0,
     lotesGerados: 0,
     faturadoMes: 0,
     faturadoTotal: 0,
-    valorPendente: 0,              // valor dos atendimentos com status 'faturado'
-    valorFinalizado: 0,            // valor dos atendimentos finalizados
+    valorPendente: 0,
+    valorFinalizado: 0,
     ticketMedio: 0,
     ultimoLote: null,
     taxaGlosa: 0,
     recebidoMes: 0,
-    glosasMes: 0
+    glosasMes: 0,
+    totalGlosas: 0,
+    totalReceber: 0,
+    totalPagar: 0
   });
 
   useEffect(() => {
@@ -47,42 +51,53 @@ export default function Dashboard() {
   const carregarStats = async () => {
     setLoading(true);
     try {
-      // Buscar totais básicos
       const [
         conveniosRes,
         pacientesRes,
         prestadoresRes,
         procedimentosRes,
         atendimentosRes,
-        lotesRes
+        lotesRes,
+        glosasRes,
+        receberRes,
+        pagarRes
       ] = await Promise.all([
         supabase.from('convenios').select('id', { count: 'exact', head: true }).eq('ativo', true),
         supabase.from('pacientes').select('id', { count: 'exact', head: true }),
         supabase.from('prestadores').select('id', { count: 'exact', head: true }),
         supabase.from('procedimentos').select('id', { count: 'exact', head: true }),
         supabase.from('atendimentos').select('status, valor_total, data_atendimento, created_at'),
-        supabase.from('lotes_faturamento').select('*').order('created_at', { ascending: false })
+        supabase.from('lotes_faturamento').select('*').order('created_at', { ascending: false }),
+        supabase.from('glosas').select('valor_glosado, status'),
+        supabase.from('contas_receber').select('valor_total, valor_recebido, status'),
+        supabase.from('contas_pagar').select('valor_total, valor_pago, status')
       ]);
 
       const atendimentos = atendimentosRes.data || [];
       const lotes = lotesRes.data || [];
+      const glosas = glosasRes.data || [];
+      const contasReceber = receberRes.data || [];
+      const contasPagar = pagarRes.data || [];
 
-      // Contagem por status
+      // Contagem por status (CORRIGIDO: 'finalizado' em vez de 'finalizada')
       const faturados = atendimentos.filter(a => a.status === 'faturado');
-      const finalizados = atendimentos.filter(a => a.status === 'finalizada');
-      const pendentes = atendimentos.filter(a => !['faturado', 'finalizada', 'cancelado'].includes(a.status || ''));
+      const finalizados = atendimentos.filter(a => a.status === 'finalizado');
+      const pendentes = atendimentos.filter(a => !['faturado', 'finalizado', 'cancelado'].includes(a.status || ''));
 
       // Valores
       const valorPendente = faturados.reduce((sum, a) => sum + (a.valor_total || 0), 0);
       const valorFinalizado = finalizados.reduce((sum, a) => sum + (a.valor_total || 0), 0);
       
-      // Faturamento do mês atual (atendimentos finalizados este mês)
+      // Faturamento total = soma dos valores das notas fiscais (lotes)
+      const faturadoTotal = lotes.reduce((sum, l) => sum + (l.dados_fatura?.base_calculo || 0), 0);
+      
+      // Faturamento do mês atual
       const agora = new Date();
       const inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1).toISOString();
-      const finalizadosMes = finalizados.filter(a => a.created_at >= inicioMes);
-      const faturadoMes = finalizadosMes.reduce((sum, a) => sum + (a.valor_total || 0), 0);
+      const lotesMes = lotes.filter(l => l.created_at >= inicioMes);
+      const faturadoMes = lotesMes.reduce((sum, l) => sum + (l.dados_fatura?.base_calculo || 0), 0);
 
-      // Ticket médio (baseado nos finalizados)
+      // Ticket médio
       const ticketMedio = finalizados.length > 0 
         ? valorFinalizado / finalizados.length 
         : 0;
@@ -90,10 +105,23 @@ export default function Dashboard() {
       // Último lote
       const ultimoLote = lotes.length > 0 ? lotes[0] : null;
 
-      // Estimativas para glosas e recebimento (se quiser manter)
-      const recebidoMes = faturadoMes * 0.7;
-      const glosasMes = faturadoMes * 0.1;
+      // Glosas
+      const totalGlosas = glosas.reduce((sum, g) => sum + (g.valor_glosado || 0), 0);
+      const glosasMes = glosas
+        .filter(g => g.created_at >= inicioMes)
+        .reduce((sum, g) => sum + (g.valor_glosado || 0), 0);
       const taxaGlosa = faturadoMes > 0 ? (glosasMes / faturadoMes) * 100 : 0;
+
+      // Financeiro
+      const totalReceber = contasReceber
+        .filter(c => c.status === 'pendente')
+        .reduce((sum, c) => sum + (c.valor_total || 0), 0);
+      const totalPagar = contasPagar
+        .filter(c => c.status === 'pendente')
+        .reduce((sum, c) => sum + (c.valor_total || 0), 0);
+      const recebidoMes = contasReceber
+        .filter(c => c.status === 'recebido')
+        .reduce((sum, c) => sum + (c.valor_recebido || 0), 0);
 
       setStats({
         totalConvenios: conveniosRes.count || 0,
@@ -107,14 +135,17 @@ export default function Dashboard() {
         totalLotes: lotes.length,
         lotesGerados: lotes.filter(l => l.status === 'faturado').length,
         faturadoMes,
-        faturadoTotal: valorFinalizado,
+        faturadoTotal,
         valorPendente,
         valorFinalizado,
         ticketMedio,
         ultimoLote,
         taxaGlosa,
         recebidoMes,
-        glosasMes
+        glosasMes,
+        totalGlosas,
+        totalReceber,
+        totalPagar
       });
     } catch (error) {
       console.error('Erro ao carregar estatísticas:', error);
@@ -133,6 +164,10 @@ export default function Dashboard() {
     { name: 'Lotes Gerados', value: stats.totalLotes, icon: ArchiveBoxIcon, color: 'from-orange-500 to-orange-600' },
     { name: 'Faturado no Mês', value: `R$ ${stats.faturadoMes.toFixed(2)}`, icon: CurrencyDollarIcon, color: 'from-emerald-500 to-emerald-600' },
     { name: 'Valor a Faturar', value: `R$ ${stats.valorPendente.toFixed(2)}`, icon: ClockIcon, color: 'from-yellow-500 to-yellow-600' },
+    { name: 'A Receber', value: `R$ ${stats.totalReceber.toFixed(2)}`, icon: BanknotesIcon, color: 'from-blue-500 to-blue-600' },
+    { name: 'A Pagar', value: `R$ ${stats.totalPagar.toFixed(2)}`, icon: BanknotesIcon, color: 'from-red-500 to-red-600' },
+    { name: 'Total Glosas', value: `R$ ${stats.totalGlosas.toFixed(2)}`, icon: ExclamationTriangleIcon, color: 'from-red-500 to-red-600' },
+    { name: 'Recebido no Mês', value: `R$ ${stats.recebidoMes.toFixed(2)}`, icon: CheckCircleIcon, color: 'from-green-500 to-green-600' },
   ];
 
   const getTaxaGlosaColor = () => {
@@ -189,48 +224,8 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Métricas financeiras */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-all duration-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Faturamento Total</p>
-              <p className="text-xl font-bold text-green-600 dark:text-green-400">R$ {stats.faturadoTotal.toFixed(2)}</p>
-            </div>
-            <ArrowTrendingUpIcon className="w-8 h-8 text-green-200 dark:text-green-900" />
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-all duration-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Recebido no Mês (est.)</p>
-              <p className="text-xl font-bold text-blue-600 dark:text-blue-400">R$ {stats.recebidoMes.toFixed(2)}</p>
-            </div>
-            <CheckCircleIcon className="w-8 h-8 text-blue-200 dark:text-blue-900" />
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-all duration-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Glosas no Mês (est.)</p>
-              <p className="text-xl font-bold text-red-600 dark:text-red-400">R$ {stats.glosasMes.toFixed(2)}</p>
-            </div>
-            <ArrowTrendingDownIcon className="w-8 h-8 text-red-200 dark:text-red-900" />
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-all duration-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Ticket Médio</p>
-              <p className="text-xl font-bold text-purple-600 dark:text-purple-400">R$ {stats.ticketMedio.toFixed(2)}</p>
-            </div>
-            <ChartBarIcon className="w-8 h-8 text-purple-200 dark:text-purple-900" />
-          </div>
-        </div>
-      </div>
-
       {/* Status dos Atendimentos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Aguardando Faturamento */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition-all duration-200">
           <div className="flex justify-between items-center mb-4">
@@ -249,7 +244,7 @@ export default function Dashboard() {
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition-all duration-200">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Finalizados</h3>
-            <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-full">status: finalizada</span>
+            <span className="text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-full">status: finalizado</span>
           </div>
           <div className="text-center py-6">
             <CheckCircleIcon className="w-14 h-14 text-green-400 dark:text-green-500 mx-auto mb-3" />
@@ -264,52 +259,6 @@ export default function Dashboard() {
               <p className="text-gray-500 dark:text-gray-400">Data: {stats.ultimoLote.data_envio}</p>
             </div>
           )}
-        </div>
-      </div>
-
-      {/* Estatísticas adicionais */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        {/* Resumo de Lotes */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition-all duration-200">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Resumo de Lotes</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-center">
-              <p className="text-xs text-gray-500 dark:text-gray-400">Total de Lotes</p>
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.totalLotes}</p>
-            </div>
-            <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg text-center">
-              <p className="text-xs text-gray-500 dark:text-gray-400">Lotes Ativos</p>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.lotesGerados}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Indicadores */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition-all duration-200">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Indicadores</h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-              <div className="flex items-center gap-3">
-                <DocumentTextIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                <div>
-                  <p className="text-sm font-medium text-gray-800 dark:text-gray-300">Total de Atendimentos</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">Todos os registros</p>
-                </div>
-              </div>
-              <span className="text-xl font-bold text-gray-700 dark:text-gray-300">{stats.totalAtendimentos}</span>
-            </div>
-
-            <div className={`flex items-center justify-between p-3 rounded-lg ${getTaxaGlosaColor()}`}>
-              <div className="flex items-center gap-3">
-                <ExclamationTriangleIcon className="w-5 h-5" />
-                <div>
-                  <p className="text-sm font-medium">Taxa de Glosa (est.)</p>
-                  <p className="text-xs">Estimativa baseada no faturamento</p>
-                </div>
-              </div>
-              <span className="text-xl font-bold">{stats.taxaGlosa.toFixed(2)}%</span>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -347,7 +296,7 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-2">
             <span className="w-7 h-7 bg-emerald-600 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">8</span>
-            <span className="text-gray-700 dark:text-gray-300">Status muda para <strong>"finalizada"</strong></span>
+            <span className="text-gray-700 dark:text-gray-300">Status muda para <strong>"finalizado"</strong></span>
           </div>
         </div>
       </div>
