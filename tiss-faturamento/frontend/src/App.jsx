@@ -62,11 +62,12 @@ function MainApp() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState({
-    cadastros: true,
-    agenda: true,
-    faturamento: true,
-    financeiro: true,
-    relatorios: true
+    principal: true,
+    cadastros: false,
+    agenda: false,
+    faturamento: false,
+    financeiro: false,
+    relatorios: false
   });
   const { darkMode, toggleDarkMode } = useTheme();
   const { user, signOut } = useAuth();
@@ -89,7 +90,37 @@ function MainApp() {
   };
 
   const toggleGroup = (group) => {
-    setOpenGroups(prev => ({ ...prev, [group]: !prev[group] }));
+    setOpenGroups(prev => {
+      const allClosed = {};
+      Object.keys(prev).forEach(key => {
+        allClosed[key] = false;
+      });
+      allClosed[group] = !prev[group];
+      return allClosed;
+    });
+  };
+
+  const openGroupForItem = (itemId) => {
+    const groupId = findGroupByItemId(itemId);
+    if (groupId) {
+      setOpenGroups(prev => {
+        const allClosed = {};
+        Object.keys(prev).forEach(key => {
+          allClosed[key] = false;
+        });
+        allClosed[groupId] = true;
+        return allClosed;
+      });
+    }
+  };
+
+  const findGroupByItemId = (itemId) => {
+    for (const group of menuGroups) {
+      if (group.items.some(item => item.id === itemId)) {
+        return group.id;
+      }
+    }
+    return null;
   };
 
   const menuGroups = [
@@ -181,6 +212,7 @@ function MainApp() {
       atendimentos: 'Registro de atendimentos e guias',
       agendamentos: 'Gerenciamento de agenda e consultas',
       financeiro: 'Contas a receber, pagar e fluxo de caixa',
+      glosas: 'Gestão de glosas e recursos',
       relatorios: 'Análise de dados e métricas',
       salas: 'Gerenciamento de salas da clínica',
       configuracoes: 'Configurações do sistema e usuários'
@@ -249,7 +281,10 @@ function MainApp() {
           {menuGroups.map((group) => (
             <div key={group.id} className="space-y-1">
               {sidebarOpen && (
-                <button onClick={() => toggleGroup(group.id)} className="w-full flex items-center justify-between px-2 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-300 transition-colors">
+                <button 
+                  onClick={() => toggleGroup(group.id)} 
+                  className="w-full flex items-center justify-between px-2 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wider hover:text-gray-300 transition-colors"
+                >
                   <div className="flex items-center gap-2">
                     <group.icon className="w-3 h-3" />
                     <span>{group.name}</span>
@@ -265,7 +300,10 @@ function MainApp() {
                     return (
                       <button
                         key={item.id}
-                        onClick={() => setActiveTab(item.id)}
+                        onClick={() => {
+                          setActiveTab(item.id);
+                          openGroupForItem(item.id);
+                        }}
                         className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group ${
                           isActive 
                             ? `bg-gradient-to-r ${item.color} text-white shadow-lg` 
@@ -355,24 +393,37 @@ function MainApp() {
         <nav className="p-4 space-y-2 mt-4 overflow-y-auto max-h-[calc(100vh-180px)]">
           {menuGroups.map((group) => (
             <div key={group.id} className="space-y-1">
-              <div className="px-2 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                <div className="flex items-center gap-2"><group.icon className="w-3 h-3" /><span>{group.name}</span></div>
-              </div>
-              <div className="space-y-1">
-                {group.items.map((item) => {
-                  const isActive = activeTab === item.id;
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => { setActiveTab(item.id); setMobileSidebarOpen(false); }}
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 ${isActive ? `bg-gradient-to-r ${item.color} text-white shadow-lg` : 'text-gray-400 hover:text-white hover:bg-gray-800/50'}`}
-                    >
-                      <Icon className="w-5 h-5" /><span className="text-sm font-medium">{item.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              <button 
+                onClick={() => toggleGroup(group.id)} 
+                className="w-full flex items-center justify-between px-2 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wider"
+              >
+                <div className="flex items-center gap-2">
+                  <group.icon className="w-3 h-3" />
+                  <span>{group.name}</span>
+                </div>
+                {openGroups[group.id] ? <ChevronUpIcon className="w-3 h-3" /> : <ChevronDownIcon className="w-3 h-3" />}
+              </button>
+              {openGroups[group.id] && (
+                <div className="space-y-1">
+                  {group.items.map((item) => {
+                    const isActive = activeTab === item.id;
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => { 
+                          setActiveTab(item.id); 
+                          setMobileSidebarOpen(false);
+                          openGroupForItem(item.id);
+                        }}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 ${isActive ? `bg-gradient-to-r ${item.color} text-white shadow-lg` : 'text-gray-400 hover:text-white hover:bg-gray-800/50'}`}
+                      >
+                        <Icon className="w-5 h-5" /><span className="text-sm font-medium">{item.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           ))}
         </nav>
