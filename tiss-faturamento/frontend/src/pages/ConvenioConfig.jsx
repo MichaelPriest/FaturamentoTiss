@@ -23,7 +23,6 @@ import { supabase } from '../lib/supabaseClient';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 
-// Lista de especialidades disponíveis
 const ESPECIALIDADES = [
   { id: 14, nome: 'Psicologia' },
   { id: 15, nome: 'Neuropsicologia' },
@@ -37,7 +36,6 @@ const ESPECIALIDADES = [
   { id: 24, nome: 'Educação Física' }
 ];
 
-// Tipos de cobrança
 const TIPOS_COBRANCA = [
   { value: 'procedimento', label: 'Por Procedimento' },
   { value: 'pacote', label: 'Pacote' },
@@ -45,7 +43,6 @@ const TIPOS_COBRANCA = [
   { value: 'consulta', label: 'Consulta' }
 ];
 
-// Formas de envio
 const FORMAS_ENVIO = [
   { value: 'tiss_xml', label: 'TISS XML' },
   { value: 'portal', label: 'Portal (Orizon)' },
@@ -53,14 +50,12 @@ const FORMAS_ENVIO = [
   { value: 'webservice', label: 'Webservice' }
 ];
 
-// Tipos de guia
 const TIPOS_GUIA = [
   { value: 'sp_sadt', label: 'SP/SADT' },
   { value: 'internacao', label: 'Internação' },
   { value: 'honorario', label: 'Honorário' }
 ];
 
-// Tipos de documentos obrigatórios
 const TIPOS_DOCUMENTOS = [
   { value: 'pedido_medico', label: 'Pedido Médico' },
   { value: 'laudo', label: 'Laudo' },
@@ -82,18 +77,23 @@ export default function ConvenioConfig() {
   const [showRegraModal, setShowRegraModal] = useState(false);
   const [showGlosaModal, setShowGlosaModal] = useState(false);
 
-  // Configurações do convênio
+  // Dados do convênio (básicos)
+  const [convenioData, setConvenioData] = useState({
+    registro_ans: '',
+    razao_social: '',
+    cnpj: '',
+    codigo_prestador: '',
+    cnes: '',
+    versao_tiss: '4.03.00',
+    proximo_numero_guia: 1000000,
+    ultimo_numero_guia: 999999,
+    ambiente: 'homologacao',
+    url_webservice: ''
+  });
+
+  // Configurações estendidas (avançadas)
   const [config, setConfig] = useState({
     nome: '',
-    cnpj: '',
-    codigo_interno: '',
-    tipo: 'convenio',
-    telefone: '',
-    email: '',
-    endereco: '',
-    cidade: '',
-    estado: 'SP',
-    status: 'ativo',
     tipo_cobranca: 'procedimento',
     forma_envio: 'tiss_xml',
     exige_autorizacao_previa: false,
@@ -103,6 +103,7 @@ export default function ConvenioConfig() {
     percentual_ajuste: 100,
     multiplicador_urgencia: 1.0,
     multiplicador_eletivo: 1.0,
+    multiplo_escala: false,
     regras_especialidade: [],
     documentos_obrigatorios: [],
     formatos_aceitos: ['PDF', 'JPEG', 'PNG'],
@@ -126,7 +127,6 @@ export default function ConvenioConfig() {
     versionar_contratos: false
   });
 
-  // Nova regra de especialidade
   const [novaRegra, setNovaRegra] = useState({
     especialidade_id: '',
     limite_quantidade_mensal: null,
@@ -134,7 +134,6 @@ export default function ConvenioConfig() {
     exige_autorizacao: false
   });
 
-  // Nova glosa
   const [novaGlosa, setNovaGlosa] = useState({
     codigo: '',
     descricao: '',
@@ -142,7 +141,6 @@ export default function ConvenioConfig() {
     evitar_automaticamente: false
   });
 
-  // Novo plano
   const [novoPlano, setNovoPlano] = useState({
     nome: '',
     codigo: '',
@@ -165,7 +163,6 @@ export default function ConvenioConfig() {
       if (error) throw error;
       setConvenios(data || []);
       
-      // Pega o ID da URL
       const id = window.location.pathname.split('/').pop();
       if (id && data) {
         const encontrado = data.find(c => c.id === parseInt(id));
@@ -187,6 +184,21 @@ export default function ConvenioConfig() {
     setConvenioSelecionado(convenio);
     setLoading(true);
     try {
+      // Carrega os dados básicos do convênio (tabela convenios)
+      setConvenioData({
+        registro_ans: convenio.registro_ans || '',
+        razao_social: convenio.razao_social || '',
+        cnpj: convenio.cnpj || '',
+        codigo_prestador: convenio.codigo_prestador || '',
+        cnes: convenio.cnes || '',
+        versao_tiss: convenio.versao_tiss || '4.03.00',
+        proximo_numero_guia: convenio.proximo_numero_guia || 1000000,
+        ultimo_numero_guia: convenio.ultimo_numero_guia || 999999,
+        ambiente: convenio.ambiente || 'homologacao',
+        url_webservice: convenio.url_webservice || ''
+      });
+
+      // Carrega as configurações avançadas (tabela convenios_config)
       const { data, error } = await supabase
         .from('convenios_config')
         .select('*')
@@ -196,13 +208,18 @@ export default function ConvenioConfig() {
       if (error) throw error;
       
       if (data && data.configuracoes) {
-        setConfig(JSON.parse(data.configuracoes));
+        const parsed = JSON.parse(data.configuracoes);
+        setConfig(prev => ({
+          ...prev,
+          ...parsed,
+          nome: parsed.nome || convenio.razao_social
+        }));
       } else {
         setConfig(prev => ({
           ...prev,
           nome: convenio.razao_social,
-          cnpj: convenio.cnpj || '',
-          codigo_interno: convenio.codigo_prestador || ''
+          url_webservice: convenio.url_webservice || '',
+          prazo_envio_dias: convenio.prazo_envio_dias || 30
         }));
       }
     } catch (error) {
@@ -217,7 +234,28 @@ export default function ConvenioConfig() {
     
     setSaving(true);
     try {
-      const { error } = await supabase
+      // 1. Atualiza os dados básicos na tabela convenios
+      const { error: updateError } = await supabase
+        .from('convenios')
+        .update({
+          registro_ans: convenioData.registro_ans,
+          razao_social: convenioData.razao_social,
+          cnpj: convenioData.cnpj,
+          codigo_prestador: convenioData.codigo_prestador,
+          cnes: convenioData.cnes,
+          versao_tiss: convenioData.versao_tiss,
+          proximo_numero_guia: convenioData.proximo_numero_guia,
+          ultimo_numero_guia: convenioData.ultimo_numero_guia,
+          ambiente: convenioData.ambiente,
+          url_webservice: convenioData.url_webservice,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', convenioSelecionado.id);
+      
+      if (updateError) throw updateError;
+
+      // 2. Atualiza as configurações avançadas
+      const { error: configError } = await supabase
         .from('convenios_config')
         .upsert({
           convenio_id: convenioSelecionado.id,
@@ -225,8 +263,19 @@ export default function ConvenioConfig() {
           updated_at: new Date().toISOString()
         }, { onConflict: 'convenio_id' });
       
-      if (error) throw error;
+      if (configError) throw configError;
+      
       toast.success('Configurações salvas com sucesso!');
+      
+      // Recarrega o convênio para atualizar a seleção
+      const { data: updatedConvenio } = await supabase
+        .from('convenios')
+        .select('*')
+        .eq('id', convenioSelecionado.id)
+        .single();
+      if (updatedConvenio) {
+        selecionarConvenio(updatedConvenio);
+      }
     } catch (error) {
       console.error('Erro ao salvar:', error);
       toast.error('Erro ao salvar configurações');
@@ -338,7 +387,7 @@ export default function ConvenioConfig() {
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Cabeçalho com botão Voltar */}
+        {/* Cabeçalho */}
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-4">
             <button
@@ -350,7 +399,7 @@ export default function ConvenioConfig() {
             </button>
             <div>
               <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-                Configurações Avançadas de Convênios
+                Configurações Avançadas
               </h2>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                 Configure regras de faturamento, tabelas, prazos e integrações
@@ -367,7 +416,7 @@ export default function ConvenioConfig() {
             ) : (
               <CheckCircleIcon className="w-4 h-4" />
             )}
-            Salvar Configurações
+            Salvar Todas as Configurações
           </button>
         </div>
 
@@ -430,58 +479,57 @@ export default function ConvenioConfig() {
             {/* Conteúdo das Abas */}
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
               
-              {/* 1. Dados Cadastrais */}
+              {/* 1. Dados Cadastrais - sincronizado com a tabela convenios */}
               {aba === 'cadastrais' && (
                 <div className="space-y-4">
                   <h3 className="font-semibold text-gray-800 dark:text-white mb-4">📋 Dados Cadastrais do Convênio</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome/Razão Social</label>
-                      <input type="text" value={config.nome} onChange={e => setConfig({...config, nome: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Registro ANS</label>
+                      <input type="text" value={convenioData.registro_ans} onChange={e => setConvenioData({...convenioData, registro_ans: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Razão Social</label>
+                      <input type="text" value={convenioData.razao_social} onChange={e => setConvenioData({...convenioData, razao_social: e.target.value.toUpperCase()})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CNPJ</label>
-                      <input type="text" value={config.cnpj} onChange={e => setConfig({...config, cnpj: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
+                      <input type="text" value={convenioData.cnpj} onChange={e => setConvenioData({...convenioData, cnpj: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Código Interno</label>
-                      <input type="text" value={config.codigo_interno} onChange={e => setConfig({...config, codigo_interno: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Código do Prestador</label>
+                      <input type="text" value={convenioData.codigo_prestador} onChange={e => setConvenioData({...convenioData, codigo_prestador: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
-                      <select value={config.tipo} onChange={e => setConfig({...config, tipo: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600">
-                        <option value="particular">Particular</option>
-                        <option value="convenio">Convênio</option>
-                        <option value="sus">SUS</option>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CNES</label>
+                      <input type="text" value={convenioData.cnes} onChange={e => setConvenioData({...convenioData, cnes: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Versão TISS</label>
+                      <select value={convenioData.versao_tiss} onChange={e => setConvenioData({...convenioData, versao_tiss: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600">
+                        <option value="4.01.00">4.01.00</option>
+                        <option value="4.02.00">4.02.00</option>
+                        <option value="4.03.00">4.03.00</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telefone</label>
-                      <input type="text" value={config.telefone} onChange={e => setConfig({...config, telefone: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">E-mail</label>
-                      <input type="email" value={config.email} onChange={e => setConfig({...config, email: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Endereço</label>
-                      <input type="text" value={config.endereco} onChange={e => setConfig({...config, endereco: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cidade</label>
-                      <input type="text" value={config.cidade} onChange={e => setConfig({...config, cidade: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Estado</label>
-                      <input type="text" value={config.estado} onChange={e => setConfig({...config, estado: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
-                      <select value={config.status} onChange={e => setConfig({...config, status: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600">
-                        <option value="ativo">Ativo</option>
-                        <option value="inativo">Inativo</option>
-                        <option value="bloqueado">Bloqueado</option>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ambiente</label>
+                      <select value={convenioData.ambiente} onChange={e => setConvenioData({...convenioData, ambiente: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600">
+                        <option value="homologacao">Homologação</option>
+                        <option value="producao">Produção</option>
                       </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL do WebService</label>
+                      <input type="text" value={convenioData.url_webservice} onChange={e => setConvenioData({...convenioData, url_webservice: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" placeholder="https://..." />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Próximo Número da Guia</label>
+                      <input type="number" value={convenioData.proximo_numero_guia} onChange={e => setConvenioData({...convenioData, proximo_numero_guia: parseInt(e.target.value)})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Último Número (Limite)</label>
+                      <input type="number" value={convenioData.ultimo_numero_guia} onChange={e => setConvenioData({...convenioData, ultimo_numero_guia: parseInt(e.target.value)})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
                     </div>
                   </div>
                 </div>
@@ -807,6 +855,10 @@ export default function ConvenioConfig() {
                     <div className="flex items-center gap-2">
                       <input type="checkbox" checked={config.versionar_contratos} onChange={e => setConfig({...config, versionar_contratos: e.target.checked})} className="w-4 h-4 rounded border-gray-300 text-blue-600" />
                       <label className="text-sm text-gray-700 dark:text-gray-300">Versionar contratos</label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input type="checkbox" checked={config.multiplo_escala} onChange={e => setConfig({...config, multiplo_escala: e.target.checked})} className="w-4 h-4 rounded border-gray-300 text-blue-600" />
+                      <label className="text-sm text-gray-700 dark:text-gray-300">Utilizar múltipla escala (diferentes tabelas por procedimento)</label>
                     </div>
                   </div>
                 </div>
