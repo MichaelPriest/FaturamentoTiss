@@ -11,7 +11,8 @@ import {
   FunnelIcon,
   MagnifyingGlassIcon,
   DocumentArrowDownIcon,
-  ClockIcon
+  ClockIcon,
+  ClipboardDocumentListIcon  // <-- usar este no lugar
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
