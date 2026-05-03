@@ -2385,14 +2385,13 @@ export default function Atendimentos() {
                                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data</th>
                                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">H.Início</th>
                                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">H.Fim</th>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Via Acesso</th>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Técnica</th>
                                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Código</th>
                                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Descrição</th>
                                   <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd</th>
-                                  <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor</th>
+                                  <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Unit.</th>
+                                  <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Total</th>
                                   <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Profissional</th>
-                                  <th className="px-2 py-2 text-center w-20">Ações</th>
+                                  <th className="px-2 py-2 text-center w-20 text-xs font-medium text-gray-500 dark:text-gray-400">Ações</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -2410,7 +2409,8 @@ export default function Atendimentos() {
                                       )}
                                     </td>
                                     <td className="px-2 py-2 text-xs text-center font-medium">{item.quantidade}</td>
-                                    <td className="px-2 py-2 text-xs text-right font-semibold">R$ {item.valor_total?.toFixed(2)}</td>
+                                    <td className="px-2 py-2 text-xs text-right">R$ {(item.valor_unitario || 0).toFixed(2)}</td>
+                                    <td className="px-2 py-2 text-xs text-right font-semibold">R$ {(item.valor_total || 0).toFixed(2)}</td>
                                     <td className="px-2 py-2 text-xs">
                                       <div className="text-gray-700 dark:text-gray-300">{item.prestador_nome || '-'}</div>
                                       {item.prestador_numero_conselho && (
@@ -2426,7 +2426,7 @@ export default function Atendimentos() {
                                       )}
                                     </td>
                                     <td className="px-2 py-2 text-center">
-                                      <div className="flex gap-1">
+                                      <div className="flex gap-1 justify-center">
                                         <button type="button" onClick={() => handleEditItem(item)} className="text-blue-600 hover:text-blue-800">
                                           <PencilIcon className="w-3 h-3" />
                                         </button>
@@ -2440,11 +2440,11 @@ export default function Atendimentos() {
                               </tbody>
                               <tfoot className="bg-gray-50 dark:bg-gray-700/50">
                                 <tr className="border-t">
-                                  <td colSpan="7" className="px-2 py-2 text-right font-semibold">Subtotal:</td>
-                                  <td colSpan="2" className="px-2 py-2 text-right font-bold text-blue-600">
-                                    R$ {itensGuia.reduce((sum, i) => sum + i.valor_total, 0).toFixed(2)}
+                                  <td colSpan="8" className="px-2 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">Total da Guia:</td>
+                                  <td className="px-2 py-2 text-right font-bold text-blue-600 dark:text-blue-400">
+                                    R$ {itensGuia.reduce((sum, i) => sum + (i.valor_total || 0), 0).toFixed(2)}
                                   </td>
-                                  <td className="px-2 py-2"></td>
+                                  <td colSpan="2"></td>
                                 </tr>
                               </tfoot>
                             </table>
@@ -2456,42 +2456,109 @@ export default function Atendimentos() {
                         <div className="border rounded-xl p-4 bg-blue-50 dark:bg-blue-900/20">
                           <div className="flex justify-between items-center mb-3">
                             <h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300">Editando Item</h4>
-                            <button type="button" onClick={() => setEditandoItem(null)} className="text-gray-500 hover:text-gray-700">
+                            <button type="button" onClick={() => {
+                              setEditandoItem(null);
+                              resetCurrentItem();
+                            }} className="text-gray-500 hover:text-gray-700">
                               <XMarkIcon className="w-4 h-4" />
                             </button>
                           </div>
                           <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
                             <div>
                               <label className="block text-xs text-gray-500 mb-1">Data Execução</label>
-                              <input type="date" value={currentItem.data_execucao} onChange={e => setCurrentItem({...currentItem, data_execucao: e.target.value})} className="w-full border rounded px-2 py-1 text-sm dark:bg-gray-700 dark:text-white" />
+                              <input 
+                                type="date" 
+                                value={currentItem.data_execucao} 
+                                onChange={e => setCurrentItem({...currentItem, data_execucao: e.target.value})} 
+                                className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" 
+                              />
                             </div>
                             <div>
                               <label className="block text-xs text-gray-500 mb-1">Hora Início</label>
-                              <input type="time" value={currentItem.hora_inicial} onChange={e => setCurrentItem({...currentItem, hora_inicial: e.target.value})} className="w-full border rounded px-2 py-1 text-sm dark:bg-gray-700 dark:text-white" />
+                              <input 
+                                type="time" 
+                                value={currentItem.hora_inicial} 
+                                onChange={e => setCurrentItem({...currentItem, hora_inicial: e.target.value})} 
+                                className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" 
+                              />
                             </div>
                             <div>
                               <label className="block text-xs text-gray-500 mb-1">Hora Fim</label>
-                              <input type="time" value={currentItem.hora_final} onChange={e => setCurrentItem({...currentItem, hora_final: e.target.value})} className="w-full border rounded px-2 py-1 text-sm dark:bg-gray-700 dark:text-white" />
+                              <input 
+                                type="time" 
+                                value={currentItem.hora_final} 
+                                onChange={e => setCurrentItem({...currentItem, hora_final: e.target.value})} 
+                                className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" 
+                              />
                             </div>
                             <div>
                               <label className="block text-xs text-gray-500 mb-1">Quantidade</label>
-                              <input type="number" min="1" value={currentItem.quantidade} onChange={e => {
-                                const qtd = parseInt(e.target.value) || 1;
-                                setCurrentItem({...currentItem, quantidade: qtd, valor_total: qtd * currentItem.valor_unitario});
-                              }} className="w-full border rounded px-2 py-1 text-sm text-center dark:bg-gray-700 dark:text-white" />
+                              <input 
+                                type="number" 
+                                min="1" 
+                                value={currentItem.quantidade} 
+                                onChange={e => {
+                                  const qtd = parseInt(e.target.value) || 1;
+                                  const saldo = calcularSaldoAutorizado(currentItem.codigo);
+                                  setCurrentItem({
+                                    ...currentItem, 
+                                    quantidade: qtd, 
+                                    saldo_autorizado: saldo - qtd + (editandoItem?.quantidade || 0),
+                                    valor_total: qtd * currentItem.valor_unitario
+                                  });
+                                }} 
+                                className="w-full border rounded px-2 py-1.5 text-sm text-center dark:bg-gray-700 dark:text-white" 
+                              />
+                              {currentItem.saldo_autorizado > 0 && (
+                                <span className="text-xs text-green-600 block mt-1">
+                                  Saldo disponível: {currentItem.saldo_autorizado}
+                                </span>
+                              )}
                             </div>
                             <div>
                               <label className="block text-xs text-gray-500 mb-1">Valor Unitário (R$)</label>
-                              <input type="number" step="0.01" value={currentItem.valor_unitario} onChange={e => {
-                                const valor = parseFloat(e.target.value) || 0;
-                                setCurrentItem({...currentItem, valor_unitario: valor, valor_total: currentItem.quantidade * valor});
-                              }} className="w-full border rounded px-2 py-1 text-sm text-right dark:bg-gray-700 dark:text-white" />
+                              <input 
+                                type="number" 
+                                step="0.01" 
+                                value={currentItem.valor_unitario} 
+                                onChange={e => {
+                                  const valor = parseFloat(e.target.value) || 0;
+                                  setCurrentItem({
+                                    ...currentItem, 
+                                    valor_unitario: valor, 
+                                    valor_total: currentItem.quantidade * valor
+                                  });
+                                }} 
+                                className="w-full border rounded px-2 py-1.5 text-sm text-right dark:bg-gray-700 dark:text-white" 
+                              />
                             </div>
-                            <div>
-                              <button type="button" onClick={handleUpdateItem} className="w-full bg-green-600 text-white px-3 py-1 rounded-lg text-sm hover:bg-green-700 mt-5">
+                            <div className="flex items-end gap-2">
+                              <button 
+                                type="button" 
+                                onClick={handleUpdateItem} 
+                                className="flex-1 bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-green-700 transition-colors"
+                              >
                                 Atualizar
                               </button>
+                              <button 
+                                type="button" 
+                                onClick={() => {
+                                  setEditandoItem(null);
+                                  resetCurrentItem();
+                                }} 
+                                className="flex-1 bg-gray-500 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-gray-600 transition-colors"
+                              >
+                                Cancelar
+                              </button>
                             </div>
+                          </div>
+                          
+                          {/* Informações adicionais do item */}
+                          <div className="mt-2 p-2 bg-white dark:bg-gray-700 rounded-lg">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              <strong>Código:</strong> {currentItem.codigo} | 
+                              <strong> Procedimento:</strong> {currentItem.nome}
+                            </p>
                           </div>
                         </div>
                       )}
