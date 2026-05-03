@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, XMarkIcon, EyeIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabaseClient';
 
@@ -35,9 +35,6 @@ const UFS = [
   { sigla: 'EX', nome: 'Exterior', codigoANS: '98' }
 ];
 
-const getCodigoANSUF = (sigla) => UFS.find(u => u.sigla === sigla)?.codigoANS || '35';
-const getSiglaUF = (codigoANS) => UFS.find(u => u.codigoANS === codigoANS)?.sigla || 'SP';
-
 // Conselhos
 const CONSELHOS = [
   { sigla: 'CRM', nome: 'Conselho Regional de Medicina', codigoANS: '06' },
@@ -69,6 +66,44 @@ const ESPECIALIDADES = [
   { id: 26, nome: 'Estudante Psicologia', cbos: null, codigo_ans: null, conselhoPadrao: null }
 ];
 
+// Funções de formatação
+const formatarCPF = (valor) => {
+  const v = valor.replace(/\D/g, '');
+  if (v.length <= 11) {
+    return v.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4').slice(0, 14);
+  }
+  return v;
+};
+
+const formatarCNPJ = (valor) => {
+  const v = valor.replace(/\D/g, '');
+  if (v.length <= 14) {
+    return v.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5').slice(0, 18);
+  }
+  return v;
+};
+
+const formatarTelefone = (valor) => {
+  const v = valor.replace(/\D/g, '');
+  if (v.length === 10) {
+    return v.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3');
+  } else if (v.length === 11) {
+    return v.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+  }
+  return v;
+};
+
+const formatarCEP = (valor) => {
+  const v = valor.replace(/\D/g, '');
+  if (v.length <= 8) {
+    return v.replace(/(\d{5})(\d{3})/, '$1-$2').slice(0, 9);
+  }
+  return v;
+};
+
+// Remover máscara (apenas números)
+const apenasNumeros = (valor) => valor.replace(/\D/g, '');
+
 export default function Prestadores() {
   const [prestadores, setPrestadores] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -77,9 +112,12 @@ export default function Prestadores() {
   const [searchTerm, setSearchTerm] = useState('');
   const [especialidadesSelecionadas, setEspecialidadesSelecionadas] = useState([]);
   const [especialidadePrincipal, setEspecialidadePrincipal] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedPrestador, setSelectedPrestador] = useState(null);
+  const [buscarCEP, setBuscarCEP] = useState(false);
   
   const [formData, setFormData] = useState({
-    tipo_pessoa: 'F', // 'F' = pessoa física, 'J' = jurídica
+    tipo_pessoa: 'F',
     nome: '',
     codigo_prestador: '',
     cpf: '',
@@ -101,6 +139,34 @@ export default function Prestadores() {
   useEffect(() => {
     carregarPrestadores();
   }, []);
+
+  // Buscar CEP
+  const buscarEnderecoPorCEP = async (cep) => {
+    const cepLimpo = apenasNumeros(cep);
+    if (cepLimpo.length !== 8) return;
+    
+    setBuscarCEP(true);
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+      const data = await response.json();
+      if (!data.erro) {
+        setFormData(prev => ({
+          ...prev,
+          endereco: `${data.logradouro}, ${data.bairro}`.trim(),
+          cidade: data.localidade?.toUpperCase() || '',
+          estado: data.uf || ''
+        }));
+        toast.success('CEP encontrado!');
+      } else {
+        toast.warning('CEP não encontrado');
+      }
+    } catch (error) {
+      console.error('Erro ao buscar CEP:', error);
+      toast.error('Erro ao buscar CEP');
+    } finally {
+      setBuscarCEP(false);
+    }
+  };
 
   const carregarPrestadores = async () => {
     setLoading(true);
@@ -143,6 +209,7 @@ export default function Prestadores() {
       
       const resultado = prestadores.map(prestador => ({
         ...prestador,
+        tipo_pessoa: prestador.tipo_pessoa || 'F',
         especialidades: especialidadesPorPrestador.get(prestador.id) || []
       }));
       
@@ -161,7 +228,6 @@ export default function Prestadores() {
       toast.error('Nome é obrigatório');
       return;
     }
-    // Validação condicional do código do prestador (obrigatório apenas para PJ)
     if (formData.tipo_pessoa === 'J' && !formData.codigo_prestador) {
       toast.error('Código do prestador é obrigatório para pessoa jurídica');
       return;
@@ -176,22 +242,24 @@ export default function Prestadores() {
         tipo_pessoa: formData.tipo_pessoa,
         nome: formData.nome.toUpperCase(),
         codigo_prestador: formData.codigo_prestador || null,
-        cpf: formData.cpf.replace(/\D/g, '') || null,
-        cnpj: formData.cnpj.replace(/\D/g, '') || null,
+        cpf: apenasNumeros(formData.cpf) || null,
+        cnpj: apenasNumeros(formData.cnpj) || null,
         conselho: formData.conselho,
         codigo_conselho_ans: formData.codigo_conselho_ans,
-        numero_conselho: formData.numero_conselho,
+        numero_conselho: formData.numero_conselho || null,
         uf_conselho: formData.uf_conselho,
-        telefone: formData.telefone.replace(/\D/g, '') || null,
-        celular: formData.celular.replace(/\D/g, '') || null,
+        telefone: apenasNumeros(formData.telefone) || null,
+        celular: apenasNumeros(formData.celular) || null,
         email: formData.email || null,
         endereco: formData.endereco || null,
-        cep: formData.cep.replace(/\D/g, '') || null,
-        cidade: formData.cidade.toUpperCase() || null,
+        cep: apenasNumeros(formData.cep) || null,
+        cidade: formData.cidade ? formData.cidade.toUpperCase() : null,
         estado: formData.estado,
         ativo: formData.ativo,
         updated_at: new Date().toISOString()
       };
+
+      let prestadorId;
 
       if (editing) {
         const { error: updateError } = await supabase
@@ -199,6 +267,7 @@ export default function Prestadores() {
           .update(prestadorPayload)
           .eq('id', editing.id);
         if (updateError) throw updateError;
+        prestadorId = editing.id;
         
         await supabase
           .from('prestador_especialidade')
@@ -212,10 +281,8 @@ export default function Prestadores() {
           .select()
           .single();
         if (insertError) throw insertError;
-        editing = { id: novoPrestador.id }; // gambiarra para o próximo passo
+        prestadorId = novoPrestador.id;
       }
-
-      const prestadorId = editing ? editing.id : (await supabase.from('prestadores').insert(prestadorPayload).select().single()).data.id;
       
       const especialidadesInsert = especialidadesSelecionadas.map(esp => ({
         prestador_id: prestadorId,
@@ -376,10 +443,23 @@ export default function Prestadores() {
     return prestador.especialidades[0]?.especialidade?.cbos || '-';
   };
 
+  // Função para formatar CPF/CNPJ na exibição
+  const formatarCPFCNPJ = (prestador) => {
+    if (prestador.cpf) return formatarCPF(prestador.cpf);
+    if (prestador.cnpj) return formatarCNPJ(prestador.cnpj);
+    return '-';
+  };
+
+  const openDetailModal = (prestador) => {
+    setSelectedPrestador(prestador);
+    setShowDetailModal(true);
+  };
+
   const filtered = prestadores.filter(p => 
     p.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.codigo_prestador?.includes(searchTerm) ||
+    p.codigo_prestador?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.cpf?.includes(searchTerm) ||
+    p.cnpj?.includes(searchTerm) ||
     getEspecialidadesTexto(p).toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -415,7 +495,13 @@ export default function Prestadores() {
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 mb-4">
         <div className="relative">
           <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-          <input type="text" placeholder="Buscar por nome, código, CPF ou especialidade..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full border-0 bg-transparent rounded-lg px-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
+          <input 
+            type="text" 
+            placeholder="Buscar por nome, código, CPF, CNPJ ou especialidade..." 
+            value={searchTerm} 
+            onChange={(e) => setSearchTerm(e.target.value)} 
+            className="w-full border-0 bg-transparent rounded-lg px-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+          />
         </div>
       </div>
 
@@ -425,28 +511,40 @@ export default function Prestadores() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-700/50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Código</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nome</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">CPF/CNPJ</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Conselho</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nº Conselho</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Estado</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Especialidades</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">CBOS</th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Ações</th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-32">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {filtered.map((p) => (
                 <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                  <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">{p.codigo_prestador || '-'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-800 dark:text-gray-200">{p.nome} {p.tipo_pessoa === 'J' && <span className="text-xs text-gray-400 ml-1">(PJ)</span>}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{p.cpf || p.cnpj || '-'}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{p.conselho} {p.numero_conselho}/{p.uf_conselho}</td>
+                  <td className="px-4 py-3 text-sm text-gray-800 dark:text-gray-200">
+                    {p.nome} 
+                    {p.tipo_pessoa === 'J' && <span className="text-xs text-gray-400 ml-1">(PJ)</span>}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{formatarCPFCNPJ(p)}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{p.conselho}</td>
+                  <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">{p.numero_conselho || '-'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{p.uf_conselho}</td>
                   <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">{getEspecialidadesTexto(p)}</td>
                   <td className="px-4 py-3 text-sm font-mono text-gray-500 dark:text-gray-400">{getCBOSTexto(p)}</td>
                   <td className="px-4 py-3 text-center">
                     <div className="flex gap-1 justify-center">
-                      <button onClick={() => handleEdit(p)} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Editar"><PencilIcon className="w-4 h-4" /></button>
-                      <button onClick={() => handleDelete(p.id)} className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Excluir"><TrashIcon className="w-4 h-4" /></button>
+                      <button onClick={() => openDetailModal(p)} className="p-1 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" title="Visualizar">
+                        <EyeIcon className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleEdit(p)} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Editar">
+                        <PencilIcon className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDelete(p.id)} className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Excluir">
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -462,7 +560,7 @@ export default function Prestadores() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Modal de Cadastro/Edição */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -501,23 +599,37 @@ export default function Prestadores() {
                   </div>
                 )}
 
-                {/* CPF ou CNPJ conforme tipo */}
+                {/* CPF ou CNPJ com máscara */}
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   {formData.tipo_pessoa === 'F' ? (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CPF</label>
-                      <input type="text" value={formData.cpf} onChange={e => setFormData({...formData, cpf: e.target.value.replace(/\D/g, '')})} maxLength={11} placeholder="000.000.000-00" className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
+                      <input 
+                        type="text" 
+                        value={formatarCPF(formData.cpf)} 
+                        onChange={e => setFormData({...formData, cpf: apenasNumeros(e.target.value)})} 
+                        maxLength={14} 
+                        placeholder="000.000.000-00" 
+                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" 
+                      />
                     </div>
                   ) : (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CNPJ</label>
-                      <input type="text" value={formData.cnpj} onChange={e => setFormData({...formData, cnpj: e.target.value.replace(/\D/g, '')})} maxLength={14} placeholder="00.000.000/0000-00" className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
+                      <input 
+                        type="text" 
+                        value={formatarCNPJ(formData.cnpj)} 
+                        onChange={e => setFormData({...formData, cnpj: apenasNumeros(e.target.value)})} 
+                        maxLength={18} 
+                        placeholder="00.000.000/0000-00" 
+                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" 
+                      />
                     </div>
                   )}
                   <div></div>
                 </div>
 
-                {/* Especialidades (mantido igual) */}
+                {/* Especialidades */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Especialidades *</label>
                   <div className="flex gap-2 mb-3">
@@ -532,14 +644,28 @@ export default function Prestadores() {
                     <div className="border rounded-lg overflow-hidden">
                       <table className="w-full text-sm">
                         <thead className="bg-gray-50 dark:bg-gray-700/50">
-                          <tr><th className="px-3 py-2 text-left">Especialidade</th><th className="px-3 py-2 text-left">CBOS</th><th className="px-3 py-2 text-center w-24">Principal</th><th className="px-3 py-2 text-center w-16">Ação</th></tr>
+                          <tr>
+                            <th className="px-3 py-2 text-left">Especialidade</th>
+                            <th className="px-3 py-2 text-left">CBOS</th>
+                            <th className="px-3 py-2 text-center w-24">Principal</th>
+                            <th className="px-3 py-2 text-center w-16">Ação</th>
+                          </tr>
                         </thead>
                         <tbody>
                           {especialidadesSelecionadas.map(esp => (
-                            <tr key={esp.id}><td className="px-3 py-2">{esp.nome}</td><td className="px-3 py-2 font-mono">{esp.cbos || '-'}</td><td className="px-3 py-2 text-center"><input type="radio" name="principal" checked={especialidadePrincipal?.id === esp.id} onChange={() => definirPrincipal(esp.id)} className="w-4 h-4 text-blue-600" /></td><td className="px-3 py-2 text-center"><button type="button" onClick={() => removerEspecialidade(esp.id)} className="text-red-600"><XMarkIcon className="w-4 h-4" /></button></td></tr>
+                            <tr key={esp.id}>
+                              <td className="px-3 py-2">{esp.nome}</td>
+                              <td className="px-3 py-2 font-mono">{esp.cbos || '-'}</td>
+                              <td className="px-3 py-2 text-center">
+                                <input type="radio" name="principal" checked={especialidadePrincipal?.id === esp.id} onChange={() => definirPrincipal(esp.id)} className="w-4 h-4 text-blue-600" />
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                <button type="button" onClick={() => removerEspecialidade(esp.id)} className="text-red-600"><XMarkIcon className="w-4 h-4" /></button>
+                              </td>
+                            </tr>
                           ))}
                         </tbody>
-                       </table>
+                      </table>
                     </div>
                   )}
                   <p className="text-xs text-gray-500 mt-1">* Selecione ao menos uma especialidade. Marque o rádio para definir a principal (usada para CBOS no XML).</p>
@@ -547,24 +673,92 @@ export default function Prestadores() {
 
                 {/* Conselho */}
                 <div className="grid grid-cols-4 gap-4 mb-4">
-                  <div><label className="block text-sm font-medium mb-1">Conselho</label><select value={formData.conselho} onChange={e => handleConselhoChange(e.target.value)} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600">{CONSELHOS.map(c => <option key={c.sigla} value={c.sigla}>{c.sigla}</option>)}</select></div>
-                  <div><label className="block text-sm font-medium mb-1">Código ANS</label><input type="text" value={formData.codigo_conselho_ans} disabled className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-100 dark:bg-gray-800" /></div>
-                  <div><label className="block text-sm font-medium mb-1">Número do Conselho</label><input type="text" value={formData.numero_conselho} onChange={e => setFormData({...formData, numero_conselho: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" /></div>
-                  <div><label className="block text-sm font-medium mb-1">UF do Conselho</label><select value={formData.uf_conselho} onChange={e => setFormData({...formData, uf_conselho: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600">{UFS.map(uf => <option key={uf.sigla} value={uf.sigla}>{uf.sigla}</option>)}</select></div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Conselho</label>
+                    <select value={formData.conselho} onChange={e => handleConselhoChange(e.target.value)} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600">
+                      {CONSELHOS.map(c => <option key={c.sigla} value={c.sigla}>{c.sigla}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Código ANS</label>
+                    <input type="text" value={formData.codigo_conselho_ans} disabled className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-100 dark:bg-gray-800" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Número do Conselho</label>
+                    <input type="text" value={formData.numero_conselho} onChange={e => setFormData({...formData, numero_conselho: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">UF do Conselho</label>
+                    <select value={formData.uf_conselho} onChange={e => setFormData({...formData, uf_conselho: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600">
+                      {UFS.map(uf => <option key={uf.sigla} value={uf.sigla}>{uf.sigla}</option>)}
+                    </select>
+                  </div>
                 </div>
 
-                {/* Contato e Endereço (mantido) */}
+                {/* Contato */}
                 <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div><label className="block text-sm font-medium mb-1">Telefone</label><input type="text" value={formData.telefone} onChange={e => setFormData({...formData, telefone: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" /></div>
-                  <div><label className="block text-sm font-medium mb-1">Celular</label><input type="text" value={formData.celular} onChange={e => setFormData({...formData, celular: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" /></div>
-                  <div className="col-span-2"><label className="block text-sm font-medium mb-1">Email</label><input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" /></div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Telefone</label>
+                    <input 
+                      type="text" 
+                      value={formatarTelefone(formData.telefone)} 
+                      onChange={e => setFormData({...formData, telefone: apenasNumeros(e.target.value)})} 
+                      maxLength={15} 
+                      placeholder="(00) 0000-0000" 
+                      className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Celular</label>
+                    <input 
+                      type="text" 
+                      value={formatarTelefone(formData.celular)} 
+                      onChange={e => setFormData({...formData, celular: apenasNumeros(e.target.value)})} 
+                      maxLength={15} 
+                      placeholder="(00) 00000-0000" 
+                      className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" 
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium mb-1">Email</label>
+                    <input type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
+                  </div>
                 </div>
 
+                {/* Endereço com busca de CEP */}
                 <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="col-span-2"><label className="block text-sm font-medium mb-1">Endereço</label><input type="text" value={formData.endereco} onChange={e => setFormData({...formData, endereco: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" /></div>
-                  <div><label className="block text-sm font-medium mb-1">CEP</label><input type="text" value={formData.cep} onChange={e => setFormData({...formData, cep: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" /></div>
-                  <div><label className="block text-sm font-medium mb-1">Cidade</label><input type="text" value={formData.cidade} onChange={e => setFormData({...formData, cidade: e.target.value.toUpperCase()})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" /></div>
-                  <div><label className="block text-sm font-medium mb-1">Estado</label><select value={formData.estado} onChange={e => setFormData({...formData, estado: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600">{UFS.map(uf => <option key={uf.sigla} value={uf.sigla}>{uf.sigla}</option>)}</select></div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">CEP</label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        value={formatarCEP(formData.cep)} 
+                        onChange={e => {
+                          const cepNumeros = apenasNumeros(e.target.value);
+                          setFormData({...formData, cep: cepNumeros});
+                          if (cepNumeros.length === 8) buscarEnderecoPorCEP(cepNumeros);
+                        }} 
+                        maxLength={9} 
+                        placeholder="00000-000" 
+                        className="flex-1 border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" 
+                      />
+                      {buscarCEP && <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mt-2"></div>}
+                    </div>
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium mb-1">Endereço</label>
+                    <input type="text" value={formData.endereco} onChange={e => setFormData({...formData, endereco: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Cidade</label>
+                    <input type="text" value={formData.cidade} onChange={e => setFormData({...formData, cidade: e.target.value.toUpperCase()})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Estado</label>
+                    <select value={formData.estado} onChange={e => setFormData({...formData, estado: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600">
+                      {UFS.map(uf => <option key={uf.sigla} value={uf.sigla}>{uf.sigla}</option>)}
+                    </select>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 mb-4">
@@ -577,6 +771,102 @@ export default function Prestadores() {
                   <button type="submit" className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium shadow-md hover:from-blue-600 hover:to-indigo-700">{editing ? 'Atualizar' : 'Salvar'} Prestador</button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Detalhes do Prestador */}
+      {showDetailModal && selectedPrestador && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5 flex justify-between items-center">
+              <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Detalhes do Prestador</h3>
+              <button onClick={() => setShowDetailModal(false)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">Nome</label>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedPrestador.nome}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">Tipo</label>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedPrestador.tipo_pessoa === 'F' ? 'Pessoa Física' : 'Pessoa Jurídica'}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">CPF/CNPJ</label>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{formatarCPFCNPJ(selectedPrestador)}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">Código do Prestador</label>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedPrestador.codigo_prestador || '-'}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">Conselho</label>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedPrestador.conselho}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">Número do Conselho</label>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedPrestador.numero_conselho || '-'}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">UF do Conselho</label>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedPrestador.uf_conselho}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">Código ANS Conselho</label>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedPrestador.codigo_conselho_ans || '-'}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">Telefone</label>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{formatarTelefone(selectedPrestador.telefone) || '-'}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">Celular</label>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{formatarTelefone(selectedPrestador.celular) || '-'}</p>
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs text-gray-500 dark:text-gray-400">Email</label>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedPrestador.email || '-'}</p>
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs text-gray-500 dark:text-gray-400">Endereço</label>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedPrestador.endereco || '-'}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">CEP</label>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{formatarCEP(selectedPrestador.cep) || '-'}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">Cidade</label>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedPrestador.cidade || '-'}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">Estado</label>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedPrestador.estado}</p>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">Status</label>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{selectedPrestador.ativo ? 'Ativo' : 'Inativo'}</p>
+                </div>
+                <div className="col-span-2">
+                  <label className="text-xs text-gray-500 dark:text-gray-400">Especialidades</label>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {selectedPrestador.especialidades.map(esp => (
+                      <span key={esp.especialidade_id} className={`px-2 py-1 text-xs rounded-full ${esp.principal ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}`}>
+                        {esp.especialidade?.nome} {esp.principal && '(Principal)'}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 dark:text-gray-400">CBOS (Principal)</label>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{getCBOSTexto(selectedPrestador)}</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
