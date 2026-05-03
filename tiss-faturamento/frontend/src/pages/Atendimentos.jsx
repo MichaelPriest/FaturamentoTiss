@@ -18,8 +18,9 @@ import {
   ChevronDownIcon,
   ClockIcon,
   ExclamationTriangleIcon,
-  LockClosedIcon,      // ADICIONAR ESTE
-  LockOpenIcon         // ADICIONAR ESTE TAMBÉM (se for usado)
+  LockClosedIcon,
+  LockOpenIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -462,6 +463,92 @@ export default function Atendimentos() {
     carregarDados();
   }, []);
 
+  // Função para recalcular todas as guias do banco
+  const recalcularTodasGuias = async () => {
+    if (!confirm('Isso irá recalcular os saldos de TODAS as guias. Continuar?')) return;
+    
+    setLoading(true);
+    let atualizadas = 0;
+    
+    try {
+      for (const atendimento of atendimentos) {
+        if (atendimento.status === 'cancelado' || atendimento.status === 'finalizado') continue;
+        
+        const itensExecutados = atendimento.itens || [];
+        const itensAutorizadosList = atendimento.itens_autorizados || [];
+        
+        if (itensAutorizadosList.length === 0) continue;
+        
+        const itensAutorizadosAtualizados = itensAutorizadosList.map(aut => {
+          let quantidadeUtilizada = 0;
+          itensExecutados.forEach(item => {
+            if (item.codigo === aut.codigo) quantidadeUtilizada += (item.quantidade || 0);
+          });
+          return { ...aut, quantidade_utilizada: quantidadeUtilizada, saldo_autorizado: aut.quantidade_autorizada - quantidadeUtilizada };
+        });
+        
+        const precisaAtualizar = itensAutorizadosAtualizados.some((aut, idx) => {
+          const original = itensAutorizadosList[idx];
+          return aut.quantidade_utilizada !== (original.quantidade_utilizada || 0);
+        });
+        
+        if (precisaAtualizar) {
+          const { error } = await supabase.from('atendimentos').update({ 
+            itens_autorizados: itensAutorizadosAtualizados,
+            itens_autorizados_atualizado_em: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }).eq('id', atendimento.id);
+          if (!error) atualizadas++;
+        }
+      }
+      
+      await carregarDados();
+      toast.success(`${atualizadas} guia(s) atualizada(s)!`);
+    } catch (error) {
+      console.error('Erro ao recalcular guias:', error);
+      toast.error('Erro ao recalcular guias');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Função para recalcular uma guia específica
+  const recalcularGuia = async (atendimentoId) => {
+    const atendimento = atendimentos.find(a => a.id === atendimentoId);
+    if (!atendimento) return;
+    
+    const itensExecutados = atendimento.itens || [];
+    const itensAutorizadosList = atendimento.itens_autorizados || [];
+    
+    if (itensAutorizadosList.length === 0) {
+      toast.warning('Esta guia não possui itens autorizados');
+      return;
+    }
+    
+    const itensAutorizadosAtualizados = itensAutorizadosList.map(aut => {
+      let quantidadeUtilizada = 0;
+      itensExecutados.forEach(item => {
+        if (item.codigo === aut.codigo) quantidadeUtilizada += (item.quantidade || 0);
+      });
+      return { ...aut, quantidade_utilizada: quantidadeUtilizada, saldo_autorizado: aut.quantidade_autorizada - quantidadeUtilizada };
+    });
+    
+    try {
+      const { error } = await supabase.from('atendimentos').update({ 
+        itens_autorizados: itensAutorizadosAtualizados,
+        itens_autorizados_atualizado_em: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }).eq('id', atendimentoId);
+      
+      if (error) throw error;
+      await carregarDados();
+      toast.success('Guia atualizada com sucesso!');
+    } catch (error) {
+      console.error('Erro:', error);
+      toast.error('Erro ao atualizar guia');
+    }
+  };
+  
   // Salvar atendimento no Supabase
   const salvarAtendimento = async (atendimento) => {
     try {
@@ -1302,6 +1389,15 @@ export default function Atendimentos() {
             </p>
           </div>
           <div className="flex gap-2">
+            <button 
+              onClick={recalcularTodasGuias} 
+              disabled={loading}
+              className="bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-400 text-white px-3 py-2 rounded-xl text-sm flex items-center gap-2 transition-all duration-200"
+              title="Recalcular saldos de todas as guias"
+            >
+              <ArrowPathIcon className="w-4 h-4" />
+              Recalcular Saldos
+            </button>
             <button 
               onClick={() => { carregarDados(); }} 
               className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-xl text-sm flex items-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
