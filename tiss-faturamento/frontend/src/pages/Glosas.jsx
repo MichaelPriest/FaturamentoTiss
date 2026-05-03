@@ -49,6 +49,7 @@ export default function Glosas() {
   const [selectedLote, setSelectedLote] = useState(null);
   const [guiasDoLote, setGuiasDoLote] = useState([]);
   const [carregandoGuias, setCarregandoGuias] = useState(false);
+  const [xmlContent, setXmlContent] = useState('');
   
   const [novaGlosa, setNovaGlosa] = useState({
     numero_lote: '',
