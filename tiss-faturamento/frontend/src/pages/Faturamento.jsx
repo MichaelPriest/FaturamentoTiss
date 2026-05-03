@@ -54,11 +54,11 @@ export default function Faturamento() {
   const [showHistoricoLogs, setShowHistoricoLogs] = useState(false);
   const [showGerarPorLote, setShowGerarPorLote] = useState(false);
   const [selectedLote, setSelectedLote] = useState(null);
-  const [sequencialGlobal, setSequencialGlobal] = useState(1);
+  const [sequencialGlobal, setSequencialGlobal] = useState(1); // contador único para número do lote
   const [logsLotes, setLogsLotes] = useState([]);
   const [numeroLoteBusca, setNumeroLoteBusca] = useState('');
   const [loteEncontrado, setLoteEncontrado] = useState(null);
-  const [numeroLotePreview, setNumeroLotePreview] = useState('');
+  const [numeroLotePreview, setNumeroLotePreview] = useState(''); // string para exibição na prévia
   
   const [dadosFatura, setDadosFatura] = useState({
     competencia: format(new Date(), 'yyyy-MM'),
@@ -192,14 +192,15 @@ export default function Faturamento() {
   };
 
   // ============================================
-  // FUNÇÕES DE UTILIDADE - CORRIGIDAS
+  // FUNÇÕES DE UTILIDADE
   // ============================================
 
-  const gerarNumeroLote = () => {
-    return sequencialGlobal.toString().padStart(12, '0');
+  // Gera número do lote apenas como um sequencial (até 12 dígitos)
+  const gerarNumeroLote = (contador) => {
+    return contador.toString().padStart(12, '0');
   };
 
-  // Função pura para calcular impostos (não usa estado)
+  // Função pura para calcular impostos
   const calcularImpostos = (baseCalculo, aliquotaISS, aliquotaIBS, aliquotaCBS, aliquotaIR, aliquotaCSLL, aliquotaPIS, aliquotaCOFINS) => {
     const iss = (baseCalculo * aliquotaISS) / 100;
     const ibs = (baseCalculo * aliquotaIBS) / 100;
@@ -213,7 +214,6 @@ export default function Faturamento() {
     return { iss, ibs, cbs, ir, csll, pis, cofins, totalImpostos, valorLiquido };
   };
 
-  // Função para atualizar o estado (sem useCallback para evitar dependências desnecessárias)
   const atualizarTodosImpostos = (baseCalculo) => {
     setDadosFatura(prev => {
       const impostos = calcularImpostos(
@@ -241,7 +241,6 @@ export default function Faturamento() {
     });
   };
 
-  // Função para atualizar uma alíquota específica
   const atualizarAliquota = (campo, valor) => {
     const novaAliquota = parseFloat(valor) || 0;
     
@@ -296,7 +295,7 @@ export default function Faturamento() {
           {
             chave: 'sequencial_faturamento',
             valor: novoSequencial.toString(),
-            descricao: 'Sequencial para faturamento TISS',
+            descricao: 'Contador de números de lote TISS',
             updated_at: new Date().toISOString()
           }
         ], { onConflict: 'chave' });
@@ -390,7 +389,6 @@ export default function Faturamento() {
     }, {});
   }, [pendentesFiltrados]);
 
-  // previewData CORRIGIDO - sem atualização de estado dentro do useMemo
   const previewData = useMemo(() => {
     if (selecionados.length === 0) return null;
     const atendimentosSelecionados = pendentes.filter(a => selecionados.includes(a.id));
@@ -462,15 +460,16 @@ export default function Faturamento() {
     }
   };
 
-  // abrirPrevia CORRIGIDO - gerando o número do lote aqui
+  // Abre a prévia e já gera o primeiro número de lote a ser utilizado
   const abrirPrevia = () => {
     if (selecionados.length === 0) {
       toast.error('Selecione pelo menos uma guia para faturar');
       return;
     }
     if (previewData) {
-      const novoNumeroLote = gerarNumeroLote();
-      setNumeroLotePreview(novoNumeroLote);
+      // Gera o primeiro número de lote (string formatada) baseado no contador atual
+      const primeiroNumero = gerarNumeroLote(sequencialGlobal);
+      setNumeroLotePreview(primeiroNumero);
       atualizarTodosImpostos(previewData.valorTotal);
       setShowPreviaModal(true);
     }
@@ -548,7 +547,8 @@ export default function Faturamento() {
 
     try {
       const atendimentosPorConvenio = previewData.conveniosAgrupados;
-      let seq = sequencialGlobal;
+      // Inicia o contador a partir do número gerado na prévia (ou do estado atual se não houver)
+      let currentCounter = parseInt(numeroLotePreview) || sequencialGlobal;
       const lotesGerados = [];
       
       for (const [convenioId, data] of Object.entries(atendimentosPorConvenio)) {
@@ -559,17 +559,20 @@ export default function Faturamento() {
           continue;
         }
 
-        const numeroLote = numeroLotePreview;
-        
-        const guias = data.atendimentos.map(atendimento => ({
+        // Número do lote único para este convênio
+        const numeroLote = gerarNumeroLote(currentCounter);
+        currentCounter++; // incrementa para o próximo lote
+
+        // Geração das guias com sequencial de transação local (reinicia em 1 por lote)
+        const guias = data.atendimentos.map((atendimento, index) => ({
           ...converterAtendimentoParaTISS(atendimento, convenio),
           codigoPrestadorExecutante: convenio.codigo_prestador,
-          versao: versaoTISS
+          versao: versaoTISS,
+          sequencialTransacao: String(index + 1).padStart(4, '0') // sequencial dentro do lote
         }));
 
         const xml = gerarXMLTISS({
           versao: versaoTISS,
-          sequencialTransacao: seq.toString().padStart(4, '0'),
           codigoPrestadorNaOperadora: convenio.codigo_prestador,
           registroANS: convenio.registro_ans,
           numeroLote: numeroLote,
@@ -620,22 +623,32 @@ export default function Faturamento() {
         
         await registrarLog('GERACAO_LOTE', novoLote, `Lote gerado com ${data.atendimentos.length} guias`);
         
-        const ids = data.atendimentos.map(a => a.id);
-        // *** ALTERAÇÃO PRINCIPAL: STATUS FINALIZADA ***
-        await supabase
-          .from('atendimentos')
-          .update({ 
-            status: 'finalizada',         // <--- AQUI: status alterado para 'finalizada'
-            fatura_lote: numeroLote,
-            data_faturamento: new Date().toISOString(),
-            updated_at: new Date().toISOString() 
-          })
-          .in('id', ids);
+        // Atualiza os atendimentos para "finalizada"
+        const ids = data.atendimentos.map(a => a.id).filter(id => id != null);
+        if (ids.length > 0) {
+          const updateQuery = supabase
+            .from('atendimentos')
+            .update({ 
+              status: 'finalizada',
+              fatura_lote: numeroLote,
+              data_faturamento: format(new Date(), 'yyyy-MM-dd'), // somente data
+              updated_at: new Date().toISOString() 
+            });
+          
+          // Corrige o problema do 400 Bad Request com id único
+          if (ids.length === 1) {
+            await updateQuery.eq('id', ids[0]);
+          } else {
+            await updateQuery.in('id', ids);
+          }
+        }
         
+        // Remove bloqueios das guias processadas
         const novosBloqueados = bloqueados.filter(id => !ids.includes(id));
         setBloqueados(novosBloqueados);
         await salvarBloqueados(novosBloqueados);
         
+        // Download do XML
         const blob = new Blob([xml], { type: 'application/xml' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -643,12 +656,11 @@ export default function Faturamento() {
         a.download = nomeArquivo;
         a.click();
         URL.revokeObjectURL(url);
-        
-        seq++;
       }
 
-      await atualizarSequencial(seq);
-      setSequencialGlobal(seq);
+      // Salva o novo contador global (próximo número de lote disponível)
+      await atualizarSequencial(currentCounter);
+      setSequencialGlobal(currentCounter);
       await carregarLotes();
       await carregarDados();
       
@@ -666,10 +678,6 @@ export default function Faturamento() {
       setGerando(false);
     }
   };
-
-  // ... (restante das funções: buscarLoteParaRegenerar, regenerarPorNumeroLote, regenerarLote, cancelarLote, etc.)
-
-  // (Incluí todas as funções que já estavam no código original, sem alterações)
 
   const buscarLoteParaRegenerar = async () => {
     if (!numeroLoteBusca) {
@@ -717,10 +725,11 @@ export default function Faturamento() {
         return;
       }
 
-      const novasGuias = atendimentosOriginais.map(atendimento => ({
+      const novasGuias = atendimentosOriginais.map((atendimento, index) => ({
         ...converterAtendimentoParaTISS(atendimento, convenio),
         codigoPrestadorExecutante: convenio.codigo_prestador,
-        versao: versaoTISS
+        versao: versaoTISS,
+        sequencialTransacao: String(index + 1).padStart(4, '0')
       }));
 
       const xml = gerarXMLTISS({
@@ -786,10 +795,11 @@ export default function Faturamento() {
         return;
       }
 
-      const novasGuias = atendimentosOriginais.map(atendimento => ({
+      const novasGuias = atendimentosOriginais.map((atendimento, index) => ({
         ...converterAtendimentoParaTISS(atendimento, convenio),
         codigoPrestadorExecutante: convenio.codigo_prestador,
-        versao: versaoTISS
+        versao: versaoTISS,
+        sequencialTransacao: String(index + 1).padStart(4, '0')
       }));
 
       const xml = gerarXMLTISS({
@@ -841,16 +851,24 @@ export default function Faturamento() {
     setGerando(true);
     
     try {
-      // Ao cancelar, as guias voltam a ser "faturado" (prontas para faturamento)
-      await supabase
-        .from('atendimentos')
-        .update({ 
-          status: 'faturado', 
-          fatura_lote: null,
-          data_faturamento: null,
-          updated_at: new Date().toISOString() 
-        })
-        .in('id', lote.guias_ids || []);
+      // Retorna as guias para status "faturado" (disponíveis novamente)
+      const ids = lote.guias_ids || [];
+      if (ids.length > 0) {
+        const updateQuery = supabase
+          .from('atendimentos')
+          .update({ 
+            status: 'faturado', 
+            fatura_lote: null,
+            data_faturamento: null,
+            updated_at: new Date().toISOString() 
+          });
+        
+        if (ids.length === 1) {
+          await updateQuery.eq('id', ids[0]);
+        } else {
+          await updateQuery.in('id', ids);
+        }
+      }
       
       await registrarLog('CANCELAMENTO_LOTE', lote, `Lote cancelado. Guias reabertas.`);
       
@@ -1030,7 +1048,7 @@ export default function Faturamento() {
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl border p-4 hover:shadow-md transition-shadow">
             <div className="flex justify-between items-center">
-              <div><p className="text-xs text-gray-500 dark:text-gray-400">Próx. Sequencial</p><p className="text-2xl font-bold text-cyan-600 dark:text-cyan-400">{sequencialGlobal}</p></div>
+              <div><p className="text-xs text-gray-500 dark:text-gray-400">Próx. Lote</p><p className="text-2xl font-bold text-cyan-600 dark:text-cyan-400 font-mono">{gerarNumeroLote(sequencialGlobal)}</p></div>
               <ArrowPathIcon className="w-8 h-8 text-cyan-500 opacity-50" />
             </div>
           </div>
