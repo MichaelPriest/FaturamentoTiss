@@ -1,10 +1,9 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { 
-  DocumentArrowDownIcon, 
-  PaperAirplaneIcon, 
-  BuildingOfficeIcon, 
+import { useState, useEffect, useMemo } from 'react';
+import {
+  DocumentArrowDownIcon,
+  PaperAirplaneIcon,
+  BuildingOfficeIcon,
   ArrowPathIcon,
-  TrashIcon,
   EyeIcon,
   CheckIcon,
   XMarkIcon,
@@ -18,8 +17,6 @@ import {
   ArrowDownIcon,
   LockClosedIcon,
   LockOpenIcon,
-  UserGroupIcon,
-  CalendarIcon,
   XCircleIcon,
   PrinterIcon,
   ArchiveBoxIcon
@@ -28,6 +25,183 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
 import { gerarXMLTISS, converterAtendimentoParaTISS, setVersao } from '../lib/tissGenerator';
+
+// ============================================
+// MAPA DE CÓDIGOS CBOS (TISS)
+// ============================================
+const CBOS_MAP = {
+  "201115": "Geneticista",
+  "203015": "Pesquisador em biologia de microorganismos e parasitas",
+  "213150": "Físico médico",
+  "221105": "Biólogo",
+  "221205": "Biomédico",
+  "223204": "Cirurgião dentista - auditor",
+  "223208": "Cirurgião dentista - clínico geral",
+  "223212": "Cirurgião dentista - endodontista",
+  "223216": "Cirurgião dentista - epidemiologista",
+  "223220": "Cirurgião dentista - estomatologista",
+  "223224": "Cirurgião dentista - implantodontista",
+  "223228": "Cirurgião dentista - odontogeriatra",
+  "223232": "Cirurgião dentista - odontologista legal",
+  "223236": "Cirurgião dentista - odontopediatra",
+  "223240": "Cirurgião dentista - ortopedista e ortodontista",
+  "223244": "Cirurgião dentista - patologista bucal",
+  "223248": "Cirurgião dentista - periodontista",
+  "223252": "Cirurgião dentista - protesiólogo bucomaxilofacial",
+  "223256": "Cirurgião dentista - protesista",
+  "223260": "Cirurgião dentista - radiologista",
+  "223264": "Cirurgião dentista - reabilitador oral",
+  "223268": "Cirurgião dentista - traumatologista bucomaxilofacial",
+  "223272": "Cirurgião dentista de saúde coletiva",
+  "223276": "Cirurgião dentista - odontologia do trabalho",
+  "223280": "Cirurgião dentista - dentística",
+  "223284": "Cirurgião dentista - disfunção temporomandibular e dor orofacial",
+  "223288": "Cirurgião dentista - odontologia para pacientes com necessidades especiais",
+  "223293": "Cirurgião-dentista da estratégia de saúde da família",
+  "223405": "Farmacêutico",
+  "223415": "Farmacêutico analista clínico",
+  "223420": "Farmacêutico de alimentos",
+  "223425": "Farmacêutico práticas integrativas e complementares",
+  "223430": "Farmacêutico em saúde pública",
+  "223435": "Farmacêutico industrial",
+  "223440": "Farmacêutico toxicologista",
+  "223445": "Farmacêutico hospitalar e clínico",
+  "223505": "Enfermeiro",
+  "223510": "Enfermeiro auditor",
+  "223515": "Enfermeiro de bordo",
+  "223520": "Enfermeiro de centro cirúrgico",
+  "223525": "Enfermeiro de terapia intensiva",
+  "223530": "Enfermeiro do trabalho",
+  "223535": "Enfermeiro nefrologista",
+  "223540": "Enfermeiro neonatologista",
+  "223545": "Enfermeiro obstétrico",
+  "223550": "Enfermeiro psiquiátrico",
+  "223555": "Enfermeiro puericultor e pediátrico",
+  "223560": "Enfermeiro sanitarista",
+  "223565": "Enfermeiro da estratégia de saúde da família",
+  "223570": "Perfusionista",
+  "223575": "Obstetriz",
+  "223605": "Fisioterapeuta geral",
+  "223620": "Peripatologista",
+  "223625": "Fisioterapeuta respiratória",
+  "223630": "Fisioterapeuta neurofuncional",
+  "223635": "Fisioterapeuta traumato-ortopédica funcional",
+  "223640": "Fisioterapeuta osteopata",
+  "223645": "Fisioterapeuta quiropraxista",
+  "223650": "Fisioterapeuta acupunturista",
+  "223655": "Fisioterapeuta esportivo",
+  "223660": "Fisioterapeuta do trabalho",
+  "223705": "Dietista",
+  "223710": "Nutricionista",
+  "223810": "Fonoaudiólogo",
+  "223815": "Fonoaudiólogo educacional",
+  "223820": "Fonoaudiólogo em audiologia",
+  "223825": "Fonoaudiólogo em disfagia",
+  "223830": "Fonoaudiólogo em linguagem",
+  "223835": "Fonoaudiólogo em motricidade orofacial",
+  "223840": "Fonoaudiólogo em saúde coletiva",
+  "223845": "Fonoaudiólogo em voz",
+  "223905": "Terapeuta ocupacional",
+  "223910": "Ortoptista",
+  "223915": "Psicomotricista",
+  "224105": "Avaliador físico",
+  "224110": "Ludomotricista",
+  "224115": "Preparador de atleta",
+  "224120": "Preparador físico",
+  "224125": "Técnico de desporto individual e coletivo (exceto futebol)",
+  "224130": "Técnico de laboratório e fiscalização desportiva",
+  "224135": "Treinador profissional de futebol",
+  "224140": "Profissional de educação física na saúde",
+  "225103": "Médico infectologista",
+  "225105": "Médico acupunturista",
+  "225106": "Médico legista",
+  "225109": "Médico nefrologista",
+  "225110": "Médico alergista e imunologista",
+  "225112": "Médico neurologista",
+  "225115": "Médico angiologista",
+  "225118": "Médico nutrologista",
+  "225120": "Médico cardiologista",
+  "225121": "Médico oncologista",
+  "225122": "Médico cancerologista pediátrico",
+  "225124": "Médico pediatra",
+  "225125": "Médico clínico",
+  "225127": "Médico pneumologista",
+  "225130": "Médico de família e comunidade",
+  "225133": "Médico psiquiatra",
+  "225135": "Médico dermatologista",
+  "225136": "Médico reumatologista",
+  "225139": "Médico sanitarista",
+  "225140": "Médico do trabalho",
+  "225142": "Médico da estratégia de saúde da família",
+  "225145": "Médico em medicina de tráfego",
+  "225148": "Médico anatomopatologista",
+  "225150": "Médico em medicina intensiva",
+  "225151": "Médico anestesiologista",
+  "225154": "Médico antroposófico",
+  "225155": "Médico endocrinologista e metabologista",
+  "225160": "Médico fisiatra",
+  "225165": "Médico gastroenterologista",
+  "225170": "Médico generalista",
+  "225175": "Médico geneticista",
+  "225180": "Médico geriatra",
+  "225185": "Médico hematologista",
+  "225190": "Médico hemoterapeuta",
+  "225195": "Médico homeopata",
+  "225203": "Médico em cirurgia vascular",
+  "225210": "Médico cirurgião cardiovascular",
+  "225215": "Médico cirurgião de cabeça e pescoço",
+  "225220": "Médico cirurgião do aparelho digestivo",
+  "225225": "Médico cirurgião geral",
+  "225230": "Médico cirurgião pediátrico",
+  "225235": "Médico cirurgião plástico",
+  "225240": "Médico cirurgião torácico",
+  "225245": "Médico foniatra",
+  "225250": "Médico ginecologista e obstetra",
+  "225255": "Médico mastologista",
+  "225260": "Médico neurocirurgião",
+  "225265": "Médico oftalmologista",
+  "225270": "Médico ortopedista e traumatologista",
+  "225275": "Médico otorrinolaringologista",
+  "225280": "Médico proctologista",
+  "225285": "Médico urologista",
+  "225290": "Médico cancerologista cirúrgico",
+  "225295": "Médico cirurgião da mão",
+  "225305": "Médico citopatologista",
+  "225310": "Médico em endoscopia",
+  "225315": "Médico em medicina nuclear",
+  "225320": "Médico em radiologia e diagnóstico por imagem",
+  "225325": "Médico patologista clínico",
+  "225330": "Médico radioterapeuta",
+  "225335": "Médico patologista clínico / medicina laboratorial",
+  "225340": "Médico hemoterapeuta",
+  "225345": "Médico hiperbarista",
+  "225350": "Médico neurofisiologista",
+  "225355": "Médico radiologista intervencionista",
+  "226105": "Quiropraxista",
+  "226110": "Osteopata",
+  "226305": "Musicoterapeuta",
+  "226310": "Arteterapeuta",
+  "226315": "Equoterapeuta",
+  "226320": "Naturologo",
+  "239425": "Psicopedagogo",
+  "239440": "Neuropsicopedagogo clínico",
+  "239445": "Neuropsicopedagogo institucional",
+  "251510": "Psicólogo clínico",
+  "251545": "Neuropsicólogo",
+  "251550": "Psicanalista",
+  "251555": "Psicólogo acupunturista",
+  "251605": "Assistente social",
+  "322120": "Massoterapeuta",
+  "322125": "Terapeuta holístico",
+  "322135": "Doula",
+  "322205": "Técnico de enfermagem",
+  "322220": "Técnico de enfermagem psiquiátrica",
+  "322225": "Instrumentador cirúrgico",
+  "322230": "Auxiliar de enfermagem",
+  "516210": "Cuidador de idosos",
+  "999999": "CBO desconhecido ou não informado",
+  "131220": "Gerontólogo",
+};
 
 const MAX_GUIAS_POR_LOTE = 100;
 
@@ -54,12 +228,12 @@ export default function Faturamento() {
   const [showHistoricoLogs, setShowHistoricoLogs] = useState(false);
   const [showGerarPorLote, setShowGerarPorLote] = useState(false);
   const [selectedLote, setSelectedLote] = useState(null);
-  const [sequencialGlobal, setSequencialGlobal] = useState(1); // contador único para número do lote
+  const [sequencialGlobal, setSequencialGlobal] = useState(1);
   const [logsLotes, setLogsLotes] = useState([]);
   const [numeroLoteBusca, setNumeroLoteBusca] = useState('');
   const [loteEncontrado, setLoteEncontrado] = useState(null);
-  const [numeroLotePreview, setNumeroLotePreview] = useState(''); // string para exibição na prévia
-  
+  const [numeroLotePreview, setNumeroLotePreview] = useState('');
+
   const [dadosFatura, setDadosFatura] = useState({
     competencia: format(new Date(), 'yyyy-MM'),
     dataFechamento: format(new Date(), 'yyyy-MM-dd'),
@@ -94,7 +268,7 @@ export default function Faturamento() {
         .select('valor')
         .eq('chave', 'sequencial_faturamento')
         .maybeSingle();
-      
+
       if (data?.valor) {
         setSequencialGlobal(parseInt(data.valor));
       }
@@ -110,7 +284,7 @@ export default function Faturamento() {
         .select('valor')
         .eq('chave', 'guias_bloqueadas')
         .maybeSingle();
-      
+
       if (data?.valor) {
         const bloqueadosList = JSON.parse(data.valor);
         setBloqueados(Array.isArray(bloqueadosList) ? bloqueadosList : []);
@@ -195,12 +369,36 @@ export default function Faturamento() {
   // FUNÇÕES DE UTILIDADE
   // ============================================
 
-  // Gera número do lote apenas como um sequencial (até 12 dígitos)
   const gerarNumeroLote = (contador) => {
     return contador.toString().padStart(12, '0');
   };
 
-  // Função pura para calcular impostos
+  const getProfissionalExibicao = (atendimento) => {
+    let nome = '-';
+    let cbosDescricao = '';
+
+    try {
+      const itens = typeof atendimento.itens === 'string'
+        ? JSON.parse(atendimento.itens)
+        : atendimento.itens;
+
+      if (Array.isArray(itens) && itens.length > 0) {
+        const primeiro = itens[0];
+        nome = primeiro.prestador_nome || '-';
+        const cbos = primeiro.prestador_cbos;
+        if (cbos && CBOS_MAP[cbos]) {
+          cbosDescricao = CBOS_MAP[cbos];
+        } else if (cbos) {
+          cbosDescricao = `CBO ${cbos}`;
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao extrair profissional/CBO:', e);
+    }
+
+    return cbosDescricao ? `${nome} / ${cbosDescricao}` : nome;
+  };
+
   const calcularImpostos = (baseCalculo, aliquotaISS, aliquotaIBS, aliquotaCBS, aliquotaIR, aliquotaCSLL, aliquotaPIS, aliquotaCOFINS) => {
     const iss = (baseCalculo * aliquotaISS) / 100;
     const ibs = (baseCalculo * aliquotaIBS) / 100;
@@ -243,7 +441,7 @@ export default function Faturamento() {
 
   const atualizarAliquota = (campo, valor) => {
     const novaAliquota = parseFloat(valor) || 0;
-    
+
     setDadosFatura(prev => {
       const novosDados = { ...prev, [campo]: novaAliquota };
       const impostos = calcularImpostos(
@@ -330,10 +528,10 @@ export default function Faturamento() {
 
   const pendentes = Array.isArray(atendimentos) ? atendimentos.filter(a => a.status === 'faturado') : [];
   const todosAtendimentos = [...pendentes, ...(Array.isArray(atendimentos) ? atendimentos.filter(a => bloqueados.includes(a.id) && a.status === 'faturado') : [])];
-  
+
   const pendentesFiltrados = useMemo(() => {
     let filtrados = [...todosAtendimentos];
-    
+
     if (filtroConvenio !== 'todos') {
       filtrados = filtrados.filter(a => a.paciente_convenio_id === parseInt(filtroConvenio));
     }
@@ -346,10 +544,10 @@ export default function Faturamento() {
     if (filtroTipoAtendimento !== 'todos') {
       filtrados = filtrados.filter(a => a.tipo_atendimento === filtroTipoAtendimento);
     }
-    
+
     filtrados.sort((a, b) => {
       let valorA, valorB;
-      switch(ordem) {
+      switch (ordem) {
         case 'guia':
           valorA = a.numero_guia_prestador || '';
           valorB = b.numero_guia_prestador || '';
@@ -376,7 +574,7 @@ export default function Faturamento() {
         return valorA < valorB ? 1 : -1;
       }
     });
-    
+
     return filtrados;
   }, [todosAtendimentos, filtroConvenio, filtroEspecialidade, filtroPrestador, filtroTipoAtendimento, ordem, ordemDirecao]);
 
@@ -393,7 +591,7 @@ export default function Faturamento() {
     if (selecionados.length === 0) return null;
     const atendimentosSelecionados = pendentes.filter(a => selecionados.includes(a.id));
     const valorTotal = atendimentosSelecionados.reduce((sum, a) => sum + (a.valor_total || 0), 0);
-    
+
     return {
       atendimentos: atendimentosSelecionados,
       valorTotal,
@@ -460,14 +658,12 @@ export default function Faturamento() {
     }
   };
 
-  // Abre a prévia e já gera o primeiro número de lote a ser utilizado
   const abrirPrevia = () => {
     if (selecionados.length === 0) {
       toast.error('Selecione pelo menos uma guia para faturar');
       return;
     }
     if (previewData) {
-      // Gera o primeiro número de lote (string formatada) baseado no contador atual
       const primeiroNumero = gerarNumeroLote(sequencialGlobal);
       setNumeroLotePreview(primeiroNumero);
       atualizarTodosImpostos(previewData.valorTotal);
@@ -477,7 +673,7 @@ export default function Faturamento() {
 
   const imprimirRelacao = () => {
     if (!previewData) return;
-    
+
     const printWindow = window.open('', '_blank');
     let conteudo = `
       <!DOCTYPE html>
@@ -503,7 +699,7 @@ export default function Faturamento() {
         <p><strong>Total de guias:</strong> ${previewData.quantidade}</p>
         <p><strong>Valor total:</strong> R$ ${previewData.valorTotal.toFixed(2)}</p>
     `;
-  
+
     Object.entries(previewData.conveniosAgrupados).forEach(([convenioId, data]) => {
       conteudo += `
         <h3>Convênio: ${data.convenio?.razao_social || 'Desconhecido'}</h3>
@@ -523,33 +719,7 @@ export default function Faturamento() {
           <tbody>
       `;
       data.atendimentos.forEach(a => {
-        // Extrai nome e especialidade do profissional
-        let profissionalNome = '-';
-        let especialidade = '';
-        
-        // Tenta obter do primeiro item do JSON 'itens'
-        if (a.itens) {
-          const itensParsed = typeof a.itens === 'string' ? JSON.parse(a.itens) : a.itens;
-          if (Array.isArray(itensParsed) && itensParsed.length > 0) {
-            const primeiroItem = itensParsed[0];
-            // Pega o nome do profissional do item
-            profissionalNome = primeiroItem.prestador_nome || '-';
-            
-            // Busca a especialidade usando o prestador_id do item
-            if (primeiroItem.prestador_id) {
-              const prestador = prestadores.find(p => p.id === primeiroItem.prestador_id);
-              if (prestador) {
-                profissionalNome = prestador.nome; // sobrescreve com nome padronizado
-                especialidade = prestador.especialidade || '';
-              }
-            }
-          }
-        }
-        
-        const profissionalExibir = especialidade 
-          ? `${profissionalNome} / ${especialidade}` 
-          : profissionalNome;
-        
+        const profissionalExibir = getProfissionalExibicao(a);
         conteudo += `
           <tr>
             <td>${a.numero_guia_prestador || '-'}</td>
@@ -569,7 +739,7 @@ export default function Faturamento() {
         </table>
       `;
     });
-  
+
     conteudo += `<div class="footer"><p>Sistema de Faturamento TISS</p></div><script>window.onload = function() { window.print(); window.close(); };</script></body></html>`;
     printWindow.document.write(conteudo);
     printWindow.document.close();
@@ -583,28 +753,25 @@ export default function Faturamento() {
 
     try {
       const atendimentosPorConvenio = previewData.conveniosAgrupados;
-      // Inicia o contador a partir do número gerado na prévia (ou do estado atual se não houver)
       let currentCounter = parseInt(numeroLotePreview) || sequencialGlobal;
       const lotesGerados = [];
-      
+
       for (const [convenioId, data] of Object.entries(atendimentosPorConvenio)) {
         const convenio = data.convenio;
-        
+
         if (!convenio || !convenio.codigo_prestador) {
           toast.error(`Convênio ${convenio?.razao_social || 'Desconhecido'} não possui código de prestador`);
           continue;
         }
 
-        // Número do lote único para este convênio
         const numeroLote = gerarNumeroLote(currentCounter);
-        currentCounter++; // incrementa para o próximo lote
+        currentCounter++;
 
-        // Geração das guias com sequencial de transação local (reinicia em 1 por lote)
         const guias = data.atendimentos.map((atendimento, index) => ({
           ...converterAtendimentoParaTISS(atendimento, convenio),
           codigoPrestadorExecutante: convenio.codigo_prestador,
           versao: versaoTISS,
-          sequencialTransacao: String(index + 1).padStart(4, '0') // sequencial dentro do lote
+          sequencialTransacao: String(index + 1).padStart(4, '0')
         }));
 
         const xml = gerarXMLTISS({
@@ -653,38 +820,33 @@ export default function Faturamento() {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         };
-        
+
         await supabase.from('lotes_faturamento').insert([novoLote]);
         lotesGerados.push(novoLote);
-        
+
         await registrarLog('GERACAO_LOTE', novoLote, `Lote gerado com ${data.atendimentos.length} guias`);
-        
-        // Atualiza os atendimentos para "finalizada"
+
         const ids = data.atendimentos.map(a => a.id).filter(id => id != null);
         if (ids.length > 0) {
           const updateQuery = supabase
             .from('atendimentos')
-            .update({ 
+            .update({
               status: 'finalizada',
-              fatura_lote: numeroLote,
-              data_faturamento: format(new Date(), 'yyyy-MM-dd'), // somente data
-              updated_at: new Date().toISOString() 
+              data_faturamento: format(new Date(), 'yyyy-MM-dd'),
+              updated_at: new Date().toISOString()
             });
-          
-          // Corrige o problema do 400 Bad Request com id único
+
           if (ids.length === 1) {
             await updateQuery.eq('id', ids[0]);
           } else {
             await updateQuery.in('id', ids);
           }
         }
-        
-        // Remove bloqueios das guias processadas
+
         const novosBloqueados = bloqueados.filter(id => !ids.includes(id));
         setBloqueados(novosBloqueados);
         await salvarBloqueados(novosBloqueados);
-        
-        // Download do XML
+
         const blob = new Blob([xml], { type: 'application/xml' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -694,16 +856,15 @@ export default function Faturamento() {
         URL.revokeObjectURL(url);
       }
 
-      // Salva o novo contador global (próximo número de lote disponível)
       await atualizarSequencial(currentCounter);
       setSequencialGlobal(currentCounter);
       await carregarLotes();
       await carregarDados();
-      
+
       setSelecionados([]);
-      
+
       toast.success(`${lotesGerados.length} lote(s) gerado(s) com sucesso!`);
-      
+
       if (confirm('Deseja imprimir a relação das guias faturadas?')) {
         setTimeout(() => imprimirRelacao(), 500);
       }
@@ -720,14 +881,14 @@ export default function Faturamento() {
       toast.error('Digite o número do lote');
       return;
     }
-    
+
     try {
       const { data } = await supabase
         .from('lotes_faturamento')
         .select('*')
         .eq('numero_lote', numeroLoteBusca)
         .maybeSingle();
-      
+
       if (data) {
         setLoteEncontrado(data);
         toast.success('Lote encontrado!');
@@ -743,11 +904,11 @@ export default function Faturamento() {
 
   const regenerarPorNumeroLote = async () => {
     if (!loteEncontrado) return;
-    
+
     if (!confirm(`Regenerar o lote ${loteEncontrado.numero_lote}? Isso irá recriar o XML com os dados atuais.`)) return;
-    
+
     setGerando(true);
-    
+
     try {
       const { data: atendimentosOriginais } = await supabase
         .from('atendimentos')
@@ -789,7 +950,7 @@ export default function Faturamento() {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
-      
+
       await supabase.from('lotes_faturamento').insert([novoLote]);
       await registrarLog('REGENERACAO_XML', novoLote, `XML regenerado para o lote ${loteEncontrado.numero_lote}`);
       await carregarLotes();
@@ -801,7 +962,7 @@ export default function Faturamento() {
       a.download = nomeArquivo;
       a.click();
       URL.revokeObjectURL(url);
-      
+
       setShowGerarPorLote(false);
       setNumeroLoteBusca('');
       setLoteEncontrado(null);
@@ -859,7 +1020,7 @@ export default function Faturamento() {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
-      
+
       await supabase.from('lotes_faturamento').insert([novoLote]);
       await registrarLog('REGENERACAO_XML', novoLote, `XML regenerado para o lote ${lote.numero_lote}`);
       await carregarLotes();
@@ -871,7 +1032,7 @@ export default function Faturamento() {
       a.download = nomeArquivo;
       a.click();
       URL.revokeObjectURL(url);
-      
+
       toast.success(`XML do lote ${lote.numero_lote} regenerado!`);
     } catch (error) {
       console.error('Erro:', error);
@@ -883,36 +1044,34 @@ export default function Faturamento() {
 
   const cancelarLote = async (lote) => {
     if (!confirm(`Cancelar o lote ${lote.numero_lote}? As guias serão reabertas.`)) return;
-    
+
     setGerando(true);
-    
+
     try {
-      // Retorna as guias para status "faturado" (disponíveis novamente)
       const ids = lote.guias_ids || [];
       if (ids.length > 0) {
         const updateQuery = supabase
           .from('atendimentos')
-          .update({ 
-            status: 'faturado', 
-            fatura_lote: null,
+          .update({
+            status: 'faturado',
             data_faturamento: null,
-            updated_at: new Date().toISOString() 
+            updated_at: new Date().toISOString()
           });
-        
+
         if (ids.length === 1) {
           await updateQuery.eq('id', ids[0]);
         } else {
           await updateQuery.in('id', ids);
         }
       }
-      
+
       await registrarLog('CANCELAMENTO_LOTE', lote, `Lote cancelado. Guias reabertas.`);
-      
+
       await supabase
         .from('lotes_faturamento')
         .delete()
         .eq('id', lote.id);
-      
+
       await carregarLotes();
       await carregarDados();
       toast.success('Lote cancelado e guias reabertas!');
@@ -963,7 +1122,7 @@ export default function Faturamento() {
         setLoading(false);
       }
     };
-    
+
     carregarTodosDados();
   }, []);
 
@@ -989,8 +1148,8 @@ export default function Faturamento() {
             </p>
           </div>
           <div className="flex gap-2">
-            <select 
-              value={versaoTISS} 
+            <select
+              value={versaoTISS}
               onChange={(e) => { setVersaoTISS(e.target.value); setVersao(e.target.value); }}
               className="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
             >
@@ -998,24 +1157,24 @@ export default function Faturamento() {
               <option value="4.02.00">TISS 4.02.00</option>
               <option value="4.03.00">TISS 4.03.00</option>
             </select>
-            <button 
-              onClick={() => setShowGerarPorLote(!showGerarPorLote)} 
+            <button
+              onClick={() => setShowGerarPorLote(!showGerarPorLote)}
               className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-1 transition-all"
             >
               <DocumentArrowDownIcon className="w-4 h-4" />
               Gerar por Nº Lote
             </button>
-            <button 
-              onClick={() => setShowHistoricoLogs(!showHistoricoLogs)} 
+            <button
+              onClick={() => setShowHistoricoLogs(!showHistoricoLogs)}
               className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-lg text-sm flex items-center gap-1 hover:bg-gray-300 dark:hover:bg-gray-600 transition-all"
             >
               <ArchiveBoxIcon className="w-4 h-4" />
               {showHistoricoLogs ? 'Ocultar Logs' : 'Ver Logs'}
             </button>
             {totalSelecionados > 0 && (
-              <button 
-                onClick={abrirPrevia} 
-                disabled={gerando} 
+              <button
+                onClick={abrirPrevia}
+                disabled={gerando}
                 className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg"
               >
                 <ReceiptPercentIcon className="w-4 h-4" />
@@ -1152,9 +1311,9 @@ export default function Faturamento() {
             if (!convenio) return null;
             const selecionadosCount = convenioAtendimentos.filter(a => selecionados.includes(a.id)).length;
             const totalConvenio = convenioAtendimentos.reduce((sum, a) => sum + (a.valor_total || 0), 0);
-            
+
             const idsConvenio = convenioAtendimentos.filter(a => !bloqueados.includes(a.id)).map(a => a.id);
-            
+
             return (
               <div key={convenio.id || `convenio-${convenioId}-${index}`} className="bg-white dark:bg-gray-800 rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                 <div className="p-4 border-b bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700/50 flex justify-between items-center flex-wrap gap-2">
@@ -1169,15 +1328,15 @@ export default function Faturamento() {
                     <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-1 rounded-full">{selecionadosCount}/{convenioAtendimentos.length} selecionados</span>
                   </div>
                 </div>
-                
+
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 dark:bg-gray-700/50">
                       <tr>
                         <th className="px-4 py-3 text-left w-8">
-                          <input 
-                            type="checkbox" 
-                            checked={selecionadosCount === idsConvenio.length && idsConvenio.length > 0} 
+                          <input
+                            type="checkbox"
+                            checked={selecionadosCount === idsConvenio.length && idsConvenio.length > 0}
                             onChange={() => {
                               if (selecionadosCount === idsConvenio.length) {
                                 setSelecionados(selecionados.filter(id => !idsConvenio.includes(id)));
@@ -1188,8 +1347,8 @@ export default function Faturamento() {
                                   toast.warning(`Limite de ${MAX_GUIAS_POR_LOTE} guias por lote`);
                                 }
                               }
-                            }} 
-                            className="rounded w-4 h-4 text-blue-600 focus:ring-blue-500" 
+                            }}
+                            className="rounded w-4 h-4 text-blue-600 focus:ring-blue-500"
                           />
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Nº Guia</th>
@@ -1198,7 +1357,7 @@ export default function Faturamento() {
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Paciente</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Carteira</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Profissional</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Profissional / Especialidade</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor</th>
                         <th className="px-4 py-3 text-center w-24">Ações</th>
                       </tr>
@@ -1207,33 +1366,33 @@ export default function Faturamento() {
                       {convenioAtendimentos.map((a) => (
                         <tr key={a.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${bloqueados.includes(a.id) ? 'bg-orange-50 dark:bg-orange-900/20' : ''}`}>
                           <td className="px-4 py-3">
-                            <input 
-                              type="checkbox" 
-                              checked={selecionados.includes(a.id)} 
-                              onChange={() => handleSelectItem(a.id)} 
-                              disabled={bloqueados.includes(a.id)} 
-                              className="rounded w-4 h-4 text-blue-600 focus:ring-blue-500 disabled:opacity-50" 
+                            <input
+                              type="checkbox"
+                              checked={selecionados.includes(a.id)}
+                              onChange={() => handleSelectItem(a.id)}
+                              disabled={bloqueados.includes(a.id)}
+                              className="rounded w-4 h-4 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
                             />
                           </td>
                           <td className="px-4 py-3 text-xs font-mono text-blue-600 dark:text-blue-400 font-medium">{a.numero_guia_prestador || '-'}</td>
                           <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{a.numero_guia_operadora || '-'}</td>
                           <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{a.senha_autorizacao || '-'}</td>
-                          <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{a.data_atendimento || (a.itens && a.itens[0]?.data_execucao) || '-'}</td>
+                          <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{a.data_atendimento || '-'}</td>
                           <td className="px-4 py-3 text-xs font-medium text-gray-800 dark:text-white">{a.paciente_nome || '-'}</td>
                           <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{a.numero_carteira || '-'}</td>
-                          <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">{a.prestador_nome || '-'}</td>
+                          <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">{getProfissionalExibicao(a)}</td>
                           <td className="px-4 py-3 text-xs font-semibold text-right text-gray-700 dark:text-gray-300">R$ {(a.valor_total || 0).toFixed(2)}</td>
                           <td className="px-4 py-3 text-center">
                             <button onClick={() => toggleBloqueio(a.id)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title={bloqueados.includes(a.id) ? 'Desbloquear' : 'Bloquear'}>
                               {bloqueados.includes(a.id) ? <LockOpenIcon className="w-4 h-4 text-green-500" /> : <LockClosedIcon className="w-4 h-4 text-orange-500" />}
                             </button>
-                           </td>
-                         </tr>
+                          </td>
+                        </tr>
                       ))}
                     </tbody>
                     <tfoot className="bg-gray-50 dark:bg-gray-700/50">
                       <tr className="border-t">
-                        <td colSpan="8" className="px-4 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">Total do Convênio:</td>
+                        <td colSpan="9" className="px-4 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">Total do Convênio:</td>
                         <td className="px-4 py-3 text-right font-bold text-blue-600 dark:text-blue-400">R$ {totalConvenio.toFixed(2)}</td>
                         <td></td>
                       </tr>
@@ -1258,7 +1417,7 @@ export default function Faturamento() {
             <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Lotes Gerados</h3>
             <button onClick={carregarLotes} className="text-blue-600 dark:text-blue-400 text-sm flex items-center gap-1 hover:text-blue-700 transition-colors"><ArrowPathIcon className="w-4 h-4" /> Atualizar</button>
           </div>
-          
+
           <div className="bg-white dark:bg-gray-800 rounded-xl border overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -1371,7 +1530,7 @@ export default function Faturamento() {
                   <button onClick={() => setShowPreviaModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"><XMarkIcon className="w-5 h-5" /></button>
                 </div>
               </div>
-              
+
               <div className="p-5 space-y-6">
                 {/* Resumo dos Selecionados */}
                 <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4">
@@ -1420,6 +1579,7 @@ export default function Faturamento() {
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Data</th>
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Paciente</th>
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Carteira</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Profissional / Especialidade</th>
                             <th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Valor</th>
                           </tr>
                         </thead>
@@ -1432,6 +1592,7 @@ export default function Faturamento() {
                               <td className="px-3 py-2 text-xs text-gray-500">{a.data_atendimento || '-'}</td>
                               <td className="px-3 py-2 text-xs text-gray-800">{a.paciente_nome || '-'}</td>
                               <td className="px-3 py-2 text-xs text-gray-600">{a.numero_carteira || '-'}</td>
+                              <td className="px-3 py-2 text-xs text-gray-600">{getProfissionalExibicao(a)}</td>
                               <td className="px-3 py-2 text-xs text-right font-semibold text-gray-700">R$ {(a.valor_total || 0).toFixed(2)}</td>
                             </tr>
                           ))}
@@ -1460,7 +1621,7 @@ export default function Faturamento() {
                       <input type="date" value={dadosFatura.dataPrevisaoPagamento} onChange={e => setDadosFatura({...dadosFatura, dataPrevisaoPagamento: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
                     </div>
                   </div>
-                  
+
                   <div className="mt-4">
                     <h5 className="font-medium text-sm text-gray-700 dark:text-gray-300 mb-2">Impostos e Deduções</h5>
                     <div className="grid grid-cols-2 md:grid-cols-8 gap-2">
@@ -1497,7 +1658,7 @@ export default function Faturamento() {
                         <input type="number" step="0.01" value={dadosFatura.aliquotaCOFINS} onChange={(e) => atualizarAliquota('aliquotaCOFINS', e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 text-sm focus:outline-none" />
                       </div>
                     </div>
-                    
+
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
                       <div><label className="block text-xs text-gray-500">Valor ISS</label><input type="text" value={dadosFatura.valorISS.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border rounded-lg px-2 py-1 text-sm" /></div>
                       <div><label className="block text-xs text-gray-500">Valor IBS</label><input type="text" value={dadosFatura.valorIBS.toFixed(2)} disabled className="w-full bg-gray-100 dark:bg-gray-600 border rounded-lg px-2 py-1 text-sm" /></div>
@@ -1509,14 +1670,14 @@ export default function Faturamento() {
                       <div><label className="block text-xs text-gray-500">Valor Líquido</label><input type="text" value={dadosFatura.valorLiquido.toFixed(2)} disabled className="w-full bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg px-2 py-1 text-sm font-bold text-green-700 dark:text-green-400" /></div>
                     </div>
                   </div>
-                  
+
                   <div className="mt-3">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações</label>
                     <textarea rows="2" value={dadosFatura.observacoes} onChange={e => setDadosFatura({...dadosFatura, observacoes: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" placeholder="Informações adicionais da fatura..." />
                   </div>
                 </div>
               </div>
-              
+
               <div className="p-5 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
                 <button onClick={() => setShowPreviaModal(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Cancelar</button>
                 <button onClick={confirmarGeracaoLote} disabled={gerando} className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-medium shadow-md flex items-center gap-2 hover:from-green-600 hover:to-emerald-700 transition-all duration-200 disabled:opacity-50">
@@ -1565,18 +1726,18 @@ export default function Faturamento() {
           </div>
         )}
 
-        {/* Instruções */}
+        {/* Informações */}
         <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
           <h4 className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-2">📋 Informações</h4>
           <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-1">
             <li>• <strong>Guias bloqueadas</strong> aparecem com fundo laranja e não podem ser faturadas</li>
             <li>• Use os botões de bloqueio/desbloqueio para controlar quais guias entrarão no faturamento</li>
-            <li>• Após faturar, as guias ficam bloqueadas e não podem ser alteradas no módulo de atendimentos</li>
+            <li>• Após faturar, as guias são finalizadas e não podem ser alteradas no módulo de atendimentos</li>
             <li>• Para reabrir as guias, cancele o lote no histórico</li>
             <li>• Use "Gerar por Nº Lote" para regenerar o XML de um lote específico</li>
-            <li>• Cancelar um lote move o registro para o histórico de logs e remove da lista principal</li>
+            <li>• Cancelar um lote retorna as guias para o status "faturado"</li>
             <li>• Limite máximo de <strong>{MAX_GUIAS_POR_LOTE} guias por lote</strong></li>
-            <li>• O número do lote é gerado automaticamente no momento da baixa da fatura</li>
+            <li>• O número do lote é um sequencial único de até 12 dígitos</li>
           </ul>
         </div>
       </div>
