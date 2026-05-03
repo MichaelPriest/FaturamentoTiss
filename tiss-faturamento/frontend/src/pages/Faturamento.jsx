@@ -503,17 +503,53 @@ export default function Faturamento() {
         <p><strong>Total de guias:</strong> ${previewData.quantidade}</p>
         <p><strong>Valor total:</strong> R$ ${previewData.valorTotal.toFixed(2)}</p>
     `;
-
+  
     Object.entries(previewData.conveniosAgrupados).forEach(([convenioId, data]) => {
       conteudo += `
         <h3>Convênio: ${data.convenio?.razao_social || 'Desconhecido'}</h3>
         <table>
           <thead>
-            <tr><th>Nº Guia</th><th>Nº Guia Operadora</th><th>Senha</th><th>Data</th><th>Paciente</th><th>Carteira</th><th>Profissional</th><th>Valor</th></tr>
+            <tr>
+              <th>Nº Guia</th>
+              <th>Nº Guia Operadora</th>
+              <th>Senha</th>
+              <th>Data</th>
+              <th>Paciente</th>
+              <th>Carteira</th>
+              <th>Profissional / Especialidade</th>
+              <th>Valor</th>
+            </tr>
           </thead>
           <tbody>
       `;
       data.atendimentos.forEach(a => {
+        // Extrai nome e especialidade do profissional
+        let profissionalNome = '-';
+        let especialidade = '';
+        
+        // Tenta obter do primeiro item do JSON 'itens'
+        if (a.itens) {
+          const itensParsed = typeof a.itens === 'string' ? JSON.parse(a.itens) : a.itens;
+          if (Array.isArray(itensParsed) && itensParsed.length > 0) {
+            const primeiroItem = itensParsed[0];
+            // Pega o nome do profissional do item
+            profissionalNome = primeiroItem.prestador_nome || '-';
+            
+            // Busca a especialidade usando o prestador_id do item
+            if (primeiroItem.prestador_id) {
+              const prestador = prestadores.find(p => p.id === primeiroItem.prestador_id);
+              if (prestador) {
+                profissionalNome = prestador.nome; // sobrescreve com nome padronizado
+                especialidade = prestador.especialidade || '';
+              }
+            }
+          }
+        }
+        
+        const profissionalExibir = especialidade 
+          ? `${profissionalNome} / ${especialidade}` 
+          : profissionalNome;
+        
         conteudo += `
           <tr>
             <td>${a.numero_guia_prestador || '-'}</td>
@@ -522,7 +558,7 @@ export default function Faturamento() {
             <td>${a.data_atendimento || '-'}</td>
             <td>${a.paciente_nome || '-'}</td>
             <td>${a.numero_carteira || '-'}</td>
-            <td>${a.prestador_nome || '-'}</td>
+            <td>${profissionalExibir}</td>
             <td style="text-align: right;">R$ ${(a.valor_total || 0).toFixed(2)}</td>
           </tr>
         `;
@@ -533,7 +569,7 @@ export default function Faturamento() {
         </table>
       `;
     });
-
+  
     conteudo += `<div class="footer"><p>Sistema de Faturamento TISS</p></div><script>window.onload = function() { window.print(); window.close(); };</script></body></html>`;
     printWindow.document.write(conteudo);
     printWindow.document.close();
