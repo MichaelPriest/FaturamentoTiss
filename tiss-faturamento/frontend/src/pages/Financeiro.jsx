@@ -1302,11 +1302,26 @@ export default function Financeiro() {
                       className="flex-1 border-2 border-blue-300 dark:border-blue-700 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     >
                       <option value="">🔍 Selecione um lote para preencher automaticamente...</option>
-                      {lotes.map(l => (
-                        <option key={l.numero_lote} value={l.numero_lote}>
-                          📦 {l.numero_lote} | {l.convenio_nome} | {format(new Date(l.data_envio + 'T00:00:00'), 'dd/MM/yyyy')} | {l.quantidade_guias || l.guias_ids?.length || 0} guias
-                        </option>
-                      ))}
+                        {lotes.map(l => {
+                          // Formatar data com segurança
+                          let dataFormatada = 'Sem data';
+                          try {
+                            if (l.data_envio) {
+                              const data = new Date(l.data_envio);
+                              if (!isNaN(data.getTime())) {
+                                dataFormatada = format(data, 'dd/MM/yyyy');
+                              }
+                            }
+                          } catch (e) {
+                            console.warn('Data inválida:', l.data_envio);
+                          }
+                          
+                          return (
+                            <option key={l.numero_lote} value={l.numero_lote}>
+                              📦 {l.numero_lote} | {l.convenio_nome} | {dataFormatada} | {l.quantidade_guias || l.guias_ids?.length || 0} guias
+                            </option>
+                          );
+                        })}
                     </select>
                     <button
                       onClick={() => notaFiscal.numero_lote && buscarDadosLote(notaFiscal.numero_lote)}
