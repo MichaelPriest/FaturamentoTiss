@@ -831,7 +831,7 @@ export default function Faturamento() {
           const updateQuery = supabase
             .from('atendimentos')
             .update({
-              status: 'finalizada',
+              status: 'finalizado',
               data_faturamento: format(new Date(), 'yyyy-MM-dd'),
               updated_at: new Date().toISOString()
             });
