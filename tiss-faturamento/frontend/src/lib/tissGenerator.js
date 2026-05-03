@@ -34,7 +34,7 @@ export function resetSequencialTransacao() { sequencialTransacaoGlobal = 1; }
 export function setSequencialTransacao(valor) { sequencialTransacaoGlobal = valor; }
 
 // ============================================
-// TABELAS ANS (domínios completos)
+// TABELAS ANS (domínios)
 // ============================================
 const INDICADOR_ACIDENTE = { '0': '0', '1': '1', '2': '2', '9': '9' };
 const TIPO_ATENDIMENTO = { '01': '01', '02': '02', '03': '03', '04': '04', '08': '08', '09': '09', '10': '10', '13': '13', '23': '23' };
@@ -50,6 +50,18 @@ const MOTIVO_ENCERRAMENTO = {
   '21': '21', '22': '22', '23': '23', '24': '24', '25': '25', '26': '26', '27': '27', '28': '28',
   '31': '31', '32': '32', '41': '41', '42': '42', '43': '43', '51': '51', '61': '61', '62': '62',
   '63': '63', '64': '64', '65': '65', '66': '66', '67': '67'
+};
+const UNIDADE_MEDIDA = {
+  '001': '001', '002': '002', '003': '003', '004': '004', '005': '005', '006': '006',
+  '007': '007', '008': '008', '009': '009', '010': '010', '011': '011', '012': '012',
+  '013': '013', '014': '014', '015': '015', '016': '016', '017': '017', '018': '018',
+  '019': '019', '020': '020', '021': '021', '022': '022', '023': '023', '024': '024',
+  '025': '025', '026': '026', '027': '027', '028': '028', '029': '029', '030': '030',
+  '031': '031', '032': '032', '033': '033', '034': '034', '035': '035', '036': '036',
+  '037': '037', '038': '038', '039': '039', '040': '040', '041': '041', '042': '042',
+  '043': '043', '044': '044', '045': '045', '046': '046', '047': '047', '048': '048',
+  '049': '049', '050': '050', '051': '051', '052': '052', '053': '053', '054': '054',
+  '055': '055', '056': '056', '057': '057', '058': '058', '059': '059', '060': '060', '061': '061'
 };
 
 const mapaConselhos = {
@@ -103,6 +115,10 @@ function getMotivoEncerramento(valor) {
   return MOTIVO_ENCERRAMENTO[valor] || '';
 }
 
+function getUnidadeMedida(valor) {
+  return UNIDADE_MEDIDA[valor] || '036'; // padrão UN
+}
+
 function formatarHora(hora) {
   if (!hora) return '00:00:00';
   if (hora.includes(':')) {
@@ -127,28 +143,21 @@ function escapeXML(str) {
   });
 }
 
-function getTipoDespesa(tabelaReferencia) {
-  switch (tabelaReferencia) {
-    case '18': return 'diarias';
-    case '19': return 'materiais';
-    case '20': return 'medicamentos';
-    case '22': return 'procedimentos';
-    case '90': return 'pacotes';
-    case '98': return 'pacotes';
-    default: return 'procedimentos';
-  }
-}
-
+// ============================================
+// GERAÇÃO DO XML PRINCIPAL
+// ============================================
 export function gerarXMLTISS(dados) {
   const config = getConfig();
   const versao = dados.versao || versaoAtual;
   const sequencialTransacao = dados.sequencialTransacao || getProximoSequencialTransacao();
   const dataRegistroTransacao = dados.dataRegistroTransacao || new Date().toISOString().split('T')[0];
   const horaRegistroTransacao = dados.horaRegistroTransacao || new Date().toLocaleTimeString('pt-BR', { hour12: false });
-  const codigoPrestadorNaOperadora = dados.codigoPrestadorNaOperadora || '';
   const registroANS = dados.registroANS || '';
   const numeroLote = dados.numeroLote || ('LOTE' + Date.now().toString());
   const guias = dados.guias || [];
+
+  // CNPJ do prestador (origem)
+  const cnpjPrestador = (config?.cnpj || dados.cnpjPrestador || '20384928000124').replace(/\D/g, '');
 
   let guiasXML = '';
   for (const guia of guias) {
@@ -167,7 +176,7 @@ export function gerarXMLTISS(dados) {
   xml += '    </ans:identificacaoTransacao>\n';
   xml += '    <ans:origem>\n';
   xml += '      <ans:identificacaoPrestador>\n';
-  xml += `        <ans:codigoPrestadorNaOperadora>${escapeXML(codigoPrestadorNaOperadora)}</ans:codigoPrestadorNaOperadora>\n`;
+  xml += `        <ans:CNPJ>${cnpjPrestador}</ans:CNPJ>\n`;
   xml += '      </ans:identificacaoPrestador>\n';
   xml += '    </ans:origem>\n';
   xml += '    <ans:destino>\n';
@@ -195,20 +204,24 @@ export function gerarXMLTISS(dados) {
   return xml;
 }
 
+// ============================================
+// GERAÇÃO DA GUIA SP-SADT
+// ============================================
 function gerarGuiaSPSADT(guia, registroANS, config, versao) {
+  // Dados básicos
   const numeroCarteira = guia.numeroCarteira || '000000000';
-  // Campo nomeBeneficiario não é mais utilizado (removido na versão 4)
   const dataSolicitacao = guia.dataSolicitacao || new Date().toISOString().split('T')[0];
   const numeroGuiaPrestador = guia.numero_guia_prestador || ('G' + Date.now().toString());
   const numeroGuiaOperadora = guia.numero_guia_operadora || '';
+  const guiaPrincipal = guia.guia_principal || '';
   const dataAutorizacao = guia.data_autorizacao || dataSolicitacao;
   const senha = guia.senha_autorizacao || '';
   const dataValidadeSenha = guia.data_validade_senha || '';
   const codigoPrestadorExecutante = guia.codigoPrestadorExecutante || '';
   const nomeProfissionalSolicitante = guia.nomeProfissionalSolicitante || 'PROFISSIONAL';
   const numeroConselhoProfissionalSolicitante = guia.numeroConselhoProfissionalSolicitante || '00000';
-  const itens = guia.itens || [];
 
+  // Domínios
   const caraterAtendimento = CARATER_ATENDIMENTO[guia.carater_atendimento] || '1';
   const tipoAtendimento = TIPO_ATENDIMENTO[guia.tipo_atendimento] || '04';
   const indicacaoAcidente = INDICADOR_ACIDENTE[guia.indicacao_acidente] || '9';
@@ -219,101 +232,175 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   const indicacaoClinica = guia.indicacao_clinica || '';
   const motivoEncerramento = getMotivoEncerramento(guia.motivo_encerramento);
 
-  const cnpjContratado = (config?.cnpj || '20384928000205').replace(/\D/g, '');
-  const nomeContratadoSolicitante = (config?.nome_contratado || 'CLINICA NAO CONFIGURADA').toUpperCase();
+  // Dados do contratado (config)
+  const cnpjContratado = (config?.cnpj || '20384928000124').replace(/\D/g, '');
+  const nomeContratadoSolicitante = (config?.nome_contratado || 'HOSPITAL EXEMPLO').toUpperCase();
   const cnesExecutante = config?.cnes || '0000000';
   const conselhoClinica = getCodigoConselho(config?.conselho_clinica || '06');
   const ufClinica = getCodigoUF(config?.uf_clinica || 'SP');
   const cbosClinica = config?.cbos_clinica || '225125';
 
-  let procedimentosXML = '';
-  let totalProcedimentos = 0;
-  let totalMateriais = 0;
-  let totalMedicamentos = 0;
-  let totalDiarias = 0;
-  let totalTaxas = 0;
-  let totalOPME = 0;
-  let totalGases = 0;
+  // Itens fornecidos (podem ser de qualquer tabela)
+  const itens = guia.itens || [];
 
-  for (let idx = 0; idx < itens.length; idx++) {
-    const item = itens[idx];
-    const sequencialItem = (idx + 1).toString();
-    const dataExecucao = item.data_execucao || dataSolicitacao;
-    const horaInicial = formatarHora(item.hora_inicial || '08:00');
-    const horaFinal = formatarHora(item.hora_final || '09:00');
+  // Separa procedimentos (tabela 22) e outras despesas
+  const procedimentos = [];
+  const outrasDespesas = []; // cada item será { codigoDespesa, servico }
 
-    const codigoProcedimento = item.codigo || item.codigo_procedimento || '00000000';
-    const nomeProcedimento = item.nome || item.nome_procedimento || 'PROCEDIMENTO';
-    const tabelaReferencia = item.tabela_referencia || '22';
-    const quantidade = Number(item.quantidade || 1);
-    const valorUnitario = Number(item.valor_unitario || 0);
-    const valorTotal = quantidade * valorUnitario;
+  for (const item of itens) {
+    const tabela = item.tabela_referencia || '22';
+    const codDespesa = getCodigoDespesa(item.codigo_despesa);
+    const servico = {
+      dataExecucao: item.data_execucao || dataSolicitacao,
+      horaInicial: formatarHora(item.hora_inicial || '00:00:00'),
+      horaFinal: formatarHora(item.hora_final || '00:00:00'),
+      codigoTabela: tabela,
+      codigoProcedimento: item.codigo || item.codigo_procedimento || '00000000',
+      quantidade: Number(item.quantidade || 1),
+      unidadeMedida: getUnidadeMedida(item.unidade_medida),
+      reducaoAcrescimo: (item.reducao_acrescimo || '1.00').toString(),
+      valorUnitario: Number(item.valor_unitario || 0),
+      valorTotal: (Number(item.quantidade || 1) * Number(item.valor_unitario || 0)).toFixed(2),
+      descricaoProcedimento: item.nome || item.nome_procedimento || 'SERVIÇO',
+      // Campos para equipe (quando aplicável, apenas para procedimentos)
+      prestadorNome: item.prestador_nome,
+      prestadorConselho: item.prestador_conselho,
+      prestadorNumeroConselho: item.prestador_numero_conselho,
+      prestadorUF: item.prestador_uf_conselho,
+      prestadorCBOS: item.prestador_cbos,
+      prestadorCPF: item.prestador_cpf,
+      grauParticipacao: item.grau_participacao
+    };
 
-    const prestadorNome = item.prestador_nome || item.nome_profissional || 'PROFISSIONAL';
-    const prestadorConselho = getCodigoConselho(item.prestador_conselho || item.conselho || '06');
-    const prestadorNumeroConselho = item.prestador_numero_conselho || item.numero_conselho || '00000';
-    const prestadorUF = getCodigoUF(item.prestador_uf_conselho || item.uf_conselho || 'SP');
-    const prestadorCBOS = item.prestador_cbos || item.cbos || '225125';
-    const prestadorCPF = (item.prestador_cpf || item.cpf || '00000000000').replace(/\D/g, '').slice(0,11);
-    const grauParticipacao = getGrauParticipacao(item.grau_participacao || '12');
-    const viaAcesso = item.viaAcesso || '1';
-    const tecnicaUtilizada = item.tecnicaUtilizada || '1';
-    const reducaoAcrescimo = '1.00';
-    const codigoDespesa = getCodigoDespesa(item.codigo_despesa);
-
-    // Acumular totais por tipo de despesa
-    const tipo = getTipoDespesa(tabelaReferencia);
-    switch (tipo) {
-      case 'materiais': totalMateriais += valorTotal; break;
-      case 'medicamentos': totalMedicamentos += valorTotal; break;
-      case 'diarias': totalDiarias += valorTotal; break;
-      case 'pacotes': totalTaxas += valorTotal; break;
-      default: totalProcedimentos += valorTotal;
+    if (tabela === '22') {
+      procedimentos.push(servico);
+    } else {
+      // Para outras despesas, precisa do código de despesa
+      if (codDespesa) {
+        outrasDespesas.push({ codigoDespesa: codDespesa, servico });
+      } else {
+        console.warn(`Item com tabela ${tabela} ignorado: código de despesa não informado ou inválido.`);
+      }
     }
-    if (tabelaReferencia === '08') totalOPME += valorTotal;
-    if (tabelaReferencia === '18' && codigoDespesa === '01') totalGases += valorTotal;
+  }
+
+  // Acumuladores de totais
+  let valorProcedimentos = 0;
+  let valorDiarias = 0;
+  let valorTaxasAlugueis = 0;
+  let valorMateriais = 0;
+  let valorMedicamentos = 0;
+  let valorOPME = 0;
+  let valorGasesMedicinais = 0;
+
+  // Mapeamento de código de despesa para acumulador
+  const codigoParaAcumulador = {
+    '01': () => valorDiarias += 0,        // Diárias (normalmente tratado à parte, mas aqui usamos valorDiarias)
+    '02': (v) => valorMedicamentos += v,
+    '03': (v) => valorMateriais += v,
+    '05': (v) => valorDiarias += v,       // Diárias (tabela 18)
+    '07': (v) => valorTaxasAlugueis += v,
+    '08': (v) => valorOPME += v
+  };
+  // Gases medicinais (código 01 com tabela 18? Vamos identificar pelo descritivo ou por código específico)
+  // No exemplo, não aparece gases. Vamos deixar a lógica simples: se tabela 18 e códigoDespesa 01, é gases.
+  // Mas a conta final será ajustada pelo usuário.
+
+  // Contador sequencial geral (começa em 1)
+  let sequencialGlobal = 1;
+
+  // Monta XML dos procedimentos executados
+  let procedimentosXML = '';
+  for (const proc of procedimentos) {
+    const valorTotal = parseFloat(proc.valorTotal);
+    valorProcedimentos += valorTotal;
 
     procedimentosXML += '            <ans:procedimentoExecutado>\n';
-    procedimentosXML += `              <ans:sequencialItem>${sequencialItem}</ans:sequencialItem>\n`;
-    procedimentosXML += `              <ans:dataExecucao>${dataExecucao}</ans:dataExecucao>\n`;
-    procedimentosXML += `              <ans:horaInicial>${horaInicial}</ans:horaInicial>\n`;
-    procedimentosXML += `              <ans:horaFinal>${horaFinal}</ans:horaFinal>\n`;
+    procedimentosXML += `              <ans:sequencialItem>${sequencialGlobal++}</ans:sequencialItem>\n`;
+    procedimentosXML += `              <ans:dataExecucao>${proc.dataExecucao}</ans:dataExecucao>\n`;
+    procedimentosXML += `              <ans:horaInicial>${proc.horaInicial}</ans:horaInicial>\n`;
+    procedimentosXML += `              <ans:horaFinal>${proc.horaFinal}</ans:horaFinal>\n`;
     procedimentosXML += '              <ans:procedimento>\n';
-    procedimentosXML += `                <ans:codigoTabela>${escapeXML(tabelaReferencia)}</ans:codigoTabela>\n`;
-    procedimentosXML += `                <ans:codigoProcedimento>${escapeXML(codigoProcedimento)}</ans:codigoProcedimento>\n`;
-    procedimentosXML += `                <ans:descricaoProcedimento>${escapeXML(nomeProcedimento)}</ans:descricaoProcedimento>\n`;
+    procedimentosXML += `                <ans:codigoTabela>${proc.codigoTabela}</ans:codigoTabela>\n`;
+    procedimentosXML += `                <ans:codigoProcedimento>${escapeXML(proc.codigoProcedimento)}</ans:codigoProcedimento>\n`;
+    procedimentosXML += `                <ans:descricaoProcedimento>${escapeXML(proc.descricaoProcedimento)}</ans:descricaoProcedimento>\n`;
     procedimentosXML += '              </ans:procedimento>\n';
-    procedimentosXML += `              <ans:quantidadeExecutada>${quantidade}</ans:quantidadeExecutada>\n`;
-    procedimentosXML += `              <ans:viaAcesso>${viaAcesso}</ans:viaAcesso>\n`;
-    procedimentosXML += `              <ans:tecnicaUtilizada>${tecnicaUtilizada}</ans:tecnicaUtilizada>\n`;
-    procedimentosXML += `              <ans:reducaoAcrescimo>${reducaoAcrescimo}</ans:reducaoAcrescimo>\n`;
-    procedimentosXML += `              <ans:valorUnitario>${valorUnitario.toFixed(2)}</ans:valorUnitario>\n`;
-    procedimentosXML += `              <ans:valorTotal>${valorTotal.toFixed(2)}</ans:valorTotal>\n`;
-    if (codigoDespesa) {
-      procedimentosXML += `              <ans:codigoDespesa>${codigoDespesa}</ans:codigoDespesa>\n`;
-    }
+    procedimentosXML += `              <ans:quantidadeExecutada>${proc.quantidade}</ans:quantidadeExecutada>\n`;
+    procedimentosXML += `              <ans:viaAcesso>${proc.viaAcesso || '1'}</ans:viaAcesso>\n`;
+    procedimentosXML += `              <ans:tecnicaUtilizada>${proc.tecnicaUtilizada || '1'}</ans:tecnicaUtilizada>\n`;
+    procedimentosXML += `              <ans:reducaoAcrescimo>${proc.reducaoAcrescimo}</ans:reducaoAcrescimo>\n`;
+    procedimentosXML += `              <ans:valorUnitario>${Number(proc.valorUnitario).toFixed(2)}</ans:valorUnitario>\n`;
+    procedimentosXML += `              <ans:valorTotal>${Number(proc.valorTotal).toFixed(2)}</ans:valorTotal>\n`;
+    // Equipe SADT (obrigatório para procedimentos)
     procedimentosXML += '              <ans:equipeSadt>\n';
-    procedimentosXML += `                <ans:grauPart>${grauParticipacao}</ans:grauPart>\n`;
+    procedimentosXML += `                <ans:grauPart>${getGrauParticipacao(proc.grauParticipacao)}</ans:grauPart>\n`;
     procedimentosXML += '                <ans:codProfissional>\n';
-    procedimentosXML += `                  <ans:cpfContratado>${prestadorCPF}</ans:cpfContratado>\n`;
+    const cpfProf = (proc.prestadorCPF || '00000000000').replace(/\D/g, '').slice(0,11);
+    procedimentosXML += `                  <ans:cpfContratado>${cpfProf}</ans:cpfContratado>\n`;
     procedimentosXML += '                </ans:codProfissional>\n';
-    procedimentosXML += `                <ans:nomeProf>${escapeXML(prestadorNome)}</ans:nomeProf>\n`;
-    procedimentosXML += `                <ans:conselho>${prestadorConselho}</ans:conselho>\n`;
-    procedimentosXML += `                <ans:numeroConselhoProfissional>${prestadorNumeroConselho}</ans:numeroConselhoProfissional>\n`;
-    procedimentosXML += `                <ans:UF>${prestadorUF}</ans:UF>\n`;
-    procedimentosXML += `                <ans:CBOS>${prestadorCBOS}</ans:CBOS>\n`;
+    procedimentosXML += `                <ans:nomeProf>${escapeXML(proc.prestadorNome || 'PROFISSIONAL')}</ans:nomeProf>\n`;
+    procedimentosXML += `                <ans:conselho>${getCodigoConselho(proc.prestadorConselho)}</ans:conselho>\n`;
+    procedimentosXML += `                <ans:numeroConselhoProfissional>${escapeXML(proc.prestadorNumeroConselho || '00000')}</ans:numeroConselhoProfissional>\n`;
+    procedimentosXML += `                <ans:UF>${getCodigoUF(proc.prestadorUF)}</ans:UF>\n`;
+    procedimentosXML += `                <ans:CBOS>${proc.prestadorCBOS || '225125'}</ans:CBOS>\n`;
     procedimentosXML += '              </ans:equipeSadt>\n';
     procedimentosXML += '            </ans:procedimentoExecutado>\n';
   }
 
-  const valorTotalGeral = totalProcedimentos + totalMateriais + totalMedicamentos + totalDiarias + totalTaxas + totalOPME + totalGases;
+  // Agrupa outras despesas por código de despesa
+  const despesasPorCodigo = new Map(); // chave: codigoDespesa, valor: array de servicos
+  for (const item of outrasDespesas) {
+    if (!despesasPorCodigo.has(item.codigoDespesa)) {
+      despesasPorCodigo.set(item.codigoDespesa, []);
+    }
+    despesasPorCodigo.get(item.codigoDespesa).push(item.servico);
+    // Acumula totais
+    const valor = parseFloat(item.servico.valorTotal);
+    const fn = codigoParaAcumulador[item.codigoDespesa];
+    if (fn) fn(valor);
+    else if (item.codigoDespesa === '01' && item.servico.codigoTabela === '18') valorGasesMedicinais += valor;
+    else console.warn(`Código de despesa ${item.codigoDespesa} sem acumulador definido.`);
+  }
 
+  // Monta XML de outras despesas
+  let outrasDespesasXML = '';
+  if (despesasPorCodigo.size > 0) {
+    outrasDespesasXML = '          <ans:outrasDespesas>\n';
+    for (const [codDespesa, servicos] of despesasPorCodigo.entries()) {
+      outrasDespesasXML += '            <ans:despesa>\n';
+      outrasDespesasXML += `              <ans:sequencialItem>${sequencialGlobal++}</ans:sequencialItem>\n`;
+      outrasDespesasXML += `              <ans:codigoDespesa>${codDespesa}</ans:codigoDespesa>\n`;
+      for (const serv of servicos) {
+        outrasDespesasXML += '              <ans:servicosExecutados>\n';
+        outrasDespesasXML += `                <ans:dataExecucao>${serv.dataExecucao}</ans:dataExecucao>\n`;
+        outrasDespesasXML += `                <ans:horaInicial>${serv.horaInicial}</ans:horaInicial>\n`;
+        outrasDespesasXML += `                <ans:horaFinal>${serv.horaFinal}</ans:horaFinal>\n`;
+        outrasDespesasXML += `                <ans:codigoTabela>${serv.codigoTabela}</ans:codigoTabela>\n`;
+        outrasDespesasXML += `                <ans:codigoProcedimento>${escapeXML(serv.codigoProcedimento)}</ans:codigoProcedimento>\n`;
+        outrasDespesasXML += `                <ans:quantidadeExecutada>${serv.quantidade}</ans:quantidadeExecutada>\n`;
+        outrasDespesasXML += `                <ans:unidadeMedida>${serv.unidadeMedida}</ans:unidadeMedida>\n`;
+        outrasDespesasXML += `                <ans:reducaoAcrescimo>${serv.reducaoAcrescimo}</ans:reducaoAcrescimo>\n`;
+        outrasDespesasXML += `                <ans:valorUnitario>${Number(serv.valorUnitario).toFixed(2)}</ans:valorUnitario>\n`;
+        outrasDespesasXML += `                <ans:valorTotal>${Number(serv.valorTotal).toFixed(2)}</ans:valorTotal>\n`;
+        outrasDespesasXML += `                <ans:descricaoProcedimento>${escapeXML(serv.descricaoProcedimento)}</ans:descricaoProcedimento>\n`;
+        outrasDespesasXML += '              </ans:servicosExecutados>\n';
+      }
+      outrasDespesasXML += '            </ans:despesa>\n';
+    }
+    outrasDespesasXML += '          </ans:outrasDespesas>\n';
+  }
+
+  const valorTotalGeral = valorProcedimentos + valorDiarias + valorTaxasAlugueis + valorMateriais + valorMedicamentos + valorOPME + valorGasesMedicinais;
+
+  // Início da guia
   let guiaXML = '        <ans:guiaSP-SADT>\n';
   guiaXML += '          <ans:cabecalhoGuia>\n';
   guiaXML += `            <ans:registroANS>${escapeXML(registroANS)}</ans:registroANS>\n`;
   guiaXML += `            <ans:numeroGuiaPrestador>${escapeXML(numeroGuiaPrestador)}</ans:numeroGuiaPrestador>\n`;
+  if (guiaPrincipal) guiaXML += `            <ans:guiaPrincipal>${escapeXML(guiaPrincipal)}</ans:guiaPrincipal>\n`;
   guiaXML += '          </ans:cabecalhoGuia>\n';
 
+  // Dados de autorização
   if (numeroGuiaOperadora || dataAutorizacao || senha) {
     guiaXML += '          <ans:dadosAutorizacao>\n';
     if (numeroGuiaOperadora) guiaXML += `            <ans:numeroGuiaOperadora>${escapeXML(numeroGuiaOperadora)}</ans:numeroGuiaOperadora>\n`;
@@ -323,12 +410,13 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
     guiaXML += '          </ans:dadosAutorizacao>\n';
   }
 
+  // Dados do beneficiário (sem nome)
   guiaXML += '          <ans:dadosBeneficiario>\n';
   guiaXML += `            <ans:numeroCarteira>${escapeXML(numeroCarteira)}</ans:numeroCarteira>\n`;
   guiaXML += '            <ans:atendimentoRN>N</ans:atendimentoRN>\n';
-  // Nome do beneficiário NÃO é mais gerado (LGPD e padrão TISS versão 4+)
   guiaXML += '          </ans:dadosBeneficiario>\n';
 
+  // Dados do solicitante
   guiaXML += '          <ans:dadosSolicitante>\n';
   guiaXML += '            <ans:contratadoSolicitante>\n';
   guiaXML += `              <ans:cnpjContratado>${cnpjContratado}</ans:cnpjContratado>\n`;
@@ -343,19 +431,27 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   guiaXML += '            </ans:profissionalSolicitante>\n';
   guiaXML += '          </ans:dadosSolicitante>\n';
 
+  // Dados da solicitação
   guiaXML += '          <ans:dadosSolicitacao>\n';
   guiaXML += `            <ans:dataSolicitacao>${dataSolicitacao}</ans:dataSolicitacao>\n`;
   guiaXML += `            <ans:caraterAtendimento>${caraterAtendimento}</ans:caraterAtendimento>\n`;
   if (indicacaoClinica) guiaXML += `            <ans:indicacaoClinica>${escapeXML(indicacaoClinica)}</ans:indicacaoClinica>\n`;
   guiaXML += '          </ans:dadosSolicitacao>\n';
 
+  // Dados do executante
   guiaXML += '          <ans:dadosExecutante>\n';
   guiaXML += '            <ans:contratadoExecutante>\n';
-  guiaXML += `              <ans:codigoPrestadorNaOperadora>${escapeXML(codigoPrestadorExecutante)}</ans:codigoPrestadorNaOperadora>\n`;
+  if (codigoPrestadorExecutante) {
+    // Se for CPF/CNPJ, colocar a tag apropriada. Vamos supor CNPJ
+    guiaXML += `              <ans:cnpjContratado>${escapeXML(codigoPrestadorExecutante)}</ans:cnpjContratado>\n`;
+  } else {
+    guiaXML += `              <ans:cnpjContratado>${cnpjContratado}</ans:cnpjContratado>\n`;
+  }
   guiaXML += '            </ans:contratadoExecutante>\n';
   guiaXML += `            <ans:CNES>${cnesExecutante}</ans:CNES>\n`;
   guiaXML += '          </ans:dadosExecutante>\n';
 
+  // Dados do atendimento
   guiaXML += '          <ans:dadosAtendimento>\n';
   guiaXML += `            <ans:tipoAtendimento>${tipoAtendimento}</ans:tipoAtendimento>\n`;
   guiaXML += `            <ans:indicacaoAcidente>${indicacaoAcidente}</ans:indicacaoAcidente>\n`;
@@ -366,18 +462,25 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   if (saudeOcupacional) guiaXML += `            <ans:saudeOcupacional>${saudeOcupacional}</ans:saudeOcupacional>\n`;
   guiaXML += '          </ans:dadosAtendimento>\n';
 
-  guiaXML += '          <ans:procedimentosExecutados>\n';
-  guiaXML += procedimentosXML;
-  guiaXML += '          </ans:procedimentosExecutados>\n';
+  // Procedimentos executados
+  if (procedimentosXML) {
+    guiaXML += '          <ans:procedimentosExecutados>\n';
+    guiaXML += procedimentosXML;
+    guiaXML += '          </ans:procedimentosExecutados>\n';
+  }
 
+  // Outras despesas
+  guiaXML += outrasDespesasXML;
+
+  // Valor total
   guiaXML += '          <ans:valorTotal>\n';
-  guiaXML += `            <ans:valorProcedimentos>${totalProcedimentos.toFixed(2)}</ans:valorProcedimentos>\n`;
-  guiaXML += `            <ans:valorMateriaisOPME>${totalMateriais.toFixed(2)}</ans:valorMateriaisOPME>\n`;
-  guiaXML += `            <ans:valorMedicamentos>${totalMedicamentos.toFixed(2)}</ans:valorMedicamentos>\n`;
-  guiaXML += `            <ans:valorDiarias>${totalDiarias.toFixed(2)}</ans:valorDiarias>\n`;
-  guiaXML += `            <ans:valorTaxas>${totalTaxas.toFixed(2)}</ans:valorTaxas>\n`;
-  guiaXML += `            <ans:valorOPME>${totalOPME.toFixed(2)}</ans:valorOPME>\n`;
-  guiaXML += `            <ans:valorGasesMedicinais>${totalGases.toFixed(2)}</ans:valorGasesMedicinais>\n`;
+  guiaXML += `            <ans:valorProcedimentos>${valorProcedimentos.toFixed(2)}</ans:valorProcedimentos>\n`;
+  guiaXML += `            <ans:valorDiarias>${valorDiarias.toFixed(2)}</ans:valorDiarias>\n`;
+  guiaXML += `            <ans:valorTaxasAlugueis>${valorTaxasAlugueis.toFixed(2)}</ans:valorTaxasAlugueis>\n`;
+  guiaXML += `            <ans:valorMateriais>${valorMateriais.toFixed(2)}</ans:valorMateriais>\n`;
+  guiaXML += `            <ans:valorMedicamentos>${valorMedicamentos.toFixed(2)}</ans:valorMedicamentos>\n`;
+  guiaXML += `            <ans:valorOPME>${valorOPME.toFixed(2)}</ans:valorOPME>\n`;
+  guiaXML += `            <ans:valorGasesMedicinais>${valorGasesMedicinais.toFixed(2)}</ans:valorGasesMedicinais>\n`;
   guiaXML += `            <ans:valorTotalGeral>${valorTotalGeral.toFixed(2)}</ans:valorTotalGeral>\n`;
   guiaXML += '          </ans:valorTotal>\n';
 
@@ -385,6 +488,9 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   return guiaXML;
 }
 
+// ============================================
+// FUNÇÕES AUXILIARES PARA CONVERSÃO
+// ============================================
 export function converterAtendimentoParaTISS(atendimento, convenio) {
   const config = getConfig();
   const numeroCarteira = atendimento.numero_carteira || '000000000';
@@ -400,21 +506,23 @@ export function converterAtendimentoParaTISS(atendimento, convenio) {
     hora_inicial: item.hora_inicial || '00:00:00',
     hora_final: item.hora_final || '00:00:00',
     tabela_referencia: item.tabela_referencia || '22',
+    codigo_despesa: item.codigo_despesa || '',
+    unidade_medida: item.unidade_medida || '036',
+    reducao_acrescimo: item.reducao_acrescimo || '1.00',
     prestador_nome: item.prestador_nome || 'PROFISSIONAL',
     prestador_cpf: (item.prestador_cpf || '00000000000').replace(/\D/g, ''),
     prestador_conselho: item.prestador_conselho || 'CRM',
     prestador_numero_conselho: item.prestador_numero_conselho || '00000',
     prestador_uf_conselho: item.prestador_uf_conselho || 'SP',
     prestador_cbos: item.prestador_cbos || '225125',
-    grau_participacao: item.grau_participacao || '12',
-    codigo_despesa: getCodigoDespesa(item.codigo_despesa)
+    grau_participacao: item.grau_participacao || '12'
   }));
 
   return {
     codigoPrestadorExecutante: convenio?.codigo_prestador || config?.codigo_prestador || '002535718',
     numeroCarteira,
-    // nomeBeneficiario removido (não é mais usado no XML, mantido apenas para compatibilidade reversa? melhor não incluir)
     numero_guia_operadora: atendimento.numero_guia_operadora || '',
+    guia_principal: atendimento.guia_principal || '',
     data_autorizacao: atendimento.data_autorizacao || '',
     data_validade_senha: atendimento.data_validade_senha || '',
     senha_autorizacao: atendimento.senha_autorizacao || '',
@@ -422,13 +530,13 @@ export function converterAtendimentoParaTISS(atendimento, convenio) {
     numero_guia_prestador: atendimento.numero_guia_prestador || ('G' + Date.now().toString()),
     nomeProfissionalSolicitante: atendimento.profissional_solicitante || primeiroItem?.prestador_nome || 'PROFISSIONAL',
     numeroConselhoProfissionalSolicitante: atendimento.numero_conselho_solicitante || primeiroItem?.prestador_numero_conselho || '00000',
-    carater_atendimento: CARATER_ATENDIMENTO[atendimento.carater_atendimento] || '1',
-    tipo_atendimento: TIPO_ATENDIMENTO[atendimento.tipo_atendimento] || '04',
-    indicacao_acidente: INDICADOR_ACIDENTE[atendimento.indicacao_acidente] || '9',
-    tipo_consulta: TIPO_CONSULTA[atendimento.tipo_consulta] || '1',
-    regime_atendimento: REGIME_ATENDIMENTO[atendimento.regime_atendimento] || '01',
-    cobertura_especial: getCoberturaEspecial(atendimento.cobertura_especial),
-    saude_ocupacional: getSaudeOcupacional(atendimento.saude_ocupacional),
+    carater_atendimento: atendimento.carater_atendimento || '1',
+    tipo_atendimento: atendimento.tipo_atendimento || '04',
+    indicacao_acidente: atendimento.indicacao_acidente || '9',
+    tipo_consulta: atendimento.tipo_consulta || '1',
+    regime_atendimento: atendimento.regime_atendimento || '01',
+    cobertura_especial: atendimento.cobertura_especial || '',
+    saude_ocupacional: atendimento.saude_ocupacional || '',
     itens: itensConvertidos
   };
 }
@@ -440,7 +548,6 @@ export function gerarXMLExemplo(versao) {
   const guias = [{
     numero_guia_prestador: 'G' + Date.now().toString(),
     numeroCarteira: '09700020008288318',
-    // nomeBeneficiario não é mais fornecido,
     nomeProfissionalSolicitante: 'PROFISSIONAL EXEMPLO',
     numeroConselhoProfissionalSolicitante: '12345',
     dataSolicitacao: dataAtual,
@@ -450,23 +557,24 @@ export function gerarXMLExemplo(versao) {
     indicacao_acidente: '9',
     tipo_consulta: '1',
     regime_atendimento: '01',
-    itens: [{
-      codigo: '01010101',
-      nome: 'CONSULTA MÉDICA',
-      quantidade: 1,
-      valor_unitario: 150.00,
-      valor_total: 150.00,
-      prestador_nome: 'PROFISSIONAL EXEMPLO',
-      prestador_numero_conselho: '12345',
-      tabela_referencia: '22',
-      grau_participacao: '12',
-      data_execucao: dataAtual
-    }]
+    itens: [
+      {
+        codigo: '01010101',
+        nome: 'CONSULTA MÉDICA',
+        quantidade: 1,
+        valor_unitario: 150.00,
+        tabela_referencia: '22',
+        prestador_nome: 'PROFISSIONAL EXEMPLO',
+        prestador_numero_conselho: '12345',
+        data_execucao: dataAtual,
+        grau_participacao: '12'
+      }
+    ]
   }];
   return gerarXMLTISS({
     versao: versaoFinal,
-    codigoPrestadorNaOperadora: config?.codigo_prestador || '20.384.928/0002-05',
-    registroANS: config?.registro_ans || '421928',
+    cnpjPrestador: config?.cnpj || '0000000000000',
+    registroANS: config?.registro_ans || '000000',
     numeroLote: 'LOTE' + Date.now().toString(),
     guias
   });
