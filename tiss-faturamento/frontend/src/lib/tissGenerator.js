@@ -64,16 +64,16 @@ const UNIDADE_MEDIDA = {
   '055': '055', '056': '056', '057': '057', '058': '058', '059': '059', '060': '060', '061': '061'
 };
 
-// Mapeamento de tabelas para tipo de despesa (para classificação)
+// Mapeamento de tabelas para tipo de despesa
 const TABELA_DESPESA = {
-  '18': 'diaria_gas',   // diárias/gases (depende do códigoDespesa)
+  '18': 'diaria_gas',
   '19': 'material',
   '20': 'medicamento',
-  '05': 'procedimento', // Brasíndice – tratado como procedimento
-  '12': 'procedimento', // SIMPRO – tratado como procedimento
-  '22': 'procedimento', // TUSS – procedimento
-  '00': 'procedimento', // Tabela própria – procedimento
-  '98': 'procedimento'  // Pacotes – procedimento (mas pode ter despesas internas)
+  '05': 'procedimento',
+  '12': 'procedimento',
+  '22': 'procedimento',
+  '00': 'procedimento',
+  '98': 'procedimento'
 };
 
 const mapaConselhos = {
@@ -168,10 +168,7 @@ export function gerarXMLTISS(dados) {
   const numeroLote = dados.numeroLote || ('LOTE' + Date.now().toString());
   const guias = dados.guias || [];
 
-  // ========== ORIGEM ==========
-  // Se o usuário fornecer 'codigoPrestadorNaOperadora' (pessoa física ou código próprio da operadora), usamos ele.
-  // Caso contrário, usamos CNPJ (com padding para 14 dígitos).
-  const codigoPrestadorNaOperadora = dados.codigoPrestadorNaOperadora || '';
+  // CNPJ do prestador (origem)
   let cnpjPrestador = (config?.cnpj || dados.cnpjPrestador || '').replace(/\D/g, '');
   if (cnpjPrestador && cnpjPrestador.length < 14) cnpjPrestador = cnpjPrestador.padStart(14, '0');
 
@@ -180,51 +177,53 @@ export function gerarXMLTISS(dados) {
     guiasXML += gerarGuiaSPSADT(guia, registroANS, config, versao);
   }
 
+  // Constrói o XML completo com a tag hash vazia
   const xmlHeader = '<?xml version="1.0" encoding="UTF-8"?>\n';
-  let xml = xmlHeader;
-  xml += '<ans:mensagemTISS xmlns:ans="http://www.ans.gov.br/padroes/tiss/schemas" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.ans.gov.br/padroes/tiss/schemas tissV4_03_00.xsd">\n';
-  xml += '  <ans:cabecalho>\n';
-  xml += '    <ans:identificacaoTransacao>\n';
-  xml += `      <ans:tipoTransacao>ENVIO_LOTE_GUIAS</ans:tipoTransacao>\n`;
-  xml += `      <ans:sequencialTransacao>${sequencialTransacao}</ans:sequencialTransacao>\n`;
-  xml += `      <ans:dataRegistroTransacao>${dataRegistroTransacao}</ans:dataRegistroTransacao>\n`;
-  xml += `      <ans:horaRegistroTransacao>${horaRegistroTransacao}</ans:horaRegistroTransacao>\n`;
-  xml += '    </ans:identificacaoTransacao>\n';
-  xml += '    <ans:origem>\n';
-  xml += '      <ans:identificacaoPrestador>\n';
-  if (codigoPrestadorNaOperadora) {
-    xml += `        <ans:codigoPrestadorNaOperadora>${escapeXML(codigoPrestadorNaOperadora)}</ans:codigoPrestadorNaOperadora>\n`;
+  let xmlComHashVazio = xmlHeader;
+  xmlComHashVazio += '<ans:mensagemTISS xmlns:ans="http://www.ans.gov.br/padroes/tiss/schemas" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.ans.gov.br/padroes/tiss/schemas tissV4_03_00.xsd">\n';
+  xmlComHashVazio += '  <ans:cabecalho>\n';
+  xmlComHashVazio += '    <ans:identificacaoTransacao>\n';
+  xmlComHashVazio += `      <ans:tipoTransacao>ENVIO_LOTE_GUIAS</ans:tipoTransacao>\n`;
+  xmlComHashVazio += `      <ans:sequencialTransacao>${sequencialTransacao}</ans:sequencialTransacao>\n`;
+  xmlComHashVazio += `      <ans:dataRegistroTransacao>${dataRegistroTransacao}</ans:dataRegistroTransacao>\n`;
+  xmlComHashVazio += `      <ans:horaRegistroTransacao>${horaRegistroTransacao}</ans:horaRegistroTransacao>\n`;
+  xmlComHashVazio += '    </ans:identificacaoTransacao>\n';
+  xmlComHashVazio += '    <ans:origem>\n';
+  xmlComHashVazio += '      <ans:identificacaoPrestador>\n';
+  if (dados.codigoPrestadorNaOperadora) {
+    xmlComHashVazio += `        <ans:codigoPrestadorNaOperadora>${escapeXML(dados.codigoPrestadorNaOperadora)}</ans:codigoPrestadorNaOperadora>\n`;
   } else if (cnpjPrestador) {
-    xml += `        <ans:CNPJ>${cnpjPrestador}</ans:CNPJ>\n`;
+    xmlComHashVazio += `        <ans:CNPJ>${cnpjPrestador}</ans:CNPJ>\n`;
   } else {
-    // Fallback – não deve ocorrer; mas se não houver nenhum, coloca um CNPJ genérico
-    xml += `        <ans:CNPJ>00000000000000</ans:CNPJ>\n`;
+    xmlComHashVazio += `        <ans:CNPJ>00000000000000</ans:CNPJ>\n`;
   }
-  xml += '      </ans:identificacaoPrestador>\n';
-  xml += '    </ans:origem>\n';
-  xml += '    <ans:destino>\n';
-  xml += `      <ans:registroANS>${escapeXML(registroANS)}</ans:registroANS>\n`;
-  xml += '    </ans:destino>\n';
-  xml += `    <ans:Padrao>${versao}</ans:Padrao>\n`;
-  xml += '  </ans:cabecalho>\n';
-  xml += '  <ans:prestadorParaOperadora>\n';
-  xml += '    <ans:loteGuias>\n';
-  xml += `      <ans:numeroLote>${escapeXML(numeroLote)}</ans:numeroLote>\n`;
-  xml += '      <ans:guiasTISS>\n';
-  xml += guiasXML;
-  xml += '      </ans:guiasTISS>\n';
-  xml += '    </ans:loteGuias>\n';
-  xml += '  </ans:prestadorParaOperadora>\n';
-  xml += '  <ans:epilogo>\n';
-  xml += '    <ans:hash>HASH_TEMP</ans:hash>\n';
-  xml += '  </ans:epilogo>\n';
-  xml += '</ans:mensagemTISS>';
+  xmlComHashVazio += '      </ans:identificacaoPrestador>\n';
+  xmlComHashVazio += '    </ans:origem>\n';
+  xmlComHashVazio += '    <ans:destino>\n';
+  xmlComHashVazio += `      <ans:registroANS>${escapeXML(registroANS)}</ans:registroANS>\n`;
+  xmlComHashVazio += '    </ans:destino>\n';
+  xmlComHashVazio += `    <ans:Padrao>${versao}</ans:Padrao>\n`;
+  xmlComHashVazio += '  </ans:cabecalho>\n';
+  xmlComHashVazio += '  <ans:prestadorParaOperadora>\n';
+  xmlComHashVazio += '    <ans:loteGuias>\n';
+  xmlComHashVazio += `      <ans:numeroLote>${escapeXML(numeroLote)}</ans:numeroLote>\n`;
+  xmlComHashVazio += '      <ans:guiasTISS>\n';
+  xmlComHashVazio += guiasXML;
+  xmlComHashVazio += '      </ans:guiasTISS>\n';
+  xmlComHashVazio += '    </ans:loteGuias>\n';
+  xmlComHashVazio += '  </ans:prestadorParaOperadora>\n';
+  xmlComHashVazio += '  <ans:epilogo>\n';
+  xmlComHashVazio += '    <ans:hash></ans:hash>\n';
+  xmlComHashVazio += '  </ans:epilogo>\n';
+  xmlComHashVazio += '</ans:mensagemTISS>';
 
-  const xmlSemHash = xml.replace('HASH_TEMP', '');
-  const hash = CryptoJS.MD5(xmlSemHash).toString().toUpperCase();
-  xml = xml.replace('HASH_TEMP', hash);
+  // Calcula o MD5 sobre o XML com a tag hash vazia
+  const hash = CryptoJS.MD5(xmlComHashVazio).toString().toUpperCase();
 
-  return xml;
+  // Substitui a tag vazia pela tag com o hash
+  const xmlFinal = xmlComHashVazio.replace('<ans:hash></ans:hash>', `<ans:hash>${hash}</ans:hash>`);
+
+  return xmlFinal;
 }
 
 // ============================================
@@ -263,15 +262,10 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   const ufClinica = getCodigoUF(config?.uf_clinica || 'SP');
   const cbosClinica = config?.cbos_clinica || '225125';
 
-  // ========== DADOS DO EXECUTANTE ==========
-  // Pode ser um código de prestador na operadora (guia.codigoPrestadorExecutante) ou CNPJ do contratado (padrão)
   const codigoExecutante = guia.codigoPrestadorExecutante || '';
-  // Se não informado, usamos o mesmo CNPJ do contratado (ou pode ser outro CNPJ - mas deixamos assim)
-  const cnpjExecutante = cnpjContratado;
-
   const itens = guia.itens || [];
 
-  // Processa os itens: classifica entre procedimentos e outras despesas
+  // Processa os itens: classifica entre procedimentos (tabela 22/00/05/12/98) e outras despesas (18,19,20)
   const procedimentos = [];
   const outrasDespesas = [];
 
@@ -403,7 +397,7 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
     procedimentosXML += '            </ans:procedimentoExecutado>\n';
   }
 
-  // XML das outras despesas
+  // Agrupa outras despesas por código de despesa
   let outrasDespesasXML = '';
   if (outrasDespesas.length > 0) {
     const despesasPorCodigo = new Map();
@@ -438,7 +432,7 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
     outrasDespesasXML += '          </ans:outrasDespesas>\n';
   }
 
-  // Construção da guia
+  // Construção completa da guia
   let guiaXML = '        <ans:guiaSP-SADT>\n';
   guiaXML += '          <ans:cabecalhoGuia>\n';
   guiaXML += `            <ans:registroANS>${escapeXML(registroANS)}</ans:registroANS>\n`;
@@ -483,11 +477,9 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   guiaXML += '          <ans:dadosExecutante>\n';
   guiaXML += '            <ans:contratadoExecutante>\n';
   if (codigoExecutante) {
-    // Se foi informado um código de prestador na operadora, usa ele
     guiaXML += `              <ans:codigoPrestadorNaOperadora>${escapeXML(codigoExecutante)}</ans:codigoPrestadorNaOperadora>\n`;
   } else {
-    // Caso contrário, usa o CNPJ do contratado (ou outro CNPJ)
-    guiaXML += `              <ans:cnpjContratado>${cnpjExecutante}</ans:cnpjContratado>\n`;
+    guiaXML += `              <ans:cnpjContratado>${cnpjContratado}</ans:cnpjContratado>\n`;
   }
   guiaXML += '            </ans:contratadoExecutante>\n';
   guiaXML += `            <ans:CNES>${cnesExecutante}</ans:CNES>\n`;
@@ -527,7 +519,7 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
 }
 
 // ============================================
-// FUNÇÕES AUXILIARES PARA CONVERSÃO
+// FUNÇÃO AUXILIAR PARA CONVERSÃO DE ATENDIMENTO
 // ============================================
 export function converterAtendimentoParaTISS(atendimento, convenio) {
   const config = getConfig();
@@ -579,6 +571,9 @@ export function converterAtendimentoParaTISS(atendimento, convenio) {
   };
 }
 
+// ============================================
+// EXEMPLO DE GERAÇÃO DE XML PARA TESTE
+// ============================================
 export function gerarXMLExemplo(versao) {
   const versaoFinal = versao || '4.03.00';
   const dataAtual = new Date().toISOString().split('T')[0];
@@ -611,7 +606,7 @@ export function gerarXMLExemplo(versao) {
   }];
   return gerarXMLTISS({
     versao: versaoFinal,
-    codigoPrestadorNaOperadora: config?.codigo_prestador || '002535718', // exemplo usando código
+    codigoPrestadorNaOperadora: config?.codigo_prestador || '002535718',
     registroANS: config?.registro_ans || '421928',
     numeroLote: 'LOTE' + Date.now().toString(),
     guias
