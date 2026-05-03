@@ -3,15 +3,43 @@ import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, XMarkIcon, EyeIco
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabaseClient';
 
-// Lista de UFs (mantida igual)
+// ============================================
+// LISTA DE UFs
+// ============================================
 const UFS = [
   { sigla: 'AC', nome: 'Acre', codigoANS: '12' },
   { sigla: 'AL', nome: 'Alagoas', codigoANS: '27' },
-  // ... (manter todos os UFS listados anteriormente)
+  { sigla: 'AP', nome: 'Amapá', codigoANS: '16' },
+  { sigla: 'AM', nome: 'Amazonas', codigoANS: '13' },
+  { sigla: 'BA', nome: 'Bahia', codigoANS: '29' },
+  { sigla: 'CE', nome: 'Ceará', codigoANS: '23' },
+  { sigla: 'DF', nome: 'Distrito Federal', codigoANS: '53' },
+  { sigla: 'ES', nome: 'Espírito Santo', codigoANS: '32' },
+  { sigla: 'GO', nome: 'Goiás', codigoANS: '52' },
+  { sigla: 'MA', nome: 'Maranhão', codigoANS: '21' },
+  { sigla: 'MT', nome: 'Mato Grosso', codigoANS: '51' },
+  { sigla: 'MS', nome: 'Mato Grosso do Sul', codigoANS: '50' },
+  { sigla: 'MG', nome: 'Minas Gerais', codigoANS: '31' },
+  { sigla: 'PA', nome: 'Pará', codigoANS: '15' },
+  { sigla: 'PB', nome: 'Paraíba', codigoANS: '25' },
+  { sigla: 'PR', nome: 'Paraná', codigoANS: '41' },
+  { sigla: 'PE', nome: 'Pernambuco', codigoANS: '26' },
+  { sigla: 'PI', nome: 'Piauí', codigoANS: '22' },
+  { sigla: 'RJ', nome: 'Rio de Janeiro', codigoANS: '33' },
+  { sigla: 'RN', nome: 'Rio Grande do Norte', codigoANS: '24' },
+  { sigla: 'RS', nome: 'Rio Grande do Sul', codigoANS: '43' },
+  { sigla: 'RO', nome: 'Rondônia', codigoANS: '11' },
+  { sigla: 'RR', nome: 'Roraima', codigoANS: '14' },
+  { sigla: 'SC', nome: 'Santa Catarina', codigoANS: '42' },
+  { sigla: 'SP', nome: 'São Paulo', codigoANS: '35' },
+  { sigla: 'SE', nome: 'Sergipe', codigoANS: '28' },
+  { sigla: 'TO', nome: 'Tocantins', codigoANS: '17' },
   { sigla: 'EX', nome: 'Exterior', codigoANS: '98' }
 ];
 
-// Conselhos (mantido)
+// ============================================
+// CONSELHOS PROFISSIONAIS
+// ============================================
 const CONSELHOS = [
   { sigla: 'CRM', nome: 'Conselho Regional de Medicina', codigoANS: '06' },
   { sigla: 'CRO', nome: 'Conselho Regional de Odontologia', codigoANS: '08' },
@@ -25,15 +53,30 @@ const CONSELHOS = [
   { sigla: 'CRESS', nome: 'Conselho Regional de Serviço Social', codigoANS: '01' }
 ];
 
-// Especialidades (mantido)
+// ============================================
+// ESPECIALIDADES (atualizadas)
+// ============================================
 const ESPECIALIDADES = [
   { id: 14, nome: 'Psicologia', cbos: '251510', codigo_ans: '09', conselhoPadrao: 'CRP' },
-  // ... (manter todas)
+  { id: 15, nome: 'Neuropsicologia', cbos: '251510', codigo_ans: '09', conselhoPadrao: 'CRP' },
+  { id: 16, nome: 'Psicopedagogia', cbos: '251510', codigo_ans: '09', conselhoPadrao: 'CRP' },
+  { id: 17, nome: 'Fonoaudiologia', cbos: '223810', codigo_ans: '05', conselhoPadrao: 'CREFITO' },
+  { id: 18, nome: 'Fisioterapia', cbos: '223605', codigo_ans: '05', conselhoPadrao: 'CREFITO' },
+  { id: 19, nome: 'Psicomotricidade', cbos: '223605', codigo_ans: '05', conselhoPadrao: 'CREFITO' },
+  { id: 32, nome: 'Terapia Ocupacional', cbos: '223905', codigo_ans: '05', conselhoPadrao: 'CREFITO' },
+  { id: 21, nome: 'Musicoterapia', cbos: '226305', codigo_ans: '05', conselhoPadrao: 'CREFITO' },
+  { id: 22, nome: 'Nutrição', cbos: '223710', codigo_ans: '07', conselhoPadrao: 'CRN' },
+  { id: 23, nome: 'Pedagogia', cbos: null, codigo_ans: null, conselhoPadrao: null },
+  { id: 24, nome: 'Educação Física', cbos: '224105', codigo_ans: '13', conselhoPadrao: 'CREF' },
+  { id: 25, nome: 'Gerontologia', cbos: '131220', codigo_ans: '05', conselhoPadrao: 'CREFITO' },
   { id: 26, nome: 'Estudante Psicologia', cbos: null, codigo_ans: null, conselhoPadrao: null }
 ];
 
-// Funções de máscara
+// ============================================
+// FUNÇÕES DE MÁSCARA
+// ============================================
 const maskCPF = (value) => {
+  if (!value) return '';
   const str = value.replace(/\D/g, '');
   if (str.length <= 11) {
     return str.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4').slice(0, 14);
@@ -42,6 +85,7 @@ const maskCPF = (value) => {
 };
 
 const maskCNPJ = (value) => {
+  if (!value) return '';
   const str = value.replace(/\D/g, '');
   if (str.length <= 14) {
     return str.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5').slice(0, 18);
@@ -50,6 +94,7 @@ const maskCNPJ = (value) => {
 };
 
 const maskTelefone = (value) => {
+  if (!value) return '';
   const str = value.replace(/\D/g, '');
   if (str.length <= 10) {
     return str.replace(/(\d{2})(\d{4})(\d{4})/, '($1) $2-$3').slice(0, 14);
@@ -58,8 +103,14 @@ const maskTelefone = (value) => {
   }
 };
 
-const maskCEP = (value) => value.replace(/\D/g, '').replace(/(\d{5})(\d{3})/, '$1-$2').slice(0, 9);
+const maskCEP = (value) => {
+  if (!value) return '';
+  return value.replace(/\D/g, '').replace(/(\d{5})(\d{3})/, '$1-$2').slice(0, 9);
+};
 
+// ============================================
+// COMPONENTE PRINCIPAL
+// ============================================
 export default function Prestadores() {
   const [prestadores, setPrestadores] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +121,6 @@ export default function Prestadores() {
   const [especialidadePrincipal, setEspecialidadePrincipal] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedPrestador, setSelectedPrestador] = useState(null);
-  const [buscarCEP, setBuscarCEP] = useState(false);
 
   const [formData, setFormData] = useState({
     tipo_pessoa: 'F',
@@ -96,6 +146,9 @@ export default function Prestadores() {
     carregarPrestadores();
   }, []);
 
+  // ============================================
+  // CARREGAR PRESTADORES DO BANCO
+  // ============================================
   const carregarPrestadores = async () => {
     setLoading(true);
     try {
@@ -150,7 +203,9 @@ export default function Prestadores() {
     }
   };
 
-  // Função para consultar CEP
+  // ============================================
+  // CONSULTA CEP VIA API VIA CEP
+  // ============================================
   const consultarCEP = async (cep) => {
     const cepLimpo = cep.replace(/\D/g, '');
     if (cepLimpo.length !== 8) return;
@@ -183,6 +238,9 @@ export default function Prestadores() {
     }
   };
 
+  // ============================================
+  // SALVAR PRESTADOR (CRIAR/EDITAR)
+  // ============================================
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.nome) {
@@ -198,33 +256,33 @@ export default function Prestadores() {
       return;
     }
 
+    // Função segura para limpar dígitos (evita null.replace)
+    const safeClean = (value) => (value ? value.replace(/\D/g, '') : null);
+
+    const prestadorPayload = {
+      tipo_pessoa: formData.tipo_pessoa,
+      nome: formData.nome.toUpperCase(),
+      codigo_prestador: formData.codigo_prestador || null,
+      cpf: safeClean(formData.cpf),
+      cnpj: safeClean(formData.cnpj),
+      conselho: formData.conselho,
+      codigo_conselho_ans: formData.codigo_conselho_ans,
+      numero_conselho: formData.numero_conselho || null,
+      uf_conselho: formData.uf_conselho,
+      telefone: safeClean(formData.telefone),
+      celular: safeClean(formData.celular),
+      email: formData.email || null,
+      endereco: formData.endereco || null,
+      cep: safeClean(formData.cep),
+      cidade: formData.cidade ? formData.cidade.toUpperCase() : null,
+      estado: formData.estado,
+      ativo: formData.ativo,
+      updated_at: new Date().toISOString()
+    };
+
+    let prestadorId;
+
     try {
-      // Função segura para limpar dígitos (trata null/undefined)
-      const safeClean = (value) => value ? value.replace(/\D/g, '') : null;
-
-      const prestadorPayload = {
-        tipo_pessoa: formData.tipo_pessoa,
-        nome: formData.nome.toUpperCase(),
-        codigo_prestador: formData.codigo_prestador || null,
-        cpf: safeClean(formData.cpf),
-        cnpj: safeClean(formData.cnpj),
-        conselho: formData.conselho,
-        codigo_conselho_ans: formData.codigo_conselho_ans,
-        numero_conselho: formData.numero_conselho || null,
-        uf_conselho: formData.uf_conselho,
-        telefone: safeClean(formData.telefone),
-        celular: safeClean(formData.celular),
-        email: formData.email || null,
-        endereco: formData.endereco || null,
-        cep: safeClean(formData.cep),
-        cidade: formData.cidade ? formData.cidade.toUpperCase() : null,
-        estado: formData.estado,
-        ativo: formData.ativo,
-        updated_at: new Date().toISOString()
-      };
-
-      let prestadorId;
-
       if (editing) {
         const { error: updateError } = await supabase
           .from('prestadores')
@@ -482,7 +540,7 @@ export default function Prestadores() {
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {filtered.map((p) => (
                 <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                  <td className="px-4 py-3 text-sm text-gray-800 dark:text-gray-200">{p.nome}</td>
+                  <td className="px-4 py-3 text-sm text-gray-800 dark:text-gray-200">{p.nome} {p.tipo_pessoa === 'J' && <span className="text-xs text-gray-400 ml-1">(PJ)</span>}</td>
                   <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{formatarCPFouCNPJ(p.cpf || p.cnpj)}</td>
                   <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{p.conselho}</td>
                   <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{p.numero_conselho || '-'}</td>
@@ -532,9 +590,7 @@ export default function Prestadores() {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5 flex justify-between items-center">
-              <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
-                Detalhes do Prestador
-              </h3>
+              <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Detalhes do Prestador</h3>
               <button onClick={() => setShowDetailModal(false)} className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
                 <XMarkIcon className="w-5 h-5" />
               </button>
@@ -567,7 +623,7 @@ export default function Prestadores() {
         </div>
       )}
 
-      {/* Modal de Cadastro/Edição (com máscaras e busca CEP) */}
+      {/* Modal de Cadastro/Edição */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -621,7 +677,7 @@ export default function Prestadores() {
                   <div></div>
                 </div>
 
-                {/* Especialidades (mantido igual) */}
+                {/* Especialidades */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Especialidades *</label>
                   <div className="flex gap-2 mb-3">
@@ -640,7 +696,16 @@ export default function Prestadores() {
                         </thead>
                         <tbody>
                           {especialidadesSelecionadas.map(esp => (
-                            <tr key={esp.id}><td className="px-3 py-2">{esp.nome}</td><td className="px-3 py-2 font-mono">{esp.cbos || '-'}</td><td className="px-3 py-2 text-center"><input type="radio" name="principal" checked={especialidadePrincipal?.id === esp.id} onChange={() => definirPrincipal(esp.id)} className="w-4 h-4 text-blue-600" /></td><td className="px-3 py-2 text-center"><button type="button" onClick={() => removerEspecialidade(esp.id)} className="text-red-600"><XMarkIcon className="w-4 h-4" /></button></td></tr>
+                            <tr key={esp.id}>
+                              <td className="px-3 py-2">{esp.nome}</td>
+                              <td className="px-3 py-2 font-mono">{esp.cbos || '-'}</td>
+                              <td className="px-3 py-2 text-center">
+                                <input type="radio" name="principal" checked={especialidadePrincipal?.id === esp.id} onChange={() => definirPrincipal(esp.id)} className="w-4 h-4 text-blue-600" />
+                              </td>
+                              <td className="px-3 py-2 text-center">
+                                <button type="button" onClick={() => removerEspecialidade(esp.id)} className="text-red-600"><XMarkIcon className="w-4 h-4" /></button>
+                              </td>
+                            </tr>
                           ))}
                         </tbody>
                       </table>
@@ -657,7 +722,7 @@ export default function Prestadores() {
                   <div><label className="block text-sm font-medium mb-1">UF do Conselho</label><select value={formData.uf_conselho} onChange={e => setFormData({...formData, uf_conselho: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600">{UFS.map(uf => <option key={uf.sigla} value={uf.sigla}>{uf.sigla}</option>)}</select></div>
                 </div>
 
-                {/* Contato e Endereço com máscaras e CEP automático */}
+                {/* Contato e Endereço com máscaras e CEP */}
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div><label className="block text-sm font-medium mb-1">Telefone</label><input type="text" value={maskTelefone(formData.telefone)} onChange={e => setFormData({...formData, telefone: e.target.value.replace(/\D/g, '')})} maxLength={15} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" /></div>
                   <div><label className="block text-sm font-medium mb-1">Celular</label><input type="text" value={maskTelefone(formData.celular)} onChange={e => setFormData({...formData, celular: e.target.value.replace(/\D/g, '')})} maxLength={15} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" /></div>
@@ -665,7 +730,13 @@ export default function Prestadores() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div className="col-span-2"><label className="block text-sm font-medium mb-1">CEP</label><div className="flex gap-2"><input type="text" value={formData.cep} onChange={handleCEPChange} maxLength={9} placeholder="00000-000" className="flex-1 border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" /><button type="button" onClick={() => consultarCEP(formData.cep)} className="px-3 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg text-sm">Buscar</button></div></div>
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium mb-1">CEP</label>
+                    <div className="flex gap-2">
+                      <input type="text" value={formData.cep} onChange={handleCEPChange} maxLength={9} placeholder="00000-000" className="flex-1 border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
+                      <button type="button" onClick={() => consultarCEP(formData.cep)} className="px-3 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg text-sm">Buscar</button>
+                    </div>
+                  </div>
                   <div className="col-span-2"><label className="block text-sm font-medium mb-1">Endereço</label><input type="text" value={formData.endereco} onChange={e => setFormData({...formData, endereco: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" /></div>
                   <div><label className="block text-sm font-medium mb-1">Cidade</label><input type="text" value={formData.cidade} onChange={e => setFormData({...formData, cidade: e.target.value.toUpperCase()})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" /></div>
                   <div><label className="block text-sm font-medium mb-1">Estado</label><select value={formData.estado} onChange={e => setFormData({...formData, estado: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700">{UFS.map(uf => <option key={uf.sigla} value={uf.sigla}>{uf.sigla}</option>)}</select></div>
