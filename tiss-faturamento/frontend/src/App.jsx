@@ -8,7 +8,7 @@ import {
   Bars3Icon, XMarkIcon, ArrowRightOnRectangleIcon,
   ChevronLeftIcon, ChevronRightIcon, SunIcon, MoonIcon,
   CalendarDaysIcon, FolderIcon, ChevronDownIcon, ChevronUpIcon,
-  HomeModernIcon
+  HomeModernIcon, BanknotesIcon
 } from '@heroicons/react/24/outline';
 
 import Dashboard from './pages/Dashboard';
@@ -20,6 +20,7 @@ import Procedimentos from './pages/Procedimentos';
 import Atendimentos from './pages/Atendimentos';
 import Faturamento from './pages/Faturamento';
 import Glosas from './pages/Glosas';
+import Financeiro from './pages/Financeiro';
 import Relatorios from './pages/Relatorios';
 import Configuracoes from './pages/Configuracoes';
 import NotificationBell from './components/NotificationBell';
@@ -64,6 +65,7 @@ function MainApp() {
     cadastros: true,
     agenda: true,
     faturamento: true,
+    financeiro: true,
     relatorios: true
   });
   const { darkMode, toggleDarkMode } = useTheme();
@@ -120,6 +122,12 @@ function MainApp() {
       ]
     },
     {
+      id: 'financeiro', name: 'Financeiro', icon: BanknotesIcon,
+      items: [
+        { id: 'financeiro', name: 'Financeiro', icon: BanknotesIcon, color: 'from-amber-500 to-amber-600' }
+      ]
+    },
+    {
       id: 'relatorios', name: 'Relatórios', icon: ChartBarIcon,
       items: [{ id: 'relatorios', name: 'Relatórios', icon: ChartBarIcon, color: 'from-indigo-500 to-indigo-600' }]
     },
@@ -146,6 +154,7 @@ function MainApp() {
       case 'agendamentos': return <Agendamentos />;
       case 'faturamento': return <Faturamento />;
       case 'glosas': return <Glosas />;
+      case 'financeiro': return <Financeiro />;
       case 'relatorios': return <Relatorios />;
       case 'configuracoes': return <Configuracoes />;
       default: return <Dashboard />;
@@ -171,6 +180,7 @@ function MainApp() {
       faturamento: 'Geração e envio de lotes TISS',
       atendimentos: 'Registro de atendimentos e guias',
       agendamentos: 'Gerenciamento de agenda e consultas',
+      financeiro: 'Contas a receber, pagar e fluxo de caixa',
       relatorios: 'Análise de dados e métricas',
       salas: 'Gerenciamento de salas da clínica',
       configuracoes: 'Configurações do sistema e usuários'
