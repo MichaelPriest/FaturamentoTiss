@@ -460,22 +460,45 @@ export default function Atendimentos() {
   const salvarAtendimento = async (atendimento) => {
     try {
       if (editing) {
-        const { numero_guia_prestador, ...dadosParaAtualizar } = atendimento;
+        // Remover campos que não devem ser atualizados
+        const { 
+          id,                      // não enviar no update
+          numero_guia_prestador,   // não atualizar número da guia
+          created_at,              // não atualizar
+          ...dadosParaAtualizar 
+        } = atendimento;
         
+        // Garantir que apenas campos que existem na tabela sejam enviados
         const { error } = await supabase
           .from('atendimentos')
-          .update(dadosParaAtualizar)
+          .update({
+            ...dadosParaAtualizar,
+            updated_at: new Date().toISOString()
+          })
           .eq('id', editing.id);
         
-        if (error) throw error;
+        if (error) {
+          console.error('Erro detalhado:', error);
+          throw error;
+        }
+        
         toast.success('Atendimento atualizado com sucesso!');
       } else {
+        // Para novo atendimento, incluir todos os campos
         const { data, error } = await supabase
           .from('atendimentos')
-          .insert([atendimento])
+          .insert([{
+            ...atendimento,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }])
           .select();
         
-        if (error) throw error;
+        if (error) {
+          console.error('Erro detalhado:', error);
+          throw error;
+        }
+        
         toast.success('Atendimento registrado com sucesso!');
       }
       
@@ -483,7 +506,18 @@ export default function Atendimentos() {
       return true;
     } catch (error) {
       console.error('Erro ao salvar atendimento:', error);
-      toast.error('Erro ao salvar atendimento');
+      
+      // Mensagem mais detalhada
+      if (error.message?.includes('status')) {
+        toast.error('Status inválido. Verifique se "finalizado" está na lista de status permitidos.');
+      } else if (error.message?.includes('duplicate')) {
+        toast.error('Número de guia já existe.');
+      } else if (error.code === 'PGRST204') {
+        toast.error('Coluna não encontrada na tabela. Verifique os campos enviados.');
+      } else {
+        toast.error(`Erro ao salvar: ${error.message || 'Erro desconhecido'}`);
+      }
+      
       return false;
     }
   };
