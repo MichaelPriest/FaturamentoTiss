@@ -364,66 +364,169 @@ export default function Atendimentos() {
 
   // Verificar se a guia pode ser faturada - USANDO OS ITENS DO ATENDIMENTO
   const podeFaturar = useCallback((atendimento) => {
+    // 1. Verificar se há itens executados
     if (!atendimento.itens || atendimento.itens.length === 0) {
       toast.error('Não é possível faturar: Nenhum item na guia');
       return false;
     }
     
-    // USAR OS ITENS AUTORIZADOS DO PRÓPRIO ATENDIMENTO
+    // 2. Pegar os itens autorizados do próprio atendimento
     const itensAutorizadosDoAtendimento = atendimento.itens_autorizados || [];
     
-    // Se não há itens autorizados, não pode faturar
+    // 3. Se não há itens autorizados, não pode faturar
     if (itensAutorizadosDoAtendimento.length === 0) {
       toast.error('Não é possível faturar: Nenhum procedimento autorizado pelo convênio');
       return false;
     }
     
-    // Verificar se há itens autorizados não executados
-    const itensAutorizadosNaoExecutados = itensAutorizadosDoAtendimento.filter(aut => {
-      const itemExecutado = atendimento.itens.find(item => item.codigo === aut.codigo);
-      const quantidadeUtilizada = itemExecutado?.quantidade || 0;
-      return quantidadeUtilizada < aut.quantidade_autorizada;
-    });
-    
-    if (itensAutorizadosNaoExecutados.length > 0) {
-      toast.error(`Existem ${itensAutorizadosNaoExecutados.length} procedimento(s) autorizado(s) não executado(s) integralmente!`);
-      return false;
-    }
-    
-    // Verificar se algum item excedeu a quantidade autorizada
-    const itensExcedidos = atendimento.itens.filter(item => {
-      const itemAutorizado = itensAutorizadosDoAtendimento.find(aut => aut.codigo === item.codigo);
-      if (itemAutorizado && item.quantidade > itemAutorizado.quantidade_autorizada) {
-        return true;
-      }
-      return false;
-    });
-    
-    if (itensExcedidos.length > 0) {
-      toast.error(`${itensExcedidos.length} item(ns) excederam a quantidade autorizada!`);
-      return false;
-    }
-    
-    // Verificar se algum item está pendente de autorização (não autorizado)
+    // 4. Verificar se TODOS os itens executados possuem autorização
     const itensPendentes = atendimento.itens.filter(item => {
       const itemAutorizado = itensAutorizadosDoAtendimento.find(aut => aut.codigo === item.codigo);
-      return !itemAutorizado;
+      return !itemAutorizado; // Item executado sem autorização correspondente
     });
     
     if (itensPendentes.length > 0) {
-      toast.error(`${itensPendentes.length} item(ns) não possuem autorização!`);
+      const descricao = itensPendentes.map(i => `${i.codigo} - ${i.nome}`).join(', ');
+      toast.error(`${itensPendentes.length} item(ns) não possuem autorização: ${descricao}`);
       return false;
     }
     
+    // 5. Verificar se algum item excedeu a quantidade autorizada
+    const itensExcedidos = atendimento.itens.filter(item => {
+      const itemAutorizado = itensAutorizadosDoAtendimento.find(aut => aut.codigo === item.codigo);
+      if (!itemAutorizado) return false;
+      
+      // Comparar quantidade executada com quantidade autorizada
+      const qtdExecutada = item.quantidade || 0;
+      const qtdAutorizada = itemAutorizado.quantidade_autorizada || 0;
+      
+      return qtdExecutada > qtdAutorizada;
+    });
+    
+    if (itensExcedidos.length > 0) {
+      const descricao = itensExcedidos.map(i => {
+        const aut = itensAutorizadosDoAtendimento.find(a => a.codigo === i.codigo);
+        return `${i.codigo} (executado: ${i.quantidade}, autorizado: ${aut?.quantidade_autorizada || 0})`;
+      }).join(', ');
+      toast.error(`${itensExcedidos.length} item(ns) excederam a quantidade autorizada: ${descricao}`);
+      return false;
+    }
+    
+    // 6. Verificar se o status permite faturamento
+    if (atendimento.status === 'cancelado') {
+      toast.error('Não é possível faturar: Guia cancelada');
+      return false;
+    }
+    
+    if (atendimento.status === 'finalizado') {
+      toast.error('Não é possível faturar: Guia já finalizada');
+      return false;
+    }
+    
+    if (atendimento.status === 'faturado') {
+      toast.error('Não é possível faturar: Guia já faturada');
+      return false;
+    }
+    
+    // 7. Verificar se há valor total
+    const valorTotal = atendimento.itens.reduce((sum, item) => sum + (item.valor_total || 0), 0);
+    if (valorTotal <= 0) {
+      toast.error('Não é possível faturar: Valor total da guia é zero');
+      return false;
+    }
+    
+    // 8. Verificar se todos os itens têm profissional associado
+    const itensSemProfissional = atendimento.itens.filter(item => {
+      return item.tipo === 'procedimento' && !item.prestador_id && !item.prestador_nome;
+    });
+    
+    if (itensSemProfissional.length > 0) {
+      toast.warning(`${itensSemProfissional.length} item(ns) sem profissional associado. Verifique antes de faturar.`);
+      // Apenas aviso, não bloqueia
+    }
+    
+    // ✅ Tudo ok - permitir faturamento
+    // NOTA: Não é obrigatório usar 100% da autorização. 
+    // Itens autorizados com saldo restante NÃO bloqueiam o faturamento.
+    
     return true;
-  }, []); // Sem dependências - usa os dados do atendimento
-
+  }, []);
+  
   // Calcular saldo autorizado para edição (usando estado local)
   const calcularSaldoAutorizado = useCallback((itemCodigo, quantidadeAtual = 0) => {
+    if (!itemCodigo) return 0;
+    
     const itemAutorizado = itensAutorizados.find(aut => aut.codigo === itemCodigo);
     if (!itemAutorizado) return 0;
-    return itemAutorizado.quantidade_autorizada - (itemAutorizado.quantidade_utilizada || 0);
+    
+    const qtdAutorizada = itemAutorizado.quantidade_autorizada || 0;
+    const qtdUtilizada = itemAutorizado.quantidade_utilizada || 0;
+    const saldo = qtdAutorizada - qtdUtilizada;
+    
+    return Math.max(0, saldo);
   }, [itensAutorizados]);
+  
+  // Verificar status da guia para determinar ações disponíveis
+  const getStatusInfo = useCallback((status) => {
+    const info = {
+      pendente: { 
+        label: 'Pendente', 
+        cor: 'yellow',
+        podeEditar: true,
+        podeFaturar: true,
+        podeCancelar: true,
+        podeExcluir: true,
+        icone: ClockIcon
+      },
+      autorizado: { 
+        label: 'Autorizado', 
+        cor: 'blue',
+        podeEditar: true,
+        podeFaturar: true,
+        podeCancelar: true,
+        podeExcluir: true,
+        icone: CheckIcon
+      },
+      parcial: { 
+        label: 'Autorizado Parcialmente', 
+        cor: 'orange',
+        podeEditar: true,
+        podeFaturar: false, // Não pode faturar parcial
+        podeCancelar: true,
+        podeExcluir: true,
+        icone: ExclamationTriangleIcon
+      },
+      faturado: { 
+        label: 'Faturado', 
+        cor: 'green',
+        podeEditar: false,
+        podeFaturar: false,
+        podeCancelar: false,
+        podeExcluir: false,
+        icone: CurrencyDollarIcon
+      },
+      cancelado: { 
+        label: 'Cancelado', 
+        cor: 'red',
+        podeEditar: false,
+        podeFaturar: false,
+        podeCancelar: false,
+        podeExcluir: false,
+        icone: XMarkIcon
+      },
+      finalizado: { 
+        label: 'Finalizado', 
+        cor: 'purple',
+        podeEditar: false,
+        podeFaturar: false,
+        podeCancelar: false,
+        podeExcluir: false,
+        icone: LockClosedIcon
+      }
+    };
+    
+    return info[status] || info.pendente;
+  }, []);
 
   // ============================================
   // CARREGAR DADOS DO SUPABASE
