@@ -785,7 +785,7 @@ export default function Prontuario() {
                 <button onClick={() => setShowPrescricaoModal(true)} className="mb-4 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-2"><PlusIcon className="w-4 h-4" /> Nova Prescrição</button>
                 <div className="space-y-3">
                   {prescricoes.map(p => (
-                    <div key={p.id} className="border rounded-lg p-3 bg-gray-50">
+                    <div key={p.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-700/50">
                       <div className="flex justify-between">
                         <div><span className="inline-flex px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-700">{p.tipo}</span><p className="text-sm font-medium mt-1">{p.descricao}</p></div>
                         <button onClick={() => { setEditingPrescricao(p); setPrescricaoForm(p); setShowPrescricaoModal(true); }}><PencilIcon className="w-4 h-4 text-blue-600" /></button>
@@ -803,7 +803,7 @@ export default function Prontuario() {
                 <button onClick={() => setShowReceitaModal(true)} className="mb-4 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-2"><PlusIcon className="w-4 h-4" /> Nova Receita</button>
                 <div className="space-y-3">
                   {receitas.map(r => (
-                    <div key={r.id} className="border rounded-lg p-3 bg-gray-50">
+                    <div key={r.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-700/50">
                       <div className="flex justify-between items-center">
                         <div><p className="text-sm font-medium">Receita #{r.numero_receita}</p><p className="text-xs text-gray-500">{new Date(r.created_at).toLocaleDateString()}</p></div>
                         <button onClick={() => imprimirReceita(r)} className="text-green-600"><PrinterIcon className="w-4 h-4" /></button>
@@ -821,7 +821,7 @@ export default function Prontuario() {
                 <button onClick={() => setShowAtestadoModal(true)} className="mb-4 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-2"><PlusIcon className="w-4 h-4" /> Novo Atestado</button>
                 <div className="space-y-3">
                   {atestados.map(a => (
-                    <div key={a.id} className="border rounded-lg p-3 bg-gray-50">
+                    <div key={a.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-700/50">
                       <div className="flex justify-between">
                         <div><p className="text-sm font-medium">Atestado #{a.numero_atestado}</p><p className="text-xs text-gray-500">{a.dias_afastamento} dias</p></div>
                         <button onClick={() => imprimirAtestado(a)} className="text-green-600"><PrinterIcon className="w-4 h-4" /></button>
@@ -839,14 +839,14 @@ export default function Prontuario() {
                 <button onClick={() => setShowProcedimentosModal(true)} className="mb-4 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-2"><PlusIcon className="w-4 h-4" /> Adicionar</button>
                 <div className="space-y-3">
                   {procedimentosSelecionados.map((p, idx) => (
-                    <div key={idx} className="border rounded-lg p-3 bg-gray-50">
+                    <div key={idx} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-700/50">
                       <div className="flex justify-between">
                         <div><p className="text-sm font-medium">{p.nome}</p><p className="text-xs text-gray-500">R$ {p.valor_sugerido?.toFixed(2)}</p></div>
                         <button onClick={() => setProcedimentosSelecionados(procedimentosSelecionados.filter((_, i) => i !== idx))}><TrashIcon className="w-4 h-4 text-red-600" /></button>
                       </div>
                     </div>
                   ))}
-                  {procedimentosSelecionados.length > 0 && <div className="mt-4 p-3 bg-blue-50 rounded-lg">Total: R$ {procedimentosSelecionados.reduce((s, p) => s + (p.valor_sugerido || 0), 0).toFixed(2)}</div>}
+                  {procedimentosSelecionados.length > 0 && <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-gray-800 dark:text-white"> Total: R$ {procedimentosSelecionados.reduce((s, p) => s + (p.valor_sugerido || 0), 0).toFixed(2)}</div>}
                 </div>
               </div>
             )}
@@ -997,22 +997,30 @@ export default function Prontuario() {
         {/* Modais */}
         {showPrescricaoModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl w-full max-w-lg p-5">
-              <h3 className="text-xl font-semibold mb-4">{editingPrescricao ? 'Editar' : 'Nova'} Prescrição</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg p-5">
+              <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">{editingPrescricao ? 'Editar' : 'Nova'} Prescrição</h3>
               <div className="space-y-3">
-                <select value={prescricaoForm.tipo} onChange={e => setPrescricaoForm({...prescricaoForm, tipo: e.target.value})} className="w-full border rounded-lg px-3 py-2"><option value="medicamento">Medicamento</option><option value="exame">Exame</option><option value="procedimento">Procedimento</option></select>
-                <textarea rows="3" value={prescricaoForm.descricao} onChange={e => setPrescricaoForm({...prescricaoForm, descricao: e.target.value})} className="w-full border rounded-lg px-3 py-2" placeholder="Descrição" />
+                <select value={prescricaoForm.tipo} onChange={e => setPrescricaoForm({...prescricaoForm, tipo: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white">
+                  <option value="medicamento">Medicamento</option>
+                  <option value="exame">Exame</option>
+                  <option value="procedimento">Procedimento</option>
+                </select>
+                <textarea rows="3" value={prescricaoForm.descricao} onChange={e => setPrescricaoForm({...prescricaoForm, descricao: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white" placeholder="Descrição" />
                 <div className="grid grid-cols-2 gap-3">
-                  <input type="text" placeholder="Dosagem" value={prescricaoForm.dosagem} onChange={e => setPrescricaoForm({...prescricaoForm, dosagem: e.target.value})} className="border rounded-lg px-3 py-2" />
-                  <select value={prescricaoForm.via_administracao} onChange={e => setPrescricaoForm({...prescricaoForm, via_administracao: e.target.value})} className="border rounded-lg px-3 py-2"><option value="">Via</option><option value="oral">Oral</option><option value="intravenosa">IV</option></select>
+                  <input type="text" placeholder="Dosagem" value={prescricaoForm.dosagem} onChange={e => setPrescricaoForm({...prescricaoForm, dosagem: e.target.value})} className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white" />
+                  <select value={prescricaoForm.via_administracao} onChange={e => setPrescricaoForm({...prescricaoForm, via_administracao: e.target.value})} className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white">
+                    <option value="">Via</option>
+                    <option value="oral">Oral</option>
+                    <option value="intravenosa">IV</option>
+                  </select>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <input type="text" placeholder="Frequência" value={prescricaoForm.frequencia} onChange={e => setPrescricaoForm({...prescricaoForm, frequencia: e.target.value})} className="border rounded-lg px-3 py-2" />
-                  <input type="text" placeholder="Duração" value={prescricaoForm.duracao} onChange={e => setPrescricaoForm({...prescricaoForm, duracao: e.target.value})} className="border rounded-lg px-3 py-2" />
+                  <input type="text" placeholder="Frequência" value={prescricaoForm.frequencia} onChange={e => setPrescricaoForm({...prescricaoForm, frequencia: e.target.value})} className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white" />
+                  <input type="text" placeholder="Duração" value={prescricaoForm.duracao} onChange={e => setPrescricaoForm({...prescricaoForm, duracao: e.target.value})} className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white" />
                 </div>
               </div>
               <div className="flex justify-end gap-3 mt-5">
-                <button onClick={() => setShowPrescricaoModal(false)} className="px-4 py-2 border rounded-lg">Cancelar</button>
+                <button onClick={() => setShowPrescricaoModal(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300">Cancelar</button>
                 <button onClick={adicionarPrescricao} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Salvar</button>
               </div>
             </div>
@@ -1021,24 +1029,27 @@ export default function Prontuario() {
 
         {showReceitaModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto p-5">
-              <h3 className="text-xl font-semibold mb-4">{editingReceita ? 'Editar' : 'Nova'} Receita</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto p-5">
+              <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">{editingReceita ? 'Editar' : 'Nova'} Receita</h3>
               <div className="space-y-3">
-                <select value={receitaForm.tipo} onChange={e => setReceitaForm({...receitaForm, tipo: e.target.value})} className="w-full border rounded-lg px-3 py-2"><option value="medicamento">Medicamento</option><option value="especial">Especial</option></select>
+                <select value={receitaForm.tipo} onChange={e => setReceitaForm({...receitaForm, tipo: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white">
+                  <option value="medicamento">Medicamento</option>
+                  <option value="especial">Especial</option>
+                </select>
                 {receitaForm.medicamentos.map((med, idx) => (
-                  <div key={idx} className="border rounded-lg p-3">
+                  <div key={idx} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-700/50">
                     <div className="grid grid-cols-3 gap-2">
-                      <input placeholder="Medicamento" value={med.nome} onChange={e => atualizarMedicamentoReceita(idx, 'nome', e.target.value)} className="border rounded-lg px-2 py-1" />
-                      <input placeholder="Dosagem" value={med.dosagem} onChange={e => atualizarMedicamentoReceita(idx, 'dosagem', e.target.value)} className="border rounded-lg px-2 py-1" />
-                      <input placeholder="Quantidade" value={med.quantidade} onChange={e => atualizarMedicamentoReceita(idx, 'quantidade', e.target.value)} className="border rounded-lg px-2 py-1" />
+                      <input placeholder="Medicamento" value={med.nome} onChange={e => atualizarMedicamentoReceita(idx, 'nome', e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 bg-white dark:bg-gray-700 dark:text-white" />
+                      <input placeholder="Dosagem" value={med.dosagem} onChange={e => atualizarMedicamentoReceita(idx, 'dosagem', e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 bg-white dark:bg-gray-700 dark:text-white" />
+                      <input placeholder="Quantidade" value={med.quantidade} onChange={e => atualizarMedicamentoReceita(idx, 'quantidade', e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 bg-white dark:bg-gray-700 dark:text-white" />
                     </div>
                   </div>
                 ))}
-                <button onClick={adicionarMedicamentoReceita} className="text-blue-600 text-sm">+ Adicionar</button>
-                <input type="date" placeholder="Validade" value={receitaForm.validade} onChange={e => setReceitaForm({...receitaForm, validade: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
+                <button onClick={adicionarMedicamentoReceita} className="text-blue-600 dark:text-blue-400 text-sm">+ Adicionar</button>
+                <input type="date" placeholder="Validade" value={receitaForm.validade} onChange={e => setReceitaForm({...receitaForm, validade: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white" />
               </div>
               <div className="flex justify-end gap-3 mt-5">
-                <button onClick={() => setShowReceitaModal(false)} className="px-4 py-2 border rounded-lg">Cancelar</button>
+                <button onClick={() => setShowReceitaModal(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300">Cancelar</button>
                 <button onClick={adicionarReceita} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Gerar</button>
               </div>
             </div>
@@ -1047,20 +1058,23 @@ export default function Prontuario() {
 
         {showAtestadoModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl w-full max-w-lg p-5">
-              <h3 className="text-xl font-semibold mb-4">{editingAtestado ? 'Editar' : 'Novo'} Atestado</h3>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg p-5">
+              <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">{editingAtestado ? 'Editar' : 'Novo'} Atestado</h3>
               <div className="space-y-3">
-                <select value={atestadoForm.tipo} onChange={e => setAtestadoForm({...atestadoForm, tipo: e.target.value})} className="w-full border rounded-lg px-3 py-2"><option value="saude">Saúde</option><option value="acompanhamento">Acompanhamento</option></select>
-                <input type="number" placeholder="Dias de afastamento" value={atestadoForm.dias_afastamento} onChange={e => setAtestadoForm({...atestadoForm, dias_afastamento: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
+                <select value={atestadoForm.tipo} onChange={e => setAtestadoForm({...atestadoForm, tipo: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white">
+                  <option value="saude">Saúde</option>
+                  <option value="acompanhamento">Acompanhamento</option>
+                </select>
+                <input type="number" placeholder="Dias de afastamento" value={atestadoForm.dias_afastamento} onChange={e => setAtestadoForm({...atestadoForm, dias_afastamento: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white" />
                 <div className="grid grid-cols-2 gap-3">
-                  <input type="date" value={atestadoForm.data_inicio} onChange={e => setAtestadoForm({...atestadoForm, data_inicio: e.target.value})} className="border rounded-lg px-3 py-2" />
-                  <input type="date" value={atestadoForm.data_fim} onChange={e => setAtestadoForm({...atestadoForm, data_fim: e.target.value})} className="border rounded-lg px-3 py-2" />
+                  <input type="date" value={atestadoForm.data_inicio} onChange={e => setAtestadoForm({...atestadoForm, data_inicio: e.target.value})} className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white" />
+                  <input type="date" value={atestadoForm.data_fim} onChange={e => setAtestadoForm({...atestadoForm, data_fim: e.target.value})} className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white" />
                 </div>
-                <input type="text" placeholder="CID" value={atestadoForm.cid} onChange={e => setAtestadoForm({...atestadoForm, cid: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
-                <textarea rows="2" placeholder="Recomendações" value={atestadoForm.recomendacoes} onChange={e => setAtestadoForm({...atestadoForm, recomendacoes: e.target.value})} className="w-full border rounded-lg px-3 py-2" />
+                <input type="text" placeholder="CID" value={atestadoForm.cid} onChange={e => setAtestadoForm({...atestadoForm, cid: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white" />
+                <textarea rows="2" placeholder="Recomendações" value={atestadoForm.recomendacoes} onChange={e => setAtestadoForm({...atestadoForm, recomendacoes: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white" />
               </div>
               <div className="flex justify-end gap-3 mt-5">
-                <button onClick={() => setShowAtestadoModal(false)} className="px-4 py-2 border rounded-lg">Cancelar</button>
+                <button onClick={() => setShowAtestadoModal(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300">Cancelar</button>
                 <button onClick={adicionarAtestado} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Gerar</button>
               </div>
             </div>
@@ -1069,18 +1083,28 @@ export default function Prontuario() {
 
         {showProcedimentosModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto p-5">
-              <h3 className="text-xl font-semibold mb-4">Adicionar Procedimentos</h3>
-              <div className="relative mb-4"><MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-3 text-gray-400" /><input type="text" placeholder="Buscar..." value={buscaProcedimento} onChange={e => setBuscaProcedimento(e.target.value)} className="w-full border rounded-lg pl-8 pr-3 py-2" /></div>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto p-5">
+              <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">Adicionar Procedimentos</h3>
+              <div className="relative mb-4">
+                <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
+                <input type="text" placeholder="Buscar..." value={buscaProcedimento} onChange={e => setBuscaProcedimento(e.target.value)} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 bg-white dark:bg-gray-700 dark:text-white" />
+              </div>
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {procedimentosFiltrados.map(proc => (
-                  <div key={proc.id} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded-lg">
-                    <div><p className="text-sm font-medium">{proc.nome}</p><p className="text-xs text-gray-500">{proc.codigo_tuss} - R$ {proc.valor_sugerido?.toFixed(2)}</p></div>
-                    <button onClick={() => { if (!procedimentosSelecionados.find(p => p.id === proc.id)) { setProcedimentosSelecionados([...procedimentosSelecionados, proc]); toast.success(`${proc.nome} adicionado!`); } }} className="p-1 rounded-lg text-green-600"><PlusIcon className="w-5 h-5" /></button>
+                  <div key={proc.id} className="flex justify-between items-center p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium text-gray-800 dark:text-white">{proc.nome}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{proc.codigo_tuss} - R$ {proc.valor_sugerido?.toFixed(2)}</p>
+                    </div>
+                    <button onClick={() => { if (!procedimentosSelecionados.find(p => p.id === proc.id)) { setProcedimentosSelecionados([...procedimentosSelecionados, proc]); toast.success(`${proc.nome} adicionado!`); } }} className="p-1 rounded-lg text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20">
+                      <PlusIcon className="w-5 h-5" />
+                    </button>
                   </div>
                 ))}
               </div>
-              <div className="flex justify-end mt-4"><button onClick={() => setShowProcedimentosModal(false)} className="px-4 py-2 border rounded-lg">Fechar</button></div>
+              <div className="flex justify-end mt-4">
+                <button onClick={() => setShowProcedimentosModal(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300">Fechar</button>
+              </div>
             </div>
           </div>
         )}
