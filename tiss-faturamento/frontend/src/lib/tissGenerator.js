@@ -34,7 +34,7 @@ export function resetSequencialTransacao() { sequencialTransacaoGlobal = 1; }
 export function setSequencialTransacao(valor) { sequencialTransacaoGlobal = valor; }
 
 // ============================================
-// TABELAS ANS (domínios)
+// TABELAS ANS (DOMÍNIOS)
 // ============================================
 const INDICADOR_ACIDENTE = { '0': '0', '1': '1', '2': '2', '9': '9' };
 const TIPO_ATENDIMENTO = { '01': '01', '02': '02', '03': '03', '04': '04', '08': '08', '09': '09', '10': '10', '13': '13', '23': '23' };
@@ -62,6 +62,18 @@ const UNIDADE_MEDIDA = {
   '043': '043', '044': '044', '045': '045', '046': '046', '047': '047', '048': '048',
   '049': '049', '050': '050', '051': '051', '052': '052', '053': '053', '054': '054',
   '055': '055', '056': '056', '057': '057', '058': '058', '059': '059', '060': '060', '061': '061'
+};
+
+// Mapeamento de tabelas para tipo de despesa (para classificação)
+const TABELA_DESPESA = {
+  '18': 'diaria_gas',   // diárias/gases (depende do códigoDespesa)
+  '19': 'material',
+  '20': 'medicamento',
+  '05': 'procedimento', // Brasíndice – tratado como procedimento
+  '12': 'procedimento', // SIMPRO – tratado como procedimento
+  '22': 'procedimento', // TUSS – procedimento
+  '00': 'procedimento', // Tabela própria – procedimento
+  '98': 'procedimento'  // Pacotes – procedimento (mas pode ter despesas internas)
 };
 
 const mapaConselhos = {
@@ -116,7 +128,7 @@ function getMotivoEncerramento(valor) {
 }
 
 function getUnidadeMedida(valor) {
-  return UNIDADE_MEDIDA[valor] || '036'; // padrão UN
+  return UNIDADE_MEDIDA[valor] || '036';
 }
 
 function formatarHora(hora) {
@@ -157,7 +169,8 @@ export function gerarXMLTISS(dados) {
   const guias = dados.guias || [];
 
   // CNPJ do prestador (origem)
-  const cnpjPrestador = (config?.cnpj || dados.cnpjPrestador || '20384928000124').replace(/\D/g, '');
+  let cnpjPrestador = (config?.cnpj || dados.cnpjPrestador || '20384928000124').replace(/\D/g, '');
+  if (cnpjPrestador.length < 14) cnpjPrestador = cnpjPrestador.padStart(14, '0');
 
   let guiasXML = '';
   for (const guia of guias) {
@@ -233,54 +246,79 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   const motivoEncerramento = getMotivoEncerramento(guia.motivo_encerramento);
 
   // Dados do contratado (config)
-  const cnpjContratado = (config?.cnpj || '20384928000124').replace(/\D/g, '');
+  let cnpjContratado = (config?.cnpj || '20384928000124').replace(/\D/g, '');
+  if (cnpjContratado.length < 14) cnpjContratado = cnpjContratado.padStart(14, '0');
   const nomeContratadoSolicitante = (config?.nome_contratado || 'HOSPITAL EXEMPLO').toUpperCase();
   const cnesExecutante = config?.cnes || '0000000';
   const conselhoClinica = getCodigoConselho(config?.conselho_clinica || '06');
   const ufClinica = getCodigoUF(config?.uf_clinica || 'SP');
   const cbosClinica = config?.cbos_clinica || '225125';
 
-  // Itens fornecidos (podem ser de qualquer tabela)
   const itens = guia.itens || [];
 
-  // Separa procedimentos (tabela 22) e outras despesas
+  // Processa os itens: classifica entre procedimentos e outras despesas
   const procedimentos = [];
-  const outrasDespesas = []; // cada item será { codigoDespesa, servico }
+  const outrasDespesas = [];
 
   for (const item of itens) {
-    const tabela = item.tabela_referencia || '22';
+    let tabela = item.tabela_referencia || item.tabela || '22';
+    tabela = String(tabela).trim();
     const codDespesa = getCodigoDespesa(item.codigo_despesa);
-    const servico = {
-      dataExecucao: item.data_execucao || dataSolicitacao,
-      horaInicial: formatarHora(item.hora_inicial || '00:00:00'),
-      horaFinal: formatarHora(item.hora_final || '00:00:00'),
-      codigoTabela: tabela,
-      codigoProcedimento: item.codigo || item.codigo_procedimento || '00000000',
-      quantidade: Number(item.quantidade || 1),
-      unidadeMedida: getUnidadeMedida(item.unidade_medida),
-      reducaoAcrescimo: (item.reducao_acrescimo || '1.00').toString(),
-      valorUnitario: Number(item.valor_unitario || 0),
-      valorTotal: (Number(item.quantidade || 1) * Number(item.valor_unitario || 0)).toFixed(2),
-      descricaoProcedimento: item.nome || item.nome_procedimento || 'SERVIÇO',
-      // Campos para equipe (quando aplicável, apenas para procedimentos)
-      prestadorNome: item.prestador_nome,
-      prestadorConselho: item.prestador_conselho,
-      prestadorNumeroConselho: item.prestador_numero_conselho,
-      prestadorUF: item.prestador_uf_conselho,
-      prestadorCBOS: item.prestador_cbos,
-      prestadorCPF: item.prestador_cpf,
-      grauParticipacao: item.grau_participacao
-    };
+    const quantidade = Number(item.quantidade || 1);
+    const valorUnitario = Number(item.valor_unitario || 0);
+    const valorTotal = quantidade * valorUnitario;
+    const dataExecucao = item.data_execucao || dataSolicitacao;
+    const horaInicial = formatarHora(item.hora_inicial || '00:00:00');
+    const horaFinal = formatarHora(item.hora_final || '00:00:00');
 
-    if (tabela === '22') {
-      procedimentos.push(servico);
+    // Verifica se a tabela é de procedimento (inclui 05,12,22,00,98)
+    const tipoDespesa = TABELA_DESPESA[tabela];
+    const isProcedimento = tipoDespesa === 'procedimento';
+    const isDespesa = (tabela === '18' || tabela === '19' || tabela === '20') && codDespesa !== '';
+
+    if (isProcedimento) {
+      // Procedimento (inclui tabelas próprias, Brasíndice, SIMPRO, Pacotes)
+      procedimentos.push({
+        dataExecucao,
+        horaInicial,
+        horaFinal,
+        codigoTabela: tabela,
+        codigoProcedimento: item.codigo || item.codigo_procedimento || '00000000',
+        descricaoProcedimento: item.nome || item.nome_procedimento || 'PROCEDIMENTO',
+        quantidade,
+        viaAcesso: item.viaAcesso || '1',
+        tecnicaUtilizada: item.tecnicaUtilizada || '1',
+        reducaoAcrescimo: (item.reducao_acrescimo || '1.00').toString(),
+        valorUnitario,
+        valorTotal,
+        grauParticipacao: getGrauParticipacao(item.grau_participacao),
+        prestadorCPF: (item.prestador_cpf || '00000000000').replace(/\D/g, '').slice(0, 11),
+        prestadorNome: item.prestador_nome || item.nome_profissional || 'PROFISSIONAL',
+        prestadorConselho: getCodigoConselho(item.prestador_conselho || item.conselho),
+        prestadorNumeroConselho: item.prestador_numero_conselho || item.numero_conselho || '00000',
+        prestadorUF: getCodigoUF(item.prestador_uf_conselho || item.uf_conselho),
+        prestadorCBOS: item.prestador_cbos || item.cbos || '225125'
+      });
+    } else if (isDespesa) {
+      // Despesas (materiais, medicamentos, diárias, taxas)
+      outrasDespesas.push({
+        codigoDespesa,
+        servico: {
+          dataExecucao,
+          horaInicial,
+          horaFinal,
+          codigoTabela: tabela,
+          codigoProcedimento: item.codigo || item.codigo_procedimento || '00000000',
+          quantidade,
+          unidadeMedida: getUnidadeMedida(item.unidade_medida),
+          reducaoAcrescimo: (item.reducao_acrescimo || '1.00').toString(),
+          valorUnitario,
+          valorTotal,
+          descricaoProcedimento: item.nome || item.nome_procedimento || 'DESPESA'
+        }
+      });
     } else {
-      // Para outras despesas, precisa do código de despesa
-      if (codDespesa) {
-        outrasDespesas.push({ codigoDespesa: codDespesa, servico });
-      } else {
-        console.warn(`Item com tabela ${tabela} ignorado: código de despesa não informado ou inválido.`);
-      }
+      console.warn(`Item ignorado: tabela ${tabela} sem classificação ou código de despesa inválido.`, item);
     }
   }
 
@@ -293,28 +331,37 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   let valorOPME = 0;
   let valorGasesMedicinais = 0;
 
-  // Mapeamento de código de despesa para acumulador
-  const codigoParaAcumulador = {
-    '01': () => valorDiarias += 0,        // Diárias (normalmente tratado à parte, mas aqui usamos valorDiarias)
-    '02': (v) => valorMedicamentos += v,
-    '03': (v) => valorMateriais += v,
-    '05': (v) => valorDiarias += v,       // Diárias (tabela 18)
-    '07': (v) => valorTaxasAlugueis += v,
-    '08': (v) => valorOPME += v
-  };
-  // Gases medicinais (código 01 com tabela 18? Vamos identificar pelo descritivo ou por código específico)
-  // No exemplo, não aparece gases. Vamos deixar a lógica simples: se tabela 18 e códigoDespesa 01, é gases.
-  // Mas a conta final será ajustada pelo usuário.
+  function acumular(codigoDespesa, valor, tabela) {
+    switch (codigoDespesa) {
+      case '01': // Gases ou Diárias
+        if (tabela === '18') valorGasesMedicinais += valor;
+        else valorDiarias += valor;
+        break;
+      case '02': valorMedicamentos += valor; break;
+      case '03': valorMateriais += valor; break;
+      case '05': valorDiarias += valor; break;
+      case '07': valorTaxasAlugueis += valor; break;
+      case '08': valorOPME += valor; break;
+      default: break;
+    }
+  }
 
-  // Contador sequencial geral (começa em 1)
+  for (const proc of procedimentos) {
+    valorProcedimentos += proc.valorTotal;
+  }
+  for (const desp of outrasDespesas) {
+    acumular(desp.codigoDespesa, desp.servico.valorTotal, desp.servico.codigoTabela);
+  }
+
+  const valorTotalGeral = valorProcedimentos + valorDiarias + valorTaxasAlugueis +
+                          valorMateriais + valorMedicamentos + valorOPME + valorGasesMedicinais;
+
+  // Sequencial global para itens
   let sequencialGlobal = 1;
 
-  // Monta XML dos procedimentos executados
+  // Gera XML dos procedimentos
   let procedimentosXML = '';
   for (const proc of procedimentos) {
-    const valorTotal = parseFloat(proc.valorTotal);
-    valorProcedimentos += valorTotal;
-
     procedimentosXML += '            <ans:procedimentoExecutado>\n';
     procedimentosXML += `              <ans:sequencialItem>${sequencialGlobal++}</ans:sequencialItem>\n`;
     procedimentosXML += `              <ans:dataExecucao>${proc.dataExecucao}</ans:dataExecucao>\n`;
@@ -326,45 +373,35 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
     procedimentosXML += `                <ans:descricaoProcedimento>${escapeXML(proc.descricaoProcedimento)}</ans:descricaoProcedimento>\n`;
     procedimentosXML += '              </ans:procedimento>\n';
     procedimentosXML += `              <ans:quantidadeExecutada>${proc.quantidade}</ans:quantidadeExecutada>\n`;
-    procedimentosXML += `              <ans:viaAcesso>${proc.viaAcesso || '1'}</ans:viaAcesso>\n`;
-    procedimentosXML += `              <ans:tecnicaUtilizada>${proc.tecnicaUtilizada || '1'}</ans:tecnicaUtilizada>\n`;
+    procedimentosXML += `              <ans:viaAcesso>${proc.viaAcesso}</ans:viaAcesso>\n`;
+    procedimentosXML += `              <ans:tecnicaUtilizada>${proc.tecnicaUtilizada}</ans:tecnicaUtilizada>\n`;
     procedimentosXML += `              <ans:reducaoAcrescimo>${proc.reducaoAcrescimo}</ans:reducaoAcrescimo>\n`;
-    procedimentosXML += `              <ans:valorUnitario>${Number(proc.valorUnitario).toFixed(2)}</ans:valorUnitario>\n`;
-    procedimentosXML += `              <ans:valorTotal>${Number(proc.valorTotal).toFixed(2)}</ans:valorTotal>\n`;
-    // Equipe SADT (obrigatório para procedimentos)
+    procedimentosXML += `              <ans:valorUnitario>${proc.valorUnitario.toFixed(2)}</ans:valorUnitario>\n`;
+    procedimentosXML += `              <ans:valorTotal>${proc.valorTotal.toFixed(2)}</ans:valorTotal>\n`;
     procedimentosXML += '              <ans:equipeSadt>\n';
-    procedimentosXML += `                <ans:grauPart>${getGrauParticipacao(proc.grauParticipacao)}</ans:grauPart>\n`;
+    procedimentosXML += `                <ans:grauPart>${proc.grauParticipacao}</ans:grauPart>\n`;
     procedimentosXML += '                <ans:codProfissional>\n';
-    const cpfProf = (proc.prestadorCPF || '00000000000').replace(/\D/g, '').slice(0,11);
-    procedimentosXML += `                  <ans:cpfContratado>${cpfProf}</ans:cpfContratado>\n`;
+    procedimentosXML += `                  <ans:cpfContratado>${proc.prestadorCPF}</ans:cpfContratado>\n`;
     procedimentosXML += '                </ans:codProfissional>\n';
-    procedimentosXML += `                <ans:nomeProf>${escapeXML(proc.prestadorNome || 'PROFISSIONAL')}</ans:nomeProf>\n`;
-    procedimentosXML += `                <ans:conselho>${getCodigoConselho(proc.prestadorConselho)}</ans:conselho>\n`;
-    procedimentosXML += `                <ans:numeroConselhoProfissional>${escapeXML(proc.prestadorNumeroConselho || '00000')}</ans:numeroConselhoProfissional>\n`;
-    procedimentosXML += `                <ans:UF>${getCodigoUF(proc.prestadorUF)}</ans:UF>\n`;
-    procedimentosXML += `                <ans:CBOS>${proc.prestadorCBOS || '225125'}</ans:CBOS>\n`;
+    procedimentosXML += `                <ans:nomeProf>${escapeXML(proc.prestadorNome)}</ans:nomeProf>\n`;
+    procedimentosXML += `                <ans:conselho>${proc.prestadorConselho}</ans:conselho>\n`;
+    procedimentosXML += `                <ans:numeroConselhoProfissional>${escapeXML(proc.prestadorNumeroConselho)}</ans:numeroConselhoProfissional>\n`;
+    procedimentosXML += `                <ans:UF>${proc.prestadorUF}</ans:UF>\n`;
+    procedimentosXML += `                <ans:CBOS>${proc.prestadorCBOS}</ans:CBOS>\n`;
     procedimentosXML += '              </ans:equipeSadt>\n';
     procedimentosXML += '            </ans:procedimentoExecutado>\n';
   }
 
-  // Agrupa outras despesas por código de despesa
-  const despesasPorCodigo = new Map(); // chave: codigoDespesa, valor: array de servicos
-  for (const item of outrasDespesas) {
-    if (!despesasPorCodigo.has(item.codigoDespesa)) {
-      despesasPorCodigo.set(item.codigoDespesa, []);
-    }
-    despesasPorCodigo.get(item.codigoDespesa).push(item.servico);
-    // Acumula totais
-    const valor = parseFloat(item.servico.valorTotal);
-    const fn = codigoParaAcumulador[item.codigoDespesa];
-    if (fn) fn(valor);
-    else if (item.codigoDespesa === '01' && item.servico.codigoTabela === '18') valorGasesMedicinais += valor;
-    else console.warn(`Código de despesa ${item.codigoDespesa} sem acumulador definido.`);
-  }
-
-  // Monta XML de outras despesas
+  // Gera XML das outras despesas, agrupadas por código de despesa
   let outrasDespesasXML = '';
-  if (despesasPorCodigo.size > 0) {
+  if (outrasDespesas.length > 0) {
+    const despesasPorCodigo = new Map();
+    for (const desp of outrasDespesas) {
+      if (!despesasPorCodigo.has(desp.codigoDespesa)) {
+        despesasPorCodigo.set(desp.codigoDespesa, []);
+      }
+      despesasPorCodigo.get(desp.codigoDespesa).push(desp.servico);
+    }
     outrasDespesasXML = '          <ans:outrasDespesas>\n';
     for (const [codDespesa, servicos] of despesasPorCodigo.entries()) {
       outrasDespesasXML += '            <ans:despesa>\n';
@@ -380,8 +417,8 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
         outrasDespesasXML += `                <ans:quantidadeExecutada>${serv.quantidade}</ans:quantidadeExecutada>\n`;
         outrasDespesasXML += `                <ans:unidadeMedida>${serv.unidadeMedida}</ans:unidadeMedida>\n`;
         outrasDespesasXML += `                <ans:reducaoAcrescimo>${serv.reducaoAcrescimo}</ans:reducaoAcrescimo>\n`;
-        outrasDespesasXML += `                <ans:valorUnitario>${Number(serv.valorUnitario).toFixed(2)}</ans:valorUnitario>\n`;
-        outrasDespesasXML += `                <ans:valorTotal>${Number(serv.valorTotal).toFixed(2)}</ans:valorTotal>\n`;
+        outrasDespesasXML += `                <ans:valorUnitario>${serv.valorUnitario.toFixed(2)}</ans:valorUnitario>\n`;
+        outrasDespesasXML += `                <ans:valorTotal>${serv.valorTotal.toFixed(2)}</ans:valorTotal>\n`;
         outrasDespesasXML += `                <ans:descricaoProcedimento>${escapeXML(serv.descricaoProcedimento)}</ans:descricaoProcedimento>\n`;
         outrasDespesasXML += '              </ans:servicosExecutados>\n';
       }
@@ -389,8 +426,6 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
     }
     outrasDespesasXML += '          </ans:outrasDespesas>\n';
   }
-
-  const valorTotalGeral = valorProcedimentos + valorDiarias + valorTaxasAlugueis + valorMateriais + valorMedicamentos + valorOPME + valorGasesMedicinais;
 
   // Início da guia
   let guiaXML = '        <ans:guiaSP-SADT>\n';
@@ -442,7 +477,7 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   guiaXML += '          <ans:dadosExecutante>\n';
   guiaXML += '            <ans:contratadoExecutante>\n';
   if (codigoPrestadorExecutante) {
-    // Se for CPF/CNPJ, colocar a tag apropriada. Vamos supor CNPJ
+    // Se for CNPJ ou CPF, escolhe a tag adequada. Vamos manter CNPJ por simplicidade.
     guiaXML += `              <ans:cnpjContratado>${escapeXML(codigoPrestadorExecutante)}</ans:cnpjContratado>\n`;
   } else {
     guiaXML += `              <ans:cnpjContratado>${cnpjContratado}</ans:cnpjContratado>\n`;
@@ -462,7 +497,7 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   if (saudeOcupacional) guiaXML += `            <ans:saudeOcupacional>${saudeOcupacional}</ans:saudeOcupacional>\n`;
   guiaXML += '          </ans:dadosAtendimento>\n';
 
-  // Procedimentos executados
+  // Procedimentos executados (se houver)
   if (procedimentosXML) {
     guiaXML += '          <ans:procedimentosExecutados>\n';
     guiaXML += procedimentosXML;
@@ -573,8 +608,8 @@ export function gerarXMLExemplo(versao) {
   }];
   return gerarXMLTISS({
     versao: versaoFinal,
-    cnpjPrestador: config?.cnpj || '0000000000000',
-    registroANS: config?.registro_ans || '000000',
+    cnpjPrestador: config?.cnpj || '20384928000124',
+    registroANS: config?.registro_ans || '421928',
     numeroLote: 'LOTE' + Date.now().toString(),
     guias
   });
