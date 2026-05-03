@@ -103,7 +103,7 @@ export default function Convenios() {
       codigo_prestador: '', senha_prestador: '', cnes: '',
       ambiente: 'homologacao', url_webservice: '',
       tipo_tabela: 'TUSS', multiplicador: 1.00, coparticipacao: false,
-      percentual_coparticipacao: 0, proximo_numero_guia: 1000000, 
+      percentual_coparticipacao: 0, proximo_numero_guia: 1000000,
       ultimo_numero_guia: 999999, versao_tiss: '4.03.00'
     });
   };
