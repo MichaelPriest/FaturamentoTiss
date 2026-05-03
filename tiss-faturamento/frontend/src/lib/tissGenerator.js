@@ -234,6 +234,8 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   const regimeAtendimento = guia.regime_atendimento || '01';
   const coberturaEspecial = guia.cobertura_especial || '';
   const saudeOcupacional = guia.saude_ocupacional || '';
+  const indicacaoClinica = guia.indicacao_clinica || '';
+  const motivoEncerramento = guia.motivo_encerramento || '';
 
   const cnpjContratado = (config && config.cnpj) ? config.cnpj.replace(/\D/g, '') : '20384928000205';
   const nomeContratadoSolicitante = (config && config.nome_contratado) ? config.nome_contratado.toUpperCase() : 'CLINICA NAO CONFIGURADA';
@@ -249,9 +251,18 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
     const item = itens[idx];
     const sequencialItem = (idx + 1).toString();
     const dataExecucao = item.data_execucao || dataSolicitacao;
-    const horaInicial = formatarHora(item.hora_inicial);
-    const horaFinal = formatarHora(item.hora_final);
+    const horaInicial = formatarHora(item.hora_inicial || '08:00');
+    const horaFinal = formatarHora(item.hora_final || '09:00');
     
+    // Dados do procedimento
+    const codigoProcedimento = item.codigo || item.codigo_procedimento || item.procedimento_codigo || '00000000';
+    const nomeProcedimento = item.nome || item.nome_procedimento || item.procedimento_nome || 'PROCEDIMENTO';
+    const tabelaReferencia = item.tabela_referencia || '22';
+    const quantidade = (item.quantidade || 1).toString();
+    const valorUnitario = parseFloat(item.valor_unitario || 0).toFixed(2);
+    const valorTotal = parseFloat(item.valor_total || 0).toFixed(2);
+    
+    // Dados do profissional executante
     const prestadorNome = item.prestador_nome || item.nome_profissional || 'PROFISSIONAL';
     const prestadorConselho = getCodigoConselho(item.prestador_conselho || item.conselho || '06');
     const prestadorNumeroConselho = item.prestador_numero_conselho || item.numero_conselho || '00000';
@@ -260,28 +271,59 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
     const prestadorCPF = item.prestador_cpf || item.cpf || '00000000000';
     const grauParticipacao = getGrauParticipacao(item.grau_participacao || '12');
     
-    const codigoProcedimento = item.codigo || item.codigo_procedimento || item.procedimento_codigo || '00000000';
-    const nomeProcedimento = item.nome || item.nome_procedimento || item.procedimento_nome || 'PROCEDIMENTO';
-    const tabelaReferencia = item.tabela_referencia || '22';
-    const quantidade = (item.quantidade || 1).toString();
-    const valorUnitario = parseFloat(item.valor_unitario || 0).toFixed(2);
-    const valorTotal = parseFloat(item.valor_total || 0).toFixed(2);
+    // Campos opcionais do procedimento
+    const viaAcesso = item.viaAcesso || '1';
+    const tecnicaUtilizada = item.tecnicaUtilizada || '1';
+    const reducaoAcrescimo = item.reducaoAcrescimo || '1.00';
+    const codigoDespesa = item.codigo_despesa || '';
     
     valorTotalGeral += parseFloat(valorTotal);
     
     procedimentosXML += '            <ans:procedimentoExecutado>\n';
+    
+    // OBRIGATÓRIO: sequencialItem
     procedimentosXML += '              <ans:sequencialItem>' + sequencialItem + '</ans:sequencialItem>\n';
+    
+    // OBRIGATÓRIO: dataExecucao
     procedimentosXML += '              <ans:dataExecucao>' + dataExecucao + '</ans:dataExecucao>\n';
+    
+    // OBRIGATÓRIO: horaInicial
     procedimentosXML += '              <ans:horaInicial>' + horaInicial + '</ans:horaInicial>\n';
+    
+    // OBRIGATÓRIO: horaFinal
     procedimentosXML += '              <ans:horaFinal>' + horaFinal + '</ans:horaFinal>\n';
+    
+    // OBRIGATÓRIO: procedimento (codigoTabela, codigoProcedimento, descricaoProcedimento)
     procedimentosXML += '              <ans:procedimento>\n';
-    procedimentosXML += '                <ans:codigoTabela>' + tabelaReferencia + '</ans:codigoTabela>\n';
+    procedimentosXML += '                <ans:codigoTabela>' + escapeXML(tabelaReferencia) + '</ans:codigoTabela>\n';
     procedimentosXML += '                <ans:codigoProcedimento>' + escapeXML(codigoProcedimento) + '</ans:codigoProcedimento>\n';
     procedimentosXML += '                <ans:descricaoProcedimento>' + escapeXML(nomeProcedimento) + '</ans:descricaoProcedimento>\n';
     procedimentosXML += '              </ans:procedimento>\n';
+    
+    // OBRIGATÓRIO: quantidadeExecutada
     procedimentosXML += '              <ans:quantidadeExecutada>' + quantidade + '</ans:quantidadeExecutada>\n';
+    
+    // OBRIGATÓRIO: viaAcesso
+    procedimentosXML += '              <ans:viaAcesso>' + viaAcesso + '</ans:viaAcesso>\n';
+    
+    // OBRIGATÓRIO: tecnicaUtilizada
+    procedimentosXML += '              <ans:tecnicaUtilizada>' + tecnicaUtilizada + '</ans:tecnicaUtilizada>\n';
+    
+    // OBRIGATÓRIO: reducaoAcrescimo
+    procedimentosXML += '              <ans:reducaoAcrescimo>' + reducaoAcrescimo + '</ans:reducaoAcrescimo>\n';
+    
+    // OBRIGATÓRIO: valorUnitario
     procedimentosXML += '              <ans:valorUnitario>' + valorUnitario + '</ans:valorUnitario>\n';
+    
+    // OBRIGATÓRIO: valorTotal
     procedimentosXML += '              <ans:valorTotal>' + valorTotal + '</ans:valorTotal>\n';
+    
+    // OPCIONAL: codigoDespesa
+    if (codigoDespesa) {
+      procedimentosXML += '              <ans:codigoDespesa>' + codigoDespesa + '</ans:codigoDespesa>\n';
+    }
+    
+    // OBRIGATÓRIO: equipeSadt
     procedimentosXML += '              <ans:equipeSadt>\n';
     procedimentosXML += '                <ans:grauPart>' + grauParticipacao + '</ans:grauPart>\n';
     procedimentosXML += '                <ans:codProfissional>\n';
@@ -293,15 +335,11 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
     procedimentosXML += '                <ans:UF>' + prestadorUF + '</ans:UF>\n';
     procedimentosXML += '                <ans:CBOS>' + prestadorCBOS + '</ans:CBOS>\n';
     procedimentosXML += '              </ans:equipeSadt>\n';
+    
     procedimentosXML += '            </ans:procedimentoExecutado>\n';
   }
 
   const valorTotalFormatado = valorTotalGeral.toFixed(2);
-  const caraterValue = CARATER_ATENDIMENTO[caraterAtendimento] || '1';
-  const tipoAtendimentoValue = TIPO_ATENDIMENTO[tipoAtendimento] || '04';
-  const indicadorAcidenteValue = INDICADOR_ACIDENTE[indicacaoAcidente] || '9';
-  const tipoConsultaValue = TIPO_CONSULTA[tipoConsulta] || '1';
-  const regimeAtendimentoValue = REGIME_ATENDIMENTO[regimeAtendimento] || '01';
 
   let guiaXML = '        <ans:guiaSP-SADT>\n';
   guiaXML += '          <ans:cabecalhoGuia>\n';
@@ -309,14 +347,15 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   guiaXML += '            <ans:numeroGuiaPrestador>' + escapeXML(numeroGuiaPrestador) + '</ans:numeroGuiaPrestador>\n';
   guiaXML += '          </ans:cabecalhoGuia>\n';
   
+  // dadosAutorizacao (opcional)
   if (numeroGuiaOperadora || dataAutorizacao || senha) {
     guiaXML += '          <ans:dadosAutorizacao>\n';
     if (numeroGuiaOperadora) {
-      guiaXML += '            <ans:numeroGuiaOperadora>' + numeroGuiaOperadora + '</ans:numeroGuiaOperadora>\n';
+      guiaXML += '            <ans:numeroGuiaOperadora>' + escapeXML(numeroGuiaOperadora) + '</ans:numeroGuiaOperadora>\n';
     }
     guiaXML += '            <ans:dataAutorizacao>' + dataAutorizacao + '</ans:dataAutorizacao>\n';
     if (senha) {
-      guiaXML += '            <ans:senha>' + senha + '</ans:senha>\n';
+      guiaXML += '            <ans:senha>' + escapeXML(senha) + '</ans:senha>\n';
     }
     if (dataValidadeSenha) {
       guiaXML += '            <ans:dataValidadeSenha>' + dataValidadeSenha + '</ans:dataValidadeSenha>\n';
@@ -324,11 +363,14 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
     guiaXML += '          </ans:dadosAutorizacao>\n';
   }
   
+  // dadosBeneficiario (obrigatório)
   guiaXML += '          <ans:dadosBeneficiario>\n';
   guiaXML += '            <ans:numeroCarteira>' + escapeXML(numeroCarteira) + '</ans:numeroCarteira>\n';
   guiaXML += '            <ans:atendimentoRN>N</ans:atendimentoRN>\n';
+  guiaXML += '            <ans:nomeBeneficiario>' + escapeXML(nomeBeneficiario) + '</ans:nomeBeneficiario>\n';
   guiaXML += '          </ans:dadosBeneficiario>\n';
   
+  // dadosSolicitante (obrigatório)
   guiaXML += '          <ans:dadosSolicitante>\n';
   guiaXML += '            <ans:contratadoSolicitante>\n';
   guiaXML += '              <ans:cnpjContratado>' + cnpjContratado + '</ans:cnpjContratado>\n';
@@ -337,17 +379,22 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   guiaXML += '            <ans:profissionalSolicitante>\n';
   guiaXML += '              <ans:nomeProfissional>' + escapeXML(nomeProfissionalSolicitante) + '</ans:nomeProfissional>\n';
   guiaXML += '              <ans:conselhoProfissional>' + conselhoClinica + '</ans:conselhoProfissional>\n';
-  guiaXML += '              <ans:numeroConselhoProfissional>' + numeroConselhoProfissionalSolicitante + '</ans:numeroConselhoProfissional>\n';
+  guiaXML += '              <ans:numeroConselhoProfissional>' + escapeXML(numeroConselhoProfissionalSolicitante) + '</ans:numeroConselhoProfissional>\n';
   guiaXML += '              <ans:UF>' + ufClinica + '</ans:UF>\n';
   guiaXML += '              <ans:CBOS>' + cbosClinica + '</ans:CBOS>\n';
   guiaXML += '            </ans:profissionalSolicitante>\n';
   guiaXML += '          </ans:dadosSolicitante>\n';
   
+  // dadosSolicitacao (obrigatório)
   guiaXML += '          <ans:dadosSolicitacao>\n';
   guiaXML += '            <ans:dataSolicitacao>' + dataSolicitacao + '</ans:dataSolicitacao>\n';
-  guiaXML += '            <ans:caraterAtendimento>' + caraterValue + '</ans:caraterAtendimento>\n';
+  guiaXML += '            <ans:caraterAtendimento>' + caraterAtendimento + '</ans:caraterAtendimento>\n';
+  if (indicacaoClinica) {
+    guiaXML += '            <ans:indicacaoClinica>' + escapeXML(indicacaoClinica) + '</ans:indicacaoClinica>\n';
+  }
   guiaXML += '          </ans:dadosSolicitacao>\n';
   
+  // dadosExecutante (obrigatório)
   guiaXML += '          <ans:dadosExecutante>\n';
   guiaXML += '            <ans:contratadoExecutante>\n';
   guiaXML += '              <ans:codigoPrestadorNaOperadora>' + escapeXML(codigoPrestadorExecutante) + '</ans:codigoPrestadorNaOperadora>\n';
@@ -355,27 +402,34 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   guiaXML += '            <ans:CNES>' + cnesExecutante + '</ans:CNES>\n';
   guiaXML += '          </ans:dadosExecutante>\n';
   
+  // dadosAtendimento (obrigatório)
   guiaXML += '          <ans:dadosAtendimento>\n';
-  guiaXML += '            <ans:tipoAtendimento>' + tipoAtendimentoValue + '</ans:tipoAtendimento>\n';
-  guiaXML += '            <ans:indicacaoAcidente>' + indicadorAcidenteValue + '</ans:indicacaoAcidente>\n';
-  guiaXML += '            <ans:tipoConsulta>' + tipoConsultaValue + '</ans:tipoConsulta>\n';
+  guiaXML += '            <ans:tipoAtendimento>' + tipoAtendimento + '</ans:tipoAtendimento>\n';
+  guiaXML += '            <ans:indicacaoAcidente>' + indicacaoAcidente + '</ans:indicacaoAcidente>\n';
+  guiaXML += '            <ans:tipoConsulta>' + tipoConsulta + '</ans:tipoConsulta>\n';
   if (coberturaEspecial) {
-    guiaXML += '            <ans:coberturaEspecial>' + coberturaEspecial + '</ans:coberturaEspecial>\n';
+    guiaXML += '            <ans:coberturaEspecial>' + escapeXML(coberturaEspecial) + '</ans:coberturaEspecial>\n';
   }
-  guiaXML += '            <ans:regimeAtendimento>' + regimeAtendimentoValue + '</ans:regimeAtendimento>\n';
+  if (motivoEncerramento) {
+    guiaXML += '            <ans:motivoEncerramento>' + motivoEncerramento + '</ans:motivoEncerramento>\n';
+  }
+  guiaXML += '            <ans:regimeAtendimento>' + regimeAtendimento + '</ans:regimeAtendimento>\n';
   if (saudeOcupacional) {
     guiaXML += '            <ans:saudeOcupacional>' + saudeOcupacional + '</ans:saudeOcupacional>\n';
   }
   guiaXML += '          </ans:dadosAtendimento>\n';
   
+  // procedimentosExecutados (obrigatório)
   guiaXML += '          <ans:procedimentosExecutados>\n';
   guiaXML += procedimentosXML;
   guiaXML += '          </ans:procedimentosExecutados>\n';
   
+  // valorTotal (obrigatório)
   guiaXML += '          <ans:valorTotal>\n';
   guiaXML += '            <ans:valorProcedimentos>' + valorTotalFormatado + '</ans:valorProcedimentos>\n';
   guiaXML += '            <ans:valorTotalGeral>' + valorTotalFormatado + '</ans:valorTotalGeral>\n';
   guiaXML += '          </ans:valorTotal>\n';
+  
   guiaXML += '        </ans:guiaSP-SADT>\n';
 
   return guiaXML;
