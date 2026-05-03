@@ -395,7 +395,7 @@ export default function Glosas() {
               onClick={() => carregarGuiasDoLote('')}
               className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-1 transition-all"
             >
-              <DocumentMagnifyingGlassIcon className="w-4 h-4" />
+              <ClipboardDocumentListIcon className="w-4 h-4" />
               Ver Guias do Lote
             </button>
             <button
