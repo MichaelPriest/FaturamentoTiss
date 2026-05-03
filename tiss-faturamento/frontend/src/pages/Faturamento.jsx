@@ -196,13 +196,7 @@ export default function Faturamento() {
   // ============================================
 
   const gerarNumeroLote = () => {
-    const data = new Date();
-    const ano = data.getFullYear().toString().slice(-2);
-    const mes = (data.getMonth() + 1).toString().padStart(2, '0');
-    const dia = data.getDate().toString().padStart(2, '0');
-    // O sequencialGlobal começa em 1 por padrão
-    const seq = sequencialGlobal.toString().padStart(6, '0');
-    return `${ano}${mes}${dia}${seq}`;
+    return sequencialGlobal.toString().padStart(12, '0');
   };
 
   // Função pura para calcular impostos (não usa estado)
