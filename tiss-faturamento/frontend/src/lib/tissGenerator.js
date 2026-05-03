@@ -127,7 +127,6 @@ function escapeXML(str) {
   });
 }
 
-// Nova função para classificar item por tipo de tabela
 function getTipoDespesa(tabelaReferencia) {
   switch (tabelaReferencia) {
     case '18': return 'diarias';
@@ -198,7 +197,7 @@ export function gerarXMLTISS(dados) {
 
 function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   const numeroCarteira = guia.numeroCarteira || '000000000';
-  const nomeBeneficiario = guia.nomeBeneficiario || 'BENEFICIARIO';
+  // Campo nomeBeneficiario não é mais utilizado (removido na versão 4)
   const dataSolicitacao = guia.dataSolicitacao || new Date().toISOString().split('T')[0];
   const numeroGuiaPrestador = guia.numero_guia_prestador || ('G' + Date.now().toString());
   const numeroGuiaOperadora = guia.numero_guia_operadora || '';
@@ -327,7 +326,7 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   guiaXML += '          <ans:dadosBeneficiario>\n';
   guiaXML += `            <ans:numeroCarteira>${escapeXML(numeroCarteira)}</ans:numeroCarteira>\n`;
   guiaXML += '            <ans:atendimentoRN>N</ans:atendimentoRN>\n';
-  guiaXML += `            <ans:nomeBeneficiario>${escapeXML(nomeBeneficiario)}</ans:nomeBeneficiario>\n`;
+  // Nome do beneficiário NÃO é mais gerado (LGPD e padrão TISS versão 4+)
   guiaXML += '          </ans:dadosBeneficiario>\n';
 
   guiaXML += '          <ans:dadosSolicitante>\n';
@@ -373,12 +372,12 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
 
   guiaXML += '          <ans:valorTotal>\n';
   guiaXML += `            <ans:valorProcedimentos>${totalProcedimentos.toFixed(2)}</ans:valorProcedimentos>\n`;
-  if (totalMateriais > 0) guiaXML += `            <ans:valorMateriaisOPME>${totalMateriais.toFixed(2)}</ans:valorMateriaisOPME>\n`;
-  if (totalMedicamentos > 0) guiaXML += `            <ans:valorMedicamentos>${totalMedicamentos.toFixed(2)}</ans:valorMedicamentos>\n`;
-  if (totalDiarias > 0) guiaXML += `            <ans:valorDiarias>${totalDiarias.toFixed(2)}</ans:valorDiarias>\n`;
-  if (totalTaxas > 0) guiaXML += `            <ans:valorTaxas>${totalTaxas.toFixed(2)}</ans:valorTaxas>\n`;
-  if (totalOPME > 0) guiaXML += `            <ans:valorOPME>${totalOPME.toFixed(2)}</ans:valorOPME>\n`;
-  if (totalGases > 0) guiaXML += `            <ans:valorGasesMedicinais>${totalGases.toFixed(2)}</ans:valorGasesMedicinais>\n`;
+  guiaXML += `            <ans:valorMateriaisOPME>${totalMateriais.toFixed(2)}</ans:valorMateriaisOPME>\n`;
+  guiaXML += `            <ans:valorMedicamentos>${totalMedicamentos.toFixed(2)}</ans:valorMedicamentos>\n`;
+  guiaXML += `            <ans:valorDiarias>${totalDiarias.toFixed(2)}</ans:valorDiarias>\n`;
+  guiaXML += `            <ans:valorTaxas>${totalTaxas.toFixed(2)}</ans:valorTaxas>\n`;
+  guiaXML += `            <ans:valorOPME>${totalOPME.toFixed(2)}</ans:valorOPME>\n`;
+  guiaXML += `            <ans:valorGasesMedicinais>${totalGases.toFixed(2)}</ans:valorGasesMedicinais>\n`;
   guiaXML += `            <ans:valorTotalGeral>${valorTotalGeral.toFixed(2)}</ans:valorTotalGeral>\n`;
   guiaXML += '          </ans:valorTotal>\n';
 
@@ -414,7 +413,7 @@ export function converterAtendimentoParaTISS(atendimento, convenio) {
   return {
     codigoPrestadorExecutante: convenio?.codigo_prestador || config?.codigo_prestador || '002535718',
     numeroCarteira,
-    nomeBeneficiario: atendimento.paciente_nome || 'PACIENTE',
+    // nomeBeneficiario removido (não é mais usado no XML, mantido apenas para compatibilidade reversa? melhor não incluir)
     numero_guia_operadora: atendimento.numero_guia_operadora || '',
     data_autorizacao: atendimento.data_autorizacao || '',
     data_validade_senha: atendimento.data_validade_senha || '',
@@ -441,7 +440,7 @@ export function gerarXMLExemplo(versao) {
   const guias = [{
     numero_guia_prestador: 'G' + Date.now().toString(),
     numeroCarteira: '09700020008288318',
-    nomeBeneficiario: 'PACIENTE EXEMPLO',
+    // nomeBeneficiario não é mais fornecido,
     nomeProfissionalSolicitante: 'PROFISSIONAL EXEMPLO',
     numeroConselhoProfissionalSolicitante: '12345',
     dataSolicitacao: dataAtual,
