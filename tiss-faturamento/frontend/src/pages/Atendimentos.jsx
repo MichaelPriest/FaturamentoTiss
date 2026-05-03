@@ -2463,7 +2463,8 @@ export default function Atendimentos() {
                               <XMarkIcon className="w-4 h-4" />
                             </button>
                           </div>
-                          <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-3">
                             <div>
                               <label className="block text-xs text-gray-500 mb-1">Data Execução</label>
                               <input 
@@ -2511,7 +2512,7 @@ export default function Atendimentos() {
                               />
                               {currentItem.saldo_autorizado > 0 && (
                                 <span className="text-xs text-green-600 block mt-1">
-                                  Saldo disponível: {currentItem.saldo_autorizado}
+                                  Saldo: {currentItem.saldo_autorizado}
                                 </span>
                               )}
                             </div>
@@ -2552,9 +2553,66 @@ export default function Atendimentos() {
                               </button>
                             </div>
                           </div>
-                          
-                          {/* Informações adicionais do item */}
-                          <div className="mt-2 p-2 bg-white dark:bg-gray-700 rounded-lg">
+                      
+                          {/* PROFISSIONAL - campo para edição */}
+                          <div className="border-t border-blue-200 dark:border-blue-800 pt-3 mt-2">
+                            <label className="block text-xs text-gray-500 mb-1 font-medium">Profissional Executante</label>
+                            <select 
+                              value={currentItem.prestador_id} 
+                              onChange={e => {
+                                const prestador = prestadores.find(p => p.id === parseInt(e.target.value));
+                                if (prestador) {
+                                  setCurrentItem({
+                                    ...currentItem, 
+                                    prestador_id: e.target.value, 
+                                    prestador_nome: prestador.nome || '',
+                                    prestador_cpf: prestador.cpf || '00000000000',
+                                    prestador_conselho: prestador.codigo_conselho_ans || '06',
+                                    prestador_numero_conselho: prestador.numero_conselho || '',
+                                    prestador_uf_conselho: prestador.uf_conselho || '35',
+                                    prestador_cbos: prestador.cbos || '225125'
+                                  });
+                                }
+                              }} 
+                              className="w-full border rounded px-3 py-1.5 text-sm dark:bg-gray-700 dark:text-white"
+                            >
+                              <option value="">Selecione um profissional</option>
+                              {prestadores.map(p => (
+                                <option key={p.id} value={p.id}>
+                                  {p.nome} - {p.codigo_conselho_ans === '06' ? 'CRM' : 
+                                               p.codigo_conselho_ans === '08' ? 'CRO' :
+                                               p.codigo_conselho_ans === '03' ? 'CRF' :
+                                               p.codigo_conselho_ans === '02' ? 'COREN' :
+                                               p.codigo_conselho_ans === '05' ? 'CREFITO' :
+                                               p.codigo_conselho_ans === '09' ? 'CRP' :
+                                               p.codigo_conselho_ans === '07' ? 'CRN' : ''} {p.numero_conselho} - {p.uf_conselho}
+                                </option>
+                              ))}
+                            </select>
+                            
+                            {currentItem.prestador_nome && (
+                              <div className="mt-2 p-2 bg-white dark:bg-gray-700 rounded-lg">
+                                <p className="text-xs text-gray-600 dark:text-gray-300">
+                                  <strong>{currentItem.prestador_nome}</strong>
+                                </p>
+                                <p className="text-xs text-gray-400 mt-1">
+                                  Conselho: {currentItem.prestador_conselho === '06' ? 'CRM' : 
+                                             currentItem.prestador_conselho === '08' ? 'CRO' :
+                                             currentItem.prestador_conselho === '03' ? 'CRF' :
+                                             currentItem.prestador_conselho === '02' ? 'COREN' :
+                                             currentItem.prestador_conselho === '05' ? 'CREFITO' :
+                                             currentItem.prestador_conselho === '09' ? 'CRP' :
+                                             currentItem.prestador_conselho === '07' ? 'CRN' : ''} {currentItem.prestador_numero_conselho} | 
+                                  UF: {currentItem.prestador_uf_conselho} | 
+                                  CBOS: {currentItem.prestador_cbos} | 
+                                  CPF: {currentItem.prestador_cpf}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                      
+                          {/* Informações do item */}
+                          <div className="mt-3 p-2 bg-white dark:bg-gray-700 rounded-lg">
                             <p className="text-xs text-gray-500 dark:text-gray-400">
                               <strong>Código:</strong> {currentItem.codigo} | 
                               <strong> Procedimento:</strong> {currentItem.nome}
