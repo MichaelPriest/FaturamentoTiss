@@ -168,9 +168,12 @@ export function gerarXMLTISS(dados) {
   const numeroLote = dados.numeroLote || ('LOTE' + Date.now().toString());
   const guias = dados.guias || [];
 
-  // CNPJ do prestador (origem)
-  let cnpjPrestador = (config?.cnpj || dados.cnpjPrestador || '20384928000124').replace(/\D/g, '');
-  if (cnpjPrestador.length < 14) cnpjPrestador = cnpjPrestador.padStart(14, '0');
+  // ========== ORIGEM ==========
+  // Se o usuário fornecer 'codigoPrestadorNaOperadora' (pessoa física ou código próprio da operadora), usamos ele.
+  // Caso contrário, usamos CNPJ (com padding para 14 dígitos).
+  const codigoPrestadorNaOperadora = dados.codigoPrestadorNaOperadora || '';
+  let cnpjPrestador = (config?.cnpj || dados.cnpjPrestador || '').replace(/\D/g, '');
+  if (cnpjPrestador && cnpjPrestador.length < 14) cnpjPrestador = cnpjPrestador.padStart(14, '0');
 
   let guiasXML = '';
   for (const guia of guias) {
@@ -189,7 +192,14 @@ export function gerarXMLTISS(dados) {
   xml += '    </ans:identificacaoTransacao>\n';
   xml += '    <ans:origem>\n';
   xml += '      <ans:identificacaoPrestador>\n';
-  xml += `        <ans:CNPJ>${cnpjPrestador}</ans:CNPJ>\n`;
+  if (codigoPrestadorNaOperadora) {
+    xml += `        <ans:codigoPrestadorNaOperadora>${escapeXML(codigoPrestadorNaOperadora)}</ans:codigoPrestadorNaOperadora>\n`;
+  } else if (cnpjPrestador) {
+    xml += `        <ans:CNPJ>${cnpjPrestador}</ans:CNPJ>\n`;
+  } else {
+    // Fallback – não deve ocorrer; mas se não houver nenhum, coloca um CNPJ genérico
+    xml += `        <ans:CNPJ>00000000000000</ans:CNPJ>\n`;
+  }
   xml += '      </ans:identificacaoPrestador>\n';
   xml += '    </ans:origem>\n';
   xml += '    <ans:destino>\n';
@@ -230,7 +240,6 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   const dataAutorizacao = guia.data_autorizacao || dataSolicitacao;
   const senha = guia.senha_autorizacao || '';
   const dataValidadeSenha = guia.data_validade_senha || '';
-  const codigoPrestadorExecutante = guia.codigoPrestadorExecutante || '';
   const nomeProfissionalSolicitante = guia.nomeProfissionalSolicitante || 'PROFISSIONAL';
   const numeroConselhoProfissionalSolicitante = guia.numeroConselhoProfissionalSolicitante || '00000';
 
@@ -245,7 +254,7 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   const indicacaoClinica = guia.indicacao_clinica || '';
   const motivoEncerramento = getMotivoEncerramento(guia.motivo_encerramento);
 
-  // Dados do contratado (config)
+  // Dados do contratado solicitante (config)
   let cnpjContratado = (config?.cnpj || '20384928000124').replace(/\D/g, '');
   if (cnpjContratado.length < 14) cnpjContratado = cnpjContratado.padStart(14, '0');
   const nomeContratadoSolicitante = (config?.nome_contratado || 'HOSPITAL EXEMPLO').toUpperCase();
@@ -253,6 +262,12 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   const conselhoClinica = getCodigoConselho(config?.conselho_clinica || '06');
   const ufClinica = getCodigoUF(config?.uf_clinica || 'SP');
   const cbosClinica = config?.cbos_clinica || '225125';
+
+  // ========== DADOS DO EXECUTANTE ==========
+  // Pode ser um código de prestador na operadora (guia.codigoPrestadorExecutante) ou CNPJ do contratado (padrão)
+  const codigoExecutante = guia.codigoPrestadorExecutante || '';
+  // Se não informado, usamos o mesmo CNPJ do contratado (ou pode ser outro CNPJ - mas deixamos assim)
+  const cnpjExecutante = cnpjContratado;
 
   const itens = guia.itens || [];
 
@@ -271,13 +286,11 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
     const horaInicial = formatarHora(item.hora_inicial || '00:00:00');
     const horaFinal = formatarHora(item.hora_final || '00:00:00');
 
-    // Verifica se a tabela é de procedimento (inclui 05,12,22,00,98)
     const tipoDespesa = TABELA_DESPESA[tabela];
     const isProcedimento = tipoDespesa === 'procedimento';
     const isDespesa = (tabela === '18' || tabela === '19' || tabela === '20') && codDespesa !== '';
 
     if (isProcedimento) {
-      // Procedimento (inclui tabelas próprias, Brasíndice, SIMPRO, Pacotes)
       procedimentos.push({
         dataExecucao,
         horaInicial,
@@ -300,9 +313,8 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
         prestadorCBOS: item.prestador_cbos || item.cbos || '225125'
       });
     } else if (isDespesa) {
-      // Despesas (materiais, medicamentos, diárias, taxas)
       outrasDespesas.push({
-        codigoDespesa,
+        codigoDespesa: codDespesa,
         servico: {
           dataExecucao,
           horaInicial,
@@ -333,7 +345,7 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
 
   function acumular(codigoDespesa, valor, tabela) {
     switch (codigoDespesa) {
-      case '01': // Gases ou Diárias
+      case '01':
         if (tabela === '18') valorGasesMedicinais += valor;
         else valorDiarias += valor;
         break;
@@ -356,10 +368,9 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   const valorTotalGeral = valorProcedimentos + valorDiarias + valorTaxasAlugueis +
                           valorMateriais + valorMedicamentos + valorOPME + valorGasesMedicinais;
 
-  // Sequencial global para itens
   let sequencialGlobal = 1;
 
-  // Gera XML dos procedimentos
+  // XML dos procedimentos
   let procedimentosXML = '';
   for (const proc of procedimentos) {
     procedimentosXML += '            <ans:procedimentoExecutado>\n';
@@ -392,7 +403,7 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
     procedimentosXML += '            </ans:procedimentoExecutado>\n';
   }
 
-  // Gera XML das outras despesas, agrupadas por código de despesa
+  // XML das outras despesas
   let outrasDespesasXML = '';
   if (outrasDespesas.length > 0) {
     const despesasPorCodigo = new Map();
@@ -427,7 +438,7 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
     outrasDespesasXML += '          </ans:outrasDespesas>\n';
   }
 
-  // Início da guia
+  // Construção da guia
   let guiaXML = '        <ans:guiaSP-SADT>\n';
   guiaXML += '          <ans:cabecalhoGuia>\n';
   guiaXML += `            <ans:registroANS>${escapeXML(registroANS)}</ans:registroANS>\n`;
@@ -435,7 +446,6 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   if (guiaPrincipal) guiaXML += `            <ans:guiaPrincipal>${escapeXML(guiaPrincipal)}</ans:guiaPrincipal>\n`;
   guiaXML += '          </ans:cabecalhoGuia>\n';
 
-  // Dados de autorização
   if (numeroGuiaOperadora || dataAutorizacao || senha) {
     guiaXML += '          <ans:dadosAutorizacao>\n';
     if (numeroGuiaOperadora) guiaXML += `            <ans:numeroGuiaOperadora>${escapeXML(numeroGuiaOperadora)}</ans:numeroGuiaOperadora>\n`;
@@ -445,13 +455,11 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
     guiaXML += '          </ans:dadosAutorizacao>\n';
   }
 
-  // Dados do beneficiário (sem nome)
   guiaXML += '          <ans:dadosBeneficiario>\n';
   guiaXML += `            <ans:numeroCarteira>${escapeXML(numeroCarteira)}</ans:numeroCarteira>\n`;
   guiaXML += '            <ans:atendimentoRN>N</ans:atendimentoRN>\n';
   guiaXML += '          </ans:dadosBeneficiario>\n';
 
-  // Dados do solicitante
   guiaXML += '          <ans:dadosSolicitante>\n';
   guiaXML += '            <ans:contratadoSolicitante>\n';
   guiaXML += `              <ans:cnpjContratado>${cnpjContratado}</ans:cnpjContratado>\n`;
@@ -466,27 +474,25 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   guiaXML += '            </ans:profissionalSolicitante>\n';
   guiaXML += '          </ans:dadosSolicitante>\n';
 
-  // Dados da solicitação
   guiaXML += '          <ans:dadosSolicitacao>\n';
   guiaXML += `            <ans:dataSolicitacao>${dataSolicitacao}</ans:dataSolicitacao>\n`;
   guiaXML += `            <ans:caraterAtendimento>${caraterAtendimento}</ans:caraterAtendimento>\n`;
   if (indicacaoClinica) guiaXML += `            <ans:indicacaoClinica>${escapeXML(indicacaoClinica)}</ans:indicacaoClinica>\n`;
   guiaXML += '          </ans:dadosSolicitacao>\n';
 
-  // Dados do executante
   guiaXML += '          <ans:dadosExecutante>\n';
   guiaXML += '            <ans:contratadoExecutante>\n';
-  if (codigoPrestadorExecutante) {
-    // Se for CNPJ ou CPF, escolhe a tag adequada. Vamos manter CNPJ por simplicidade.
-    guiaXML += `              <ans:cnpjContratado>${escapeXML(codigoPrestadorExecutante)}</ans:cnpjContratado>\n`;
+  if (codigoExecutante) {
+    // Se foi informado um código de prestador na operadora, usa ele
+    guiaXML += `              <ans:codigoPrestadorNaOperadora>${escapeXML(codigoExecutante)}</ans:codigoPrestadorNaOperadora>\n`;
   } else {
-    guiaXML += `              <ans:cnpjContratado>${cnpjContratado}</ans:cnpjContratado>\n`;
+    // Caso contrário, usa o CNPJ do contratado (ou outro CNPJ)
+    guiaXML += `              <ans:cnpjContratado>${cnpjExecutante}</ans:cnpjContratado>\n`;
   }
   guiaXML += '            </ans:contratadoExecutante>\n';
   guiaXML += `            <ans:CNES>${cnesExecutante}</ans:CNES>\n`;
   guiaXML += '          </ans:dadosExecutante>\n';
 
-  // Dados do atendimento
   guiaXML += '          <ans:dadosAtendimento>\n';
   guiaXML += `            <ans:tipoAtendimento>${tipoAtendimento}</ans:tipoAtendimento>\n`;
   guiaXML += `            <ans:indicacaoAcidente>${indicacaoAcidente}</ans:indicacaoAcidente>\n`;
@@ -497,17 +503,14 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   if (saudeOcupacional) guiaXML += `            <ans:saudeOcupacional>${saudeOcupacional}</ans:saudeOcupacional>\n`;
   guiaXML += '          </ans:dadosAtendimento>\n';
 
-  // Procedimentos executados (se houver)
   if (procedimentosXML) {
     guiaXML += '          <ans:procedimentosExecutados>\n';
     guiaXML += procedimentosXML;
     guiaXML += '          </ans:procedimentosExecutados>\n';
   }
 
-  // Outras despesas
   guiaXML += outrasDespesasXML;
 
-  // Valor total
   guiaXML += '          <ans:valorTotal>\n';
   guiaXML += `            <ans:valorProcedimentos>${valorProcedimentos.toFixed(2)}</ans:valorProcedimentos>\n`;
   guiaXML += `            <ans:valorDiarias>${valorDiarias.toFixed(2)}</ans:valorDiarias>\n`;
@@ -608,7 +611,7 @@ export function gerarXMLExemplo(versao) {
   }];
   return gerarXMLTISS({
     versao: versaoFinal,
-    cnpjPrestador: config?.cnpj || '20384928000124',
+    codigoPrestadorNaOperadora: config?.codigo_prestador || '002535718', // exemplo usando código
     registroANS: config?.registro_ans || '421928',
     numeroLote: 'LOTE' + Date.now().toString(),
     guias
