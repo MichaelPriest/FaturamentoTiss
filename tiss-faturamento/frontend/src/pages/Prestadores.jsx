@@ -46,31 +46,153 @@ const CONSELHOS = [
   { sigla: 'CRF', nome: 'Conselho Regional de Farmácia', codigoANS: '03' },
   { sigla: 'COREN', nome: 'Conselho Regional de Enfermagem', codigoANS: '02' },
   { sigla: 'CREFITO', nome: 'Conselho Regional de Fisioterapia e Terapia Ocupacional', codigoANS: '05' },
+  { sigla: 'CREFONO', nome: 'Conselho Regional de Fonoaudiologia', codigoANS: '04' },
   { sigla: 'CRP', nome: 'Conselho Regional de Psicologia', codigoANS: '09' },
   { sigla: 'CRBio', nome: 'Conselho Regional de Biomedicina', codigoANS: '12' },
   { sigla: 'CRN', nome: 'Conselho Regional de Nutrição', codigoANS: '07' },
   { sigla: 'CREF', nome: 'Conselho Regional de Educação Física', codigoANS: '13' },
-  { sigla: 'CRESS', nome: 'Conselho Regional de Serviço Social', codigoANS: '01' }
+  { sigla: 'CRESS', nome: 'Conselho Regional de Serviço Social', codigoANS: '01' },
+  { sigla: 'CRMV', nome: 'Conselho Regional de Medicina Veterinária', codigoANS: '14' },
+  { sigla: 'CRTR', nome: 'Conselho Regional de Técnicos em Radiologia', codigoANS: '15' },
+  { sigla: 'CRA', nome: 'Conselho Regional de Administração', codigoANS: '10' },
+  { sigla: 'CRB', nome: 'Conselho Regional de Biblioteconomia', codigoANS: '10' },
+  { sigla: 'CRC', nome: 'Conselho Regional de Contabilidade', codigoANS: '10' },
+  { sigla: 'CREA', nome: 'Conselho Regional de Engenharia e Agronomia', codigoANS: '10' },
+  { sigla: 'CRP', nome: 'Conselho Regional de Psicologia', codigoANS: '09' },
+  { sigla: 'CREF', nome: 'Conselho Regional de Educação Física', codigoANS: '13' }
 ];
 
 // ============================================
 // ESPECIALIDADES (atualizadas)
 // ============================================
 const ESPECIALIDADES = [
-  { id: 14, nome: 'Psicologia', cbos: '251510', codigo_ans: '09', conselhoPadrao: 'CRP' },
-  { id: 15, nome: 'Neuropsicologia', cbos: '251510', codigo_ans: '09', conselhoPadrao: 'CRP' },
-  { id: 16, nome: 'Psicopedagogia', cbos: '251510', codigo_ans: '09', conselhoPadrao: 'CRP' },
-  { id: 17, nome: 'Fonoaudiologia', cbos: '223810', codigo_ans: '05', conselhoPadrao: 'CREFITO' },
-  { id: 18, nome: 'Fisioterapia', cbos: '223605', codigo_ans: '05', conselhoPadrao: 'CREFITO' },
-  { id: 19, nome: 'Psicomotricidade', cbos: '223605', codigo_ans: '05', conselhoPadrao: 'CREFITO' },
-  { id: 32, nome: 'Terapia Ocupacional', cbos: '223905', codigo_ans: '05', conselhoPadrao: 'CREFITO' },
-  { id: 21, nome: 'Musicoterapia', cbos: '226305', codigo_ans: '05', conselhoPadrao: 'CREFITO' },
-  { id: 22, nome: 'Nutrição', cbos: '223710', codigo_ans: '07', conselhoPadrao: 'CRN' },
-  { id: 23, nome: 'Pedagogia', cbos: null, codigo_ans: null, conselhoPadrao: null },
-  { id: 24, nome: 'Educação Física', cbos: '224105', codigo_ans: '13', conselhoPadrao: 'CREF' },
-  { id: 25, nome: 'Gerontologia', cbos: '131220', codigo_ans: '05', conselhoPadrao: 'CREFITO' },
-  { id: 26, nome: 'Estudante Psicologia', cbos: null, codigo_ans: null, conselhoPadrao: null }
+  // ============================================
+  // MEDICINA
+  // ============================================
+  { id: 1, nome: 'Clínica Médica', cbos: '225125', codigo_ans: '06', conselhoPadrao: 'CRM', grupo: 'MEDICINA' },
+  { id: 2, nome: 'Pediatria', cbos: '225124', codigo_ans: '06', conselhoPadrao: 'CRM', grupo: 'MEDICINA' },
+  { id: 3, nome: 'Ginecologia e Obstetrícia', cbos: '225250', codigo_ans: '06', conselhoPadrao: 'CRM', grupo: 'MEDICINA' },
+  { id: 4, nome: 'Cardiologia', cbos: '225120', codigo_ans: '06', conselhoPadrao: 'CRM', grupo: 'MEDICINA' },
+  { id: 5, nome: 'Neurologia', cbos: '225112', codigo_ans: '06', conselhoPadrao: 'CRM', grupo: 'MEDICINA' },
+  { id: 6, nome: 'Psiquiatria', cbos: '225133', codigo_ans: '06', conselhoPadrao: 'CRM', grupo: 'MEDICINA' },
+  { id: 7, nome: 'Ortopedia', cbos: '225270', codigo_ans: '06', conselhoPadrao: 'CRM', grupo: 'MEDICINA' },
+  { id: 8, nome: 'Oftalmologia', cbos: '225265', codigo_ans: '06', conselhoPadrao: 'CRM', grupo: 'MEDICINA' },
+  { id: 9, nome: 'Otorrinolaringologia', cbos: '225275', codigo_ans: '06', conselhoPadrao: 'CRM', grupo: 'MEDICINA' },
+  { id: 10, nome: 'Dermatologia', cbos: '225135', codigo_ans: '06', conselhoPadrao: 'CRM', grupo: 'MEDICINA' },
+  { id: 11, nome: 'Urologia', cbos: '225285', codigo_ans: '06', conselhoPadrao: 'CRM', grupo: 'MEDICINA' },
+  { id: 12, nome: 'Gastroenterologia', cbos: '225165', codigo_ans: '06', conselhoPadrao: 'CRM', grupo: 'MEDICINA' },
+  { id: 13, nome: 'Endocrinologia', cbos: '225155', codigo_ans: '06', conselhoPadrao: 'CRM', grupo: 'MEDICINA' },
+  
+  // ============================================
+  // PSICOLOGIA E SAÚDE MENTAL
+  // ============================================
+  { id: 14, nome: 'Psicologia', cbos: '251510', codigo_ans: '09', conselhoPadrao: 'CRP', grupo: 'PSICOLOGIA' },
+  { id: 15, nome: 'Neuropsicologia', cbos: '251545', codigo_ans: '09', conselhoPadrao: 'CRP', grupo: 'PSICOLOGIA' },
+  { id: 16, nome: 'Psicopedagogia', cbos: '239425', codigo_ans: '09', conselhoPadrao: 'CRP', grupo: 'PSICOLOGIA' },
+  { id: 27, nome: 'Psicanálise', cbos: '251550', codigo_ans: '09', conselhoPadrao: 'CRP', grupo: 'PSICOLOGIA' },
+  { id: 28, nome: 'Psicologia Hospitalar', cbos: '251510', codigo_ans: '09', conselhoPadrao: 'CRP', grupo: 'PSICOLOGIA' },
+  { id: 29, nome: 'Psicologia do Trânsito', cbos: '251510', codigo_ans: '09', conselhoPadrao: 'CRP', grupo: 'PSICOLOGIA' },
+  { id: 30, nome: 'Psicologia Escolar', cbos: '251510', codigo_ans: '09', conselhoPadrao: 'CRP', grupo: 'PSICOLOGIA' },
+  { id: 31, nome: 'Psicologia Organizacional', cbos: '251510', codigo_ans: '09', conselhoPadrao: 'CRP', grupo: 'PSICOLOGIA' },
+  
+  // ============================================
+  // TERAPIAS E REABILITAÇÃO
+  // ============================================
+  { id: 17, nome: 'Fonoaudiologia', cbos: '223810', codigo_ans: '04', conselhoPadrao: 'CREFONO', grupo: 'FONOAUDIOLOGIA' },
+  { id: 32, nome: 'Terapia Ocupacional', cbos: '223905', codigo_ans: '05', conselhoPadrao: 'CREFITO', grupo: 'TERAPIA_OCUPACIONAL' },
+  { id: 18, nome: 'Fisioterapia', cbos: '223605', codigo_ans: '05', conselhoPadrao: 'CREFITO', grupo: 'FISIOTERAPIA' },
+  { id: 19, nome: 'Psicomotricidade', cbos: '223605', codigo_ans: '05', conselhoPadrao: 'CREFITO', grupo: 'PSICOMOTRICIDADE' },
+  { id: 21, nome: 'Musicoterapia', cbos: '226305', codigo_ans: '05', conselhoPadrao: 'CREFITO', grupo: 'MUSICOTERAPIA' },
+  { id: 33, nome: 'Equoterapia', cbos: '226315', codigo_ans: '05', conselhoPadrao: 'CREFITO', grupo: 'EQUOTERAPIA' },
+  { id: 34, nome: 'Arteterapia', cbos: '226310', codigo_ans: '05', conselhoPadrao: 'CREFITO', grupo: 'ARTETERAPIA' },
+  { id: 35, nome: 'Quiropraxia', cbos: '226105', codigo_ans: '05', conselhoPadrao: 'CREFITO', grupo: 'QUIROPRAXIA' },
+  { id: 36, nome: 'Osteopatia', cbos: '226110', codigo_ans: '05', conselhoPadrao: 'CREFITO', grupo: 'OSTEOPATIA' },
+  
+  // ============================================
+  // NUTRIÇÃO E ALIMENTAÇÃO
+  // ============================================
+  { id: 22, nome: 'Nutrição', cbos: '223710', codigo_ans: '07', conselhoPadrao: 'CRN', grupo: 'NUTRICAO' },
+  { id: 37, nome: 'Nutrição Clínica', cbos: '223710', codigo_ans: '07', conselhoPadrao: 'CRN', grupo: 'NUTRICAO' },
+  { id: 38, nome: 'Nutrição Esportiva', cbos: '223710', codigo_ans: '07', conselhoPadrao: 'CRN', grupo: 'NUTRICAO' },
+  { id: 39, nome: 'Nutrição Materno-Infantil', cbos: '223710', codigo_ans: '07', conselhoPadrao: 'CRN', grupo: 'NUTRICAO' },
+  
+  // ============================================
+  // EDUCAÇÃO FÍSICA E ESPORTES
+  // ============================================
+  { id: 24, nome: 'Educação Física', cbos: '224105', codigo_ans: '13', conselhoPadrao: 'CREF', grupo: 'EDUCACAO_FISICA' },
+  { id: 40, nome: 'Personal Trainer', cbos: '224105', codigo_ans: '13', conselhoPadrao: 'CREF', grupo: 'EDUCACAO_FISICA' },
+  { id: 41, nome: 'Preparador Físico', cbos: '224120', codigo_ans: '13', conselhoPadrao: 'CREF', grupo: 'EDUCACAO_FISICA' },
+  { id: 42, nome: 'Treinador Esportivo', cbos: '224135', codigo_ans: '13', conselhoPadrao: 'CREF', grupo: 'EDUCACAO_FISICA' },
+  
+  // ============================================
+  // GERONTOLOGIA E ENVELHECIMENTO
+  // ============================================
+  { id: 25, nome: 'Gerontologia', cbos: '131220', codigo_ans: '05', conselhoPadrao: 'CREFITO', grupo: 'GERONTOLOGIA' },
+  { id: 43, nome: 'Geriatria', cbos: '225180', codigo_ans: '06', conselhoPadrao: 'CRM', grupo: 'MEDICINA' },
+  
+  // ============================================
+  // ENFERMAGEM
+  // ============================================
+  { id: 44, nome: 'Enfermagem', cbos: '223505', codigo_ans: '02', conselhoPadrao: 'COREN', grupo: 'ENFERMAGEM' },
+  { id: 45, nome: 'Enfermagem Obstétrica', cbos: '223550', codigo_ans: '02', conselhoPadrao: 'COREN', grupo: 'ENFERMAGEM' },
+  { id: 46, nome: 'Enfermagem Pediátrica', cbos: '223555', codigo_ans: '02', conselhoPadrao: 'COREN', grupo: 'ENFERMAGEM' },
+  { id: 47, nome: 'Enfermagem do Trabalho', cbos: '223530', codigo_ans: '02', conselhoPadrao: 'COREN', grupo: 'ENFERMAGEM' },
+  { id: 48, nome: 'Enfermagem em Terapia Intensiva', cbos: '223525', codigo_ans: '02', conselhoPadrao: 'COREN', grupo: 'ENFERMAGEM' },
+  
+  // ============================================
+  // ODONTOLOGIA
+  // ============================================
+  { id: 49, nome: 'Odontologia Clínica', cbos: '223208', codigo_ans: '08', conselhoPadrao: 'CRO', grupo: 'ODONTOLOGIA' },
+  { id: 50, nome: 'Ortodontia', cbos: '223240', codigo_ans: '08', conselhoPadrao: 'CRO', grupo: 'ODONTOLOGIA' },
+  { id: 51, nome: 'Odontopediatria', cbos: '223236', codigo_ans: '08', conselhoPadrao: 'CRO', grupo: 'ODONTOLOGIA' },
+  { id: 52, nome: 'Endodontia', cbos: '223212', codigo_ans: '08', conselhoPadrao: 'CRO', grupo: 'ODONTOLOGIA' },
+  { id: 53, nome: 'Periodontia', cbos: '223248', codigo_ans: '08', conselhoPadrao: 'CRO', grupo: 'ODONTOLOGIA' },
+  { id: 54, nome: 'Implantodontia', cbos: '223224', codigo_ans: '08', conselhoPadrao: 'CRO', grupo: 'ODONTOLOGIA' },
+  
+  // ============================================
+  // FARMÁCIA E ANÁLISES CLÍNICAS
+  // ============================================
+  { id: 55, nome: 'Farmácia', cbos: '223405', codigo_ans: '03', conselhoPadrao: 'CRF', grupo: 'FARMACIA' },
+  { id: 56, nome: 'Farmácia Clínica', cbos: '223405', codigo_ans: '03', conselhoPadrao: 'CRF', grupo: 'FARMACIA' },
+  { id: 57, nome: 'Farmácia Hospitalar', cbos: '223445', codigo_ans: '03', conselhoPadrao: 'CRF', grupo: 'FARMACIA' },
+  
+  // ============================================
+  // SERVIÇO SOCIAL
+  // ============================================
+  { id: 58, nome: 'Serviço Social', cbos: '251605', codigo_ans: '01', conselhoPadrao: 'CRESS', grupo: 'SERVICO_SOCIAL' },
+  
+  // ============================================
+  // EDUCAÇÃO
+  // ============================================
+  { id: 23, nome: 'Pedagogia', cbos: null, codigo_ans: null, conselhoPadrao: null, grupo: 'EDUCACAO' },
+  { id: 59, nome: 'Educação Especial', cbos: null, codigo_ans: null, conselhoPadrao: null, grupo: 'EDUCACAO' },
+  
+  // ============================================
+  // ESTUDANTES E ESTÁGIO
+  // ============================================
+  { id: 26, nome: 'Estudante Psicologia', cbos: null, codigo_ans: null, conselhoPadrao: null, grupo: 'ESTUDANTES' },
+  { id: 60, nome: 'Estudante Medicina', cbos: null, codigo_ans: null, conselhoPadrao: null, grupo: 'ESTUDANTES' },
+  { id: 61, nome: 'Estudante Enfermagem', cbos: null, codigo_ans: null, conselhoPadrao: null, grupo: 'ESTUDANTES' },
+  { id: 62, nome: 'Estudante Fisioterapia', cbos: null, codigo_ans: null, conselhoPadrao: null, grupo: 'ESTUDANTES' },
+  { id: 63, nome: 'Estudante Fonoaudiologia', cbos: null, codigo_ans: null, conselhoPadrao: null, grupo: 'ESTUDANTES' },
+  { id: 64, nome: 'Estudante Terapia Ocupacional', cbos: null, codigo_ans: null, conselhoPadrao: null, grupo: 'ESTUDANTES' }
 ];
+
+// Função para obter especialidade pelo ID
+const getEspecialidadeById = (id) => {
+  return ESPECIALIDADES.find(e => e.id === parseInt(id));
+};
+
+// Função para obter especialidades por grupo
+const getEspecialidadesByGrupo = (grupo) => {
+  return ESPECIALIDADES.filter(e => e.grupo === grupo);
+};
+
+// Função para obter CBOS por especialidade
+const getCBOSByEspecialidade = (especialidadeId) => {
+  const especialidade = ESPECIALIDADES.find(e => e.id === parseInt(especialidadeId));
+  return especialidade?.cbos || '225125'; // Padrão Clínico Médico
+};
 
 // ============================================
 // FUNÇÕES DE MÁSCARA
