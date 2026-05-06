@@ -2825,23 +2825,41 @@ export default function Atendimentos() {
                            {/* NOVOS CAMPOS TISS */}
                             <div className="md:col-span-1">
                               <label className="block text-xs text-gray-500 mb-1">Via Acesso</label>
-                              <select value={currentItem.viaAcesso} onChange={e => setCurrentItem({...currentItem, viaAcesso: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm">
+                              <select
+                                value={currentItem.viaAcesso}
+                                onChange={e => setCurrentItem({...currentItem, viaAcesso: e.target.value})}
+                                className="w-full border rounded px-2 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                              >
                                 <option value="1">Única</option>
                                 <option value="2">Mesma via</option>
                                 <option value="3">Diferentes vias</option>
                               </select>
                             </div>
+                            
                             <div className="md:col-span-1">
                               <label className="block text-xs text-gray-500 mb-1">Técnica Utilizada</label>
-                              <select value={currentItem.tecnicaUtilizada} onChange={e => setCurrentItem({...currentItem, tecnicaUtilizada: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm">
+                              <select
+                                value={currentItem.tecnicaUtilizada}
+                                onChange={e => setCurrentItem({...currentItem, tecnicaUtilizada: e.target.value})}
+                                className="w-full border rounded px-2 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                              >
                                 <option value="1">Convencional</option>
                                 <option value="2">Vídeo</option>
                                 <option value="3">Robótica</option>
                               </select>
                             </div>
+                            
                             <div className="md:col-span-1">
                               <label className="block text-xs text-gray-500 mb-1">Redução/Acréscimo (%)</label>
-                              <input type="number" step="0.01" min="0" max="100" value={currentItem.reducaoAcrescimo} onChange={e => setCurrentItem({...currentItem, reducaoAcrescimo: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm text-center" />
+                              <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                max="100"
+                                value={currentItem.reducaoAcrescimo}
+                                onChange={e => setCurrentItem({...currentItem, reducaoAcrescimo: e.target.value})}
+                                className="w-full border rounded px-2 py-1.5 text-sm text-center bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                              />
                             </div>                         
                             <div className="md:col-span-2">
                               <label className="block text-xs text-gray-500 mb-1">Item</label>
