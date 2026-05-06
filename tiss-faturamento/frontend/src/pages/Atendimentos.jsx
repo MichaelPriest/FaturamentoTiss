@@ -1866,7 +1866,7 @@ export default function Atendimentos() {
                                 {item.saldo_autorizado || item.quantidade_autorizada - (item.quantidade_utilizada || 0)}
                               </td>
                               <td className="px-3 py-2 text-xs text-right">R$ {item.valor_unitario?.toFixed(2)}</td>
-                            </td>
+                            </tr>
                           ))}
                         </tbody>
                       </table>
