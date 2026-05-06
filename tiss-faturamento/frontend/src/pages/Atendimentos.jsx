@@ -127,6 +127,7 @@ const SIM_NAO = [
   { value: 'N', label: 'Não' }
 ];
 
+// Tipos de itens para faturamento
 const TIPOS_ITEM = [
   { value: 'procedimento', label: 'Procedimento', tabelas: ['22', '00', '98'] },
   { value: 'material', label: 'Material/OPME', tabelas: ['19'] },
@@ -136,6 +137,7 @@ const TIPOS_ITEM = [
   { value: 'outros', label: 'Outras Despesas', tabelas: ['00'] }
 ];
 
+// Tabelas disponíveis
 const TABELAS = {
   '22': { nome: 'TUSS - Procedimentos', tipo: 'procedimento' },
   '00': { nome: 'Tabela Própria', tipo: 'procedimento' },
@@ -145,6 +147,7 @@ const TABELAS = {
   '18': { nome: 'TUSS - Diárias e Taxas', tipo: 'diaria' }
 };
 
+// Códigos de Despesas
 const CODIGO_DESPESA = [
   { value: '01', label: 'Gases medicinais' },
   { value: '02', label: 'Medicamentos' },
@@ -177,6 +180,7 @@ const CONSELHOS = [
   { value: '07', label: '07 - CRN (Nutrição)' }
 ];
 
+// Unidades de medida
 const UNIDADES_MEDIDA = [
   { value: '036', label: 'UN - Unidade' },
   { value: '022', label: 'MG - Miligrama' },
@@ -439,7 +443,7 @@ export default function Atendimentos() {
     
     return true;
   }, []);
-  
+
   const calcularSaldoAutorizado = useCallback((itemCodigo, quantidadeAtual = 0) => {
     if (!itemCodigo) return 0;
     
@@ -452,7 +456,7 @@ export default function Atendimentos() {
     
     return Math.max(0, saldo);
   }, [itensAutorizados]);
-  
+
   const getStatusInfo = useCallback((status) => {
     const info = {
       pendente: { 
@@ -552,6 +556,16 @@ export default function Atendimentos() {
     carregarDados();
   }, []);
 
+  // ============================================
+  // FILTROS E MEMOIZAÇÃO
+  // ============================================
+
+  // Procedimentos disponíveis apenas para o convênio selecionado
+  const procedimentosDoConvenio = useMemo(() => {
+    if (!formData.convenio_id) return [];
+    return procedimentos.filter(p => p.convenio_id === formData.convenio_id);
+  }, [procedimentos, formData.convenio_id]);
+
   // Filtrar prestadores para busca digitável (adição de item)
   const filteredPrestadores = useMemo(() => {
     if (!searchPrestadorTerm.trim()) return prestadores;
@@ -644,6 +658,21 @@ export default function Atendimentos() {
     });
   }, [pacientes, searchPacienteTerm]);
 
+  // Itens filtrados por busca (apenas do convênio selecionado)
+  const itensFiltrados = useMemo(() => {
+    if (!procedimentosDoConvenio.length) return [];
+    if (!searchItemTerm) return procedimentosDoConvenio;
+    const term = searchItemTerm.toLowerCase();
+    return procedimentosDoConvenio.filter(p => 
+      p.codigo_tuss?.toLowerCase().includes(term) ||
+      p.nome?.toLowerCase().includes(term)
+    );
+  }, [procedimentosDoConvenio, searchItemTerm]);
+
+  // ============================================
+  // FUNÇÕES DE RECALCULO E SALVAMENTO
+  // ============================================
+
   const recalcularTodasGuias = async () => {
     if (!confirm('Isso irá recalcular os saldos de TODAS as guias. Continuar?')) return;
     
@@ -691,7 +720,7 @@ export default function Atendimentos() {
       setLoading(false);
     }
   };
-  
+
   const recalcularGuia = async (atendimentoId) => {
     const atendimento = atendimentos.find(a => a.id === atendimentoId);
     if (!atendimento) return;
@@ -727,7 +756,7 @@ export default function Atendimentos() {
       toast.error('Erro ao atualizar guia');
     }
   };
-  
+
   const salvarAtendimento = async (atendimento) => {
     try {
       if (editing) {
@@ -832,7 +861,7 @@ export default function Atendimentos() {
     const novoStatus = calcularStatusGuia(itensGuia, itensAutorizados);
     setFormData(prev => ({ ...prev, status: novoStatus }));
   }, [itensGuia, itensAutorizados, calcularStatusGuia]);
-  
+
   useEffect(() => {
     if (!editing && (itensGuia.length > 0 || itensAutorizados.length > 0)) {
       recalcularStatus();
@@ -876,7 +905,7 @@ export default function Atendimentos() {
       toast.error('Erro ao alterar status');
     }
   };
-  
+
   const atualizarProximoNumeroGuia = async (convenioId, proximoNumero) => {
     try {
       const { error } = await supabase
@@ -921,6 +950,10 @@ export default function Atendimentos() {
     }
   }, []);
 
+  // ============================================
+  // FUNÇÕES DE MANIPULAÇÃO DE DADOS
+  // ============================================
+
   const handlePacienteChange = (pacienteId) => {
     const id = pacienteId ? parseInt(pacienteId) : null;
     if (!id) return;
@@ -946,16 +979,6 @@ export default function Atendimentos() {
       }
     }
   };
-
-  const itensFiltrados = useMemo(() => {
-    if (!searchItemTerm) return procedimentos;
-    
-    const term = searchItemTerm.toLowerCase();
-    return procedimentos.filter(p => 
-      p.codigo_tuss?.toLowerCase().includes(term) ||
-      p.nome?.toLowerCase().includes(term)
-    );
-  }, [procedimentos, searchItemTerm]);
 
   const calcularValor = (item, convenio) => {
     let valorBase = item.valor_sugerido || 0;
@@ -993,7 +1016,7 @@ export default function Atendimentos() {
       return;
     }
     
-    const itemSelecionado = procedimentos.find(p => p.codigo_tuss === currentItem.codigo);
+    const itemSelecionado = procedimentosDoConvenio.find(p => p.codigo_tuss === currentItem.codigo);
     const convenio = convenios.find(c => c.id === formData.convenio_id);
     
     let valorUnitario = currentItem.valor_unitario;
@@ -1040,7 +1063,6 @@ export default function Atendimentos() {
       quantidade_autorizada: itemAutorizado?.quantidade_autorizada || 0,
       saldo_autorizado: saldo
     });
-    // Preencher o campo de busca com o nome do profissional selecionado
     if (item.prestador_nome) {
       let sigla = '';
       if (item.prestador_conselho === '06') sigla = 'CRM';
@@ -1112,7 +1134,7 @@ export default function Atendimentos() {
       return;
     }
     
-    const itemSelecionado = procedimentos.find(p => p.codigo_tuss === currentItem.codigo);
+    const itemSelecionado = procedimentosDoConvenio.find(p => p.codigo_tuss === currentItem.codigo);
     const convenio = convenios.find(c => c.id === formData.convenio_id);
     
     let valorUnitario = currentItem.valor_unitario;
@@ -1150,7 +1172,7 @@ export default function Atendimentos() {
     setSearchPrestadorTerm('');
     toast.success('Item adicionado à guia!');
   };
-  
+
   const resetCurrentItem = () => {
     setCurrentItem({
       tipo: 'procedimento',
@@ -1191,14 +1213,14 @@ export default function Atendimentos() {
     setItensGuia(itensGuia.filter(item => item.id !== itemId));
     toast.success('Item removido da guia');
   };
-  
+
   const removerItemAutorizado = (itemId) => {
     setItensAutorizados(itensAutorizados.filter(item => item.id !== itemId));
     toast.success('Item autorizado removido');
   };
 
   const handleProcedimentoItemChange = (codigo) => {
-    const procedimento = procedimentos.find(p => p.codigo_tuss === codigo);
+    const procedimento = procedimentosDoConvenio.find(p => p.codigo_tuss === codigo);
     if (procedimento) {
       const convenio = convenios.find(c => c.id === formData.convenio_id);
       const valorCalculado = calcularValor(procedimento, convenio);
@@ -1422,7 +1444,7 @@ export default function Atendimentos() {
     
     setShowModal(true);
   };
-  
+
   const handleDelete = (id) => {
     const atendimento = atendimentos.find(a => a.id === id);
     
@@ -1437,12 +1459,12 @@ export default function Atendimentos() {
     
     excluirAtendimento(id);
   };
-  
+
   const handleViewItens = (atendimento) => {
     setSelectedGuia(atendimento);
     setShowItensModal(true);
   };
-  
+
   const getStatusCor = (status) => {
     const cores = {
       pendente: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
@@ -1454,7 +1476,7 @@ export default function Atendimentos() {
     };
     return cores[status] || 'bg-gray-100 text-gray-700';
   };
-  
+
   const atendimentosFiltrados = atendimentos.filter(a => {
     if (filtroStatus !== 'todos' && a.status !== filtroStatus) return false;
     if (filtroConvenio !== 'todos' && a.paciente_convenio_id !== parseInt(filtroConvenio)) return false;
@@ -1466,18 +1488,18 @@ export default function Atendimentos() {
     }
     return true;
   });
-  
+
   const podeEditar = (status) => {
     return status !== 'faturado' && status !== 'finalizado';
   };
-  
+
   const pendentes = atendimentos.filter(a => a.status === 'pendente').length;
   const autorizados = atendimentos.filter(a => a.status === 'autorizado').length;
   const parciais = atendimentos.filter(a => a.status === 'parcial').length;
   const faturados = atendimentos.filter(a => a.status === 'faturado').length;
   const finalizados = atendimentos.filter(a => a.status === 'finalizado').length;
   const valorTotalPendente = atendimentos.filter(a => a.status === 'pendente' || a.status === 'parcial').reduce((sum, a) => sum + (a.valor_total || 0), 0);
-  
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -1883,7 +1905,7 @@ export default function Atendimentos() {
           </div>
         )}
 
-        {/* Modal de Cadastro/Edição */}
+        {/* Modal de Cadastro/Edição - CONTINUAÇÃO */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
@@ -2000,7 +2022,7 @@ export default function Atendimentos() {
                     </div>
                   )}
 
-                  {/* Aba Autorização - mesma do código original, sem alterações significativas (mantém select para profissional solicitante, mas sem autocomplete) */}
+                  {/* Aba Autorização */}
                   {aba === 'autorizacao' && (
                     <div className="space-y-4">
                       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-4">
@@ -2009,6 +2031,15 @@ export default function Atendimentos() {
                           Estes procedimentos serão usados como base para o faturamento e controle de saldo.
                         </p>
                       </div>
+                      
+                      {!formData.convenio_id && (
+                        <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg mb-4">
+                          <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                            ⚠️ Selecione um paciente com convênio associado para visualizar os procedimentos autorizados.
+                          </p>
+                        </div>
+                      )}
+                      
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número da Guia (Operadora)</label>
@@ -2028,7 +2059,6 @@ export default function Atendimentos() {
                         </div>
                       </div>
                   
-                      {/* Busca e Inclusão de Itens Autorizados (semelhante ao original, sem alterações) */}
                       <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
                         <h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
                           <PlusIcon className="w-4 h-4 text-green-600" />
@@ -2038,7 +2068,15 @@ export default function Atendimentos() {
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Procedimento</label>
                           <div className="relative">
                             <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                            <input type="text" value={searchItemTerm} onChange={e => setSearchItemTerm(e.target.value)} placeholder="Digite o código ou descrição do procedimento autorizado..." className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" list="itens-suggestions-aut" />
+                            <input 
+                              type="text" 
+                              value={searchItemTerm} 
+                              onChange={e => setSearchItemTerm(e.target.value)} 
+                              placeholder="Digite o código ou descrição do procedimento autorizado..." 
+                              className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
+                              list="itens-suggestions-aut"
+                              disabled={!formData.convenio_id}
+                            />
                             <datalist id="itens-suggestions-aut">
                               {itensFiltrados.slice(0, 20).map(item => (
                                 <option key={item.codigo_tuss} value={item.codigo_tuss}>
@@ -2047,6 +2085,9 @@ export default function Atendimentos() {
                               ))}
                             </datalist>
                           </div>
+                          {!formData.convenio_id && (
+                            <p className="text-xs text-yellow-600 mt-1">Selecione um paciente com convênio primeiro</p>
+                          )}
                         </div>
                   
                         {searchItemTerm && itensFiltrados.length > 0 && (
@@ -2086,10 +2127,7 @@ export default function Atendimentos() {
                   
                         {itensAutorizados.length > 0 && (
                           <div className="mt-4">
-                            <h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
-                              <CheckIcon className="w-4 h-4 text-green-600" />
-                              Procedimentos Autorizados ({itensAutorizados.length})
-                            </h4>
+                            <h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2"><CheckIcon className="w-4 h-4 text-green-600" /> Procedimentos Autorizados ({itensAutorizados.length})</h4>
                             <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                               <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
@@ -2149,7 +2187,7 @@ export default function Atendimentos() {
                     </div>
                   )}
 
-                  {/* Aba Solicitante (sem alterações relevantes) */}
+                  {/* Aba Solicitante */}
                   {aba === 'solicitante' && (
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2165,7 +2203,7 @@ export default function Atendimentos() {
                     </div>
                   )}
 
-                  {/* Aba Atendimento (sem alterações) */}
+                  {/* Aba Atendimento */}
                   {aba === 'atendimento' && (
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2184,7 +2222,7 @@ export default function Atendimentos() {
                     </div>
                   )}
 
-                  {/* Aba Procedimentos com autocomplete de profissional */}
+                  {/* Aba Procedimentos com autocomplete de profissional e filtro por convênio */}
                   {aba === 'procedimentos' && (
                     <div className="space-y-4">
                       <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
@@ -2193,13 +2231,33 @@ export default function Atendimentos() {
                           {itensAutorizados.length > 0 && <span className="block mt-1 text-xs">✅ Você possui {itensAutorizados.length} procedimento(s) autorizado(s). Ao adicionar itens, o sistema verificará o saldo disponível.</span>}
                         </p>
                       </div>
+                      
+                      {!formData.convenio_id && (
+                        <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg mb-4">
+                          <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                            ⚠️ Selecione um paciente com convênio associado para visualizar os procedimentos disponíveis.
+                          </p>
+                        </div>
+                      )}
                   
                       {itensGuia.length > 0 && (
                         <div className="border rounded-xl overflow-hidden">
                           <div className="overflow-x-auto max-h-64">
                             <table className="w-full text-sm">
                               <thead className="bg-gray-50 dark:bg-gray-700/50 sticky top-0">
-                                <tr><th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Seq</th><th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data</th><th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">H.Início</th><th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">H.Fim</th><th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Código</th><th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Descrição</th><th className="px-2 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd</th><th className="px-2 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Unit.</th><th className="px-2 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Total</th><th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Profissional</th><th className="px-2 py-2 text-center w-20 text-xs font-medium text-gray-500 dark:text-gray-400">Ações</th></tr>
+                                <tr>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Seq</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">H.Início</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">H.Fim</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Código</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Descrição</th>
+                                  <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd</th>
+                                  <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Unit.</th>
+                                  <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Total</th>
+                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Profissional</th>
+                                  <th className="px-2 py-2 text-center w-20 text-xs font-medium text-gray-500 dark:text-gray-400">Ações</th>
+                                </tr>
                               </thead>
                               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                                 {itensGuia.map((item, idx) => (
@@ -2240,7 +2298,6 @@ export default function Atendimentos() {
                             <div><label className="block text-xs text-gray-500 mb-1">Valor Unitário (R$)</label><input type="number" step="0.01" value={currentItem.valor_unitario} onChange={e => { const valor = parseFloat(e.target.value) || 0; setCurrentItem({ ...currentItem, valor_unitario: valor, valor_total: currentItem.quantidade * valor }); }} className="w-full border rounded px-2 py-1.5 text-sm text-right dark:bg-gray-700 dark:text-white" /></div>
                             <div className="flex items-end gap-2"><button type="button" onClick={handleUpdateItem} className="flex-1 bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-green-700">Atualizar</button><button type="button" onClick={() => { setEditandoItem(null); resetCurrentItem(); setSearchPrestadorTermEdit(''); }} className="flex-1 bg-gray-500 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-gray-600">Cancelar</button></div>
                           </div>
-                          {/* PROFISSIONAL - com autocomplete no modo edição */}
                           <div className="border-t border-blue-200 dark:border-blue-800 pt-3 mt-2">
                             <label className="block text-xs text-gray-500 mb-1 font-medium">Profissional Executante</label>
                             <div className="relative">
@@ -2313,17 +2370,19 @@ export default function Atendimentos() {
                         </div>
                       )}
                   
-                      {/* Seletor de Tipo de Item */}
                       <div className="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700 pb-3">
                         {TIPOS_ITEM.map(tipo => (
                           <button key={tipo.value} type="button" onClick={() => { setTipoItem(tipo.value); setTabelaSelecionada(tipo.tabelas[0]); setCurrentItem({...currentItem, tipo: tipo.value, tabela_referencia: tipo.tabelas[0]}); }} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${tipoItem === tipo.value ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>{tipo.label}</button>
                         ))}
                       </div>
                   
-                      {/* Busca de Item */}
-                      <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Item</label><div className="relative"><MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" /><input type="text" value={searchItemTerm} onChange={e => setSearchItemTerm(e.target.value)} placeholder="Digite o código ou descrição..." className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" list="itens-suggestions-proc" /><datalist id="itens-suggestions-proc">{itensFiltrados.slice(0, 20).map(item => (<option key={item.codigo_tuss} value={item.codigo_tuss}>{item.codigo_tuss} - {item.nome}</option>))}</datalist></div></div>
+                      <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Item</label><div className="relative"><MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" /><input type="text" value={searchItemTerm} onChange={e => setSearchItemTerm(e.target.value)} placeholder="Digite o código ou descrição..." className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" disabled={!formData.convenio_id} list="itens-suggestions-proc" /><datalist id="itens-suggestions-proc">{itensFiltrados.slice(0, 20).map(item => (<option key={item.codigo_tuss} value={item.codigo_tuss}>{item.codigo_tuss} - {item.nome}</option>))}</datalist></div></div>
                   
-                      {searchItemTerm && itensFiltrados.length > 0 && (
+                      {!formData.convenio_id && (
+                        <p className="text-xs text-yellow-600 -mt-2">Selecione um paciente com convênio para ver os procedimentos</p>
+                      )}
+                  
+                      {searchItemTerm && itensFiltrados.length > 0 && formData.convenio_id && (
                         <div className="border rounded-xl max-h-48 overflow-y-auto">
                           {itensFiltrados.slice(0, 10).map(item => {
                             const itemAutorizado = itensAutorizados.find(aut => aut.codigo === item.codigo_tuss);
@@ -2337,7 +2396,6 @@ export default function Atendimentos() {
                         </div>
                       )}
                   
-                      {/* Formulário do Item com autocomplete de profissional (novo item) */}
                       {currentItem.codigo && (
                         <div className="border-t pt-4 mt-2">
                           <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
@@ -2377,7 +2435,7 @@ export default function Atendimentos() {
                                 placeholder="Digite nome, CRM, número do conselho ou UF..."
                                 className="w-full border rounded px-2 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                               />
-                              {showPrestadorOptions && filteredPrestadores.length > 0 && (
+                              {showPrestadorOptions && filteredPrestadores.length > 0 && formData.convenio_id && (
                                 <ul className="absolute z-20 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg mt-1 max-h-60 overflow-y-auto shadow-lg">
                                   {filteredPrestadores.map(p => {
                                     let sigla = '';
