@@ -2086,30 +2086,63 @@ export default function Atendimentos() {
                   
                         {itensAutorizados.length > 0 && (
                           <div className="mt-4">
-                            <h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2"><CheckIcon className="w-4 h-4 text-green-600" /> Procedimentos Autorizados ({itensAutorizados.length})</h4>
+                            <h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+                              <CheckIcon className="w-4 h-4 text-green-600" />
+                              Procedimentos Autorizados ({itensAutorizados.length})
+                            </h4>
                             <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                               <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
-                                  <thead className="bg-gray-50 dark:bg-gray-700/50"><tr><th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Código</th><th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Procedimento</th><th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd. Autorizada</th><th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd. Utilizada</th><th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Saldo</th><th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Unit.</th><th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Total</th><th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 w-16">Ações</th></tr></thead>
+                                  <thead className="bg-gray-50 dark:bg-gray-700/50">
+                                    <tr>
+                                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Código</th>
+                                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Procedimento</th>
+                                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd. Autorizada</th>
+                                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd. Utilizada</th>
+                                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Saldo</th>
+                                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Unit.</th>
+                                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Total</th>
+                                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 w-16">Ações</th>
+                                    </tr>
+                                  </thead>
                                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                                    {itensAutorizados.map((item, idx) => { const saldo = item.quantidade_autorizada - (item.quantidade_utilizada || 0); return (
-                                      <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                        <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
-                                        <td className="px-3 py-2 text-xs text-gray-800 dark:text-gray-200">{item.nome}</td>
-                                        <td className="px-3 py-2 text-xs text-center font-medium">{item.quantidade_autorizada}</td>
-                                        <td className="px-3 py-2 text-xs text-center">{item.quantidade_utilizada || 0}</td>
-                                        <td className={`px-3 py-2 text-xs text-center font-semibold ${saldo > 0 ? 'text-green-600' : saldo === 0 ? 'text-gray-600' : 'text-red-600'}`}>{saldo}</td>
-                                        <td className="px-3 py-2 text-xs text-right">R$ {item.valor_unitario?.toFixed(2)}</td>
-                                        <td className="px-3 py-2 text-xs text-right font-semibold">R$ {(item.valor_unitario * (item.quantidade_utilizada || 0)).toFixed(2)}</td>
-                                        <td className="px-3 py-2 text-center"><button type="button" onClick={() => removerItemAutorizado(item.id)} className="text-red-600 hover:text-red-800"><TrashIcon className="w-4 h-4" /></button></td>
-                                      </tr>
-                                    );})}
+                                    {itensAutorizados.map((item) => {
+                                      const saldo = item.quantidade_autorizada - (item.quantidade_utilizada || 0);
+                                      return (
+                                        <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                          <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
+                                          <td className="px-3 py-2 text-xs text-gray-800 dark:text-gray-200">{item.nome}</td>
+                                          <td className="px-3 py-2 text-xs text-center font-medium">{item.quantidade_autorizada}</td>
+                                          <td className="px-3 py-2 text-xs text-center">{item.quantidade_utilizada || 0}</td>
+                                          <td className={`px-3 py-2 text-xs text-center font-semibold ${saldo > 0 ? 'text-green-600' : saldo === 0 ? 'text-gray-600' : 'text-red-600'}`}>{saldo}</td>
+                                          <td className="px-3 py-2 text-xs text-right">R$ {item.valor_unitario?.toFixed(2)}</td>
+                                          <td className="px-3 py-2 text-xs text-right font-semibold">R$ {(item.valor_unitario * (item.quantidade_utilizada || 0)).toFixed(2)}</td>
+                                          <td className="px-3 py-2 text-center">
+                                            <button type="button" onClick={() => removerItemAutorizado(item.id)} className="text-red-600 hover:text-red-800">
+                                              <TrashIcon className="w-4 h-4" />
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
                                   </tbody>
-                                  <tfoot className="bg-gray-50 dark:bg-gray-700/50"><tr className="border-t"><td colSpan="6" className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">Total Autorizado:</td><td className="px-3 py-2 text-right font-bold text-blue-600 dark:text-blue-400">R$ {itensAutorizados.reduce((sum, i) => sum + (i.valor_unitario * (i.quantidade_utilizada || 0)), 0).toFixed(2)}</td><td className="px-3 py-2"></td></tr></tfoot>
+                                  <tfoot className="bg-gray-50 dark:bg-gray-700/50">
+                                    <tr className="border-t">
+                                      <td colSpan="6" className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">
+                                        Total Autorizado:
+                                      </td>
+                                      <td className="px-3 py-2 text-right font-bold text-blue-600 dark:text-blue-400">
+                                        R$ {itensAutorizados.reduce((sum, i) => sum + (i.valor_unitario * (i.quantidade_utilizada || 0)), 0).toFixed(2)}
+                                      </td>
+                                      <td className="px-3 py-2"></td>
+                                    </tr>
+                                  </tfoot>
                                 </table>
                               </div>
                             </div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">* Ao adicionar itens na aba "Procedimentos", as quantidades serão automaticamente descontadas do saldo autorizado.</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                              * Ao adicionar itens na aba "Procedimentos", as quantidades serão automaticamente descontadas do saldo autorizado.
+                            </p>
                           </div>
                         )}
                       </div>
