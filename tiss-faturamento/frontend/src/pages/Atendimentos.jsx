@@ -981,11 +981,11 @@ export default function Atendimentos() {
   };
 
   const calcularValor = (item, convenio) => {
-    let valorBase = item.valor_sugerido || 0;
+    let valorBase = item.valor_convenio || 0;
     const multiplicador = convenio?.multiplicador || 1;
     
     if (item.tabela === 'PACOTE' || item.tabela === '98' || item.codigo_tuss?.startsWith('666')) {
-      valorBase = item.valor_sugerido || 100;
+      valorBase = item.valor_convenio || 100;
     }
     
     if (item.tabela === 'CBHPM' && item.ch_base) {
@@ -2099,14 +2099,14 @@ export default function Atendimentos() {
                                   codigo: item.codigo_tuss,
                                   nome: item.nome,
                                   quantidade_autorizada: 1,
-                                  valor_unitario: item.valor_sugerido || 0,
-                                  valor_total: item.valor_sugerido || 0
+                                  valor_unitario: item.valor_convenio || 0,
+                                  valor_total: item.valor_convenio || 0
                                 });
                                 setSearchItemTerm('');
                               }} className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 border-b last:border-b-0 transition-colors">
                                 <div className="flex justify-between items-center">
                                   <div><span className="font-mono text-sm text-blue-600">{item.codigo_tuss}</span><span className="text-sm text-gray-700 dark:text-gray-300 ml-2">{item.nome}</span></div>
-                                  <span className="text-sm font-semibold text-green-600">R$ {item.valor_sugerido?.toFixed(2)}</span>
+                                  <span className="text-sm font-semibold text-green-600">R$ {item.valor_convenio?.toFixed(2)}</span>
                                 </div>
                               </button>
                             ))}
@@ -2389,7 +2389,7 @@ export default function Atendimentos() {
                             const saldo = itemAutorizado?.quantidade_autorizada - (itemAutorizado?.quantidade_utilizada || 0);
                             return (
                               <button key={item.codigo_tuss} type="button" onClick={() => { handleProcedimentoItemChange(item.codigo_tuss); setSearchItemTerm(''); }} className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 border-b last:border-b-0 transition-colors">
-                                <div className="flex justify-between items-center"><div><span className="font-mono text-sm text-blue-600">{item.codigo_tuss}</span><span className="text-sm text-gray-700 dark:text-gray-300 ml-2">{item.nome}</span></div><div className="text-right"><span className="text-sm font-semibold text-green-600">R$ {item.valor_sugerido?.toFixed(2)}</span>{itemAutorizado && <span className="text-xs text-blue-600 ml-2 block">✅ Autorizado: {saldo} disponível</span>}{!itemAutorizado && <span className="text-xs text-orange-500 ml-2 block">⚠️ Sem autorização</span>}</div></div>
+                                <div className="flex justify-between items-center"><div><span className="font-mono text-sm text-blue-600">{item.codigo_tuss}</span><span className="text-sm text-gray-700 dark:text-gray-300 ml-2">{item.nome}</span></div><div className="text-right"><span className="text-sm font-semibold text-green-600">R$ {item.valor_convenio?.toFixed(2)}</span>{itemAutorizado && <span className="text-xs text-blue-600 ml-2 block">✅ Autorizado: {saldo} disponível</span>}{!itemAutorizado && <span className="text-xs text-orange-500 ml-2 block">⚠️ Sem autorização</span>}</div></div>
                               </button>
                             );
                           })}
