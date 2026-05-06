@@ -1453,7 +1453,7 @@ export default function Atendimentos() {
       return;
     }
     if (atendimento?.status === 'finalizado') {
-      toast.error('🔒 Não é possível excluir: Guia está finalizada!');
+      toast.error('🔒 Não é possível excluir: Guia está fechada em Lote!');
       return;
     }
     
@@ -1493,6 +1493,47 @@ export default function Atendimentos() {
     return status !== 'faturado' && status !== 'finalizado';
   };
 
+  const desbloquearGuia = async (id) => {
+    const atendimento = atendimentos.find(a => a.id === id);
+    
+    if (!atendimento) {
+      toast.error('Atendimento não encontrado');
+      return;
+    }
+    
+    // Verificar se o status é finalizado - não permitir desbloqueio
+    if (atendimento.status === 'finalizado') {
+      toast.error('🔒 Não é possível desbloquear: Guia está finalizada e não pode ser alterada!');
+      return;
+    }
+    
+    // Verificar se o status é faturado - permitir desbloqueio
+    if (atendimento.status !== 'faturado') {
+      toast.warning('⚠️ Apenas guias com status "Faturado" podem ser desbloqueadas para edição.');
+      return;
+    }
+    
+    if (!confirm('Deseja desbloquear esta guia? Ela voltará ao status "Pendente" e poderá ser editada novamente.')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('atendimentos')
+        .update({ 
+          status: 'pendente', 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      toast.success('✅ Guia desbloqueada com sucesso! Status alterado para Pendente.');
+      await carregarDados();
+    } catch (error) {
+      console.error('Erro ao desbloquear guia:', error);
+      toast.error('Erro ao desbloquear guia');
+    }
+  };
+  
   const pendentes = atendimentos.filter(a => a.status === 'pendente').length;
   const autorizados = atendimentos.filter(a => a.status === 'autorizado').length;
   const parciais = atendimentos.filter(a => a.status === 'parcial').length;
@@ -1670,63 +1711,53 @@ export default function Atendimentos() {
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {atendimentosFiltrados.map((a) => (
                   <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                      {a.data_atendimento ? format(new Date(a.data_atendimento), 'dd/MM/yyyy') : 
-                       (a.itens && a.itens[0] ? format(new Date(a.itens[0].data_execucao), 'dd/MM/yyyy') : '-')}
-                    </td>
-                    <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
-                      {a.numero_guia_prestador}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-800 dark:text-gray-200">
-                      {a.paciente_nome}
-                    </td>
-                    <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
-                      {a.numero_carteira}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${a.paciente_convenio_nome && a.paciente_convenio_nome !== 'Sem convênio' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
-                        {a.paciente_convenio_nome || '-'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-center">
-                      <button onClick={() => handleViewItens(a)} className="text-blue-600 hover:text-blue-800 flex items-center gap-1 mx-auto" title="Ver itens">
-                        <DocumentPlusIcon className="w-4 h-4" />
-                        <span className="font-bold">{a.itens?.length || 0}</span>
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-right font-semibold text-gray-700 dark:text-gray-300">
-                      {a.valor_total ? `R$ ${a.valor_total.toFixed(2)}` : 'R$ 0,00'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getStatusCor(a.status || 'pendente')}`}>
-                        {STATUS_ATENDIMENTO.find(s => s.value === (a.status || 'pendente'))?.label || (a.status || 'Pendente')}
-                      </span>
-                    </td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex gap-1 justify-center">
+                        {/* Ver Itens */}
                         <button onClick={() => handleViewItens(a)} className="p-1 rounded-lg text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Ver Itens">
                           <EyeIcon className="w-4 h-4" />
                         </button>
+                        
+                        {/* Autorizar */}
                         {(a.status === 'pendente' || a.status === 'parcial') && a.itens_autorizados?.length > 0 && (
                           <button onClick={() => alterarStatusManual(a.id, 'autorizado')} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Autorizar">
                             <CheckIcon className="w-4 h-4" />
                           </button>
                         )}
+                        
+                        {/* Faturar */}
                         {a.status !== 'faturado' && a.status !== 'cancelado' && a.status !== 'finalizado' && (
                           <button onClick={() => handleEnviarFaturamento(a.id)} className="p-1 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" title="Faturar">
                             <CurrencyDollarIcon className="w-4 h-4" />
                           </button>
                         )}
+                        
+                        {/* Cancelar */}
                         {a.status !== 'cancelado' && a.status !== 'faturado' && a.status !== 'finalizado' && (
                           <button onClick={() => alterarStatusManual(a.id, 'cancelado')} className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Cancelar">
                             <XMarkIcon className="w-4 h-4" />
                           </button>
                         )}
+                        
+                        {/* Recalcular */}
                         {a.status !== 'cancelado' && a.status !== 'finalizado' && (
                           <button onClick={() => recalcularGuia(a.id)} className="p-1 rounded-lg text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors" title="Recalcular saldos">
                             <ArrowPathIcon className="w-4 h-4" />
                           </button>
-                        )}                       
+                        )}
+                        
+                        {/* DESBLOQUEAR - NOVO BOTÃO - apenas para status faturado */}
+                        {a.status === 'faturado' && (
+                          <button 
+                            onClick={() => desbloquearGuia(a.id)} 
+                            className="p-1 rounded-lg text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors" 
+                            title="Desbloquear guia (voltar para pendente)"
+                          >
+                            <LockOpenIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                        
+                        {/* Editar */}
                         <button 
                           onClick={() => handleEdit(a)} 
                           disabled={!podeEditar(a.status)}
@@ -1735,6 +1766,8 @@ export default function Atendimentos() {
                         >
                           <PencilIcon className="w-4 h-4" />
                         </button>
+                        
+                        {/* Excluir */}
                         <button 
                           onClick={() => handleDelete(a.id)} 
                           disabled={!podeEditar(a.status)}
