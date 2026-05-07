@@ -1865,22 +1865,145 @@ export default function Atendimentos() {
         {/* Modal de Visualização de Itens */}
         {showItensModal && selectedGuia && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[80vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-7xl max-h-[85vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5 z-10">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Itens da Guia</h3>
+                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Detalhes da Guia</h3>
                   <button onClick={() => setShowItensModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                     <XMarkIcon className="w-5 h-5 text-gray-500" />
                   </button>
                 </div>
               </div>
+              
               <div className="p-5">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Guia:</span> <span className="text-sm font-mono font-medium">{selectedGuia.numero_guia_prestador}</span></div>
-                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Paciente:</span> <span className="text-sm font-medium">{selectedGuia.paciente_nome}</span></div>
-                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Carteira:</span> <span className="text-sm font-mono">{selectedGuia.numero_carteira}</span></div>
-                  <div><span className="text-xs text-gray-500 dark:text-gray-400">Convênio:</span> <span className="text-sm font-medium text-blue-600">{selectedGuia.paciente_convenio_nome || '-'}</span></div>
+                {/* Informações da Guia - cabeçalho completo */}
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-5 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                  <div>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 block">Nº Guia Prestador</span>
+                    <span className="text-sm font-mono font-medium text-gray-900 dark:text-white">{selectedGuia.numero_guia_prestador}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 block">Nº Guia Operadora</span>
+                    <span className="text-sm font-mono font-medium text-gray-900 dark:text-white">{selectedGuia.numero_guia_operadora || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 block">Senha Autorização</span>
+                    <span className="text-sm font-mono font-medium text-gray-900 dark:text-white">{selectedGuia.senha_autorizacao || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 block">Data Autorização</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">{selectedGuia.data_autorizacao ? format(new Date(selectedGuia.data_autorizacao), 'dd/MM/yyyy') : '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 block">Validade Senha</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">{selectedGuia.data_validade_senha ? format(new Date(selectedGuia.data_validade_senha), 'dd/MM/yyyy') : '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 block">Status</span>
+                    <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getStatusCor(selectedGuia.status || 'pendente')}`}>
+                      {STATUS_ATENDIMENTO.find(s => s.value === (selectedGuia.status || 'pendente'))?.label || (selectedGuia.status || 'Pendente')}
+                    </span>
+                  </div>
                 </div>
+                
+                {/* Informações do Paciente */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+                  <div className="md:col-span-2">
+                    <span className="text-xs text-blue-600 dark:text-blue-400 block">Paciente</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">{selectedGuia.paciente_nome}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-blue-600 dark:text-blue-400 block">Nº Carteira</span>
+                    <span className="text-sm font-mono text-gray-900 dark:text-white">{selectedGuia.numero_carteira}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-blue-600 dark:text-blue-400 block">Convênio</span>
+                    <span className="text-sm font-medium text-blue-600 dark:text-blue-400">{selectedGuia.paciente_convenio_nome || '-'}</span>
+                  </div>
+                </div>
+                
+                {/* Informações do Atendimento */}
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-5 p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                  <div>
+                    <span className="text-xs text-green-600 dark:text-green-400 block">Data Solicitação</span>
+                    <span className="text-sm text-gray-900 dark:text-white">{selectedGuia.data_solicitacao ? format(new Date(selectedGuia.data_solicitacao), 'dd/MM/yyyy') : '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-green-600 dark:text-green-400 block">Caráter</span>
+                    <span className="text-sm text-gray-900 dark:text-white">{CARATER_ATENDIMENTO.find(c => c.value === selectedGuia.carater_atendimento)?.label || selectedGuia.carater_atendimento || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-green-600 dark:text-green-400 block">Tipo Atendimento</span>
+                    <span className="text-sm text-gray-900 dark:text-white">{TIPO_ATENDIMENTO.find(t => t.value === selectedGuia.tipo_atendimento)?.label || selectedGuia.tipo_atendimento || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-green-600 dark:text-green-400 block">Regime</span>
+                    <span className="text-sm text-gray-900 dark:text-white">{REGIME_ATENDIMENTO.find(r => r.value === selectedGuia.regime_atendimento)?.label || selectedGuia.regime_atendimento || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-green-600 dark:text-green-400 block">Tipo Consulta</span>
+                    <span className="text-sm text-gray-900 dark:text-white">{TIPO_CONSULTA.find(t => t.value === selectedGuia.tipo_consulta)?.label || selectedGuia.tipo_consulta || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-green-600 dark:text-green-400 block">Acidente</span>
+                    <span className="text-sm text-gray-900 dark:text-white">{INDICADOR_ACIDENTE.find(i => i.value === selectedGuia.indicacao_acidente)?.label || selectedGuia.indicacao_acidente || '-'}</span>
+                  </div>
+                </div>
+                
+                {/* Informações do Profissional Solicitante */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
+                  <div className="md:col-span-2">
+                    <span className="text-xs text-purple-600 dark:text-purple-400 block">Profissional Solicitante</span>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">{selectedGuia.profissional_solicitante || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-purple-600 dark:text-purple-400 block">Conselho</span>
+                    <span className="text-sm text-gray-900 dark:text-white">
+                      {selectedGuia.conselho_solicitante === '06' ? 'CRM' : 
+                       selectedGuia.conselho_solicitante === '08' ? 'CRO' :
+                       selectedGuia.conselho_solicitante === '03' ? 'CRF' :
+                       selectedGuia.conselho_solicitante === '02' ? 'COREN' :
+                       selectedGuia.conselho_solicitante === '05' ? 'CREFITO' :
+                       selectedGuia.conselho_solicitante === '09' ? 'CRP' :
+                       selectedGuia.conselho_solicitante === '07' ? 'CRN' : '-'} {selectedGuia.numero_conselho_solicitante || ''}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-purple-600 dark:text-purple-400 block">UF / CBOS</span>
+                    <span className="text-sm text-gray-900 dark:text-white">{selectedGuia.uf_solicitante || '-'} / {selectedGuia.cbos_solicitante || '-'}</span>
+                  </div>
+                </div>
+                
+                {/* Observação Clínica */}
+                {selectedGuia.indicacao_clinica && (
+                  <div className="mb-5 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                    <div className="flex items-start gap-2">
+                      <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <div>
+                        <span className="text-xs font-semibold text-yellow-700 dark:text-yellow-400">Indicação Clínica</span>
+                        <p className="text-sm text-yellow-800 dark:text-yellow-300 mt-1">{selectedGuia.indicacao_clinica}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {selectedGuia.observacao && (
+                  <div className="mb-5 p-3 bg-gray-100 dark:bg-gray-700/50 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <svg className="w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                      </svg>
+                      <div>
+                        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Observações</span>
+                        <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{selectedGuia.observacao}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Alerta para guia parcial */}
                 {selectedGuia.status === 'parcial' && (
                   <div className="mb-4 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
                     <div className="flex items-center gap-2">
@@ -1891,11 +2014,13 @@ export default function Atendimentos() {
                     </div>
                   </div>
                 )}
-                <h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
+                
+                {/* Tabela de Itens Executados */}
+                <h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2 mt-4">
                   <CheckIcon className="w-4 h-4 text-green-600" />
-                  Itens Executados
+                  Itens Executados ({selectedGuia.itens?.length || 0})
                 </h4>
-                <div className="overflow-x-auto mb-6">
+                <div className="overflow-x-auto mb-6 border rounded-xl">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 dark:bg-gray-700/50">
                       <tr>
@@ -1920,10 +2045,10 @@ export default function Atendimentos() {
                           <td className="px-3 py-2 text-xs">{item.hora_inicial || '-'}</td>
                           <td className="px-3 py-2 text-xs">{item.hora_final || '-'}</td>
                           <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
-                          <td className="px-3 py-2 text-xs">{item.nome}</td>
+                          <td className="px-3 py-2 text-xs max-w-xs truncate" title={item.nome}>{item.nome}</td>
                           <td className="px-3 py-2 text-xs text-center font-medium">{item.quantidade}</td>
-                          <td className="px-3 py-2 text-xs text-right">R$ {item.valor_unitario?.toFixed(2)}</td>
-                          <td className="px-3 py-2 text-xs text-right font-semibold">R$ {item.valor_total?.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-xs text-right">R$ {(item.valor_unitario || 0).toFixed(2)}</td>
+                          <td className="px-3 py-2 text-xs text-right font-semibold">R$ {(item.valor_total || 0).toFixed(2)}</td>
                           <td className="px-3 py-2 text-xs">
                             <div>{item.prestador_nome || '-'}</div>
                             {item.prestador_numero_conselho && (
@@ -1955,19 +2080,26 @@ export default function Atendimentos() {
                     </tbody>
                     <tfoot className="bg-gray-50 dark:bg-gray-700/50">
                       <tr className="border-t">
-                        <td colSpan="9" className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">Total da Guia:</td>
-                        <td colSpan="2" className="px-3 py-2 text-right font-bold text-blue-600 dark:text-blue-400">R$ {selectedGuia.valor_total?.toFixed(2)}</td>
+                        <td colSpan="8" className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">
+                          Total da Guia:
+                        </td>
+                        <td className="px-3 py-2 text-right font-bold text-blue-600 dark:text-blue-400">
+                          R$ {(selectedGuia.itens || []).reduce((sum, i) => sum + (i.valor_total || 0), 0).toFixed(2)}
+                        </td>
+                        <td colSpan="2"></td>
                       </tr>
                     </tfoot>
                   </table>
                 </div>
+                
+                {/* Itens Autorizados */}
                 {selectedGuia.itens_autorizados && selectedGuia.itens_autorizados.length > 0 && (
                   <>
                     <h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
                       <DocumentPlusIcon className="w-4 h-4 text-blue-600" />
-                      Itens Autorizados pelo Convênio
+                      Itens Autorizados pelo Convênio ({selectedGuia.itens_autorizados.length})
                     </h4>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto border rounded-xl">
                       <table className="w-full text-sm">
                         <thead className="bg-gray-50 dark:bg-gray-700/50">
                           <tr>
@@ -1980,23 +2112,38 @@ export default function Atendimentos() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                          {selectedGuia.itens_autorizados.map((item, idx) => (
-                            <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                              <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
-                              <td className="px-3 py-2 text-xs">{item.nome}</td>
-                              <td className="px-3 py-2 text-xs text-center font-medium">{item.quantidade_autorizada}</td>
-                              <td className="px-3 py-2 text-xs text-center">{item.quantidade_utilizada || 0}</td>
-                              <td className={`px-3 py-2 text-xs text-center font-semibold ${(item.saldo_autorizado || item.quantidade_autorizada - (item.quantidade_utilizada || 0)) > 0 ? 'text-green-600' : 'text-gray-600'}`}>
-                                {item.saldo_autorizado || item.quantidade_autorizada - (item.quantidade_utilizada || 0)}
-                              </td>
-                              <td className="px-3 py-2 text-xs text-right">R$ {item.valor_unitario?.toFixed(2)}</td>
-                            </tr>
-                          ))}
+                          {selectedGuia.itens_autorizados.map((item, idx) => {
+                            const saldo = (item.saldo_autorizado !== undefined) ? item.saldo_autorizado : (item.quantidade_autorizada - (item.quantidade_utilizada || 0));
+                            return (
+                              <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                                <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
+                                <td className="px-3 py-2 text-xs">{item.nome}</td>
+                                <td className="px-3 py-2 text-xs text-center font-medium">{item.quantidade_autorizada}</td>
+                                <td className="px-3 py-2 text-xs text-center">{item.quantidade_utilizada || 0}</td>
+                                <td className={`px-3 py-2 text-xs text-center font-semibold ${saldo > 0 ? 'text-green-600' : saldo === 0 ? 'text-gray-500' : 'text-red-600'}`}>
+                                  {saldo}
+                                </td>
+                                <td className="px-3 py-2 text-xs text-right">R$ {(item.valor_unitario || 0).toFixed(2)}</td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
+                        <tfoot className="bg-gray-50 dark:bg-gray-700/50">
+                          <tr className="border-t">
+                            <td colSpan="5" className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">
+                              Total Autorizado:
+                            </td>
+                            <td className="px-3 py-2 text-right font-bold text-blue-600 dark:text-blue-400">
+                              R$ {(selectedGuia.itens_autorizados || []).reduce((sum, i) => sum + ((i.valor_unitario || 0) * (i.quantidade_autorizada || 0)), 0).toFixed(2)}
+                            </td>
+                          </tr>
+                        </tfoot>
                       </table>
                     </div>
                   </>
                 )}
+                
+                {/* Botão Fechar */}
                 <div className="flex justify-end mt-5 pt-4 border-t border-gray-200 dark:border-gray-700">
                   <button onClick={() => setShowItensModal(false)} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-md">
                     Fechar
