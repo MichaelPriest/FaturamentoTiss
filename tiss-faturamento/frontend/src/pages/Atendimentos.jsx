@@ -1699,20 +1699,89 @@ export default function Atendimentos() {
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Data</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nº Guia</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nº Guia Operadora</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Senha</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Paciente</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Carteira</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Convênio</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Itens</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Valor Total</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-36">Ações</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-40">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {atendimentosFiltrados.map((a) => (
                   <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                    {/* Data */}
+                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                      {a.data_atendimento ? format(new Date(a.data_atendimento), 'dd/MM/yyyy') : 
+                       (a.itens && a.itens[0] ? format(new Date(a.itens[0].data_execucao), 'dd/MM/yyyy') : '-')}
+                    </td>
+                    
+                    {/* Nº Guia Prestador */}
+                    <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
+                      {a.numero_guia_prestador}
+                    </td>
+                    
+                    {/* Nº Guia Operadora */}
+                    <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
+                      {a.numero_guia_operadora || '-'}
+                    </td>
+                    
+                    {/* Senha */}
+                    <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
+                      {a.senha_autorizacao || '-'}
+                    </td>
+                    
+                    {/* Paciente */}
+                    <td className="px-4 py-3 text-sm text-gray-800 dark:text-gray-200">
+                      {a.paciente_nome}
+                    </td>
+                    
+                    {/* Carteira */}
+                    <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
+                      {a.numero_carteira}
+                    </td>
+                    
+                    {/* Convênio */}
+                    <td className="px-4 py-3 text-sm">
+                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${a.paciente_convenio_nome && a.paciente_convenio_nome !== 'Sem convênio' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
+                        {a.paciente_convenio_nome || '-'}
+                      </span>
+                    </td>
+                    
+                    {/* Itens */}
+                    <td className="px-4 py-3 text-sm text-center">
+                      <button onClick={() => handleViewItens(a)} className="text-blue-600 hover:text-blue-800 flex items-center gap-1 mx-auto" title="Ver itens">
+                        <DocumentPlusIcon className="w-4 h-4" />
+                        <span className="font-bold">{a.itens?.length || 0}</span>
+                      </button>
+                    </td>
+                    
+                    {/* Valor Total */}
+                    <td className="px-4 py-3 text-sm text-right font-semibold text-gray-700 dark:text-gray-300">
+                      {a.valor_total ? `R$ ${a.valor_total.toFixed(2)}` : 'R$ 0,00'}
+                    </td>
+                    
+                    {/* Status */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getStatusCor(a.status || 'pendente')}`}>
+                          {STATUS_ATENDIMENTO.find(s => s.value === (a.status || 'pendente'))?.label || (a.status || 'Pendente')}
+                        </span>
+                        {a.status === 'finalizado' && (
+                          <LockClosedIcon className="w-3 h-3 text-gray-500" title="Finalizado - Não pode ser alterado" />
+                        )}
+                        {a.status === 'faturado' && (
+                          <LockOpenIcon className="w-3 h-3 text-orange-500" title="Faturado - Pode ser desbloqueado" />
+                        )}
+                      </div>
+                    </td>
+                    
+                    {/* Ações */}
                     <td className="px-4 py-3 text-center">
-                      <div className="flex gap-1 justify-center">
+                      <div className="flex gap-1 justify-center flex-wrap">
                         {/* Ver Itens */}
                         <button onClick={() => handleViewItens(a)} className="p-1 rounded-lg text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Ver Itens">
                           <EyeIcon className="w-4 h-4" />
@@ -1746,7 +1815,7 @@ export default function Atendimentos() {
                           </button>
                         )}
                         
-                        {/* DESBLOQUEAR - NOVO BOTÃO - apenas para status faturado */}
+                        {/* Desbloquear - apenas para status faturado */}
                         {a.status === 'faturado' && (
                           <button 
                             onClick={() => desbloquearGuia(a.id)} 
@@ -1782,7 +1851,7 @@ export default function Atendimentos() {
                 ))}
                 {atendimentosFiltrados.length === 0 && (
                   <tr>
-                    <td colSpan="9" className="px-4 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
+                    <td colSpan="11" className="px-4 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
                       <DocumentPlusIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
                       Nenhum atendimento encontrado
                     </td>
