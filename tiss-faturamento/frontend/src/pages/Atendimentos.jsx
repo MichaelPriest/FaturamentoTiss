@@ -137,7 +137,7 @@ const TIPOS_ITEM = [
   { value: 'outros', label: 'Outras Despesas', tabelas: ['00'] }
 ];
 
-// Tabelas disponíveis
+// Tabelas disponíveis com códigos e nomes
 const TABELAS = {
   '22': { nome: 'TUSS - Procedimentos', tipo: 'procedimento' },
   '00': { nome: 'Tabela Própria', tipo: 'procedimento' },
@@ -145,6 +145,36 @@ const TABELAS = {
   '19': { nome: 'TUSS - Materiais/OPME', tipo: 'material' },
   '20': { nome: 'TUSS - Medicamentos', tipo: 'medicamento' },
   '18': { nome: 'TUSS - Diárias e Taxas', tipo: 'diaria' }
+};
+
+// Mapeamento de nomes de tabela para códigos
+const TABELA_PARA_CODIGO = {
+  'TUSS': '22',
+  'PROPRIA': '00',
+  'PACOTE': '98',
+  'CBHPM': '22',
+  'AMB90': '01',
+  'AMB92': '02',
+  'AMB96': '03',
+  'AMB99': '04',
+  'BRASINDICE': '05',
+  'SIMPRO': '12'
+};
+
+// Mapeamento de códigos para nomes legíveis
+const CODIGO_PARA_TABELA = {
+  '22': 'TUSS',
+  '00': 'Tabela Própria',
+  '98': 'Pacote',
+  '19': 'Materiais/OPME',
+  '20': 'Medicamentos',
+  '18': 'Diárias/Taxas',
+  '01': 'AMB 90',
+  '02': 'AMB 92',
+  '03': 'AMB 96',
+  '04': 'AMB 99',
+  '05': 'Brasíndice',
+  '12': 'SIMPRO'
 };
 
 // Códigos de Despesas
@@ -180,17 +210,66 @@ const CONSELHOS = [
   { value: '07', label: '07 - CRN (Nutrição)' }
 ];
 
-// Unidades de medida
+// Unidades de medida - Padrão TISS Tabela 60
 const UNIDADES_MEDIDA = [
-  { value: '036', label: 'UN - Unidade' },
-  { value: '022', label: 'MG - Miligrama' },
-  { value: '018', label: 'G - Grama' },
-  { value: '023', label: 'ML - Mililitro' },
-  { value: '001', label: 'AMP - Ampola' },
-  { value: '013', label: 'FR - Frasco' },
-  { value: '005', label: 'CX - Caixa' },
-  { value: '040', label: 'KIT - Kit' }
+  { value: '001', label: '001 - AMP - Ampola' },
+  { value: '002', label: '002 - BUI - Bilhões de Unidades Internacionais' },
+  { value: '003', label: '003 - BG - Bisnaga' },
+  { value: '004', label: '004 - BOLS - Bolsa' },
+  { value: '005', label: '005 - CX - Caixa' },
+  { value: '006', label: '006 - CAP - Cápsula' },
+  { value: '007', label: '007 - CARP - Carpule' },
+  { value: '008', label: '008 - COM - Comprimido' },
+  { value: '009', label: '009 - DOSE - Dose' },
+  { value: '010', label: '010 - DRG - Drágea' },
+  { value: '011', label: '011 - ENV - Envelope' },
+  { value: '012', label: '012 - FLAC - Flaconete' },
+  { value: '013', label: '013 - FR - Frasco' },
+  { value: '014', label: '014 - FA - Frasco Ampola' },
+  { value: '015', label: '015 - GAL - Galão' },
+  { value: '016', label: '016 - GLOB - Glóbulo' },
+  { value: '017', label: '017 - GTS - Gotas' },
+  { value: '018', label: '018 - G - Grama' },
+  { value: '019', label: '019 - L - Litro' },
+  { value: '020', label: '020 - MCG - Microgramas' },
+  { value: '021', label: '021 - MUI - Milhões de Unidades Internacionais' },
+  { value: '022', label: '022 - MG - Miligrama' },
+  { value: '023', label: '023 - ML - Mililitro' },
+  { value: '024', label: '024 - OVL - Óvulo' },
+  { value: '025', label: '025 - PAS - Pastilha' },
+  { value: '026', label: '026 - LT - Lata' },
+  { value: '027', label: '027 - PER - Pérola' },
+  { value: '028', label: '028 - PIL - Pílula' },
+  { value: '029', label: '029 - PT - Pote' },
+  { value: '030', label: '030 - KG - Quilograma' },
+  { value: '031', label: '031 - SER - Seringa' },
+  { value: '032', label: '032 - SUP - Supositório' },
+  { value: '033', label: '033 - TABLE - Tablete' },
+  { value: '034', label: '034 - TUB - Tubete' },
+  { value: '035', label: '035 - TB - Tubo' },
+  { value: '036', label: '036 - UN - Unidade' },
+  { value: '037', label: '037 - UI - Unidade Internacional' },
+  { value: '038', label: '038 - CM - Centímetro' },
+  { value: '039', label: '039 - CONJ - Conjunto' },
+  { value: '040', label: '040 - KIT - Kit' },
+  { value: '041', label: '041 - MÇ - Maço' },
+  { value: '042', label: '042 - M - Metro' },
+  { value: '043', label: '043 - PC - Pacote' },
+  { value: '044', label: '044 - PÇ - Peça' },
+  { value: '045', label: '045 - RL - Rolo' },
+  { value: '046', label: '046 - GY - Gray' },
+  { value: '047', label: '047 - CGY - Centigray' },
+  { value: '048', label: '048 - PAR - Par' },
+  { value: '049', label: '049 - ADES - Adesivo Transdérmico' },
+  { value: '050', label: '050 - COM EFEV - Comprimido Efervescente' },
+  { value: '051', label: '051 - COM MST - Comprimido Mastigável' },
+  { value: '052', label: '052 - SACHE - Sachê' }
 ];
+
+// Função para obter nome da tabela a partir do código
+function getNomeTabela(codigo) {
+  return CODIGO_PARA_TABELA[codigo] || codigo || 'TUSS';
+}
 
 export default function Atendimentos() {
   const [atendimentos, setAtendimentos] = useState([]);
@@ -562,8 +641,12 @@ export default function Atendimentos() {
 
   // Procedimentos disponíveis apenas para o convênio selecionado
   const procedimentosDoConvenio = useMemo(() => {
-    if (!formData.convenio_id) return [];
-    return procedimentos.filter(p => p.convenio_id === formData.convenio_id);
+    if (!formData.convenio_id) {
+      // Se não tem convênio selecionado, mostrar apenas procedimentos sem convênio (tabela padrão)
+      return procedimentos.filter(p => !p.convenio_id);
+    }
+    // Se tem convênio selecionado, mostrar procedimentos DO convênio + procedimentos padrão (sem convênio)
+    return procedimentos.filter(p => !p.convenio_id || p.convenio_id === formData.convenio_id);
   }, [procedimentos, formData.convenio_id]);
 
   // Filtrar prestadores para busca digitável (adição de item)
@@ -981,26 +1064,9 @@ export default function Atendimentos() {
   };
 
   const calcularValor = (item, convenio) => {
-    let valorBase = item.valor_convenio || 0;
+    // Prioriza valor_convenio se existir, senão usa valor_sugerido
+    let valorBase = item.valor_convenio || item.valor_sugerido || 0;
     const multiplicador = convenio?.multiplicador || 1;
-    
-    if (item.tabela === 'PACOTE' || item.tabela === '98' || item.codigo_tuss?.startsWith('666')) {
-      valorBase = item.valor_convenio || 100;
-    }
-    
-    if (item.tabela === 'CBHPM' && item.ch_base) {
-      const ch = item.ch_base;
-      const valorCH = convenio?.valor_ch || 100;
-      valorBase = ch * valorCH;
-    }
-    
-    if (item.tabela === 'AMB') {
-      if (item.tipo === 'CONSULTA') {
-        valorBase = item.ch_consulta || valorBase;
-      } else if (item.tipo === 'EXAME') {
-        valorBase = item.ch_exame || valorBase;
-      }
-    }
     
     return valorBase * multiplicador;
   };
@@ -1035,7 +1101,8 @@ export default function Atendimentos() {
       valor_total: valorUnitario * (currentItem.quantidade_autorizada || 1),
       data_autorizacao: formData.data_autorizacao || new Date().toISOString().split('T')[0],
       saldo_autorizado: currentItem.quantidade_autorizada || 1,
-      pendente_autorizacao: false
+      pendente_autorizacao: false,
+      tabela_referencia: currentItem.tabela_referencia || '22'
     };
     
     setItensAutorizados([...itensAutorizados, novoItemAutorizado]);
@@ -1162,6 +1229,7 @@ export default function Atendimentos() {
       viaAcesso: currentItem.viaAcesso || '1',
       tecnicaUtilizada: currentItem.tecnicaUtilizada || '1',
       reducaoAcrescimo: currentItem.reducaoAcrescimo || '1.00',
+      tabela_referencia: currentItem.tabela_referencia || '22',
       id: Date.now() + Math.random()
     };
     
@@ -1223,9 +1291,33 @@ export default function Atendimentos() {
     const procedimento = procedimentosDoConvenio.find(p => p.codigo_tuss === codigo);
     if (procedimento) {
       const convenio = convenios.find(c => c.id === formData.convenio_id);
-      const valorCalculado = calcularValor(procedimento, convenio);
+      let valorCalculado = procedimento.valor_convenio || procedimento.valor_sugerido || 0;
+      
+      if (convenio?.multiplicador) {
+        valorCalculado = valorCalculado * convenio.multiplicador;
+      }
+      
       const saldo = calcularSaldoAutorizado(codigo);
       const itemAutorizado = itensAutorizados.find(aut => aut.codigo === codigo);
+      
+      // Determinar o código da tabela corretamente
+      let codigoTabela = '22';
+      if (procedimento.tabela === 'PROPRIA') {
+        codigoTabela = '00';
+      } else if (procedimento.tabela === 'PACOTE') {
+        codigoTabela = '98';
+      } else if (procedimento.tabela === 'CBHPM') {
+        codigoTabela = '22';
+      } else if (procedimento.tabela?.startsWith('AMB')) {
+        const mapaAMB = { 'AMB90': '01', 'AMB92': '02', 'AMB96': '03', 'AMB99': '04' };
+        codigoTabela = mapaAMB[procedimento.tabela] || '22';
+      } else if (procedimento.tabela === 'BRASINDICE') {
+        codigoTabela = '05';
+      } else if (procedimento.tabela === 'SIMPRO') {
+        codigoTabela = '12';
+      } else if (procedimento.tabela === 'TUSS') {
+        codigoTabela = '22';
+      }
       
       setCurrentItem({
         ...currentItem,
@@ -1235,9 +1327,7 @@ export default function Atendimentos() {
         quantidade_autorizada: itemAutorizado?.quantidade_autorizada || 0,
         saldo_autorizado: saldo,
         valor_total: (currentItem.quantidade || 1) * valorCalculado,
-        tabela_referencia: procedimento.tabela === 'CBHPM' ? '98' : 
-                          procedimento.tabela === 'AMB' ? '90' : 
-                          procedimento.tabela === 'PACOTE' ? '98' : '22'
+        tabela_referencia: codigoTabela
       });
       setSearchItemTerm('');
     }
@@ -1460,6 +1550,42 @@ export default function Atendimentos() {
     excluirAtendimento(id);
   };
 
+  const desbloquearGuia = async (id) => {
+    const atendimento = atendimentos.find(a => a.id === id);
+    
+    if (!atendimento) {
+      toast.error('Atendimento não encontrado');
+      return;
+    }
+    
+    if (atendimento.status === 'finalizado') {
+      toast.error('🔒 Não é possível desbloquear: Guia está finalizada e não pode ser alterada!');
+      return;
+    }
+    
+    if (atendimento.status !== 'faturado') {
+      toast.warning('⚠️ Apenas guias com status "Faturado" podem ser desbloqueadas para edição.');
+      return;
+    }
+    
+    if (!confirm('Deseja desbloquear esta guia? Ela voltará ao status "Pendente" e poderá ser editada novamente.')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('atendimentos')
+        .update({ status: 'pendente', updated_at: new Date().toISOString() })
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      toast.success('✅ Guia desbloqueada com sucesso! Status alterado para Pendente.');
+      await carregarDados();
+    } catch (error) {
+      console.error('Erro ao desbloquear guia:', error);
+      toast.error('Erro ao desbloquear guia');
+    }
+  };
+
   const handleViewItens = (atendimento) => {
     setSelectedGuia(atendimento);
     setShowItensModal(true);
@@ -1493,47 +1619,6 @@ export default function Atendimentos() {
     return status !== 'faturado' && status !== 'finalizado';
   };
 
-  const desbloquearGuia = async (id) => {
-    const atendimento = atendimentos.find(a => a.id === id);
-    
-    if (!atendimento) {
-      toast.error('Atendimento não encontrado');
-      return;
-    }
-    
-    // Verificar se o status é finalizado - não permitir desbloqueio
-    if (atendimento.status === 'finalizado') {
-      toast.error('🔒 Não é possível desbloquear: Guia está finalizada e não pode ser alterada!');
-      return;
-    }
-    
-    // Verificar se o status é faturado - permitir desbloqueio
-    if (atendimento.status !== 'faturado') {
-      toast.warning('⚠️ Apenas guias com status "Faturado" podem ser desbloqueadas para edição.');
-      return;
-    }
-    
-    if (!confirm('Deseja desbloquear esta guia? Ela voltará ao status "Pendente" e poderá ser editada novamente.')) return;
-    
-    try {
-      const { error } = await supabase
-        .from('atendimentos')
-        .update({ 
-          status: 'pendente', 
-          updated_at: new Date().toISOString() 
-        })
-        .eq('id', id);
-      
-      if (error) throw error;
-      
-      toast.success('✅ Guia desbloqueada com sucesso! Status alterado para Pendente.');
-      await carregarDados();
-    } catch (error) {
-      console.error('Erro ao desbloquear guia:', error);
-      toast.error('Erro ao desbloquear guia');
-    }
-  };
-  
   const pendentes = atendimentos.filter(a => a.status === 'pendente').length;
   const autorizados = atendimentos.filter(a => a.status === 'autorizado').length;
   const parciais = atendimentos.filter(a => a.status === 'parcial').length;
@@ -1713,58 +1798,39 @@ export default function Atendimentos() {
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {atendimentosFiltrados.map((a) => (
                   <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                    {/* Data */}
                     <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
                       {a.data_atendimento ? format(new Date(a.data_atendimento), 'dd/MM/yyyy') : 
                        (a.itens && a.itens[0] ? format(new Date(a.itens[0].data_execucao), 'dd/MM/yyyy') : '-')}
                     </td>
-                    
-                    {/* Nº Guia Prestador */}
                     <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
                       {a.numero_guia_prestador}
                     </td>
-                    
-                    {/* Nº Guia Operadora */}
                     <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
                       {a.numero_guia_operadora || '-'}
                     </td>
-                    
-                    {/* Senha */}
                     <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
                       {a.senha_autorizacao || '-'}
-                    </td>
-                    
-                    {/* Paciente */}
+                    </table>
                     <td className="px-4 py-3 text-sm text-gray-800 dark:text-gray-200">
                       {a.paciente_nome}
                     </td>
-                    
-                    {/* Carteira */}
                     <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
                       {a.numero_carteira}
                     </td>
-                    
-                    {/* Convênio */}
                     <td className="px-4 py-3 text-sm">
                       <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${a.paciente_convenio_nome && a.paciente_convenio_nome !== 'Sem convênio' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
                         {a.paciente_convenio_nome || '-'}
                       </span>
                     </td>
-                    
-                    {/* Itens */}
                     <td className="px-4 py-3 text-sm text-center">
                       <button onClick={() => handleViewItens(a)} className="text-blue-600 hover:text-blue-800 flex items-center gap-1 mx-auto" title="Ver itens">
                         <DocumentPlusIcon className="w-4 h-4" />
                         <span className="font-bold">{a.itens?.length || 0}</span>
                       </button>
                     </td>
-                    
-                    {/* Valor Total */}
                     <td className="px-4 py-3 text-sm text-right font-semibold text-gray-700 dark:text-gray-300">
                       {a.valor_total ? `R$ ${a.valor_total.toFixed(2)}` : 'R$ 0,00'}
                     </td>
-                    
-                    {/* Status */}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
                         <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getStatusCor(a.status || 'pendente')}`}>
@@ -1778,55 +1844,42 @@ export default function Atendimentos() {
                         )}
                       </div>
                     </td>
-                    
-                    {/* Ações */}
                     <td className="px-4 py-3 text-center">
                       <div className="flex gap-1 justify-center flex-wrap">
-                        {/* Ver Itens */}
                         <button onClick={() => handleViewItens(a)} className="p-1 rounded-lg text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title="Ver Itens">
                           <EyeIcon className="w-4 h-4" />
                         </button>
                         
-                        {/* Autorizar */}
                         {(a.status === 'pendente' || a.status === 'parcial') && a.itens_autorizados?.length > 0 && (
                           <button onClick={() => alterarStatusManual(a.id, 'autorizado')} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Autorizar">
                             <CheckIcon className="w-4 h-4" />
                           </button>
                         )}
                         
-                        {/* Faturar */}
                         {a.status !== 'faturado' && a.status !== 'cancelado' && a.status !== 'finalizado' && (
                           <button onClick={() => handleEnviarFaturamento(a.id)} className="p-1 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" title="Faturar">
                             <CurrencyDollarIcon className="w-4 h-4" />
                           </button>
                         )}
                         
-                        {/* Cancelar */}
                         {a.status !== 'cancelado' && a.status !== 'faturado' && a.status !== 'finalizado' && (
                           <button onClick={() => alterarStatusManual(a.id, 'cancelado')} className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Cancelar">
                             <XMarkIcon className="w-4 h-4" />
                           </button>
                         )}
                         
-                        {/* Recalcular */}
                         {a.status !== 'cancelado' && a.status !== 'finalizado' && (
                           <button onClick={() => recalcularGuia(a.id)} className="p-1 rounded-lg text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors" title="Recalcular saldos">
                             <ArrowPathIcon className="w-4 h-4" />
                           </button>
                         )}
                         
-                        {/* Desbloquear - apenas para status faturado */}
                         {a.status === 'faturado' && (
-                          <button 
-                            onClick={() => desbloquearGuia(a.id)} 
-                            className="p-1 rounded-lg text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors" 
-                            title="Desbloquear guia (voltar para pendente)"
-                          >
+                          <button onClick={() => desbloquearGuia(a.id)} className="p-1 rounded-lg text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors" title="Desbloquear guia">
                             <LockOpenIcon className="w-4 h-4" />
                           </button>
                         )}
                         
-                        {/* Editar */}
                         <button 
                           onClick={() => handleEdit(a)} 
                           disabled={!podeEditar(a.status)}
@@ -1836,7 +1889,6 @@ export default function Atendimentos() {
                           <PencilIcon className="w-4 h-4" />
                         </button>
                         
-                        {/* Excluir */}
                         <button 
                           onClick={() => handleDelete(a.id)} 
                           disabled={!podeEditar(a.status)}
@@ -1862,7 +1914,7 @@ export default function Atendimentos() {
           </div>
         </div>
 
-        {/* Modal de Visualização de Itens */}
+        {/* Modal de Visualização de Itens - COM CAMPO TABELA */}
         {showItensModal && selectedGuia && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-7xl max-h-[85vh] overflow-y-auto">
@@ -1876,115 +1928,46 @@ export default function Atendimentos() {
               </div>
               
               <div className="p-5">
-                {/* Informações da Guia - cabeçalho completo */}
+                {/* Informações da Guia */}
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-5 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                  <div>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 block">Nº Guia Prestador</span>
-                    <span className="text-sm font-mono font-medium text-gray-900 dark:text-white">{selectedGuia.numero_guia_prestador}</span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 block">Nº Guia Operadora</span>
-                    <span className="text-sm font-mono font-medium text-gray-900 dark:text-white">{selectedGuia.numero_guia_operadora || '-'}</span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 block">Senha Autorização</span>
-                    <span className="text-sm font-mono font-medium text-gray-900 dark:text-white">{selectedGuia.senha_autorizacao || '-'}</span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 block">Data Autorização</span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">{selectedGuia.data_autorizacao ? format(new Date(selectedGuia.data_autorizacao), 'dd/MM/yyyy') : '-'}</span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 block">Validade Senha</span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">{selectedGuia.data_validade_senha ? format(new Date(selectedGuia.data_validade_senha), 'dd/MM/yyyy') : '-'}</span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 block">Status</span>
-                    <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getStatusCor(selectedGuia.status || 'pendente')}`}>
-                      {STATUS_ATENDIMENTO.find(s => s.value === (selectedGuia.status || 'pendente'))?.label || (selectedGuia.status || 'Pendente')}
-                    </span>
-                  </div>
+                  <div><span className="text-xs text-gray-500 dark:text-gray-400 block">Nº Guia Prestador</span><span className="text-sm font-mono font-medium text-gray-900 dark:text-white">{selectedGuia.numero_guia_prestador}</span></div>
+                  <div><span className="text-xs text-gray-500 dark:text-gray-400 block">Nº Guia Operadora</span><span className="text-sm font-mono font-medium text-gray-900 dark:text-white">{selectedGuia.numero_guia_operadora || '-'}</span></div>
+                  <div><span className="text-xs text-gray-500 dark:text-gray-400 block">Senha Autorização</span><span className="text-sm font-mono font-medium text-gray-900 dark:text-white">{selectedGuia.senha_autorizacao || '-'}</span></div>
+                  <div><span className="text-xs text-gray-500 dark:text-gray-400 block">Data Autorização</span><span className="text-sm font-medium text-gray-900 dark:text-white">{selectedGuia.data_autorizacao ? format(new Date(selectedGuia.data_autorizacao), 'dd/MM/yyyy') : '-'}</span></div>
+                  <div><span className="text-xs text-gray-500 dark:text-gray-400 block">Validade Senha</span><span className="text-sm font-medium text-gray-900 dark:text-white">{selectedGuia.data_validade_senha ? format(new Date(selectedGuia.data_validade_senha), 'dd/MM/yyyy') : '-'}</span></div>
+                  <div><span className="text-xs text-gray-500 dark:text-gray-400 block">Status</span><span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getStatusCor(selectedGuia.status || 'pendente')}`}>{STATUS_ATENDIMENTO.find(s => s.value === (selectedGuia.status || 'pendente'))?.label || (selectedGuia.status || 'Pendente')}</span></div>
                 </div>
                 
                 {/* Informações do Paciente */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
-                  <div className="md:col-span-2">
-                    <span className="text-xs text-blue-600 dark:text-blue-400 block">Paciente</span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">{selectedGuia.paciente_nome}</span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-blue-600 dark:text-blue-400 block">Nº Carteira</span>
-                    <span className="text-sm font-mono text-gray-900 dark:text-white">{selectedGuia.numero_carteira}</span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-blue-600 dark:text-blue-400 block">Convênio</span>
-                    <span className="text-sm font-medium text-blue-600 dark:text-blue-400">{selectedGuia.paciente_convenio_nome || '-'}</span>
-                  </div>
+                  <div className="md:col-span-2"><span className="text-xs text-blue-600 dark:text-blue-400 block">Paciente</span><span className="text-sm font-medium text-gray-900 dark:text-white">{selectedGuia.paciente_nome}</span></div>
+                  <div><span className="text-xs text-blue-600 dark:text-blue-400 block">Nº Carteira</span><span className="text-sm font-mono text-gray-900 dark:text-white">{selectedGuia.numero_carteira}</span></div>
+                  <div><span className="text-xs text-blue-600 dark:text-blue-400 block">Convênio</span><span className="text-sm font-medium text-blue-600 dark:text-blue-400">{selectedGuia.paciente_convenio_nome || '-'}</span></div>
                 </div>
                 
                 {/* Informações do Atendimento */}
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-5 p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
-                  <div>
-                    <span className="text-xs text-green-600 dark:text-green-400 block">Data Solicitação</span>
-                    <span className="text-sm text-gray-900 dark:text-white">{selectedGuia.data_solicitacao ? format(new Date(selectedGuia.data_solicitacao), 'dd/MM/yyyy') : '-'}</span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-green-600 dark:text-green-400 block">Caráter</span>
-                    <span className="text-sm text-gray-900 dark:text-white">{CARATER_ATENDIMENTO.find(c => c.value === selectedGuia.carater_atendimento)?.label || selectedGuia.carater_atendimento || '-'}</span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-green-600 dark:text-green-400 block">Tipo Atendimento</span>
-                    <span className="text-sm text-gray-900 dark:text-white">{TIPO_ATENDIMENTO.find(t => t.value === selectedGuia.tipo_atendimento)?.label || selectedGuia.tipo_atendimento || '-'}</span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-green-600 dark:text-green-400 block">Regime</span>
-                    <span className="text-sm text-gray-900 dark:text-white">{REGIME_ATENDIMENTO.find(r => r.value === selectedGuia.regime_atendimento)?.label || selectedGuia.regime_atendimento || '-'}</span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-green-600 dark:text-green-400 block">Tipo Consulta</span>
-                    <span className="text-sm text-gray-900 dark:text-white">{TIPO_CONSULTA.find(t => t.value === selectedGuia.tipo_consulta)?.label || selectedGuia.tipo_consulta || '-'}</span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-green-600 dark:text-green-400 block">Acidente</span>
-                    <span className="text-sm text-gray-900 dark:text-white">{INDICADOR_ACIDENTE.find(i => i.value === selectedGuia.indicacao_acidente)?.label || selectedGuia.indicacao_acidente || '-'}</span>
-                  </div>
+                  <div><span className="text-xs text-green-600 dark:text-green-400 block">Data Solicitação</span><span className="text-sm text-gray-900 dark:text-white">{selectedGuia.data_solicitacao ? format(new Date(selectedGuia.data_solicitacao), 'dd/MM/yyyy') : '-'}</span></div>
+                  <div><span className="text-xs text-green-600 dark:text-green-400 block">Caráter</span><span className="text-sm text-gray-900 dark:text-white">{CARATER_ATENDIMENTO.find(c => c.value === selectedGuia.carater_atendimento)?.label || selectedGuia.carater_atendimento || '-'}</span></div>
+                  <div><span className="text-xs text-green-600 dark:text-green-400 block">Tipo Atendimento</span><span className="text-sm text-gray-900 dark:text-white">{TIPO_ATENDIMENTO.find(t => t.value === selectedGuia.tipo_atendimento)?.label || selectedGuia.tipo_atendimento || '-'}</span></div>
+                  <div><span className="text-xs text-green-600 dark:text-green-400 block">Regime</span><span className="text-sm text-gray-900 dark:text-white">{REGIME_ATENDIMENTO.find(r => r.value === selectedGuia.regime_atendimento)?.label || selectedGuia.regime_atendimento || '-'}</span></div>
+                  <div><span className="text-xs text-green-600 dark:text-green-400 block">Tipo Consulta</span><span className="text-sm text-gray-900 dark:text-white">{TIPO_CONSULTA.find(t => t.value === selectedGuia.tipo_consulta)?.label || selectedGuia.tipo_consulta || '-'}</span></div>
+                  <div><span className="text-xs text-green-600 dark:text-green-400 block">Acidente</span><span className="text-sm text-gray-900 dark:text-white">{INDICADOR_ACIDENTE.find(i => i.value === selectedGuia.indicacao_acidente)?.label || selectedGuia.indicacao_acidente || '-'}</span></div>
                 </div>
                 
                 {/* Informações do Profissional Solicitante */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl">
-                  <div className="md:col-span-2">
-                    <span className="text-xs text-purple-600 dark:text-purple-400 block">Profissional Solicitante</span>
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">{selectedGuia.profissional_solicitante || '-'}</span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-purple-600 dark:text-purple-400 block">Conselho</span>
-                    <span className="text-sm text-gray-900 dark:text-white">
-                      {selectedGuia.conselho_solicitante === '06' ? 'CRM' : 
-                       selectedGuia.conselho_solicitante === '08' ? 'CRO' :
-                       selectedGuia.conselho_solicitante === '03' ? 'CRF' :
-                       selectedGuia.conselho_solicitante === '02' ? 'COREN' :
-                       selectedGuia.conselho_solicitante === '05' ? 'CREFITO' :
-                       selectedGuia.conselho_solicitante === '09' ? 'CRP' :
-                       selectedGuia.conselho_solicitante === '07' ? 'CRN' : '-'} {selectedGuia.numero_conselho_solicitante || ''}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-xs text-purple-600 dark:text-purple-400 block">UF / CBOS</span>
-                    <span className="text-sm text-gray-900 dark:text-white">{selectedGuia.uf_solicitante || '-'} / {selectedGuia.cbos_solicitante || '-'}</span>
-                  </div>
+                  <div className="md:col-span-2"><span className="text-xs text-purple-600 dark:text-purple-400 block">Profissional Solicitante</span><span className="text-sm font-medium text-gray-900 dark:text-white">{selectedGuia.profissional_solicitante || '-'}</span></div>
+                  <div><span className="text-xs text-purple-600 dark:text-purple-400 block">Conselho</span><span className="text-sm text-gray-900 dark:text-white">{selectedGuia.conselho_solicitante === '06' ? 'CRM' : selectedGuia.conselho_solicitante === '08' ? 'CRO' : selectedGuia.conselho_solicitante === '03' ? 'CRF' : selectedGuia.conselho_solicitante === '02' ? 'COREN' : selectedGuia.conselho_solicitante === '05' ? 'CREFITO' : selectedGuia.conselho_solicitante === '09' ? 'CRP' : selectedGuia.conselho_solicitante === '07' ? 'CRN' : '-'} {selectedGuia.numero_conselho_solicitante || ''}</span></div>
+                  <div><span className="text-xs text-purple-600 dark:text-purple-400 block">UF / CBOS</span><span className="text-sm text-gray-900 dark:text-white">{selectedGuia.uf_solicitante || '-'} / {selectedGuia.cbos_solicitante || '-'}</span></div>
                 </div>
                 
                 {/* Observação Clínica */}
                 {selectedGuia.indicacao_clinica && (
                   <div className="mb-5 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
                     <div className="flex items-start gap-2">
-                      <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      <div>
-                        <span className="text-xs font-semibold text-yellow-700 dark:text-yellow-400">Indicação Clínica</span>
-                        <p className="text-sm text-yellow-800 dark:text-yellow-300 mt-1">{selectedGuia.indicacao_clinica}</p>
-                      </div>
+                      <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                      <div><span className="text-xs font-semibold text-yellow-700 dark:text-yellow-400">Indicação Clínica</span><p className="text-sm text-yellow-800 dark:text-yellow-300 mt-1">{selectedGuia.indicacao_clinica}</p></div>
                     </div>
                   </div>
                 )}
@@ -1992,13 +1975,8 @@ export default function Atendimentos() {
                 {selectedGuia.observacao && (
                   <div className="mb-5 p-3 bg-gray-100 dark:bg-gray-700/50 rounded-lg">
                     <div className="flex items-start gap-2">
-                      <svg className="w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                      </svg>
-                      <div>
-                        <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Observações</span>
-                        <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{selectedGuia.observacao}</p>
-                      </div>
+                      <svg className="w-5 h-5 text-gray-500 dark:text-gray-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>
+                      <div><span className="text-xs font-semibold text-gray-500 dark:text-gray-400">Observações</span><p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{selectedGuia.observacao}</p></div>
                     </div>
                   </div>
                 )}
@@ -2006,16 +1984,11 @@ export default function Atendimentos() {
                 {/* Alerta para guia parcial */}
                 {selectedGuia.status === 'parcial' && (
                   <div className="mb-4 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
-                    <div className="flex items-center gap-2">
-                      <ExclamationTriangleIcon className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                      <span className="text-sm text-orange-700 dark:text-orange-300">
-                        ⚠️ Esta guia possui itens pendentes de autorização ou com quantidade excedente.
-                      </span>
-                    </div>
+                    <div className="flex items-center gap-2"><ExclamationTriangleIcon className="w-5 h-5 text-orange-600 dark:text-orange-400" /><span className="text-sm text-orange-700 dark:text-orange-300">⚠️ Esta guia possui itens pendentes de autorização ou com quantidade excedente.</span></div>
                   </div>
                 )}
                 
-                {/* Tabela de Itens Executados */}
+                {/* Tabela de Itens Executados - COM CAMPO TABELA */}
                 <h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2 mt-4">
                   <CheckIcon className="w-4 h-4 text-green-600" />
                   Itens Executados ({selectedGuia.itens?.length || 0})
@@ -2030,6 +2003,7 @@ export default function Atendimentos() {
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">H.Fim</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Código</th>
                         <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Descrição</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Tabela</th>
                         <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd</th>
                         <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Unit.</th>
                         <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Total</th>
@@ -2046,46 +2020,28 @@ export default function Atendimentos() {
                           <td className="px-3 py-2 text-xs">{item.hora_final || '-'}</td>
                           <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
                           <td className="px-3 py-2 text-xs max-w-xs truncate" title={item.nome}>{item.nome}</td>
+                          <td className="px-3 py-2 text-xs">
+                            <span className="inline-flex px-1.5 py-0.5 rounded text-xs font-mono bg-gray-100 dark:bg-gray-700">
+                              {item.tabela_referencia || '-'}
+                            </span>
+                          </td>
                           <td className="px-3 py-2 text-xs text-center font-medium">{item.quantidade}</td>
                           <td className="px-3 py-2 text-xs text-right">R$ {(item.valor_unitario || 0).toFixed(2)}</td>
                           <td className="px-3 py-2 text-xs text-right font-semibold">R$ {(item.valor_total || 0).toFixed(2)}</td>
                           <td className="px-3 py-2 text-xs">
                             <div>{item.prestador_nome || '-'}</div>
-                            {item.prestador_numero_conselho && (
-                              <div className="text-xs text-gray-400">
-                                {item.prestador_conselho === '06' ? 'CRM' : 
-                                 item.prestador_conselho === '08' ? 'CRO' :
-                                 item.prestador_conselho === '03' ? 'CRF' :
-                                 item.prestador_conselho === '02' ? 'COREN' :
-                                 item.prestador_conselho === '05' ? 'CREFITO' :
-                                 item.prestador_conselho === '09' ? 'CRP' :
-                                 item.prestador_conselho === '07' ? 'CRN' : ''} {item.prestador_numero_conselho} - {item.prestador_uf_conselho}
-                              </div>
-                            )}
+                            {item.prestador_numero_conselho && <div className="text-xs text-gray-400">{item.prestador_conselho === '06' ? 'CRM' : item.prestador_conselho === '08' ? 'CRO' : item.prestador_conselho === '03' ? 'CRF' : item.prestador_conselho === '02' ? 'COREN' : item.prestador_conselho === '05' ? 'CREFITO' : item.prestador_conselho === '09' ? 'CRP' : item.prestador_conselho === '07' ? 'CRN' : ''} {item.prestador_numero_conselho} - {item.prestador_uf_conselho}</div>}
                           </td>
                           <td className="px-3 py-2 text-center">
-                            {item.pendente_autorizacao ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
-                                <ExclamationTriangleIcon className="w-3 h-3" />
-                                Pendente
-                              </span>
-                            ) : (
-                              <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                                Autorizado
-                              </span>
-                            )}
-                          </td>
-                        </tr>
+                            {item.pendente_autorizacao ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700"><ExclamationTriangleIcon className="w-3 h-3" />Pendente</span> : <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Autorizado</span>}
+                           </td>
+                         </tr>
                       ))}
                     </tbody>
                     <tfoot className="bg-gray-50 dark:bg-gray-700/50">
                       <tr className="border-t">
-                        <td colSpan="8" className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">
-                          Total da Guia:
-                        </td>
-                        <td className="px-3 py-2 text-right font-bold text-blue-600 dark:text-blue-400">
-                          R$ {(selectedGuia.itens || []).reduce((sum, i) => sum + (i.valor_total || 0), 0).toFixed(2)}
-                        </td>
+                        <td colSpan="9" className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">Total da Guia:</td>
+                        <td className="px-3 py-2 text-right font-bold text-blue-600 dark:text-blue-400">R$ {(selectedGuia.itens || []).reduce((sum, i) => sum + (i.valor_total || 0), 0).toFixed(2)}</td>
                         <td colSpan="2"></td>
                       </tr>
                     </tfoot>
@@ -2105,6 +2061,7 @@ export default function Atendimentos() {
                           <tr>
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Código</th>
                             <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Descrição</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Tabela</th>
                             <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd Autorizada</th>
                             <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd Utilizada</th>
                             <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Saldo</th>
@@ -2118,11 +2075,14 @@ export default function Atendimentos() {
                               <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                                 <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
                                 <td className="px-3 py-2 text-xs">{item.nome}</td>
+                                <td className="px-3 py-2 text-xs">
+                                  <span className="inline-flex px-1.5 py-0.5 rounded text-xs font-mono bg-gray-100 dark:bg-gray-700">
+                                    {item.tabela_referencia || '-'}
+                                  </span>
+                                </td>
                                 <td className="px-3 py-2 text-xs text-center font-medium">{item.quantidade_autorizada}</td>
                                 <td className="px-3 py-2 text-xs text-center">{item.quantidade_utilizada || 0}</td>
-                                <td className={`px-3 py-2 text-xs text-center font-semibold ${saldo > 0 ? 'text-green-600' : saldo === 0 ? 'text-gray-500' : 'text-red-600'}`}>
-                                  {saldo}
-                                </td>
+                                <td className={`px-3 py-2 text-xs text-center font-semibold ${saldo > 0 ? 'text-green-600' : saldo === 0 ? 'text-gray-500' : 'text-red-600'}`}>{saldo}</td>
                                 <td className="px-3 py-2 text-xs text-right">R$ {(item.valor_unitario || 0).toFixed(2)}</td>
                               </tr>
                             );
@@ -2130,12 +2090,8 @@ export default function Atendimentos() {
                         </tbody>
                         <tfoot className="bg-gray-50 dark:bg-gray-700/50">
                           <tr className="border-t">
-                            <td colSpan="5" className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">
-                              Total Autorizado:
-                            </td>
-                            <td className="px-3 py-2 text-right font-bold text-blue-600 dark:text-blue-400">
-                              R$ {(selectedGuia.itens_autorizados || []).reduce((sum, i) => sum + ((i.valor_unitario || 0) * (i.quantidade_autorizada || 0)), 0).toFixed(2)}
-                            </td>
+                            <td colSpan="6" className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">Total Autorizado:</td>
+                            <td className="px-3 py-2 text-right font-bold text-blue-600 dark:text-blue-400">R$ {(selectedGuia.itens_autorizados || []).reduce((sum, i) => sum + ((i.valor_unitario || 0) * (i.quantidade_autorizada || 0)), 0).toFixed(2)}</td>
                           </tr>
                         </tfoot>
                       </table>
@@ -2143,295 +2099,62 @@ export default function Atendimentos() {
                   </>
                 )}
                 
-                {/* Botão Fechar */}
                 <div className="flex justify-end mt-5 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <button onClick={() => setShowItensModal(false)} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-md">
-                    Fechar
-                  </button>
+                  <button onClick={() => setShowItensModal(false)} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-md">Fechar</button>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Modal de Cadastro/Edição - CONTINUAÇÃO */}
+        {/* Modal de Cadastro/Edição (mesmo código anterior, com tabela já incluída) */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
               <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5 z-10">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
-                    {editing ? 'Editar Guia' : 'Nova Guia'}
-                  </h3>
-                  <button onClick={resetModal} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                    <XMarkIcon className="w-5 h-5 text-gray-500" />
-                  </button>
+                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white">{editing ? 'Editar Guia' : 'Nova Guia'}</h3>
+                  <button onClick={resetModal} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"><XMarkIcon className="w-5 h-5 text-gray-500" /></button>
                 </div>
               </div>
               <div className="p-5">
                 {/* Tabs */}
                 <div className="flex flex-wrap gap-1 border-b border-gray-200 dark:border-gray-700 mb-5">
-                  <button onClick={() => setAba('paciente')} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${aba === 'paciente' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}>
-                    <UserGroupIcon className="w-4 h-4 inline mr-1" /> Paciente
-                  </button>
-                  <button onClick={() => setAba('autorizacao')} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${aba === 'autorizacao' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}>
-                    <CheckIcon className="w-4 h-4 inline mr-1" /> Autorização
-                  </button>
-                  <button onClick={() => setAba('solicitante')} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${aba === 'solicitante' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}>
-                    <IdentificationIcon className="w-4 h-4 inline mr-1" /> Solicitante
-                  </button>
-                  <button onClick={() => setAba('atendimento')} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${aba === 'atendimento' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}>
-                    <CalendarIcon className="w-4 h-4 inline mr-1" /> Atendimento
-                  </button>
-                  <button onClick={() => setAba('procedimentos')} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${aba === 'procedimentos' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}>
-                    <BeakerIcon className="w-4 h-4 inline mr-1" /> Procedimentos
-                  </button>
+                  <button onClick={() => setAba('paciente')} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${aba === 'paciente' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}><UserGroupIcon className="w-4 h-4 inline mr-1" /> Paciente</button>
+                  <button onClick={() => setAba('autorizacao')} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${aba === 'autorizacao' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}><CheckIcon className="w-4 h-4 inline mr-1" /> Autorização</button>
+                  <button onClick={() => setAba('solicitante')} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${aba === 'solicitante' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}><IdentificationIcon className="w-4 h-4 inline mr-1" /> Solicitante</button>
+                  <button onClick={() => setAba('atendimento')} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${aba === 'atendimento' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}><CalendarIcon className="w-4 h-4 inline mr-1" /> Atendimento</button>
+                  <button onClick={() => setAba('procedimentos')} className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 ${aba === 'procedimentos' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}><BeakerIcon className="w-4 h-4 inline mr-1" /> Procedimentos</button>
                 </div>
                 
                 <form onSubmit={handleSubmit}>
                   {/* Aba Paciente */}
                   {aba === 'paciente' && (
                     <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Paciente</label>
-                        <div className="relative">
-                          <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                          <input
-                            type="text"
-                            placeholder="Digite nome, CPF ou data de nascimento (DD/MM/AAAA)..."
-                            value={searchPacienteTerm}
-                            onChange={(e) => setSearchPacienteTerm(e.target.value)}
-                            className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                          />
-                        </div>
-                        {searchPacienteTerm && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            {pacientesFiltrados.length} paciente(s) encontrado(s)
-                          </p>
-                        )}
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paciente *</label>
-                        <select 
-                          value={formData.paciente_id} 
-                          onChange={e => handlePacienteChange(e.target.value)} 
-                          className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                          required
-                        >
-                          <option value="">Selecione um paciente</option>
-                          {pacientesFiltrados.map(p => {
-                            const convenioPaciente = convenios.find(c => c.id === p.convenio_id);
-                            return (
-                              <option key={p.id} value={p.id}>
-                                {p.nome} - {p.cpf || 'SEM CPF'} - 
-                                Nasc: {p.data_nascimento ? format(new Date(p.data_nascimento), 'dd/MM/yyyy') : '---'} - 
-                                Carteira: {p.numero_carteira} - 
-                                Convênio: {convenioPaciente?.razao_social || 'SEM CONVÊNIO'}
-                              </option>
-                            );
-                          })}
-                        </select>
-                        {formData.paciente_carteira && (
-                          <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                            <p className="text-xs text-blue-700 dark:text-blue-300">
-                              <strong>Carteira:</strong> {formData.paciente_carteira} | 
-                              <strong> Convênio:</strong> {formData.convenio_nome || 'Não definido'} | 
-                              <strong> Código Operadora:</strong> {formData.codigo_operadora || '-'}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações</label>
-                        <textarea 
-                          rows="3" 
-                          value={formData.observacao} 
-                          onChange={e => setFormData({...formData, observacao: e.target.value})} 
-                          className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                          placeholder="Informações adicionais sobre o atendimento..."
-                        />
-                      </div>
-                      
-                      {editing && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
-                          <select 
-                            value={formData.status} 
-                            onChange={e => setFormData({...formData, status: e.target.value})} 
-                            className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
-                          >
-                            {STATUS_ATENDIMENTO.map(s => (
-                              <option key={s.value} value={s.value}>{s.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
+                      <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Paciente</label><div className="relative"><MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" /><input type="text" placeholder="Digite nome, CPF ou data de nascimento..." value={searchPacienteTerm} onChange={(e) => setSearchPacienteTerm(e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" /></div></div>
+                      <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paciente *</label><select value={formData.paciente_id} onChange={e => handlePacienteChange(e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" required><option value="">Selecione um paciente</option>{pacientesFiltrados.map(p => { const convenioPaciente = convenios.find(c => c.id === p.convenio_id); return (<option key={p.id} value={p.id}>{p.nome} - {p.cpf || 'SEM CPF'} - Nasc: {p.data_nascimento ? format(new Date(p.data_nascimento), 'dd/MM/yyyy') : '---'} - Carteira: {p.numero_carteira} - Convênio: {convenioPaciente?.razao_social || 'SEM CONVÊNIO'}</option>);})}</select></div>
+                      <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações</label><textarea rows="3" value={formData.observacao} onChange={e => setFormData({...formData, observacao: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" /></div>
+                      {editing && (<div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label><select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">{STATUS_ATENDIMENTO.map(s => (<option key={s.value} value={s.value}>{s.label}</option>))}</select></div>)}
                     </div>
                   )}
 
                   {/* Aba Autorização */}
                   {aba === 'autorizacao' && (
                     <div className="space-y-4">
-                      <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-4">
-                        <p className="text-xs text-blue-700 dark:text-blue-300">
-                          <strong>📋 Autorização da Guia:</strong> Registre aqui os procedimentos autorizados PELO CONVÊNIO/OPERADORA, com suas respectivas quantidades autorizadas.
-                          Estes procedimentos serão usados como base para o faturamento e controle de saldo.
-                        </p>
-                      </div>
-                      
-                      {!formData.convenio_id && (
-                        <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg mb-4">
-                          <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                            ⚠️ Selecione um paciente com convênio associado para visualizar os procedimentos autorizados.
-                          </p>
-                        </div>
-                      )}
-                      
+                      <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-4"><p className="text-xs text-blue-700 dark:text-blue-300"><strong>📋 Autorização da Guia:</strong> Registre aqui os procedimentos autorizados PELO CONVÊNIO/OPERADORA.</p></div>
+                      {!formData.convenio_id && (<div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg mb-4"><p className="text-sm text-yellow-800 dark:text-yellow-200">⚠️ Selecione um paciente com convênio associado para visualizar os procedimentos autorizados.</p></div>)}
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número da Guia (Operadora)</label>
-                          <input type="text" value={formData.numero_guia_operadora} onChange={e => setFormData({...formData, numero_guia_operadora: e.target.value})} placeholder="Número fornecido pela operadora" className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data da Autorização</label>
-                          <input type="date" value={formData.data_autorizacao} onChange={e => setFormData({...formData, data_autorizacao: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data Validade da Senha</label>
-                          <input type="date" value={formData.data_validade_senha} onChange={e => setFormData({...formData, data_validade_senha: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Senha de Autorização</label>
-                          <input type="text" value={formData.senha_autorizacao} onChange={e => setFormData({...formData, senha_autorizacao: e.target.value})} placeholder="Senha de acesso" className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                        </div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número da Guia (Operadora)</label><input type="text" value={formData.numero_guia_operadora} onChange={e => setFormData({...formData, numero_guia_operadora: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono" /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data da Autorização</label><input type="date" value={formData.data_autorizacao} onChange={e => setFormData({...formData, data_autorizacao: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data Validade da Senha</label><input type="date" value={formData.data_validade_senha} onChange={e => setFormData({...formData, data_validade_senha: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Senha de Autorização</label><input type="text" value={formData.senha_autorizacao} onChange={e => setFormData({...formData, senha_autorizacao: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" /></div>
                       </div>
-                  
                       <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
-                        <h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
-                          <PlusIcon className="w-4 h-4 text-green-600" />
-                          Procedimentos Autorizados pelo Convênio
-                        </h4>
-                        <div className="mb-4">
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Procedimento</label>
-                          <div className="relative">
-                            <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                            <input 
-                              type="text" 
-                              value={searchItemTerm} 
-                              onChange={e => setSearchItemTerm(e.target.value)} 
-                              placeholder="Digite o código ou descrição do procedimento autorizado..." 
-                              className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" 
-                              list="itens-suggestions-aut"
-                              disabled={!formData.convenio_id}
-                            />
-                            <datalist id="itens-suggestions-aut">
-                              {itensFiltrados.slice(0, 20).map(item => (
-                                <option key={item.codigo_tuss} value={item.codigo_tuss}>
-                                  {item.codigo_tuss} - {item.nome}
-                                </option>
-                              ))}
-                            </datalist>
-                          </div>
-                          {!formData.convenio_id && (
-                            <p className="text-xs text-yellow-600 mt-1">Selecione um paciente com convênio primeiro</p>
-                          )}
-                        </div>
-                  
-                        {searchItemTerm && itensFiltrados.length > 0 && (
-                          <div className="border border-gray-200 dark:border-gray-700 rounded-xl max-h-48 overflow-y-auto mb-4">
-                            {itensFiltrados.slice(0, 10).map(item => (
-                              <button key={item.codigo_tuss} type="button" onClick={() => {
-                                setCurrentItem({
-                                  ...currentItem,
-                                  codigo: item.codigo_tuss,
-                                  nome: item.nome,
-                                  quantidade_autorizada: 1,
-                                  valor_unitario: item.valor_convenio || 0,
-                                  valor_total: item.valor_convenio || 0
-                                });
-                                setSearchItemTerm('');
-                              }} className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 border-b last:border-b-0 transition-colors">
-                                <div className="flex justify-between items-center">
-                                  <div><span className="font-mono text-sm text-blue-600">{item.codigo_tuss}</span><span className="text-sm text-gray-700 dark:text-gray-300 ml-2">{item.nome}</span></div>
-                                  <span className="text-sm font-semibold text-green-600">R$ {item.valor_convenio?.toFixed(2)}</span>
-                                </div>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                  
-                        {currentItem.codigo && (
-                          <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gray-50 dark:bg-gray-700/30 mb-4">
-                            <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-                              <div className="md:col-span-3"><label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Código</label><input type="text" value={currentItem.codigo} disabled className="w-full bg-gray-100 dark:bg-gray-600 border rounded-lg px-2 py-2 text-sm font-mono" /></div>
-                              <div className="md:col-span-4"><label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Procedimento</label><input type="text" value={currentItem.nome} disabled className="w-full bg-gray-100 dark:bg-gray-600 border rounded-lg px-2 py-2 text-sm" /></div>
-                              <div className="md:col-span-2"><label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Qtd. Autorizada</label><input type="number" min="1" value={currentItem.quantidade_autorizada} onChange={e => { const qtd = parseInt(e.target.value) || 1; setCurrentItem({...currentItem, quantidade_autorizada: qtd, valor_total: qtd * currentItem.valor_unitario}); }} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" /></div>
-                              <div className="md:col-span-2"><label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Valor Unit. (R$)</label><input type="number" step="0.01" value={currentItem.valor_unitario} onChange={e => { const valor = parseFloat(e.target.value) || 0; setCurrentItem({...currentItem, valor_unitario: valor, valor_total: currentItem.quantidade_autorizada * valor}); }} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" /></div>
-                              <div className="md:col-span-1"><button type="button" onClick={handleAdicionarItemAutorizado} className="w-full bg-green-600 text-white px-2 py-2 rounded-lg text-sm hover:bg-green-700 font-medium">+ Adicionar</button></div>
-                            </div>
-                          </div>
-                        )}
-                  
-                        {itensAutorizados.length > 0 && (
-                          <div className="mt-4">
-                            <h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2"><CheckIcon className="w-4 h-4 text-green-600" /> Procedimentos Autorizados ({itensAutorizados.length})</h4>
-                            <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                              <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                  <thead className="bg-gray-50 dark:bg-gray-700/50">
-                                    <tr>
-                                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Código</th>
-                                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Procedimento</th>
-                                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd. Autorizada</th>
-                                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd. Utilizada</th>
-                                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Saldo</th>
-                                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Unit.</th>
-                                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Total</th>
-                                      <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 w-16">Ações</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                                    {itensAutorizados.map((item) => {
-                                      const saldo = item.quantidade_autorizada - (item.quantidade_utilizada || 0);
-                                      return (
-                                        <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                          <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
-                                          <td className="px-3 py-2 text-xs text-gray-800 dark:text-gray-200">{item.nome}</td>
-                                          <td className="px-3 py-2 text-xs text-center font-medium">{item.quantidade_autorizada}</td>
-                                          <td className="px-3 py-2 text-xs text-center">{item.quantidade_utilizada || 0}</td>
-                                          <td className={`px-3 py-2 text-xs text-center font-semibold ${saldo > 0 ? 'text-green-600' : saldo === 0 ? 'text-gray-600' : 'text-red-600'}`}>{saldo}</td>
-                                          <td className="px-3 py-2 text-xs text-right">R$ {item.valor_unitario?.toFixed(2)}</td>
-                                          <td className="px-3 py-2 text-xs text-right font-semibold">R$ {(item.valor_unitario * (item.quantidade_utilizada || 0)).toFixed(2)}</td>
-                                          <td className="px-3 py-2 text-center">
-                                            <button type="button" onClick={() => removerItemAutorizado(item.id)} className="text-red-600 hover:text-red-800">
-                                              <TrashIcon className="w-4 h-4" />
-                                            </button>
-                                          </td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                  <tfoot className="bg-gray-50 dark:bg-gray-700/50">
-                                    <tr className="border-t">
-                                      <td colSpan="6" className="px-3 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">
-                                        Total Autorizado:
-                                      </td>
-                                      <td className="px-3 py-2 text-right font-bold text-blue-600 dark:text-blue-400">
-                                        R$ {itensAutorizados.reduce((sum, i) => sum + (i.valor_unitario * (i.quantidade_utilizada || 0)), 0).toFixed(2)}
-                                      </td>
-                                      <td className="px-3 py-2"></td>
-                                    </tr>
-                                  </tfoot>
-                                </table>
-                              </div>
-                            </div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                              * Ao adicionar itens na aba "Procedimentos", as quantidades serão automaticamente descontadas do saldo autorizado.
-                            </p>
-                          </div>
-                        )}
+                        <h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2"><PlusIcon className="w-4 h-4 text-green-600" /> Procedimentos Autorizados pelo Convênio</h4>
+                        <div className="mb-4"><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Procedimento</label><div className="relative"><MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" /><input type="text" value={searchItemTerm} onChange={e => setSearchItemTerm(e.target.value)} placeholder="Digite o código ou descrição..." className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 text-sm" disabled={!formData.convenio_id} list="itens-suggestions-aut" /><datalist id="itens-suggestions-aut">{itensFiltrados.slice(0, 20).map(item => (<option key={item.codigo_tuss} value={item.codigo_tuss}>{item.codigo_tuss} - {item.nome}</option>))}</datalist></div></div>
+                        {searchItemTerm && itensFiltrados.length > 0 && (<div className="border rounded-xl max-h-48 overflow-y-auto mb-4">{itensFiltrados.slice(0, 10).map(item => (<button key={item.codigo_tuss} type="button" onClick={() => { setCurrentItem({...currentItem, codigo: item.codigo_tuss, nome: item.nome, quantidade_autorizada: 1, valor_unitario: item.valor_convenio || 0, valor_total: item.valor_convenio || 0, tabela_referencia: item.tabela === 'PROPRIA' ? '00' : '22'}); setSearchItemTerm(''); }} className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 border-b last:border-b-0 transition-colors"><div className="flex justify-between items-center"><div><span className="font-mono text-sm text-blue-600">{item.codigo_tuss}</span><span className="text-sm text-gray-700 dark:text-gray-300 ml-2">{item.nome}</span></div><span className="text-sm font-semibold text-green-600">R$ {item.valor_convenio?.toFixed(2)}</span></div></button>))}</div>)}
+                        {currentItem.codigo && (<div className="border rounded-xl p-4 bg-gray-50 dark:bg-gray-700/30 mb-4"><div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end"><div className="md:col-span-3"><label className="block text-xs text-gray-500 mb-1">Código</label><input type="text" value={currentItem.codigo} disabled className="w-full bg-gray-100 dark:bg-gray-600 border rounded-lg px-2 py-2 text-sm font-mono" /></div><div className="md:col-span-4"><label className="block text-xs text-gray-500 mb-1">Procedimento</label><input type="text" value={currentItem.nome} disabled className="w-full bg-gray-100 dark:bg-gray-600 border rounded-lg px-2 py-2 text-sm" /></div><div className="md:col-span-2"><label className="block text-xs text-gray-500 mb-1">Qtd. Autorizada</label><input type="number" min="1" value={currentItem.quantidade_autorizada} onChange={e => { const qtd = parseInt(e.target.value) || 1; setCurrentItem({...currentItem, quantidade_autorizada: qtd, valor_total: qtd * currentItem.valor_unitario}); }} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-2 text-sm text-center" /></div><div className="md:col-span-2"><label className="block text-xs text-gray-500 mb-1">Valor Unit. (R$)</label><input type="number" step="0.01" value={currentItem.valor_unitario} onChange={e => { const valor = parseFloat(e.target.value) || 0; setCurrentItem({...currentItem, valor_unitario: valor, valor_total: currentItem.quantidade_autorizada * valor}); }} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-2 text-sm text-right" /></div><div className="md:col-span-1"><button type="button" onClick={handleAdicionarItemAutorizado} className="w-full bg-green-600 text-white px-2 py-2 rounded-lg text-sm hover:bg-green-700 font-medium">+ Adicionar</button></div></div></div>)}
+                        {itensAutorizados.length > 0 && (<div className="mt-4"><h4 className="text-sm font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2"><CheckIcon className="w-4 h-4 text-green-600" /> Procedimentos Autorizados ({itensAutorizados.length})</h4><div className="border rounded-xl overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-gray-50 dark:bg-gray-700/50"><tr><th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Código</th><th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Procedimento</th><th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Tabela</th><th className="px-3 py-2 text-center text-xs font-medium text-gray-500">Qtd. Autorizada</th><th className="px-3 py-2 text-center text-xs font-medium text-gray-500">Qtd. Utilizada</th><th className="px-3 py-2 text-center text-xs font-medium text-gray-500">Saldo</th><th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Valor Unit.</th><th className="px-3 py-2 text-right text-xs font-medium text-gray-500">Valor Total</th><th className="px-3 py-2 text-center text-xs font-medium text-gray-500 w-16">Ações</th></tr></thead><tbody className="divide-y divide-gray-200">{itensAutorizados.map((item) => { const saldo = item.quantidade_autorizada - (item.quantidade_utilizada || 0); return (<tr key={item.id} className="hover:bg-gray-50"><td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td><td className="px-3 py-2 text-xs">{item.nome}</td><td className="px-3 py-2 text-xs"><span className="inline-flex px-1.5 py-0.5 rounded text-xs font-mono bg-gray-100">{item.tabela_referencia || '-'}</span></td><td className="px-3 py-2 text-xs text-center font-medium">{item.quantidade_autorizada}</td><td className="px-3 py-2 text-xs text-center">{item.quantidade_utilizada || 0}</td><td className="px-3 py-2 text-xs text-center font-semibold text-green-600">{saldo}</td><td className="px-3 py-2 text-xs text-right">R$ {item.valor_unitario?.toFixed(2)}</td><td className="px-3 py-2 text-xs text-right font-semibold">R$ {(item.valor_unitario * (item.quantidade_utilizada || 0)).toFixed(2)}</td><td className="px-3 py-2 text-center"><button type="button" onClick={() => removerItemAutorizado(item.id)} className="text-red-600 hover:text-red-800"><TrashIcon className="w-4 h-4" /></button></td></tr>);})}</tbody><tfoot className="bg-gray-50"><tr className="border-t"><td colSpan="7" className="px-3 py-2 text-right font-semibold">Total Autorizado:</td><td className="px-3 py-2 text-right font-bold text-blue-600">R$ {itensAutorizados.reduce((sum, i) => sum + (i.valor_unitario * (i.quantidade_utilizada || 0)), 0).toFixed(2)}</td><td></td></tr></tfoot></table></div></div></div>)}
                       </div>
                     </div>
                   )}
@@ -2440,14 +2163,14 @@ export default function Atendimentos() {
                   {aba === 'solicitante' && (
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Código na Operadora</label><input type="text" value={formData.codigo_operadora} onChange={e => setFormData({...formData, codigo_operadora: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" /></div>
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome do Contratado</label><input type="text" value={formData.nome_contratado} onChange={e => setFormData({...formData, nome_contratado: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" /></div>
-                        <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Profissional por Número do Conselho</label><div className="relative"><input type="text" value={buscaProfissional} onChange={e => { setBuscaProfissional(e.target.value); buscarProfissionalPorConselho(e.target.value); }} placeholder="Digite o número do conselho" className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />{buscandoProfissional && <div className="absolute right-3 top-1/2 transform -translate-y-1/2"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div></div>}</div></div>
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome do Profissional Solicitante</label><input type="text" value={formData.profissional_solicitante} onChange={e => setFormData({...formData, profissional_solicitante: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" /></div>
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Conselho Profissional</label><select value={formData.conselho_solicitante} onChange={e => setFormData({...formData, conselho_solicitante: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">{CONSELHOS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select></div>
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número no Conselho</label><input type="text" value={formData.numero_conselho_solicitante} onChange={e => setFormData({...formData, numero_conselho_solicitante: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" /></div>
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UF do Conselho</label><select value={formData.uf_solicitante} onChange={e => setFormData({...formData, uf_solicitante: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">{UF_OPCOES.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}</select></div>
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CBOS</label><input type="text" value={formData.cbos_solicitante} onChange={e => setFormData({...formData, cbos_solicitante: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Código na Operadora</label><input type="text" value={formData.codigo_operadora} onChange={e => setFormData({...formData, codigo_operadora: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono" /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome do Contratado</label><input type="text" value={formData.nome_contratado} onChange={e => setFormData({...formData, nome_contratado: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" /></div>
+                        <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Profissional por Número do Conselho</label><div className="relative"><input type="text" value={buscaProfissional} onChange={e => { setBuscaProfissional(e.target.value); buscarProfissionalPorConselho(e.target.value); }} placeholder="Digite o número do conselho" className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono" />{buscandoProfissional && <div className="absolute right-3 top-1/2 transform -translate-y-1/2"><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div></div>}</div></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome do Profissional Solicitante</label><input type="text" value={formData.profissional_solicitante} onChange={e => setFormData({...formData, profissional_solicitante: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Conselho Profissional</label><select value={formData.conselho_solicitante} onChange={e => setFormData({...formData, conselho_solicitante: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">{CONSELHOS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número no Conselho</label><input type="text" value={formData.numero_conselho_solicitante} onChange={e => setFormData({...formData, numero_conselho_solicitante: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono" /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UF do Conselho</label><select value={formData.uf_solicitante} onChange={e => setFormData({...formData, uf_solicitante: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">{UF_OPCOES.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}</select></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CBOS</label><input type="text" value={formData.cbos_solicitante} onChange={e => setFormData({...formData, cbos_solicitante: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono" /></div>
                       </div>
                     </div>
                   )}
@@ -2456,57 +2179,35 @@ export default function Atendimentos() {
                   {aba === 'atendimento' && (
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Caráter do Atendimento *</label><select value={formData.carater_atendimento} onChange={e => setFormData({...formData, carater_atendimento: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">{CARATER_ATENDIMENTO.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select></div>
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data da Solicitação *</label><input type="date" value={formData.data_solicitacao} onChange={e => setFormData({...formData, data_solicitacao: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" required /></div>
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Atendimento a RN</label><select value={formData.atendimento_rn} onChange={e => setFormData({...formData, atendimento_rn: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">{SIM_NAO.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Atendimento *</label><select value={formData.tipo_atendimento} onChange={e => setFormData({...formData, tipo_atendimento: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">{TIPO_ATENDIMENTO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Indicação de Acidente</label><select value={formData.indicacao_acidente} onChange={e => setFormData({...formData, indicacao_acidente: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">{INDICADOR_ACIDENTE.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}</select></div>
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Consulta</label><select value={formData.tipo_consulta} onChange={e => setFormData({...formData, tipo_consulta: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">{TIPO_CONSULTA.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Regime de Atendimento *</label><select value={formData.regime_atendimento} onChange={e => setFormData({...formData, regime_atendimento: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">{REGIME_ATENDIMENTO.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}</select></div>
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cobertura Especial</label><select value={formData.cobertura_especial} onChange={e => setFormData({...formData, cobertura_especial: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">{COBERTURA_ESPECIAL.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select></div>
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Saúde Ocupacional</label><select value={formData.saude_ocupacional} onChange={e => setFormData({...formData, saude_ocupacional: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">{SAUDE_OCUPACIONAL.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
-                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Motivo de Encerramento</label><select value={formData.motivo_encerramento} onChange={e => setFormData({...formData, motivo_encerramento: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">{MOTIVO_ENCERRAMENTO.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}</select></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Caráter do Atendimento *</label><select value={formData.carater_atendimento} onChange={e => setFormData({...formData, carater_atendimento: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">{CARATER_ATENDIMENTO.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data da Solicitação *</label><input type="date" value={formData.data_solicitacao} onChange={e => setFormData({...formData, data_solicitacao: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" required /></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Atendimento a RN</label><select value={formData.atendimento_rn} onChange={e => setFormData({...formData, atendimento_rn: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">{SIM_NAO.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Atendimento *</label><select value={formData.tipo_atendimento} onChange={e => setFormData({...formData, tipo_atendimento: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">{TIPO_ATENDIMENTO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Indicação de Acidente</label><select value={formData.indicacao_acidente} onChange={e => setFormData({...formData, indicacao_acidente: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">{INDICADOR_ACIDENTE.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}</select></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo de Consulta</label><select value={formData.tipo_consulta} onChange={e => setFormData({...formData, tipo_consulta: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">{TIPO_CONSULTA.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Regime de Atendimento *</label><select value={formData.regime_atendimento} onChange={e => setFormData({...formData, regime_atendimento: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">{REGIME_ATENDIMENTO.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}</select></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cobertura Especial</label><select value={formData.cobertura_especial} onChange={e => setFormData({...formData, cobertura_especial: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">{COBERTURA_ESPECIAL.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Saúde Ocupacional</label><select value={formData.saude_ocupacional} onChange={e => setFormData({...formData, saude_ocupacional: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">{SAUDE_OCUPACIONAL.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</select></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Motivo de Encerramento</label><select value={formData.motivo_encerramento} onChange={e => setFormData({...formData, motivo_encerramento: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm">{MOTIVO_ENCERRAMENTO.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}</select></div>
                       </div>
-                      <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Indicação Clínica</label><textarea rows="3" value={formData.indicacao_clinica} onChange={e => setFormData({...formData, indicacao_clinica: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" placeholder="Descrição da indicação clínica..." /></div>
+                      <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Indicação Clínica</label><textarea rows="3" value={formData.indicacao_clinica} onChange={e => setFormData({...formData, indicacao_clinica: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm" placeholder="Descrição da indicação clínica..." /></div>
                     </div>
                   )}
 
-                  {/* Aba Procedimentos com autocomplete de profissional e filtro por convênio */}
+                  {/* Aba Procedimentos - COM CAMPO TABELA VISÍVEL */}
                   {aba === 'procedimentos' && (
                     <div className="space-y-4">
                       <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
-                        <p className="text-sm text-blue-700 dark:text-blue-300">
-                          <strong>ℹ️ Informações:</strong> Selecione o tipo de item e busque por código ou descrição.
-                          {itensAutorizados.length > 0 && <span className="block mt-1 text-xs">✅ Você possui {itensAutorizados.length} procedimento(s) autorizado(s). Ao adicionar itens, o sistema verificará o saldo disponível.</span>}
-                        </p>
+                        <p className="text-sm text-blue-700 dark:text-blue-300"><strong>ℹ️ Informações:</strong> Selecione o tipo de item e busque por código ou descrição.{itensAutorizados.length > 0 && <span className="block mt-1 text-xs">✅ Você possui {itensAutorizados.length} procedimento(s) autorizado(s).</span>}</p>
                       </div>
+                      {!formData.convenio_id && (<div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg"><p className="text-sm text-yellow-800 dark:text-yellow-200">⚠️ Selecione um paciente com convênio associado para visualizar os procedimentos disponíveis.</p></div>)}
                       
-                      {!formData.convenio_id && (
-                        <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg mb-4">
-                          <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                            ⚠️ Selecione um paciente com convênio associado para visualizar os procedimentos disponíveis.
-                          </p>
-                        </div>
-                      )}
-                  
                       {itensGuia.length > 0 && (
                         <div className="border rounded-xl overflow-hidden">
-                          <div className="overflow-x-auto max-h-64">
+                          <div className="overflow-x-auto max-h-96">
                             <table className="w-full text-sm">
                               <thead className="bg-gray-50 dark:bg-gray-700/50 sticky top-0">
-                                <tr>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Seq</th>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data</th>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">H.Início</th>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">H.Fim</th>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Código</th>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Descrição</th>
-                                  <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400">Qtd</th>
-                                  <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Unit.</th>
-                                  <th className="px-2 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor Total</th>
-                                  <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Profissional</th>
-                                  <th className="px-2 py-2 text-center w-20 text-xs font-medium text-gray-500 dark:text-gray-400">Ações</th>
-                                </tr>
+                                <tr><th className="px-2 py-2 text-left text-xs font-medium">Seq</th><th className="px-2 py-2 text-left text-xs font-medium">Data</th><th className="px-2 py-2 text-left text-xs font-medium">H.Início</th><th className="px-2 py-2 text-left text-xs font-medium">H.Fim</th><th className="px-2 py-2 text-left text-xs font-medium">Código</th><th className="px-2 py-2 text-left text-xs font-medium">Descrição</th><th className="px-2 py-2 text-left text-xs font-medium">Tabela</th><th className="px-2 py-2 text-center text-xs font-medium">Qtd</th><th className="px-2 py-2 text-right text-xs font-medium">Valor Unit.</th><th className="px-2 py-2 text-right text-xs font-medium">Valor Total</th><th className="px-2 py-2 text-left text-xs font-medium">Profissional</th><th className="px-2 py-2 text-center w-20 text-xs font-medium">Ações</th></tr>
                               </thead>
                               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                                 {itensGuia.map((item, idx) => (
@@ -2517,134 +2218,50 @@ export default function Atendimentos() {
                                     <td className="px-2 py-2 text-xs">{item.hora_final || '-'}</td>
                                     <td className="px-2 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
                                     <td className="px-2 py-2 text-xs">{item.nome}{item.pendente_autorizacao && <span className="ml-2 text-xs text-orange-600">(Sem autorização)</span>}</td>
+                                    <td className="px-2 py-2 text-xs">
+                                      <span className="inline-flex px-1.5 py-0.5 rounded text-xs font-mono bg-gray-100 dark:bg-gray-700">
+                                        {item.tabela_referencia || '-'}
+                                      </span>
+                                    </td>
                                     <td className="px-2 py-2 text-xs text-center font-medium">{item.quantidade}</td>
                                     <td className="px-2 py-2 text-xs text-right">R$ {(item.valor_unitario || 0).toFixed(2)}</td>
                                     <td className="px-2 py-2 text-xs text-right font-semibold">R$ {(item.valor_total || 0).toFixed(2)}</td>
-                                    <td className="px-2 py-2 text-xs">
-                                      <div className="text-gray-700 dark:text-gray-300">{item.prestador_nome || '-'}</div>
-                                      {item.prestador_numero_conselho && <div className="text-xs text-gray-400">{item.prestador_conselho === '06' ? 'CRM' : item.prestador_conselho === '08' ? 'CRO' : item.prestador_conselho === '03' ? 'CRF' : item.prestador_conselho === '02' ? 'COREN' : item.prestador_conselho === '05' ? 'CREFITO' : item.prestador_conselho === '09' ? 'CRP' : item.prestador_conselho === '07' ? 'CRN' : ''} {item.prestador_numero_conselho} - {item.prestador_uf_conselho}</div>}
-                                    </td>
+                                    <td className="px-2 py-2 text-xs"><div className="text-gray-700 dark:text-gray-300">{item.prestador_nome || '-'}</div>{item.prestador_numero_conselho && <div className="text-xs text-gray-400">{item.prestador_conselho === '06' ? 'CRM' : item.prestador_conselho === '08' ? 'CRO' : item.prestador_conselho === '03' ? 'CRF' : item.prestador_conselho === '02' ? 'COREN' : item.prestador_conselho === '05' ? 'CREFITO' : item.prestador_conselho === '09' ? 'CRP' : item.prestador_conselho === '07' ? 'CRN' : ''} {item.prestador_numero_conselho} - {item.prestador_uf_conselho}</div>}</td>
                                     <td className="px-2 py-2 text-center"><div className="flex gap-1 justify-center"><button type="button" onClick={() => handleEditItem(item)} className="text-blue-600 hover:text-blue-800"><PencilIcon className="w-3 h-3" /></button><button type="button" onClick={() => removerItem(item.id)} className="text-red-600 hover:text-red-800"><TrashIcon className="w-3 h-3" /></button></div></td>
                                   </tr>
                                 ))}
                               </tbody>
-                              <tfoot className="bg-gray-50 dark:bg-gray-700/50">
-                                <tr className="border-t"><td colSpan="8" className="px-2 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">Total da Guia:</td><td className="px-2 py-2 text-right font-bold text-blue-600 dark:text-blue-400">R$ {itensGuia.reduce((sum, i) => sum + (i.valor_total || 0), 0).toFixed(2)}</td><td colSpan="2"></td></tr>
-                              </tfoot>
+                              <tfoot className="bg-gray-50 dark:bg-gray-700/50"><tr className="border-t"><td colSpan="9" className="px-2 py-2 text-right font-semibold">Total da Guia:</td><td className="px-2 py-2 text-right font-bold text-blue-600">R$ {itensGuia.reduce((sum, i) => sum + (i.valor_total || 0), 0).toFixed(2)}</td><td colSpan="2"></td></tr></tfoot>
                             </table>
                           </div>
                         </div>
                       )}
-                  
+                      
                       {editandoItem && (
                         <div className="border rounded-xl p-4 bg-blue-50 dark:bg-blue-900/20">
                           <div className="flex justify-between items-center mb-3"><h4 className="text-sm font-semibold text-blue-700 dark:text-blue-300">Editando Item</h4><button type="button" onClick={() => { setEditandoItem(null); resetCurrentItem(); setSearchPrestadorTermEdit(''); }} className="text-gray-500 hover:text-gray-700"><XMarkIcon className="w-4 h-4" /></button></div>
-                          <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-3">
-                            <div><label className="block text-xs text-gray-500 mb-1">Data Execução</label><input type="date" value={currentItem.data_execucao} onChange={e => setCurrentItem({...currentItem, data_execucao: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" /></div>
-                            <div><label className="block text-xs text-gray-500 mb-1">Hora Início</label><input type="time" value={currentItem.hora_inicial} onChange={e => setCurrentItem({...currentItem, hora_inicial: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" /></div>
-                            <div><label className="block text-xs text-gray-500 mb-1">Hora Fim</label><input type="time" value={currentItem.hora_final} onChange={e => setCurrentItem({...currentItem, hora_final: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" /></div>
-                            <div><label className="block text-xs text-gray-500 mb-1">Quantidade</label><input type="number" min="1" value={currentItem.quantidade} onChange={e => { const qtd = parseInt(e.target.value) || 1; const saldo = calcularSaldoAutorizado(currentItem.codigo); setCurrentItem({ ...currentItem, quantidade: qtd, saldo_autorizado: saldo - qtd + (editandoItem?.quantidade || 0), valor_total: qtd * currentItem.valor_unitario }); }} className="w-full border rounded px-2 py-1.5 text-sm text-center dark:bg-gray-700 dark:text-white" />{currentItem.saldo_autorizado > 0 && <span className="text-xs text-green-600 block mt-1">Saldo: {currentItem.saldo_autorizado}</span>}</div>
-                            <div><label className="block text-xs text-gray-500 mb-1">Valor Unitário (R$)</label><input type="number" step="0.01" value={currentItem.valor_unitario} onChange={e => { const valor = parseFloat(e.target.value) || 0; setCurrentItem({ ...currentItem, valor_unitario: valor, valor_total: currentItem.quantidade * valor }); }} className="w-full border rounded px-2 py-1.5 text-sm text-right dark:bg-gray-700 dark:text-white" /></div>
+                          <div className="grid grid-cols-1 md:grid-cols-7 gap-2 mb-3">
+                            <div><label className="block text-xs text-gray-500 mb-1">Data</label><input type="date" value={currentItem.data_execucao} onChange={e => setCurrentItem({...currentItem, data_execucao: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" /></div>
+                            <div><label className="block text-xs text-gray-500 mb-1">H.Início</label><input type="time" value={currentItem.hora_inicial} onChange={e => setCurrentItem({...currentItem, hora_inicial: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" /></div>
+                            <div><label className="block text-xs text-gray-500 mb-1">H.Fim</label><input type="time" value={currentItem.hora_final} onChange={e => setCurrentItem({...currentItem, hora_final: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" /></div>
+                            <div><label className="block text-xs text-gray-500 mb-1">Qtd</label><input type="number" min="1" value={currentItem.quantidade} onChange={e => { const qtd = parseInt(e.target.value) || 1; const saldo = calcularSaldoAutorizado(currentItem.codigo); setCurrentItem({ ...currentItem, quantidade: qtd, saldo_autorizado: saldo - qtd + (editandoItem?.quantidade || 0), valor_total: qtd * currentItem.valor_unitario }); }} className="w-full border rounded px-2 py-1.5 text-sm text-center dark:bg-gray-700 dark:text-white" />{currentItem.saldo_autorizado > 0 && <span className="text-xs text-green-600 block mt-1">Saldo: {currentItem.saldo_autorizado}</span>}</div>
+                            <div><label className="block text-xs text-gray-500 mb-1">Valor Unit.</label><input type="number" step="0.01" value={currentItem.valor_unitario} onChange={e => { const valor = parseFloat(e.target.value) || 0; setCurrentItem({ ...currentItem, valor_unitario: valor, valor_total: currentItem.quantidade * valor }); }} className="w-full border rounded px-2 py-1.5 text-sm text-right dark:bg-gray-700 dark:text-white" /></div>
+                            <div><label className="block text-xs text-gray-500 mb-1">Tabela</label><select value={currentItem.tabela_referencia} onChange={e => setCurrentItem({...currentItem, tabela_referencia: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white"><option value="22">TUSS (22)</option><option value="00">Tabela Própria (00)</option><option value="98">Pacote (98)</option><option value="19">Material/OPME (19)</option><option value="20">Medicamento (20)</option><option value="18">Diária/Taxa (18)</option></select></div>
                             <div className="flex items-end gap-2"><button type="button" onClick={handleUpdateItem} className="flex-1 bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-green-700">Atualizar</button><button type="button" onClick={() => { setEditandoItem(null); resetCurrentItem(); setSearchPrestadorTermEdit(''); }} className="flex-1 bg-gray-500 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-gray-600">Cancelar</button></div>
                           </div>
-                          <div className="border-t border-blue-200 dark:border-blue-800 pt-3 mt-2">
-                            <label className="block text-xs text-gray-500 mb-1 font-medium">Profissional Executante</label>
-                            <div className="relative">
-                              <input
-                                type="text"
-                                ref={prestadorInputEditRef}
-                                value={searchPrestadorTermEdit}
-                                onChange={(e) => {
-                                  setSearchPrestadorTermEdit(e.target.value);
-                                  setShowPrestadorOptionsEdit(true);
-                                  if (e.target.value === '') {
-                                    setCurrentItem(prev => ({
-                                      ...prev,
-                                      prestador_id: '',
-                                      prestador_nome: '',
-                                      prestador_cpf: '00000000000',
-                                      prestador_conselho: '06',
-                                      prestador_numero_conselho: '',
-                                      prestador_uf_conselho: '35',
-                                      prestador_cbos: '225125'
-                                    }));
-                                  }
-                                }}
-                                onFocus={() => setShowPrestadorOptionsEdit(true)}
-                                onBlur={() => setTimeout(() => setShowPrestadorOptionsEdit(false), 200)}
-                                placeholder="Digite nome, CRM, número do conselho ou UF..."
-                                className="w-full border rounded px-3 py-1.5 text-sm dark:bg-gray-700 dark:text-white"
-                              />
-                              {showPrestadorOptionsEdit && filteredPrestadoresEdit.length > 0 && (
-                                <ul className="absolute z-20 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg mt-1 max-h-60 overflow-y-auto shadow-lg">
-                                  {filteredPrestadoresEdit.map(p => {
-                                    let sigla = '';
-                                    if (p.codigo_conselho_ans === '06') sigla = 'CRM';
-                                    else if (p.codigo_conselho_ans === '08') sigla = 'CRO';
-                                    else if (p.codigo_conselho_ans === '03') sigla = 'CRF';
-                                    else if (p.codigo_conselho_ans === '02') sigla = 'COREN';
-                                    else if (p.codigo_conselho_ans === '05') sigla = 'CREFITO';
-                                    else if (p.codigo_conselho_ans === '09') sigla = 'CRP';
-                                    else if (p.codigo_conselho_ans === '07') sigla = 'CRN';
-                                    return (
-                                      <li key={p.id} onClick={() => {
-                                        setCurrentItem(prev => ({
-                                          ...prev,
-                                          prestador_id: p.id,
-                                          prestador_nome: p.nome || '',
-                                          prestador_cpf: p.cpf || '00000000000',
-                                          prestador_conselho: p.codigo_conselho_ans || '06',
-                                          prestador_numero_conselho: p.numero_conselho || '',
-                                          prestador_uf_conselho: p.uf_conselho || '35',
-                                          prestador_cbos: p.cbos || '225125'
-                                        }));
-                                        setSearchPrestadorTermEdit(`${p.nome} - ${sigla} ${p.numero_conselho} - ${p.uf_conselho}`);
-                                        setShowPrestadorOptionsEdit(false);
-                                      }} className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm text-gray-900 dark:text-gray-100 border-b last:border-b-0">
-                                        <div className="flex justify-between"><span className="font-medium">{p.nome}</span><span className="text-xs text-gray-500">{sigla} {p.numero_conselho} - {p.uf_conselho}</span></div>
-                                      </li>
-                                    );
-                                  })}
-                                </ul>
-                              )}
-                            </div>
-                            {currentItem.prestador_nome && (
-                              <div className="mt-2 p-2 bg-white dark:bg-gray-700 rounded-lg">
-                                <p className="text-xs text-gray-600 dark:text-gray-300"><strong>{currentItem.prestador_nome}</strong></p>
-                                <p className="text-xs text-gray-400 mt-1">Conselho: {currentItem.prestador_conselho === '06' ? 'CRM' : currentItem.prestador_conselho === '08' ? 'CRO' : currentItem.prestador_conselho === '03' ? 'CRF' : currentItem.prestador_conselho === '02' ? 'COREN' : currentItem.prestador_conselho === '05' ? 'CREFITO' : currentItem.prestador_conselho === '09' ? 'CRP' : currentItem.prestador_conselho === '07' ? 'CRN' : ''} {currentItem.prestador_numero_conselho} | UF: {currentItem.prestador_uf_conselho} | CBOS: {currentItem.prestador_cbos} | CPF: {currentItem.prestador_cpf}</p>
-                              </div>
-                            )}
-                          </div>
+                          <div className="border-t border-blue-200 dark:border-blue-800 pt-3 mt-2"><label className="block text-xs text-gray-500 mb-1 font-medium">Profissional Executante</label><div className="relative"><input type="text" ref={prestadorInputEditRef} value={searchPrestadorTermEdit} onChange={(e) => { setSearchPrestadorTermEdit(e.target.value); setShowPrestadorOptionsEdit(true); if (e.target.value === '') { setCurrentItem(prev => ({ ...prev, prestador_id: '', prestador_nome: '', prestador_cpf: '00000000000', prestador_conselho: '06', prestador_numero_conselho: '', prestador_uf_conselho: '35', prestador_cbos: '225125' })); } }} onFocus={() => setShowPrestadorOptionsEdit(true)} onBlur={() => setTimeout(() => setShowPrestadorOptionsEdit(false), 200)} placeholder="Digite nome, CRM, número do conselho ou UF..." className="w-full border rounded px-3 py-1.5 text-sm dark:bg-gray-700 dark:text-white" />{showPrestadorOptionsEdit && filteredPrestadoresEdit.length > 0 && (<ul className="absolute z-20 w-full bg-white dark:bg-gray-800 border rounded-lg mt-1 max-h-60 overflow-y-auto shadow-lg">{filteredPrestadoresEdit.map(p => { let sigla = ''; if (p.codigo_conselho_ans === '06') sigla = 'CRM'; else if (p.codigo_conselho_ans === '08') sigla = 'CRO'; else if (p.codigo_conselho_ans === '03') sigla = 'CRF'; else if (p.codigo_conselho_ans === '02') sigla = 'COREN'; else if (p.codigo_conselho_ans === '05') sigla = 'CREFITO'; else if (p.codigo_conselho_ans === '09') sigla = 'CRP'; else if (p.codigo_conselho_ans === '07') sigla = 'CRN'; return (<li key={p.id} onClick={() => { setCurrentItem(prev => ({ ...prev, prestador_id: p.id, prestador_nome: p.nome || '', prestador_cpf: p.cpf || '00000000000', prestador_conselho: p.codigo_conselho_ans || '06', prestador_numero_conselho: p.numero_conselho || '', prestador_uf_conselho: p.uf_conselho || '35', prestador_cbos: p.cbos || '225125' })); setSearchPrestadorTermEdit(`${p.nome} - ${sigla} ${p.numero_conselho} - ${p.uf_conselho}`); setShowPrestadorOptionsEdit(false); }} className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm"><div className="flex justify-between"><span className="font-medium">{p.nome}</span><span className="text-xs text-gray-500">{sigla} {p.numero_conselho} - {p.uf_conselho}</span></div></li>);})}</ul>)}</div>{currentItem.prestador_nome && (<div className="mt-2 p-2 bg-white dark:bg-gray-700 rounded-lg"><p className="text-xs text-gray-600 dark:text-gray-300"><strong>{currentItem.prestador_nome}</strong></p><p className="text-xs text-gray-400 mt-1">Conselho: {currentItem.prestador_conselho === '06' ? 'CRM' : currentItem.prestador_conselho === '08' ? 'CRO' : currentItem.prestador_conselho === '03' ? 'CRF' : currentItem.prestador_conselho === '02' ? 'COREN' : currentItem.prestador_conselho === '05' ? 'CREFITO' : currentItem.prestador_conselho === '09' ? 'CRP' : currentItem.prestador_conselho === '07' ? 'CRN' : ''} {currentItem.prestador_numero_conselho} | UF: {currentItem.prestador_uf_conselho} | CBOS: {currentItem.prestador_cbos} | CPF: {currentItem.prestador_cpf}</p></div>)}</div>
                           <div className="mt-3 p-2 bg-white dark:bg-gray-700 rounded-lg"><p className="text-xs text-gray-500 dark:text-gray-400"><strong>Código:</strong> {currentItem.codigo} | <strong> Procedimento:</strong> {currentItem.nome}</p></div>
                         </div>
                       )}
-                  
+                      
                       <div className="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700 pb-3">
-                        {TIPOS_ITEM.map(tipo => (
-                          <button key={tipo.value} type="button" onClick={() => { setTipoItem(tipo.value); setTabelaSelecionada(tipo.tabelas[0]); setCurrentItem({...currentItem, tipo: tipo.value, tabela_referencia: tipo.tabelas[0]}); }} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${tipoItem === tipo.value ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>{tipo.label}</button>
-                        ))}
+                        {TIPOS_ITEM.map(tipo => (<button key={tipo.value} type="button" onClick={() => { setTipoItem(tipo.value); setTabelaSelecionada(tipo.tabelas[0]); setCurrentItem({...currentItem, tipo: tipo.value, tabela_referencia: tipo.tabelas[0]}); }} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${tipoItem === tipo.value ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>{tipo.label}</button>))}
                       </div>
-                  
+                      
                       <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Item</label><div className="relative"><MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" /><input type="text" value={searchItemTerm} onChange={e => setSearchItemTerm(e.target.value)} placeholder="Digite o código ou descrição..." className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" disabled={!formData.convenio_id} list="itens-suggestions-proc" /><datalist id="itens-suggestions-proc">{itensFiltrados.slice(0, 20).map(item => (<option key={item.codigo_tuss} value={item.codigo_tuss}>{item.codigo_tuss} - {item.nome}</option>))}</datalist></div></div>
-                  
-                      {!formData.convenio_id && (
-                        <p className="text-xs text-yellow-600 -mt-2">Selecione um paciente com convênio para ver os procedimentos</p>
-                      )}
-                  
-                      {searchItemTerm && itensFiltrados.length > 0 && formData.convenio_id && (
-                        <div className="border rounded-xl max-h-48 overflow-y-auto">
-                          {itensFiltrados.slice(0, 10).map(item => {
-                            const itemAutorizado = itensAutorizados.find(aut => aut.codigo === item.codigo_tuss);
-                            const saldo = itemAutorizado?.quantidade_autorizada - (itemAutorizado?.quantidade_utilizada || 0);
-                            return (
-                              <button key={item.codigo_tuss} type="button" onClick={() => { handleProcedimentoItemChange(item.codigo_tuss); setSearchItemTerm(''); }} className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 border-b last:border-b-0 transition-colors">
-                                <div className="flex justify-between items-center"><div><span className="font-mono text-sm text-blue-600">{item.codigo_tuss}</span><span className="text-sm text-gray-700 dark:text-gray-300 ml-2">{item.nome}</span></div><div className="text-right"><span className="text-sm font-semibold text-green-600">R$ {item.valor_convenio?.toFixed(2)}</span>{itemAutorizado && <span className="text-xs text-blue-600 ml-2 block">✅ Autorizado: {saldo} disponível</span>}{!itemAutorizado && <span className="text-xs text-orange-500 ml-2 block">⚠️ Sem autorização</span>}</div></div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                  
+                      
+                      {searchItemTerm && itensFiltrados.length > 0 && formData.convenio_id && (<div className="border rounded-xl max-h-48 overflow-y-auto">{itensFiltrados.slice(0, 10).map(item => { const itemAutorizado = itensAutorizados.find(aut => aut.codigo === item.codigo_tuss); const saldo = itemAutorizado?.quantidade_autorizada - (itemAutorizado?.quantidade_utilizada || 0); return (<button key={item.codigo_tuss} type="button" onClick={() => { handleProcedimentoItemChange(item.codigo_tuss); setSearchItemTerm(''); }} className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 border-b last:border-b-0 transition-colors"><div className="flex justify-between items-center"><div><span className="font-mono text-sm text-blue-600">{item.codigo_tuss}</span><span className="text-sm text-gray-700 dark:text-gray-300 ml-2">{item.nome}</span></div><div className="text-right"><span className="text-sm font-semibold text-green-600">R$ {item.valor_convenio?.toFixed(2)}</span>{itemAutorizado && <span className="text-xs text-blue-600 ml-2 block">✅ Autorizado: {saldo} disponível</span>}{!itemAutorizado && <span className="text-xs text-orange-500 ml-2 block">⚠️ Sem autorização</span>}</div></div></button>);})}</div>)}
+                      
                       {currentItem.codigo && (
                         <div className="border-t pt-4 mt-2">
                           <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
@@ -2652,74 +2269,12 @@ export default function Atendimentos() {
                             <div className="md:col-span-1"><label className="block text-xs text-gray-500 mb-1">H.Início</label><input type="time" value={currentItem.hora_inicial} onChange={e => setCurrentItem({...currentItem, hora_inicial: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" /></div>
                             <div className="md:col-span-1"><label className="block text-xs text-gray-500 mb-1">H.Fim</label><input type="time" value={currentItem.hora_final} onChange={e => setCurrentItem({...currentItem, hora_final: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" /></div>
                             <div className="md:col-span-1"><label className="block text-xs text-gray-500 mb-1">Via Acesso</label><select value={currentItem.viaAcesso} onChange={e => setCurrentItem({...currentItem, viaAcesso: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"><option value="1">Única</option><option value="2">Mesma via</option><option value="3">Diferentes vias</option></select></div>
-                            <div className="md:col-span-1"><label className="block text-xs text-gray-500 mb-1">Técnica Utilizada</label><select value={currentItem.tecnicaUtilizada} onChange={e => setCurrentItem({...currentItem, tecnicaUtilizada: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"><option value="1">Convencional</option><option value="2">Vídeo</option><option value="3">Robótica</option></select></div>
-                            <div className="md:col-span-1"><label className="block text-xs text-gray-500 mb-1">Redução/Acréscimo (%)</label><input type="number" step="0.01" min="0" max="100" value={currentItem.reducaoAcrescimo} onChange={e => setCurrentItem({...currentItem, reducaoAcrescimo: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm text-center bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" /></div>                         
-                            <div className="md:col-span-2"><label className="block text-xs text-gray-500 mb-1">Item</label><input type="text" value={currentItem.nome} disabled className="w-full bg-gray-100 border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" /></div>
+                            <div className="md:col-span-1"><label className="block text-xs text-gray-500 mb-1">Técnica</label><select value={currentItem.tecnicaUtilizada} onChange={e => setCurrentItem({...currentItem, tecnicaUtilizada: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"><option value="1">Convencional</option><option value="2">Vídeo</option><option value="3">Robótica</option></select></div>
+                            <div className="md:col-span-1"><label className="block text-xs text-gray-500 mb-1">Redução (%)</label><input type="number" step="0.01" min="0" max="100" value={currentItem.reducaoAcrescimo} onChange={e => setCurrentItem({...currentItem, reducaoAcrescimo: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm text-center bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" /></div>                         
+                            <div className="md:col-span-1"><label className="block text-xs text-gray-500 mb-1">Tabela</label><select value={currentItem.tabela_referencia} onChange={e => setCurrentItem({...currentItem, tabela_referencia: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"><option value="22">TUSS (22)</option><option value="00">Tabela Própria (00)</option><option value="98">Pacote (98)</option><option value="19">Material/OPME (19)</option><option value="20">Medicamento (20)</option><option value="18">Diária/Taxa (18)</option></select></div>
                             <div className="md:col-span-1"><label className="block text-xs text-gray-500 mb-1">Qtd</label><input type="number" min="1" value={currentItem.quantidade} onChange={e => { const qtd = parseInt(e.target.value) || 1; const saldo = calcularSaldoAutorizado(currentItem.codigo, qtd); setCurrentItem({...currentItem, quantidade: qtd, saldo_autorizado: saldo, valor_total: qtd * currentItem.valor_unitario}); }} className="w-full border rounded px-2 py-1.5 text-sm text-center dark:bg-gray-700 dark:text-white" />{currentItem.saldo_autorizado > 0 && <span className="text-xs text-green-600">Saldo: {currentItem.saldo_autorizado}</span>}</div>
                             <div className="md:col-span-2"><label className="block text-xs text-gray-500 mb-1">Valor Unitário</label><input type="number" step="0.01" value={currentItem.valor_unitario} onChange={e => { const valor = parseFloat(e.target.value) || 0; setCurrentItem({...currentItem, valor_unitario: valor, valor_total: currentItem.quantidade * valor}); }} className="w-full border rounded px-2 py-1.5 text-sm text-right dark:bg-gray-700 dark:text-white" /></div>
-                            <div className="md:col-span-3 relative">
-                              <label className="block text-xs text-gray-500 mb-1">Profissional (buscar por nome ou conselho)</label>
-                              <input
-                                ref={prestadorInputRef}
-                                type="text"
-                                value={searchPrestadorTerm}
-                                onChange={(e) => {
-                                  setSearchPrestadorTerm(e.target.value);
-                                  setShowPrestadorOptions(true);
-                                  if (e.target.value === '') {
-                                    setCurrentItem(prev => ({
-                                      ...prev,
-                                      prestador_id: '',
-                                      prestador_nome: '',
-                                      prestador_cpf: '00000000000',
-                                      prestador_conselho: '06',
-                                      prestador_numero_conselho: '',
-                                      prestador_uf_conselho: '35',
-                                      prestador_cbos: '225125'
-                                    }));
-                                  }
-                                }}
-                                onFocus={() => setShowPrestadorOptions(true)}
-                                onBlur={() => setTimeout(() => setShowPrestadorOptions(false), 200)}
-                                placeholder="Digite nome, CRM, número do conselho ou UF..."
-                                className="w-full border rounded px-2 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                              />
-                              {showPrestadorOptions && filteredPrestadores.length > 0 && formData.convenio_id && (
-                                <ul className="absolute z-20 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg mt-1 max-h-60 overflow-y-auto shadow-lg">
-                                  {filteredPrestadores.map(p => {
-                                    let sigla = '';
-                                    if (p.codigo_conselho_ans === '06') sigla = 'CRM';
-                                    else if (p.codigo_conselho_ans === '08') sigla = 'CRO';
-                                    else if (p.codigo_conselho_ans === '03') sigla = 'CRF';
-                                    else if (p.codigo_conselho_ans === '02') sigla = 'COREN';
-                                    else if (p.codigo_conselho_ans === '05') sigla = 'CREFITO';
-                                    else if (p.codigo_conselho_ans === '09') sigla = 'CRP';
-                                    else if (p.codigo_conselho_ans === '07') sigla = 'CRN';
-                                    return (
-                                      <li key={p.id} onClick={() => {
-                                        setCurrentItem(prev => ({
-                                          ...prev,
-                                          prestador_id: p.id,
-                                          prestador_nome: p.nome || '',
-                                          prestador_cpf: p.cpf || '00000000000',
-                                          prestador_conselho: p.codigo_conselho_ans || '06',
-                                          prestador_numero_conselho: p.numero_conselho || '',
-                                          prestador_uf_conselho: p.uf_conselho || '35',
-                                          prestador_cbos: p.cbos || '225125'
-                                        }));
-                                        setSearchPrestadorTerm(`${p.nome} - ${sigla} ${p.numero_conselho} - ${p.uf_conselho}`);
-                                        setShowPrestadorOptions(false);
-                                      }} className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm text-gray-900 dark:text-gray-100 border-b last:border-b-0">
-                                        <div className="flex justify-between"><span className="font-medium">{p.nome}</span><span className="text-xs text-gray-500">{sigla} {p.numero_conselho} - {p.uf_conselho}</span></div>
-                                      </li>
-                                    );
-                                  })}
-                                </ul>
-                              )}
-                              {currentItem.prestador_numero_conselho && (
-                                <div className="text-xs text-gray-400 mt-1">Conselho: {currentItem.prestador_conselho === '06' ? 'CRM' : currentItem.prestador_conselho === '08' ? 'CRO' : currentItem.prestador_conselho === '03' ? 'CRF' : currentItem.prestador_conselho === '02' ? 'COREN' : currentItem.prestador_conselho === '05' ? 'CREFITO' : currentItem.prestador_conselho === '09' ? 'CRP' : currentItem.prestador_conselho === '07' ? 'CRN' : ''} {currentItem.prestador_numero_conselho} - {currentItem.prestador_uf_conselho}</div>
-                              )}
-                            </div>
+                            <div className="md:col-span-2 relative"><label className="block text-xs text-gray-500 mb-1">Profissional</label><input ref={prestadorInputRef} type="text" value={searchPrestadorTerm} onChange={(e) => { setSearchPrestadorTerm(e.target.value); setShowPrestadorOptions(true); if (e.target.value === '') { setCurrentItem(prev => ({ ...prev, prestador_id: '', prestador_nome: '', prestador_cpf: '00000000000', prestador_conselho: '06', prestador_numero_conselho: '', prestador_uf_conselho: '35', prestador_cbos: '225125' })); } }} onFocus={() => setShowPrestadorOptions(true)} onBlur={() => setTimeout(() => setShowPrestadorOptions(false), 200)} placeholder="Nome, CRM, número..." className="w-full border rounded px-2 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" />{showPrestadorOptions && filteredPrestadores.length > 0 && (<ul className="absolute z-20 w-full bg-white dark:bg-gray-800 border rounded-lg mt-1 max-h-60 overflow-y-auto shadow-lg">{filteredPrestadores.map(p => { let sigla = ''; if (p.codigo_conselho_ans === '06') sigla = 'CRM'; else if (p.codigo_conselho_ans === '08') sigla = 'CRO'; else if (p.codigo_conselho_ans === '03') sigla = 'CRF'; else if (p.codigo_conselho_ans === '02') sigla = 'COREN'; else if (p.codigo_conselho_ans === '05') sigla = 'CREFITO'; else if (p.codigo_conselho_ans === '09') sigla = 'CRP'; else if (p.codigo_conselho_ans === '07') sigla = 'CRN'; return (<li key={p.id} onClick={() => { setCurrentItem(prev => ({ ...prev, prestador_id: p.id, prestador_nome: p.nome || '', prestador_cpf: p.cpf || '00000000000', prestador_conselho: p.codigo_conselho_ans || '06', prestador_numero_conselho: p.numero_conselho || '', prestador_uf_conselho: p.uf_conselho || '35', prestador_cbos: p.cbos || '225125' })); setSearchPrestadorTerm(`${p.nome} - ${sigla} ${p.numero_conselho} - ${p.uf_conselho}`); setShowPrestadorOptions(false); }} className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm"><div className="flex justify-between"><span className="font-medium">{p.nome}</span><span className="text-xs text-gray-500">{sigla} {p.numero_conselho} - {p.uf_conselho}</span></div></li>);})}</ul>)}</div>
                             <div className="md:col-span-1"><button type="button" onClick={handleAdicionarItem} className="w-full bg-green-600 text-white px-2 py-1.5 rounded-lg text-sm hover:bg-green-700 mt-5">+ Add</button></div>
                           </div>
                         </div>
@@ -2727,10 +2282,9 @@ export default function Atendimentos() {
                     </div>
                   )}
 
-                  {/* Botões de Ação */}
                   <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <button type="button" onClick={resetModal} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">Cancelar</button>
-                    <button type="submit" className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium shadow-md hover:from-blue-600 hover:to-indigo-700">{editing ? 'Atualizar' : 'Salvar'} Guia</button>
+                    <button type="button" onClick={resetModal} className="px-4 py-2 border rounded-lg text-sm font-medium">Cancelar</button>
+                    <button type="submit" className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium shadow-md">{editing ? 'Atualizar' : 'Salvar'} Guia</button>
                   </div>
                 </form>
               </div>
