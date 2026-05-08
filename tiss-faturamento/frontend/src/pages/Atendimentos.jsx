@@ -1810,7 +1810,7 @@ export default function Atendimentos() {
                     </td>
                     <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">
                       {a.senha_autorizacao || '-'}
-                    </table>
+                    </td>
                     <td className="px-4 py-3 text-sm text-gray-800 dark:text-gray-200">
                       {a.paciente_nome}
                     </td>
