@@ -18,7 +18,6 @@ let sequencialTransacaoGlobal = 1;
 // ============================================
 export function setConfig(config) { 
   configGlobal = config; 
-  // Salvar também no localStorage para persistência
   if (config) {
     localStorage.setItem('config_sistema', JSON.stringify(config));
   }
@@ -186,9 +185,68 @@ function escapeXML(str) {
 }
 
 // ============================================
+// FUNÇÃO PARA OBTER CNES DE MÚLTIPLAS FONTES
+// ============================================
+function obterCNES(config, guia = null) {
+  // Tentativa 1: Da config passada
+  if (config?.cnes) {
+    const cnesLimpo = String(config.cnes).replace(/\D/g, '');
+    if (cnesLimpo.length > 0) {
+      return cnesLimpo.padStart(7, '0').slice(0, 7);
+    }
+  }
+  
+  // Tentativa 2: Do objeto guia
+  if (guia?.cnes) {
+    const cnesLimpo = String(guia.cnes).replace(/\D/g, '');
+    if (cnesLimpo.length > 0) {
+      return cnesLimpo.padStart(7, '0').slice(0, 7);
+    }
+  }
+  
+  // Tentativa 3: Da config global
+  const globalConfig = getConfig();
+  if (globalConfig?.cnes) {
+    const cnesLimpo = String(globalConfig.cnes).replace(/\D/g, '');
+    if (cnesLimpo.length > 0) {
+      return cnesLimpo.padStart(7, '0').slice(0, 7);
+    }
+  }
+  
+  // Tentativa 4: Do localStorage diretamente
+  try {
+    const stored = localStorage.getItem('config_sistema');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed?.cnes) {
+        const cnesLimpo = String(parsed.cnes).replace(/\D/g, '');
+        if (cnesLimpo.length > 0) {
+          return cnesLimpo.padStart(7, '0').slice(0, 7);
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Erro ao ler localStorage:', e);
+  }
+  
+  // Padrão final (CNES da BLOOMY ABA THERAPY)
+  return '4931777';
+}
+
+// ============================================
 // GERAÇÃO DO XML PRINCIPAL
 // ============================================
 export function gerarXMLTISS(dados, config) {
+  // Garantir que temos uma config válida
+  let configFinal = config || getConfig() || {};
+  
+  // Se ainda não tem CNES, buscar
+  if (!configFinal.cnes) {
+    configFinal.cnes = obterCNES(configFinal);
+  }
+  
+  console.log('🏥 CNES sendo usado no XML:', configFinal.cnes);
+  
   const versao = dados.versao || versaoAtual;
   const sequencialTransacao = dados.sequencialTransacao || getProximoSequencialTransacao();
   const dataRegistroTransacao = dados.dataRegistroTransacao || new Date().toISOString().split('T')[0];
@@ -197,12 +255,12 @@ export function gerarXMLTISS(dados, config) {
   const numeroLote = dados.numeroLote || ('LOTE' + Date.now().toString());
   const guias = dados.guias || [];
 
-  let cnpjPrestador = (config?.cnpj || dados.cnpjPrestador || '').replace(/\D/g, '');
+  let cnpjPrestador = (configFinal?.cnpj || dados.cnpjPrestador || '').replace(/\D/g, '');
   if (cnpjPrestador && cnpjPrestador.length < 14) cnpjPrestador = cnpjPrestador.padStart(14, '0');
 
   let guiasXML = '';
   for (const guia of guias) {
-    guiasXML += gerarGuiaSPSADT(guia, registroANS, config, versao);
+    guiasXML += gerarGuiaSPSADT(guia, registroANS, configFinal, versao);
   }
 
   const xmlHeader = '<?xml version="1.0" encoding="UTF-8"?>\n';
@@ -290,17 +348,13 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   const indicacaoClinica = guia.indicacao_clinica || '';
   const motivoEncerramento = getMotivoEncerramento(guia.motivo_encerramento);
 
+  // Dados do contratado solicitante
   let cnpjContratado = (config?.cnpj || '20384928000124').replace(/\D/g, '');
   if (cnpjContratado.length < 14) cnpjContratado = cnpjContratado.padStart(14, '0');
   const nomeContratadoSolicitante = (config?.nome_contratado || 'HOSPITAL EXEMPLO').toUpperCase();
   
-  let cnesExecutante = '0000000';
-  if (config?.cnes) {
-    const cnesLimpo = String(config.cnes).replace(/\D/g, '');
-    if (cnesLimpo.length > 0) {
-      cnesExecutante = cnesLimpo.padStart(7, '0').slice(0, 7);
-    }
-  }
+  // OBTER CNES CORRETAMENTE
+  const cnesExecutante = obterCNES(config, guia);
   
   const conselhoClinica = getCodigoConselho(config?.conselho_clinica || '06');
   const ufClinica = getCodigoUF(config?.uf_clinica || 'SP');
@@ -657,6 +711,8 @@ export function gerarXMLExemplo() {
     codigo_prestador: '56509'
   };
 
+  setConfig(config);
+  
   const dadosTISS = converterAtendimentoParaTISS(atendimento, convenio, config);
   
   return gerarXMLTISS({
