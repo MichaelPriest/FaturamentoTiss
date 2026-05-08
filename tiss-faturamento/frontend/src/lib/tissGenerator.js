@@ -1,4 +1,5 @@
 import CryptoJS from 'crypto-js';
+import { supabase } from './supabaseClient';
 
 // ============================================
 // VERSÕES SUPORTADAS DO PADRÃO TISS
@@ -13,18 +14,46 @@ let configGlobal = null;
 let versaoAtual = VERSAO_TISS['4.03.00'];
 let sequencialTransacaoGlobal = 1;
 
-export function setConfig(config) { configGlobal = config; }
-export function getConfig() {
-  if (!configGlobal) {
-    const stored = localStorage.getItem('config_sistema');
-    if (stored) configGlobal = JSON.parse(stored);
+// ============================================
+// FUNÇÕES DE CONFIGURAÇÃO (BUSCA DO SUPABASE)
+// ============================================
+export async function carregarConfigDoBanco() {
+  try {
+    const { data, error } = await supabase
+      .from('configuracoes')
+      .select('valor')
+      .eq('chave', 'config_sistema')
+      .single();
+    
+    if (error) throw error;
+    if (data && data.valor) {
+      configGlobal = typeof data.valor === 'string' ? JSON.parse(data.valor) : data.valor;
+      console.log('✅ Configuração carregada do banco:', configGlobal);
+    }
+    return configGlobal;
+  } catch (error) {
+    console.error('Erro ao carregar configuração do banco:', error);
+    return null;
   }
+}
+
+export async function setConfigFromDB() {
+  return await carregarConfigDoBanco();
+}
+
+export function setConfig(config) { 
+  configGlobal = config; 
+}
+
+export function getConfig() {
   return configGlobal;
 }
+
 export function setVersao(versao) {
   if (Object.values(VERSAO_TISS).includes(versao)) versaoAtual = versao;
 }
 export function getVersao() { return versaoAtual; }
+
 export function getProximoSequencialTransacao() {
   const atual = sequencialTransacaoGlobal;
   sequencialTransacaoGlobal++;
@@ -64,7 +93,6 @@ const UNIDADE_MEDIDA = {
   '055': '055', '056': '056', '057': '057', '058': '058', '059': '059', '060': '060', '061': '061'
 };
 
-// Mapeamento de tabelas para tipo de despesa
 const TABELA_DESPESA = {
   '18': 'diaria_gas',
   '19': 'material',
@@ -76,7 +104,6 @@ const TABELA_DESPESA = {
   '98': 'procedimento'
 };
 
-// Registrar ANS da Bradesco para identificar convênio
 const BRADESCO_ANS = ['005711', '421715'];
 
 const mapaConselhos = {
@@ -110,7 +137,6 @@ function getCodigoUF(uf) {
   return codigo || '35';
 }
 
-// Função para obter o grau de participação, considerando convênio Bradesco
 function getGrauParticipacao(valor, registroANS) {
   if (registroANS && BRADESCO_ANS.includes(registroANS)) {
     return '00';
@@ -152,7 +178,6 @@ function formatarHora(hora) {
   return '00:00:00';
 }
 
-// Função para limitar string a 150 caracteres (padrão TISS)
 function limitarDescricao(descricao, maxLength = 150) {
   if (!descricao) return '';
   if (descricao.length <= maxLength) return descricao;
@@ -170,9 +195,14 @@ function escapeXML(str) {
 }
 
 // ============================================
-// GERAÇÃO DO XML PRINCIPAL COM HASH SHA-1 CORRETO
+// GERAÇÃO DO XML PRINCIPAL COM HASH SHA-1
 // ============================================
-export function gerarXMLTISS(dados) {
+export async function gerarXMLTISS(dados) {
+  // Carregar configuração do banco se não estiver na memória
+  if (!configGlobal) {
+    await carregarConfigDoBanco();
+  }
+  
   const config = getConfig();
   const versao = dados.versao || versaoAtual;
   const sequencialTransacao = dados.sequencialTransacao || getProximoSequencialTransacao();
@@ -190,7 +220,6 @@ export function gerarXMLTISS(dados) {
     guiasXML += gerarGuiaSPSADT(guia, registroANS, config, versao);
   }
 
-  // Constrói o XML completo com a tag hash vazia
   const xmlHeader = '<?xml version="1.0" encoding="UTF-8"?>\n';
   let xmlComHashVazio = xmlHeader;
   xmlComHashVazio += '<ans:mensagemTISS xmlns:ans="http://www.ans.gov.br/padroes/tiss/schemas" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.ans.gov.br/padroes/tiss/schemas tissV4_03_00.xsd">\n';
@@ -230,10 +259,7 @@ export function gerarXMLTISS(dados) {
   xmlComHashVazio += '  </ans:epilogo>\n';
   xmlComHashVazio += '</ans:mensagemTISS>';
 
-  // ============================================
-  // CALCULAR SHA-1 CORRETAMENTE
-  // Remove namespaces, quebras de linha e espaços
-  // ============================================
+  // Calcular SHA-1
   let xmlParaHash = xmlComHashVazio
     .replace(/\n/g, '')
     .replace(/\r/g, '')
@@ -284,7 +310,7 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   if (cnpjContratado.length < 14) cnpjContratado = cnpjContratado.padStart(14, '0');
   const nomeContratadoSolicitante = (config?.nome_contratado || 'HOSPITAL EXEMPLO').toUpperCase();
   
-  // ✅ CORREÇÃO: Buscar CNES diretamente da configuração
+  // ✅ CORREÇÃO: Buscar CNES da configuração
   let cnesExecutante = '0000000';
   if (config?.cnes) {
     cnesExecutante = String(config.cnes).replace(/\D/g, '').padStart(7, '0').slice(0, 7);
@@ -548,7 +574,12 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
 // ============================================
 // FUNÇÃO AUXILIAR PARA CONVERSÃO DE ATENDIMENTO
 // ============================================
-export function converterAtendimentoParaTISS(atendimento, convenio) {
+export async function converterAtendimentoParaTISS(atendimento, convenio) {
+  // Carregar configuração do banco se não estiver na memória
+  if (!configGlobal) {
+    await carregarConfigDoBanco();
+  }
+  
   const config = getConfig();
   const numeroCarteira = atendimento.numero_carteira || '000000000';
   const primeiroItem = atendimento.itens?.[0] || null;
@@ -610,52 +641,10 @@ export function converterAtendimentoParaTISS(atendimento, convenio) {
 }
 
 // ============================================
-// EXEMPLO DE GERAÇÃO DE XML PARA TESTE
+// FUNÇÃO PARA INICIALIZAR O MÓDULO
 // ============================================
-export function gerarXMLExemplo(versao) {
-  const versaoFinal = versao || '4.03.00';
-  const dataAtual = new Date().toISOString().split('T')[0];
-  const config = getConfig();
-  
-  // ✅ Buscar CNES da configuração
-  let cnesExecutante = '0000000';
-  if (config?.cnes) {
-    cnesExecutante = String(config.cnes).replace(/\D/g, '').padStart(7, '0').slice(0, 7);
-  }
-  
-  const guias = [{
-    numero_guia_prestador: 'G' + Date.now().toString(),
-    numeroCarteira: '09700020008288318',
-    nomeProfissionalSolicitante: 'PROFISSIONAL EXEMPLO',
-    numeroConselhoProfissionalSolicitante: '12345',
-    dataSolicitacao: dataAtual,
-    codigoPrestadorExecutante: config?.codigo_prestador || '002535718',
-    carater_atendimento: '1',
-    tipo_atendimento: '04',
-    indicacao_acidente: '9',
-    tipo_consulta: '1',
-    regime_atendimento: '01',
-    cnes: cnesExecutante,
-    itens: [
-      {
-        codigo: '01010101',
-        nome: 'CONSULTA MÉDICA',
-        quantidade: 1,
-        valor_unitario: 150.00,
-        tabela_referencia: '22',
-        prestador_nome: 'PROFISSIONAL EXEMPLO',
-        prestador_numero_conselho: '12345',
-        data_execucao: dataAtual,
-        grau_participacao: '12'
-      }
-    ]
-  }];
-  
-  return gerarXMLTISS({
-    versao: versaoFinal,
-    codigoPrestadorNaOperadora: config?.codigo_prestador || '002535718',
-    registroANS: config?.registro_ans || '421928',
-    numeroLote: 'LOTE' + Date.now().toString(),
-    guias
-  });
+export async function initTISS() {
+  await carregarConfigDoBanco();
+  console.log('✅ Módulo TISS inicializado');
+  return configGlobal;
 }
