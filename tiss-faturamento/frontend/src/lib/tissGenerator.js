@@ -112,7 +112,6 @@ function getCodigoUF(uf) {
 
 // Função para obter o grau de participação, considerando convênio Bradesco
 function getGrauParticipacao(valor, registroANS) {
-  // Se for Bradesco, sempre retorna '00' (Cirurgião)
   if (registroANS && BRADESCO_ANS.includes(registroANS)) {
     return '00';
   }
@@ -171,7 +170,7 @@ function escapeXML(str) {
 }
 
 // ============================================
-// GERAÇÃO DO XML PRINCIPAL
+// GERAÇÃO DO XML PRINCIPAL COM HASH SHA-1 CORRETO
 // ============================================
 export function gerarXMLTISS(dados) {
   const config = getConfig();
@@ -183,7 +182,6 @@ export function gerarXMLTISS(dados) {
   const numeroLote = dados.numeroLote || ('LOTE' + Date.now().toString());
   const guias = dados.guias || [];
 
-  // CNPJ do prestador (origem)
   let cnpjPrestador = (config?.cnpj || dados.cnpjPrestador || '').replace(/\D/g, '');
   if (cnpjPrestador && cnpjPrestador.length < 14) cnpjPrestador = cnpjPrestador.padStart(14, '0');
 
@@ -232,10 +230,25 @@ export function gerarXMLTISS(dados) {
   xmlComHashVazio += '  </ans:epilogo>\n';
   xmlComHashVazio += '</ans:mensagemTISS>';
 
-  // Calcula o MD5 sobre o XML com a tag hash vazia
-  const hash = CryptoJS.MD5(xmlComHashVazio).toString().toUpperCase();
+  // ============================================
+  // CALCULAR SHA-1 CORRETAMENTE
+  // Remove namespaces, quebras de linha e espaços
+  // ============================================
+  let xmlParaHash = xmlComHashVazio
+    .replace(/\n/g, '')
+    .replace(/\r/g, '')
+    .replace(/>\s+</g, '><');
+  
+  xmlParaHash = xmlParaHash
+    .replace(/xmlns:ans="[^"]*"/g, '')
+    .replace(/xmlns:xsi="[^"]*"/g, '')
+    .replace(/xsi:schemaLocation="[^"]*"/g, '');
+  
+  xmlParaHash = xmlParaHash.replace('<ans:hash></ans:hash>', '');
+  xmlParaHash = xmlParaHash.replace(/ans:/g, '');
+  
+  const hash = CryptoJS.SHA1(xmlParaHash).toString().toUpperCase();
 
-  // Substitui a tag vazia pela tag com o hash
   const xmlFinal = xmlComHashVazio.replace('<ans:hash></ans:hash>', `<ans:hash>${hash}</ans:hash>`);
 
   return xmlFinal;
@@ -245,7 +258,6 @@ export function gerarXMLTISS(dados) {
 // GERAÇÃO DA GUIA SP-SADT
 // ============================================
 function gerarGuiaSPSADT(guia, registroANS, config, versao) {
-  // Dados básicos
   const numeroCarteira = guia.numeroCarteira || '000000000';
   const dataSolicitacao = guia.dataSolicitacao || new Date().toISOString().split('T')[0];
   const numeroGuiaPrestador = guia.numero_guia_prestador || ('G' + Date.now().toString());
@@ -257,7 +269,6 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   const nomeProfissionalSolicitante = guia.nomeProfissionalSolicitante || 'PROFISSIONAL';
   const numeroConselhoProfissionalSolicitante = guia.numeroConselhoProfissionalSolicitante || '00000';
 
-  // Domínios
   const caraterAtendimento = CARATER_ATENDIMENTO[guia.carater_atendimento] || '1';
   const tipoAtendimento = TIPO_ATENDIMENTO[guia.tipo_atendimento] || '04';
   const indicacaoAcidente = INDICADOR_ACIDENTE[guia.indicacao_acidente] || '9';
@@ -268,14 +279,17 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   const indicacaoClinica = guia.indicacao_clinica || '';
   const motivoEncerramento = getMotivoEncerramento(guia.motivo_encerramento);
 
-  // Verifica se é Bradesco para definir grau de participação
-  const isBradesco = registroANS && BRADESCO_ANS.includes(registroANS);
-
   // Dados do contratado solicitante (config)
   let cnpjContratado = (config?.cnpj || '20384928000124').replace(/\D/g, '');
   if (cnpjContratado.length < 14) cnpjContratado = cnpjContratado.padStart(14, '0');
   const nomeContratadoSolicitante = (config?.nome_contratado || 'HOSPITAL EXEMPLO').toUpperCase();
-  const cnesExecutante = config?.cnes || '0000000';
+  
+  // ✅ CORREÇÃO: Buscar CNES diretamente da configuração
+  let cnesExecutante = '0000000';
+  if (config?.cnes) {
+    cnesExecutante = String(config.cnes).replace(/\D/g, '').padStart(7, '0').slice(0, 7);
+  }
+  
   const conselhoClinica = getCodigoConselho(config?.conselho_clinica || '06');
   const ufClinica = getCodigoUF(config?.uf_clinica || 'SP');
   const cbosClinica = config?.cbos_clinica || '225125';
@@ -283,7 +297,6 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   const codigoExecutante = guia.codigoPrestadorExecutante || '';
   const itens = guia.itens || [];
 
-  // Processa os itens: classifica entre procedimentos (tabela 22/00/05/12/98) e outras despesas (18,19,20)
   const procedimentos = [];
   const outrasDespesas = [];
 
@@ -298,7 +311,6 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
     const horaInicial = formatarHora(item.hora_inicial || '00:00:00');
     const horaFinal = formatarHora(item.hora_final || '00:00:00');
     
-    // Limitar descrição a 150 caracteres (padrão TISS)
     const descricaoProcedimento = limitarDescricao(item.nome || item.nome_procedimento || 'PROCEDIMENTO', 150);
 
     const tipoDespesa = TABELA_DESPESA[tabela];
@@ -344,12 +356,9 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
           descricaoProcedimento
         }
       });
-    } else {
-      console.warn(`Item ignorado: tabela ${tabela} sem classificação ou código de despesa inválido.`, item);
     }
   }
 
-  // Acumuladores de totais
   let valorProcedimentos = 0;
   let valorDiarias = 0;
   let valorTaxasAlugueis = 0;
@@ -385,7 +394,6 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
 
   let sequencialGlobal = 1;
 
-  // XML dos procedimentos
   let procedimentosXML = '';
   for (const proc of procedimentos) {
     procedimentosXML += '            <ans:procedimentoExecutado>\n';
@@ -418,7 +426,6 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
     procedimentosXML += '            </ans:procedimentoExecutado>\n';
   }
 
-  // Agrupa outras despesas por código de despesa
   let outrasDespesasXML = '';
   if (outrasDespesas.length > 0) {
     const despesasPorCodigo = new Map();
@@ -453,7 +460,6 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
     outrasDespesasXML += '          </ans:outrasDespesas>\n';
   }
 
-  // Construção completa da guia
   let guiaXML = '        <ans:guiaSP-SADT>\n';
   guiaXML += '          <ans:cabecalhoGuia>\n';
   guiaXML += `            <ans:registroANS>${escapeXML(registroANS)}</ans:registroANS>\n`;
@@ -568,9 +574,14 @@ export function converterAtendimentoParaTISS(atendimento, convenio) {
     prestador_numero_conselho: item.prestador_numero_conselho || '00000',
     prestador_uf_conselho: item.prestador_uf_conselho || 'SP',
     prestador_cbos: item.prestador_cbos || '225125',
-    // Para Bradesco, grau de participação é sempre '00' (Cirurgião)
     grau_participacao: isBradesco ? '00' : (item.grau_participacao || '12')
   }));
+
+  // ✅ Buscar CNES da configuração
+  let cnesExecutante = '0000000';
+  if (config?.cnes) {
+    cnesExecutante = String(config.cnes).replace(/\D/g, '').padStart(7, '0').slice(0, 7);
+  }
 
   return {
     codigoPrestadorExecutante: convenio?.codigo_prestador || config?.codigo_prestador || '002535718',
@@ -593,7 +604,8 @@ export function converterAtendimentoParaTISS(atendimento, convenio) {
     saude_ocupacional: atendimento.saude_ocupacional || '',
     indicacao_clinica: atendimento.indicacao_clinica || '',
     motivo_encerramento: atendimento.motivo_encerramento || '',
-    itens: itensConvertidos
+    itens: itensConvertidos,
+    cnes: cnesExecutante
   };
 }
 
@@ -604,6 +616,13 @@ export function gerarXMLExemplo(versao) {
   const versaoFinal = versao || '4.03.00';
   const dataAtual = new Date().toISOString().split('T')[0];
   const config = getConfig();
+  
+  // ✅ Buscar CNES da configuração
+  let cnesExecutante = '0000000';
+  if (config?.cnes) {
+    cnesExecutante = String(config.cnes).replace(/\D/g, '').padStart(7, '0').slice(0, 7);
+  }
+  
   const guias = [{
     numero_guia_prestador: 'G' + Date.now().toString(),
     numeroCarteira: '09700020008288318',
@@ -616,6 +635,7 @@ export function gerarXMLExemplo(versao) {
     indicacao_acidente: '9',
     tipo_consulta: '1',
     regime_atendimento: '01',
+    cnes: cnesExecutante,
     itens: [
       {
         codigo: '01010101',
@@ -630,6 +650,7 @@ export function gerarXMLExemplo(versao) {
       }
     ]
   }];
+  
   return gerarXMLTISS({
     versao: versaoFinal,
     codigoPrestadorNaOperadora: config?.codigo_prestador || '002535718',
