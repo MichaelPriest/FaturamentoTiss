@@ -76,6 +76,9 @@ const TABELA_DESPESA = {
   '98': 'procedimento'
 };
 
+// Registrar ANS da Bradesco para identificar convênio
+const BRADESCO_ANS = ['005711', '421715'];
+
 const mapaConselhos = {
   'CRM': '06', 'CRO': '08', 'CRF': '03', 'COREN': '02', 'CREFITO': '05', 'CRP': '09',
   'CRBio': '11', 'CRN': '07', 'CREF': '13', 'CRA': '10', 'CRESS': '01', 'CRBM': '12',
@@ -107,7 +110,12 @@ function getCodigoUF(uf) {
   return codigo || '35';
 }
 
-function getGrauParticipacao(valor) {
+// Função para obter o grau de participação, considerando convênio Bradesco
+function getGrauParticipacao(valor, registroANS) {
+  // Se for Bradesco, sempre retorna '00' (Cirurgião)
+  if (registroANS && BRADESCO_ANS.includes(registroANS)) {
+    return '00';
+  }
   return GRAU_PARTICIPACAO[valor] || '12';
 }
 
@@ -143,6 +151,13 @@ function formatarHora(hora) {
   if (hora.length === 6) return `${hora.substring(0,2)}:${hora.substring(2,4)}:${hora.substring(4,6)}`;
   if (hora.length === 4) return `${hora.substring(0,2)}:${hora.substring(2,4)}:00`;
   return '00:00:00';
+}
+
+// Função para limitar string a 150 caracteres (padrão TISS)
+function limitarDescricao(descricao, maxLength = 150) {
+  if (!descricao) return '';
+  if (descricao.length <= maxLength) return descricao;
+  return descricao.substring(0, maxLength).trim();
 }
 
 function escapeXML(str) {
@@ -253,6 +268,9 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   const indicacaoClinica = guia.indicacao_clinica || '';
   const motivoEncerramento = getMotivoEncerramento(guia.motivo_encerramento);
 
+  // Verifica se é Bradesco para definir grau de participação
+  const isBradesco = registroANS && BRADESCO_ANS.includes(registroANS);
+
   // Dados do contratado solicitante (config)
   let cnpjContratado = (config?.cnpj || '20384928000124').replace(/\D/g, '');
   if (cnpjContratado.length < 14) cnpjContratado = cnpjContratado.padStart(14, '0');
@@ -279,6 +297,9 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
     const dataExecucao = item.data_execucao || dataSolicitacao;
     const horaInicial = formatarHora(item.hora_inicial || '00:00:00');
     const horaFinal = formatarHora(item.hora_final || '00:00:00');
+    
+    // Limitar descrição a 150 caracteres (padrão TISS)
+    const descricaoProcedimento = limitarDescricao(item.nome || item.nome_procedimento || 'PROCEDIMENTO', 150);
 
     const tipoDespesa = TABELA_DESPESA[tabela];
     const isProcedimento = tipoDespesa === 'procedimento';
@@ -291,14 +312,14 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
         horaFinal,
         codigoTabela: tabela,
         codigoProcedimento: item.codigo || item.codigo_procedimento || '00000000',
-        descricaoProcedimento: item.nome || item.nome_procedimento || 'PROCEDIMENTO',
+        descricaoProcedimento,
         quantidade,
         viaAcesso: item.viaAcesso || '1',
         tecnicaUtilizada: item.tecnicaUtilizada || '1',
         reducaoAcrescimo: (item.reducao_acrescimo || '1.00').toString(),
         valorUnitario,
         valorTotal,
-        grauParticipacao: getGrauParticipacao(item.grau_participacao),
+        grauParticipacao: getGrauParticipacao(item.grau_participacao, registroANS),
         prestadorCPF: (item.prestador_cpf || '00000000000').replace(/\D/g, '').slice(0, 11),
         prestadorNome: item.prestador_nome || item.nome_profissional || 'PROFISSIONAL',
         prestadorConselho: getCodigoConselho(item.prestador_conselho || item.conselho),
@@ -320,7 +341,7 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
           reducaoAcrescimo: (item.reducao_acrescimo || '1.00').toString(),
           valorUnitario,
           valorTotal,
-          descricaoProcedimento: item.nome || item.nome_procedimento || 'DESPESA'
+          descricaoProcedimento
         }
       });
     } else {
@@ -525,10 +546,12 @@ export function converterAtendimentoParaTISS(atendimento, convenio) {
   const config = getConfig();
   const numeroCarteira = atendimento.numero_carteira || '000000000';
   const primeiroItem = atendimento.itens?.[0] || null;
+  const registroANS = convenio?.registro_ans || '';
+  const isBradesco = registroANS && BRADESCO_ANS.includes(registroANS);
 
   const itensConvertidos = (atendimento.itens || []).map(item => ({
     codigo: item.codigo || item.codigo_procedimento || '00000000',
-    nome: item.nome || item.nome_procedimento || 'PROCEDIMENTO',
+    nome: limitarDescricao(item.nome || item.nome_procedimento || 'PROCEDIMENTO', 150),
     quantidade: item.quantidade || 1,
     valor_unitario: parseFloat(item.valor_unitario || 0),
     valor_total: parseFloat(item.valor_total || 0),
@@ -545,7 +568,8 @@ export function converterAtendimentoParaTISS(atendimento, convenio) {
     prestador_numero_conselho: item.prestador_numero_conselho || '00000',
     prestador_uf_conselho: item.prestador_uf_conselho || 'SP',
     prestador_cbos: item.prestador_cbos || '225125',
-    grau_participacao: item.grau_participacao || '12'
+    // Para Bradesco, grau de participação é sempre '00' (Cirurgião)
+    grau_participacao: isBradesco ? '00' : (item.grau_participacao || '12')
   }));
 
   return {
@@ -567,6 +591,8 @@ export function converterAtendimentoParaTISS(atendimento, convenio) {
     regime_atendimento: atendimento.regime_atendimento || '01',
     cobertura_especial: atendimento.cobertura_especial || '',
     saude_ocupacional: atendimento.saude_ocupacional || '',
+    indicacao_clinica: atendimento.indicacao_clinica || '',
+    motivo_encerramento: atendimento.motivo_encerramento || '',
     itens: itensConvertidos
   };
 }
