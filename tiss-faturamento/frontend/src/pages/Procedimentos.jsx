@@ -665,7 +665,7 @@ export default function Procedimentos() {
                               )}
                             </div>
                           </td>
-                        </td>
+                        </tr>
                       )}
                     </>
                   );
