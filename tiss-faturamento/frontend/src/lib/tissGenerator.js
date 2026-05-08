@@ -1,5 +1,4 @@
 import CryptoJS from 'crypto-js';
-import { supabase } from './supabaseClient';
 
 // ============================================
 // VERSÕES SUPORTADAS DO PADRÃO TISS
@@ -14,46 +13,12 @@ let configGlobal = null;
 let versaoAtual = VERSAO_TISS['4.03.00'];
 let sequencialTransacaoGlobal = 1;
 
-// ============================================
-// FUNÇÕES DE CONFIGURAÇÃO (BUSCA DO SUPABASE)
-// ============================================
-export async function carregarConfigDoBanco() {
-  try {
-    const { data, error } = await supabase
-      .from('configuracoes')
-      .select('valor')
-      .eq('chave', 'config_sistema')
-      .single();
-    
-    if (error) throw error;
-    if (data && data.valor) {
-      configGlobal = typeof data.valor === 'string' ? JSON.parse(data.valor) : data.valor;
-      console.log('✅ Configuração carregada do banco:', configGlobal);
-    }
-    return configGlobal;
-  } catch (error) {
-    console.error('Erro ao carregar configuração do banco:', error);
-    return null;
-  }
-}
-
-export async function setConfigFromDB() {
-  return await carregarConfigDoBanco();
-}
-
-export function setConfig(config) { 
-  configGlobal = config; 
-}
-
-export function getConfig() {
-  return configGlobal;
-}
-
+export function setConfig(config) { configGlobal = config; }
+export function getConfig() { return configGlobal; }
 export function setVersao(versao) {
   if (Object.values(VERSAO_TISS).includes(versao)) versaoAtual = versao;
 }
 export function getVersao() { return versaoAtual; }
-
 export function getProximoSequencialTransacao() {
   const atual = sequencialTransacaoGlobal;
   sequencialTransacaoGlobal++;
@@ -195,15 +160,9 @@ function escapeXML(str) {
 }
 
 // ============================================
-// GERAÇÃO DO XML PRINCIPAL COM HASH SHA-1
+// VERSÃO SÍNCRONA (RECOMENDADA - NÃO PRECISA DE ASYNC/AWAIT)
 // ============================================
-export async function gerarXMLTISS(dados) {
-  // Carregar configuração do banco se não estiver na memória
-  if (!configGlobal) {
-    await carregarConfigDoBanco();
-  }
-  
-  const config = getConfig();
+export function gerarXMLTISS(dados, config) {
   const versao = dados.versao || versaoAtual;
   const sequencialTransacao = dados.sequencialTransacao || getProximoSequencialTransacao();
   const dataRegistroTransacao = dados.dataRegistroTransacao || new Date().toISOString().split('T')[0];
@@ -281,7 +240,7 @@ export async function gerarXMLTISS(dados) {
 }
 
 // ============================================
-// GERAÇÃO DA GUIA SP-SADT
+// GERAÇÃO DA GUIA SP-SADT (VERSÃO SÍNCRONA)
 // ============================================
 function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   const numeroCarteira = guia.numeroCarteira || '000000000';
@@ -310,7 +269,7 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   if (cnpjContratado.length < 14) cnpjContratado = cnpjContratado.padStart(14, '0');
   const nomeContratadoSolicitante = (config?.nome_contratado || 'HOSPITAL EXEMPLO').toUpperCase();
   
-  // ✅ CORREÇÃO: Buscar CNES da configuração
+  // ✅ Buscar CNES da configuração
   let cnesExecutante = '0000000';
   if (config?.cnes) {
     cnesExecutante = String(config.cnes).replace(/\D/g, '').padStart(7, '0').slice(0, 7);
@@ -572,15 +531,9 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
 }
 
 // ============================================
-// FUNÇÃO AUXILIAR PARA CONVERSÃO DE ATENDIMENTO
+// FUNÇÃO PARA CONVERTER ATENDIMENTO (SÍNCRONA)
 // ============================================
-export async function converterAtendimentoParaTISS(atendimento, convenio) {
-  // Carregar configuração do banco se não estiver na memória
-  if (!configGlobal) {
-    await carregarConfigDoBanco();
-  }
-  
-  const config = getConfig();
+export function converterAtendimentoParaTISS(atendimento, convenio, config) {
   const numeroCarteira = atendimento.numero_carteira || '000000000';
   const primeiroItem = atendimento.itens?.[0] || null;
   const registroANS = convenio?.registro_ans || '';
@@ -641,10 +594,66 @@ export async function converterAtendimentoParaTISS(atendimento, convenio) {
 }
 
 // ============================================
-// FUNÇÃO PARA INICIALIZAR O MÓDULO
+// FUNÇÃO DE EXEMPLO PARA TESTE
 // ============================================
-export async function initTISS() {
-  await carregarConfigDoBanco();
-  console.log('✅ Módulo TISS inicializado');
-  return configGlobal;
+export function exemploGeracaoXML() {
+  const config = {
+    cnpj: '20.384.928/0001-24',
+    cnes: '4931777',
+    nome_contratado: 'BLOOMY ABA THERAPY',
+    conselho_clinica: '06',
+    uf_clinica: 'SP',
+    cbos_clinica: '225125'
+  };
+
+  const atendimento = {
+    numero_carteira: '09700020008288318',
+    numero_guia_prestador: 'G' + Date.now().toString(),
+    numero_guia_operadora: '',
+    data_autorizacao: '',
+    senha_autorizacao: '',
+    data_solicitacao: new Date().toISOString().split('T')[0],
+    profissional_solicitante: 'DR. JOAO SILVA',
+    numero_conselho_solicitante: '123456',
+    carater_atendimento: '1',
+    tipo_atendimento: '04',
+    indicacao_acidente: '9',
+    tipo_consulta: '1',
+    regime_atendimento: '01',
+    itens: [
+      {
+        codigo: '84250895',
+        nome: 'TRATAMENTO TRANSTORNO DO ESPECTRO AUTISTA - POR DIA COM PSICOLOGO',
+        quantidade: 1,
+        valor_unitario: 160.00,
+        data_execucao: new Date().toISOString().split('T')[0],
+        hora_inicial: '08:00:00',
+        hora_final: '09:00:00',
+        tabela_referencia: '22',
+        prestador_nome: 'DR. JOAO SILVA',
+        prestador_cpf: '12345678901',
+        prestador_conselho: 'CRM',
+        prestador_numero_conselho: '123456',
+        prestador_uf_conselho: 'SP',
+        prestador_cbos: '225125',
+        grau_participacao: '12'
+      }
+    ]
+  };
+
+  const convenio = {
+    registro_ans: '005711',
+    codigo_prestador: '56509'
+  };
+
+  const dadosTISS = converterAtendimentoParaTISS(atendimento, convenio, config);
+  const xml = gerarXMLTISS({
+    versao: '4.03.00',
+    codigoPrestadorNaOperadora: convenio.codigo_prestador,
+    registroANS: convenio.registro_ans,
+    numeroLote: 'LOTE' + Date.now().toString(),
+    guias: [dadosTISS]
+  }, config);
+
+  return xml;
 }
