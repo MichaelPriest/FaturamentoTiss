@@ -1,5 +1,12 @@
 import { useState, useEffect } from 'react';
-import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, BuildingOfficeIcon, XMarkIcon, Cog6ToothIcon, CalculatorIcon, ChartBarIcon } from '@heroicons/react/24/outline';
+import { 
+  PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, 
+  BuildingOfficeIcon, XMarkIcon, Cog6ToothIcon, CalculatorIcon, 
+  ChartBarIcon, ArchiveBoxIcon, CurrencyDollarIcon, 
+  DocumentTextIcon, BeakerIcon, HeartIcon,
+  ChevronDownIcon, ChevronUpIcon, InformationCircleIcon,
+  AdjustmentsHorizontalIcon, TableCellsIcon
+} from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { procedimentosService, conveniosService } from '../services/supabaseService';
 import { useTheme } from '../contexts/ThemeContext';
@@ -8,7 +15,6 @@ import { useTheme } from '../contexts/ThemeContext';
 // CONFIGURAÇÕES DAS TABELAS
 // ============================================
 
-// Tipos de tabela
 const TIPOS_TABELA = [
   { value: 'TUSS', label: 'TUSS - Tabela Unificada', codigo: '22', tipo: 'valor_fixo' },
   { value: 'CBHPM', label: 'CBHPM', codigo: '22', tipo: 'porte_uco' },
@@ -22,7 +28,6 @@ const TIPOS_TABELA = [
   { value: 'PACOTE', label: 'Pacote', codigo: '98', tipo: 'pacote' }
 ];
 
-// Tipos de item
 const TIPOS_ITEM = [
   { value: 'PROCEDIMENTO', label: 'Procedimento', cor: 'blue' },
   { value: 'CONSULTA', label: 'Consulta', cor: 'green' },
@@ -36,7 +41,6 @@ const TIPOS_ITEM = [
   { value: 'PACOTE', label: 'Pacote', cor: 'indigo' }
 ];
 
-// Unidades de medida
 const UNIDADES_MEDIDA = [
   { value: '001', label: 'AMP - Ampola' },
   { value: '002', label: 'BUI - Bilhões de Unidades Internacionais' },
@@ -92,98 +96,20 @@ const UNIDADES_MEDIDA = [
   { value: '052', label: 'SACHE - Sachê' }
 ];
 
-// Configuração padrão das tabelas
 const CONFIG_PADRAO_TABELAS = {
-  // AMB 90
-  AMB90: {
-    hm_ch: 0.50,
-    sadt_ch: 0.40,
-    anestesia_ch: 0.35,
-    perc_aux_1: 30,
-    perc_aux_2: 20,
-    perc_aux_3: 15,
-    valor_filme: 20,
-    ativo: true
-  },
-  // AMB 92
-  AMB92: {
-    hm_ch: 0.55,
-    sadt_ch: 0.45,
-    anestesia_ch: 0.40,
-    perc_aux_1: 30,
-    perc_aux_2: 20,
-    perc_aux_3: 15,
-    valor_filme: 22,
-    ativo: true
-  },
-  // AMB 96
-  AMB96: {
-    consulta: 80.00,
-    exame: 45.00,
-    cirurgia_pequeno: 250.00,
-    cirurgia_medio: 500.00,
-    cirurgia_grande: 800.00,
-    anestesia: 150.00,
-    ativo: true
-  },
-  // AMB 99
-  AMB99: {
-    consulta: 100.00,
-    exame: 60.00,
-    cirurgia_pequeno: 300.00,
-    cirurgia_medio: 600.00,
-    cirurgia_grande: 1000.00,
-    anestesia: 200.00,
-    ativo: true
-  },
-  // CBHPM
-  CBHPM: {
-    valor_porte_1: 80.00,
-    valor_porte_2: 120.00,
-    valor_porte_3: 180.00,
-    valor_porte_4: 250.00,
-    valor_porte_5: 400.00,
-    valor_porte_6: 600.00,
-    valor_porte_7: 900.00,
-    valor_porte_8: 1200.00,
-    valor_uco: 10.00,
-    perc_aux_1: 30,
-    perc_aux_2: 20,
-    perc_aux_3: 15,
-    ativo: true
-  },
-  // Brasíndice
-  BRASINDICE: {
-    valor_ponto: 0.80,
-    ativo: true
-  },
-  // SIMPRO
-  SIMPRO: {
-    valor_ponto: 0.90,
-    ativo: true
-  }
+  AMB90: { hm_ch: 0.50, sadt_ch: 0.40, anestesia_ch: 0.35, perc_aux_1: 30, perc_aux_2: 20, perc_aux_3: 15, valor_filme: 20, ativo: true },
+  AMB92: { hm_ch: 0.55, sadt_ch: 0.45, anestesia_ch: 0.40, perc_aux_1: 30, perc_aux_2: 20, perc_aux_3: 15, valor_filme: 22, ativo: true },
+  AMB96: { consulta: 80.00, exame: 45.00, cirurgia_pequeno: 250.00, cirurgia_medio: 500.00, cirurgia_grande: 800.00, anestesia: 150.00, ativo: true },
+  AMB99: { consulta: 100.00, exame: 60.00, cirurgia_pequeno: 300.00, cirurgia_medio: 600.00, cirurgia_grande: 1000.00, anestesia: 200.00, ativo: true },
+  CBHPM: { valor_porte_1: 80.00, valor_porte_2: 120.00, valor_porte_3: 180.00, valor_porte_4: 250.00, valor_porte_5: 400.00, valor_porte_6: 600.00, valor_porte_7: 900.00, valor_porte_8: 1200.00, valor_uco: 10.00, perc_aux_1: 30, perc_aux_2: 20, perc_aux_3: 15, ativo: true },
+  BRASINDICE: { valor_ponto: 0.80, ativo: true },
+  SIMPRO: { valor_ponto: 0.90, ativo: true }
 };
 
-// Configuração de ajustes de materiais e medicamentos
 const CONFIG_AJUSTES_PADRAO = {
-  materiais: {
-    deflator: 0,      // Percentual de redução (ex: 10 = -10%)
-    inflator: 0,      // Percentual de aumento (ex: 5 = +5%)
-    data_referencia: new Date().toISOString().split('T')[0],
-    ativo: true
-  },
-  medicamentos: {
-    deflator: 0,
-    inflator: 0,
-    data_referencia: new Date().toISOString().split('T')[0],
-    ativo: true
-  },
-  opme: {
-    deflator: 0,
-    inflator: 0,
-    data_referencia: new Date().toISOString().split('T')[0],
-    ativo: true
-  },
+  materiais: { deflator: 0, inflator: 0, data_referencia: new Date().toISOString().split('T')[0], ativo: true },
+  medicamentos: { deflator: 0, inflator: 0, data_referencia: new Date().toISOString().split('T')[0], ativo: true },
+  opme: { deflator: 0, inflator: 0, data_referencia: new Date().toISOString().split('T')[0], ativo: true },
   historico_ajustes: []
 };
 
@@ -194,31 +120,25 @@ export default function Procedimentos() {
   const [convenioSelecionado, setConvenioSelecionado] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [showConfigModal, setShowConfigModal] = useState(false);  // <-- MOVER PARA CÁ
+  const [showConfigModal, setShowConfigModal] = useState(false);
   const [showAjustesModal, setShowAjustesModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [aba, setAba] = useState('tuss');
   const [configTabelas, setConfigTabelas] = useState(CONFIG_PADRAO_TABELAS);
   const [configAjustes, setConfigAjustes] = useState(CONFIG_AJUSTES_PADRAO);
-  const [tabelaConfigAtual, setTabelaConfigAtual] = useState('AMB90');  // <-- MOVER PARA CÁ
+  const [tabelaConfigAtual, setTabelaConfigAtual] = useState('AMB90');
   const [tipoAjusteAtual, setTipoAjusteAtual] = useState('materiais');
+  const [expandedItems, setExpandedItems] = useState({});
 
-  // Adicione a função aqui também, dentro do componente
-  const salvarConfiguracoesTabelas = async (novaConfig) => {
-    setConfigTabelas(novaConfig);
-    localStorage.setItem('config_tabelas_procedimentos', JSON.stringify(novaConfig));
-    toast.success('Configurações das tabelas salvas!');
-    setShowConfigModal(false);
-  };
-  
   const [formData, setFormData] = useState({
     codigo: '',
     nome: '',
     tipo: 'PROCEDIMENTO',
     grupo: '',
     tabela: 'TUSS',
-    valor: '',
+    valor_convenio: '',
+    valor_sugerido: '',
     ch: '',
     porte: '',
     uco: '',
@@ -228,7 +148,7 @@ export default function Procedimentos() {
     auxiliar_3: false,
     filme: false,
     quantidade: 1,
-    unidade: 'UN',
+    unidade: '036',
     valor_unitario: '',
     valor_total: '',
     observacoes: ''
@@ -244,24 +164,24 @@ export default function Procedimentos() {
       const storedTabelas = localStorage.getItem('config_tabelas_procedimentos');
       const storedAjustes = localStorage.getItem('config_ajustes_materiais');
       
-      if (storedTabelas) {
-        setConfigTabelas(JSON.parse(storedTabelas));
-      } else {
-        localStorage.setItem('config_tabelas_procedimentos', JSON.stringify(CONFIG_PADRAO_TABELAS));
-      }
+      if (storedTabelas) setConfigTabelas(JSON.parse(storedTabelas));
+      else localStorage.setItem('config_tabelas_procedimentos', JSON.stringify(CONFIG_PADRAO_TABELAS));
       
-      if (storedAjustes) {
-        setConfigAjustes(JSON.parse(storedAjustes));
-      } else {
-        localStorage.setItem('config_ajustes_materiais', JSON.stringify(CONFIG_AJUSTES_PADRAO));
-      }
+      if (storedAjustes) setConfigAjustes(JSON.parse(storedAjustes));
+      else localStorage.setItem('config_ajustes_materiais', JSON.stringify(CONFIG_AJUSTES_PADRAO));
     } catch (error) {
       console.error('Erro ao carregar configurações:', error);
     }
   };
 
+  const salvarConfiguracoesTabelas = async (novaConfig) => {
+    setConfigTabelas(novaConfig);
+    localStorage.setItem('config_tabelas_procedimentos', JSON.stringify(novaConfig));
+    toast.success('Configurações das tabelas salvas!');
+    setShowConfigModal(false);
+  };
+
   const salvarConfiguracoesAjustes = async (novaConfig) => {
-    // Registrar no histórico
     const historico = [...configAjustes.historico_ajustes, {
       data: new Date().toISOString(),
       tipo: tipoAjusteAtual,
@@ -270,11 +190,7 @@ export default function Procedimentos() {
       usuario: 'sistema'
     }];
     
-    const configAtualizada = {
-      ...novaConfig,
-      historico_ajustes: historico
-    };
-    
+    const configAtualizada = { ...novaConfig, historico_ajustes: historico };
     setConfigAjustes(configAtualizada);
     localStorage.setItem('config_ajustes_materiais', JSON.stringify(configAtualizada));
     toast.success(`Configurações de ${tipoAjusteAtual} salvas!`);
@@ -303,122 +219,80 @@ export default function Procedimentos() {
     }
   };
 
-  // Função para aplicar ajustes (deflator/inflator) em materiais e medicamentos
   const aplicarAjuste = (valor, tipo) => {
     const ajustes = configAjustes[tipo];
     if (!ajustes) return valor;
-    
     let valorAjustado = valor;
-    
-    // Aplicar inflator (aumento percentual)
-    if (ajustes.inflator && ajustes.inflator > 0) {
-      valorAjustado = valorAjustado * (1 + (ajustes.inflator / 100));
-    }
-    
-    // Aplicar deflator (redução percentual)
-    if (ajustes.deflator && ajustes.deflator > 0) {
-      valorAjustado = valorAjustado * (1 - (ajustes.deflator / 100));
-    }
-    
+    if (ajustes.inflator && ajustes.inflator > 0) valorAjustado = valorAjustado * (1 + (ajustes.inflator / 100));
+    if (ajustes.deflator && ajustes.deflator > 0) valorAjustado = valorAjustado * (1 - (ajustes.deflator / 100));
     return Math.round(valorAjustado * 100) / 100;
   };
 
-  // Função para calcular valor baseado no tipo de item
-  const calcularValorItem = (dados) => {
+  const calcularValor = (dados) => {
     let valorBase = 0;
-    const ajustes = configAjustes;
     
     switch (dados.tipo) {
       case 'MATERIAL':
-        valorBase = parseFloat(dados.valor_unitario) || 0;
-        return aplicarAjuste(valorBase * (dados.quantidade || 1), 'materiais');
-        
       case 'MEDICAMENTO':
-        valorBase = parseFloat(dados.valor_unitario) || 0;
-        return aplicarAjuste(valorBase * (dados.quantidade || 1), 'medicamentos');
-        
       case 'OPME':
         valorBase = parseFloat(dados.valor_unitario) || 0;
-        return aplicarAjuste(valorBase * (dados.quantidade || 1), 'opme');
-        
+        return aplicarAjuste(valorBase * (dados.quantidade || 1), dados.tipo === 'MATERIAL' ? 'materiais' : dados.tipo === 'MEDICAMENTO' ? 'medicamentos' : 'opme');
+      
       case 'CONSULTA':
       case 'PROCEDIMENTO':
       case 'CIRURGIA':
       case 'EXAME':
-        return calcularValorTabela(dados);
+        const config = configTabelas[dados.tabela];
+        if (!config) return 0;
+
+        switch (dados.tabela) {
+          case 'AMB90':
+          case 'AMB92':
+            const ch = parseFloat(dados.ch) || 0;
+            let valorCH = config.hm_ch;
+            if (dados.tipo === 'EXAME') valorCH = config.sadt_ch;
+            if (dados.tipo === 'ANESTESIA') valorCH = config.anestesia_ch;
+            let chTotal = ch;
+            if (dados.auxiliar_1) chTotal += ch * (config.perc_aux_1 / 100);
+            if (dados.auxiliar_2) chTotal += ch * (config.perc_aux_2 / 100);
+            if (dados.auxiliar_3) chTotal += ch * (config.perc_aux_3 / 100);
+            let valor = chTotal * valorCH;
+            if (dados.filme) valor += config.valor_filme;
+            return valor;
+            
+          case 'AMB96':
+          case 'AMB99':
+            if (dados.tipo === 'CONSULTA') return config.consulta;
+            if (dados.tipo === 'EXAME') return config.exame;
+            if (dados.tipo === 'ANESTESIA') return config.anestesia;
+            return 0;
+            
+          case 'CBHPM':
+            const porte = parseFloat(dados.porte) || 1;
+            const uco = parseFloat(dados.uco) || 0;
+            const valorPorte = config[`valor_porte_${porte}`] || 80;
+            let honorario = valorPorte;
+            if (dados.auxiliar_1) honorario += honorario * (config.perc_aux_1 / 100);
+            if (dados.auxiliar_2) honorario += honorario * (config.perc_aux_2 / 100);
+            return honorario + (uco * config.valor_uco);
+            
+          case 'BRASINDICE':
+          case 'SIMPRO':
+            const pontos = parseFloat(dados.pontos) || 0;
+            return pontos * config.valor_ponto;
+            
+          default:
+            return parseFloat(dados.valor_sugerido) || 0;
+        }
         
       default:
-        return parseFloat(dados.valor) || 0;
-    }
-  };
-
-  // Função para calcular valor baseado na tabela
-  const calcularValorTabela = (dados) => {
-    const config = configTabelas[dados.tabela];
-    if (!config) return 0;
-
-    switch (dados.tabela) {
-      case 'AMB90':
-      case 'AMB92':
-        const ch = parseFloat(dados.ch) || 0;
-        let valorCH = config.hm_ch;
-        
-        if (dados.tipo === 'EXAME') valorCH = config.sadt_ch;
-        if (dados.tipo === 'ANESTESIA') valorCH = config.anestesia_ch;
-        
-        let chTotal = ch;
-        if (dados.auxiliar_1) chTotal += ch * (config.perc_aux_1 / 100);
-        if (dados.auxiliar_2) chTotal += ch * (config.perc_aux_2 / 100);
-        if (dados.auxiliar_3) chTotal += ch * (config.perc_aux_3 / 100);
-        
-        let valor = chTotal * valorCH;
-        if (dados.filme) valor += config.valor_filme;
-        return valor;
-        
-      case 'AMB96':
-      case 'AMB99':
-        if (dados.tipo === 'CONSULTA') return config.consulta;
-        if (dados.tipo === 'EXAME') return config.exame;
-        if (dados.tipo === 'ANESTESIA') return config.anestesia;
-        return 0;
-        
-      case 'CBHPM':
-        const porte = parseFloat(dados.porte) || 1;
-        const uco = parseFloat(dados.uco) || 0;
-        const valorPorte = config[`valor_porte_${porte}`] || 80;
-        const valorUCO = config.valor_uco;
-        
-        let honorario = valorPorte;
-        if (dados.auxiliar_1) honorario += honorario * (config.perc_aux_1 / 100);
-        if (dados.auxiliar_2) honorario += honorario * (config.perc_aux_2 / 100);
-        
-        return honorario + (uco * valorUCO);
-        
-      case 'BRASINDICE':
-      case 'SIMPRO':
-        const pontos = parseFloat(dados.pontos) || 0;
-        return pontos * config.valor_ponto;
-        
-      default:
-        return parseFloat(dados.valor) || 0;
+        return parseFloat(dados.valor_sugerido) || 0;
     }
   };
 
   const handleCalcular = () => {
-    let valorCalculado;
-    
-    if (formData.tipo === 'MATERIAL' || formData.tipo === 'MEDICAMENTO' || formData.tipo === 'OPME') {
-      valorCalculado = calcularValorItem(formData);
-      setFormData(prev => ({ 
-        ...prev, 
-        valor_total: valorCalculado.toFixed(2),
-        valor: valorCalculado.toFixed(2)
-      }));
-    } else {
-      valorCalculado = calcularValorTabela(formData);
-      setFormData(prev => ({ ...prev, valor: valorCalculado.toFixed(2) }));
-    }
-    
+    const valorCalculado = calcularValor(formData);
+    setFormData(prev => ({ ...prev, valor_convenio: valorCalculado.toFixed(2) }));
     toast.info(`Valor calculado: R$ ${valorCalculado.toFixed(2)}`);
   };
 
@@ -429,19 +303,19 @@ export default function Procedimentos() {
       return;
     }
 
-    const valorCalculado = 
-      formData.tipo === 'MATERIAL' || formData.tipo === 'MEDICAMENTO' || formData.tipo === 'OPME'
-        ? calcularValorItem(formData)
-        : calcularValorTabela(formData);
-
+    const valorCalculado = calcularValor(formData);
+    
+    // Se não está editando e tem convênio selecionado, cria valor_convenio
+    // Se está editando, mantém os valores originais ou atualiza
     const procedimentoData = {
       codigo_tuss: formData.codigo,
       nome: formData.nome,
       tipo: formData.tipo,
       grupo: formData.grupo,
-      valor_sugerido: valorCalculado,
+      valor_sugerido: formData.valor_sugerido || valorCalculado,
       tabela: formData.tabela,
       convenio_id: convenioSelecionado?.id || null,
+      valor_convenio: convenioSelecionado?.id ? valorCalculado : null,
       dados_adicionais: {
         ch: formData.ch,
         porte: formData.porte,
@@ -476,17 +350,56 @@ export default function Procedimentos() {
     }
   };
 
+  const handleEdit = (procedimento) => {
+    const dadosAdicionais = procedimento.dados_adicionais || {};
+    setEditing(procedimento);
+    setFormData({
+      codigo: procedimento.codigo_tuss || '',
+      nome: procedimento.nome || '',
+      tipo: procedimento.tipo || 'PROCEDIMENTO',
+      grupo: procedimento.grupo || '',
+      tabela: procedimento.tabela || 'TUSS',
+      valor_convenio: procedimento.valor_convenio || '',
+      valor_sugerido: procedimento.valor_sugerido || '',
+      ch: dadosAdicionais.ch || '',
+      porte: dadosAdicionais.porte || '',
+      uco: dadosAdicionais.uco || '',
+      pontos: dadosAdicionais.pontos || '',
+      auxiliar_1: dadosAdicionais.auxiliar_1 || false,
+      auxiliar_2: dadosAdicionais.auxiliar_2 || false,
+      auxiliar_3: dadosAdicionais.auxiliar_3 || false,
+      filme: dadosAdicionais.filme || false,
+      quantidade: dadosAdicionais.quantidade || 1,
+      unidade: dadosAdicionais.unidade || '036',
+      valor_unitario: dadosAdicionais.valor_unitario || '',
+      valor_total: dadosAdicionais.valor_total || '',
+      observacoes: dadosAdicionais.observacoes || ''
+    });
+    setShowModal(true);
+  };
+
   const resetForm = () => {
     setFormData({
       codigo: '', nome: '', tipo: 'PROCEDIMENTO', grupo: '',
-      tabela: 'TUSS', valor: '', ch: '', porte: '', uco: '', pontos: '',
+      tabela: 'TUSS', valor_convenio: '', valor_sugerido: '',
+      ch: '', porte: '', uco: '', pontos: '',
       auxiliar_1: false, auxiliar_2: false, auxiliar_3: false, filme: false,
-      quantidade: 1, unidade: 'UN', valor_unitario: '', valor_total: '', observacoes: ''
+      quantidade: 1, unidade: '036', valor_unitario: '', valor_total: '', observacoes: ''
     });
   };
 
+  const handleDelete = async (id) => {
+    if (!confirm('Tem certeza que deseja excluir este item?')) return;
+    try {
+      await procedimentosService.remover(id);
+      toast.success('Item excluído!');
+      carregarDados();
+    } catch (error) {
+      toast.error('Erro ao excluir');
+    }
+  };
+
   const getCorTipo = (tipo) => {
-    const item = TIPOS_ITEM.find(t => t.value === tipo);
     const cores = {
       PROCEDIMENTO: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
       CONSULTA: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
@@ -500,19 +413,17 @@ export default function Procedimentos() {
     return cores[tipo] || 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
   };
 
+  const toggleExpand = (id) => {
+    setExpandedItems(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
   const filtered = procedimentos.filter(p => {
-    if (convenioSelecionado && p.convenio_id && p.convenio_id !== convenioSelecionado.id) {
-      return false;
-    }
-    if (!convenioSelecionado && p.convenio_id) {
-      return false;
-    }
-    
+    if (convenioSelecionado && p.convenio_id !== convenioSelecionado.id) return false;
+    if (!convenioSelecionado && p.convenio_id !== null) return false;
     if (aba === 'tuss' && p.tabela !== 'TUSS') return false;
     if (aba === 'cbhpm' && p.tabela !== 'CBHPM') return false;
     if (aba === 'amb' && !p.tabela?.startsWith('AMB')) return false;
     if (aba === 'materiais' && !['MATERIAL', 'MEDICAMENTO', 'OPME'].includes(p.tipo)) return false;
-    
     return p.codigo_tuss?.toLowerCase().includes(searchTerm.toLowerCase()) || 
            p.nome?.toLowerCase().includes(searchTerm.toLowerCase());
   });
@@ -543,7 +454,6 @@ export default function Procedimentos() {
           <button 
             onClick={() => setShowAjustesModal(true)} 
             className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 px-3 py-2 rounded-xl text-sm flex items-center gap-2 hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-all duration-200"
-            title="Configurar ajustes de materiais e medicamentos"
           >
             <ChartBarIcon className="w-4 h-4" />
             Ajustes
@@ -551,12 +461,11 @@ export default function Procedimentos() {
           <button 
             onClick={() => setShowConfigModal(true)} 
             className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-xl text-sm flex items-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200"
-            title="Configurar tabelas"
           >
             <Cog6ToothIcon className="w-4 h-4" />
             Configurar
           </button>
-          <button onClick={() => setShowModal(true)} className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg">
+          <button onClick={() => { setEditing(null); resetForm(); setShowModal(true); }} className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg">
             <PlusIcon className="w-4 h-4" /> Novo Item
           </button>
         </div>
@@ -651,6 +560,7 @@ export default function Procedimentos() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-700/50">
               <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-8"></th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Código</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nome</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tipo</th>
@@ -662,37 +572,64 @@ export default function Procedimentos() {
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {filtered.map((p) => {
+                const isExpanded = expandedItems[p.id];
                 const valorPadrao = p.valor_sugerido || 0;
                 const valorConvenio = p.valor_convenio || null;
                 return (
-                  <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                    <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">{p.codigo_tuss}</td>
-                    <td className="px-4 py-3 text-sm text-gray-800 dark:text-gray-200">{p.nome}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getCorTipo(p.tipo)}`}>
-                        {p.tipo}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{p.tabela || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">R$ {valorPadrao.toFixed(2)}</td>
-                    <td className="px-4 py-3 text-sm text-right">
-                      {valorConvenio ? (
-                        <span className="font-semibold text-green-600 dark:text-green-400">R$ {valorConvenio.toFixed(2)}</span>
-                      ) : (
-                        <span className="text-gray-400 dark:text-gray-500">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex gap-1 justify-center">
-                        <button onClick={() => { setEditing(p); setFormData({...p, valor_convenio: p.valor_convenio || '', valor_sugerido: p.valor_sugerido || ''}); setShowModal(true); }} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Editar">
-                          <PencilIcon className="w-4 h-4" />
+                  <>
+                    <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
+                      <td className="px-4 py-3">
+                        <button onClick={() => toggleExpand(p.id)} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                          {isExpanded ? <ChevronUpIcon className="w-4 h-4 text-gray-400" /> : <ChevronDownIcon className="w-4 h-4 text-gray-400" />}
                         </button>
-                        <button onClick={() => handleDelete(p.id)} className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Excluir">
-                          <TrashIcon className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                      </td>
+                      <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">{p.codigo_tuss}</td>
+                      <td className="px-4 py-3 text-sm text-gray-800 dark:text-gray-200">{p.nome}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getCorTipo(p.tipo)}`}>
+                          {p.tipo}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{p.tabela || '-'}</td>
+                      <td className="px-4 py-3 text-sm text-right text-gray-600 dark:text-gray-400">R$ {valorPadrao.toFixed(2)}</td>
+                      <td className="px-4 py-3 text-sm text-right">
+                        {valorConvenio ? (
+                          <span className="font-semibold text-green-600 dark:text-green-400">R$ {valorConvenio.toFixed(2)}</span>
+                        ) : (
+                          <span className="text-gray-400 dark:text-gray-500">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex gap-1 justify-center">
+                          <button onClick={() => handleEdit(p)} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Editar">
+                            <PencilIcon className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handleDelete(p.id)} className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Excluir">
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr className="bg-gray-50 dark:bg-gray-700/30">
+                        <td colSpan="8" className="px-4 py-3">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            {p.dados_adicionais?.ch && <div><span className="text-xs text-gray-500">CH:</span> <span className="font-mono">{p.dados_adicionais.ch}</span></div>}
+                            {p.dados_adicionais?.porte && <div><span className="text-xs text-gray-500">Porte:</span> <span>{p.dados_adicionais.porte}</span></div>}
+                            {p.dados_adicionais?.uco && <div><span className="text-xs text-gray-500">UCO:</span> <span>{p.dados_adicionais.uco}</span></div>}
+                            {p.dados_adicionais?.pontos && <div><span className="text-xs text-gray-500">Pontos:</span> <span>{p.dados_adicionais.pontos}</span></div>}
+                            {p.dados_adicionais?.quantidade && p.tipo !== 'PROCEDIMENTO' && p.tipo !== 'CONSULTA' && (
+                              <div><span className="text-xs text-gray-500">Quantidade:</span> <span>{p.dados_adicionais.quantidade} {UNIDADES_MEDIDA.find(u => u.value === p.dados_adicionais.unidade)?.label || ''}</span></div>
+                            )}
+                            {p.grupo && <div><span className="text-xs text-gray-500">Grupo:</span> <span>{p.grupo}</span></div>}
+                            {p.dados_adicionais?.observacoes && (
+                              <div className="col-span-full"><span className="text-xs text-gray-500">Observações:</span> <span className="text-gray-600 dark:text-gray-400">{p.dados_adicionais.observacoes}</span></div>
+                            )}
+                          </div>
+                        </tr>
+                      </tr>
+                    )}
+                  </>
                 );
               })}
             </tbody>
@@ -700,9 +637,7 @@ export default function Procedimentos() {
         </div>
         {filtered.length === 0 && (
           <div className="px-4 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
-            <svg className="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
+            <DocumentTextIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
             Nenhum item encontrado
           </div>
         )}
@@ -744,26 +679,13 @@ export default function Procedimentos() {
                     <input type="text" value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" required />
                   </div>
                   
-                  {/* CAMPO TABELA - ADICIONAR AQUI */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tabela</label>
-                    <select 
-                      value={formData.tabela} 
-                      onChange={e => setFormData({...formData, tabela: e.target.value})} 
-                      className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
-                    >
-                      {TIPOS_TABELA.map(t => (
-                        <option key={t.value} value={t.value}>
-                          {t.label}
-                        </option>
-                      ))}
+                    <select value={formData.tabela} onChange={e => setFormData({...formData, tabela: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700">
+                      {TIPOS_TABELA.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </select>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Selecione a tabela de referência para este item
-                    </p>
                   </div>
                   
-                  {/* Grupo */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Grupo</label>
                     <input type="text" value={formData.grupo} onChange={e => setFormData({...formData, grupo: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
@@ -794,7 +716,6 @@ export default function Procedimentos() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CH (Coeficiente Honorário)</label>
                       <input type="number" step="1" value={formData.ch} onChange={e => setFormData({...formData, ch: parseFloat(e.target.value)})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" placeholder="Ex: 200" />
-                      <p className="text-xs text-gray-500 mt-1">CH tabelado para este procedimento (ex: 200)</p>
                     </div>
                   )}
                   
@@ -821,24 +742,26 @@ export default function Procedimentos() {
                   )}
                   
                   {/* Checkboxes para auxiliares e filme */}
-                  {(formData.tabela === 'AMB90' || formData.tabela === 'AMB92') && (
+                  {(formData.tabela === 'AMB90' || formData.tabela === 'AMB92' || formData.tabela === 'CBHPM') && (
                     <div className="flex flex-wrap gap-4">
                       <label className="flex items-center gap-2">
                         <input type="checkbox" checked={formData.auxiliar_1} onChange={e => setFormData({...formData, auxiliar_1: e.target.checked})} className="w-4 h-4" />
-                        <span className="text-sm">1º Auxiliar (30%)</span>
+                        <span className="text-sm">1º Auxiliar</span>
                       </label>
                       <label className="flex items-center gap-2">
                         <input type="checkbox" checked={formData.auxiliar_2} onChange={e => setFormData({...formData, auxiliar_2: e.target.checked})} className="w-4 h-4" />
-                        <span className="text-sm">2º Auxiliar (20%)</span>
+                        <span className="text-sm">2º Auxiliar</span>
                       </label>
                       <label className="flex items-center gap-2">
                         <input type="checkbox" checked={formData.auxiliar_3} onChange={e => setFormData({...formData, auxiliar_3: e.target.checked})} className="w-4 h-4" />
-                        <span className="text-sm">3º Auxiliar (15%)</span>
+                        <span className="text-sm">3º Auxiliar</span>
                       </label>
-                      <label className="flex items-center gap-2">
-                        <input type="checkbox" checked={formData.filme} onChange={e => setFormData({...formData, filme: e.target.checked})} className="w-4 h-4" />
-                        <span className="text-sm">Incluir Filme</span>
-                      </label>
+                      {(formData.tabela === 'AMB90' || formData.tabela === 'AMB92') && (
+                        <label className="flex items-center gap-2">
+                          <input type="checkbox" checked={formData.filme} onChange={e => setFormData({...formData, filme: e.target.checked})} className="w-4 h-4" />
+                          <span className="text-sm">Incluir Filme</span>
+                        </label>
+                      )}
                     </div>
                   )}
                   
@@ -850,7 +773,7 @@ export default function Procedimentos() {
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Valor Calculado (R$)</label>
-                    <input type="number" step="0.01" value={formData.valor} onChange={e => setFormData({...formData, valor: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-100 dark:bg-gray-600 font-mono font-bold" />
+                    <input type="number" step="0.01" value={formData.valor_convenio} readOnly className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-100 dark:bg-gray-600 font-mono font-bold text-green-600 dark:text-green-400" />
                   </div>
                 </div>
                 
@@ -939,8 +862,6 @@ export default function Procedimentos() {
                 <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg">
                   <p className="text-xs text-yellow-700 dark:text-yellow-300">
                     💡 O inflator e deflator são aplicados em sequência. Primeiro o inflator, depois o deflator.
-                    {configAjustes[tipoAjusteAtual]?.inflator > 0 && configAjustes[tipoAjusteAtual]?.deflator > 0 && 
-                      ` Efeito líquido: ${configAjustes[tipoAjusteAtual].inflator - configAjustes[tipoAjusteAtual].deflator}%`}
                   </p>
                 </div>
                 
@@ -963,10 +884,7 @@ export default function Procedimentos() {
                 <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
                   Configuração das Tabelas
                 </h3>
-                <button 
-                  onClick={() => setShowConfigModal(false)} 
-                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
+                <button onClick={() => setShowConfigModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
                   <XMarkIcon className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
@@ -994,240 +912,22 @@ export default function Procedimentos() {
                 <div className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Valor CH Honorários Médicos (R$)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={configTabelas[tabelaConfigAtual]?.hm_ch || 0}
-                        onChange={(e) => setConfigTabelas({
-                          ...configTabelas,
-                          [tabelaConfigAtual]: {
-                            ...configTabelas[tabelaConfigAtual],
-                            hm_ch: parseFloat(e.target.value)
-                          }
-                        })}
-                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Valor do CH para consultas, cirurgias e procedimentos</p>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Valor CH Honorários Médicos (R$)</label>
+                      <input type="number" step="0.01" value={configTabelas[tabelaConfigAtual]?.hm_ch || 0} onChange={(e) => setConfigTabelas({...configTabelas, [tabelaConfigAtual]: {...configTabelas[tabelaConfigAtual], hm_ch: parseFloat(e.target.value)}})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Valor CH SADT (R$)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={configTabelas[tabelaConfigAtual]?.sadt_ch || 0}
-                        onChange={(e) => setConfigTabelas({
-                          ...configTabelas,
-                          [tabelaConfigAtual]: {
-                            ...configTabelas[tabelaConfigAtual],
-                            sadt_ch: parseFloat(e.target.value)
-                          }
-                        })}
-                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Valor do CH para exames e terapias</p>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Valor CH SADT (R$)</label>
+                      <input type="number" step="0.01" value={configTabelas[tabelaConfigAtual]?.sadt_ch || 0} onChange={(e) => setConfigTabelas({...configTabelas, [tabelaConfigAtual]: {...configTabelas[tabelaConfigAtual], sadt_ch: parseFloat(e.target.value)}})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        1º Auxiliar (%)
-                      </label>
-                      <input
-                        type="number"
-                        step="1"
-                        value={configTabelas[tabelaConfigAtual]?.perc_aux_1 || 30}
-                        onChange={(e) => setConfigTabelas({
-                          ...configTabelas,
-                          [tabelaConfigAtual]: {
-                            ...configTabelas[tabelaConfigAtual],
-                            perc_aux_1: parseFloat(e.target.value)
-                          }
-                        })}
-                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        2º Auxiliar (%)
-                      </label>
-                      <input
-                        type="number"
-                        step="1"
-                        value={configTabelas[tabelaConfigAtual]?.perc_aux_2 || 20}
-                        onChange={(e) => setConfigTabelas({
-                          ...configTabelas,
-                          [tabelaConfigAtual]: {
-                            ...configTabelas[tabelaConfigAtual],
-                            perc_aux_2: parseFloat(e.target.value)
-                          }
-                        })}
-                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        3º Auxiliar (%)
-                      </label>
-                      <input
-                        type="number"
-                        step="1"
-                        value={configTabelas[tabelaConfigAtual]?.perc_aux_3 || 15}
-                        onChange={(e) => setConfigTabelas({
-                          ...configTabelas,
-                          [tabelaConfigAtual]: {
-                            ...configTabelas[tabelaConfigAtual],
-                            perc_aux_3: parseFloat(e.target.value)
-                          }
-                        })}
-                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
-                      />
-                    </div>
+                    <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">1º Auxiliar (%)</label><input type="number" step="1" value={configTabelas[tabelaConfigAtual]?.perc_aux_1 || 30} onChange={(e) => setConfigTabelas({...configTabelas, [tabelaConfigAtual]: {...configTabelas[tabelaConfigAtual], perc_aux_1: parseFloat(e.target.value)}})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" /></div>
+                    <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">2º Auxiliar (%)</label><input type="number" step="1" value={configTabelas[tabelaConfigAtual]?.perc_aux_2 || 20} onChange={(e) => setConfigTabelas({...configTabelas, [tabelaConfigAtual]: {...configTabelas[tabelaConfigAtual], perc_aux_2: parseFloat(e.target.value)}})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" /></div>
+                    <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">3º Auxiliar (%)</label><input type="number" step="1" value={configTabelas[tabelaConfigAtual]?.perc_aux_3 || 15} onChange={(e) => setConfigTabelas({...configTabelas, [tabelaConfigAtual]: {...configTabelas[tabelaConfigAtual], perc_aux_3: parseFloat(e.target.value)}})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" /></div>
                   </div>
                   
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Valor do Filme (R$)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={configTabelas[tabelaConfigAtual]?.valor_filme || 20}
-                      onChange={(e) => setConfigTabelas({
-                        ...configTabelas,
-                        [tabelaConfigAtual]: {
-                          ...configTabelas[tabelaConfigAtual],
-                          valor_filme: parseFloat(e.target.value)
-                        }
-                      })}
-                      className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
-                    />
-                  </div>
-                </div>
-              )}
-              
-              {/* Configuração AMB 96/99 (valores fixos) */}
-              {(tabelaConfigAtual === 'AMB96' || tabelaConfigAtual === 'AMB99') && (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Consulta (R$)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={configTabelas[tabelaConfigAtual]?.consulta || 80}
-                        onChange={(e) => setConfigTabelas({
-                          ...configTabelas,
-                          [tabelaConfigAtual]: {
-                            ...configTabelas[tabelaConfigAtual],
-                            consulta: parseFloat(e.target.value)
-                          }
-                        })}
-                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Exame (R$)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={configTabelas[tabelaConfigAtual]?.exame || 45}
-                        onChange={(e) => setConfigTabelas({
-                          ...configTabelas,
-                          [tabelaConfigAtual]: {
-                            ...configTabelas[tabelaConfigAtual],
-                            exame: parseFloat(e.target.value)
-                          }
-                        })}
-                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Cirurgia Pequeno Porte (R$)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={configTabelas[tabelaConfigAtual]?.cirurgia_pequeno || 250}
-                        onChange={(e) => setConfigTabelas({
-                          ...configTabelas,
-                          [tabelaConfigAtual]: {
-                            ...configTabelas[tabelaConfigAtual],
-                            cirurgia_pequeno: parseFloat(e.target.value)
-                          }
-                        })}
-                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Cirurgia Médio Porte (R$)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={configTabelas[tabelaConfigAtual]?.cirurgia_medio || 500}
-                        onChange={(e) => setConfigTabelas({
-                          ...configTabelas,
-                          [tabelaConfigAtual]: {
-                            ...configTabelas[tabelaConfigAtual],
-                            cirurgia_medio: parseFloat(e.target.value)
-                          }
-                        })}
-                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Cirurgia Grande Porte (R$)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={configTabelas[tabelaConfigAtual]?.cirurgia_grande || 800}
-                        onChange={(e) => setConfigTabelas({
-                          ...configTabelas,
-                          [tabelaConfigAtual]: {
-                            ...configTabelas[tabelaConfigAtual],
-                            cirurgia_grande: parseFloat(e.target.value)
-                          }
-                        })}
-                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Anestesia (R$)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={configTabelas[tabelaConfigAtual]?.anestesia || 150}
-                      onChange={(e) => setConfigTabelas({
-                        ...configTabelas,
-                        [tabelaConfigAtual]: {
-                          ...configTabelas[tabelaConfigAtual],
-                          anestesia: parseFloat(e.target.value)
-                        }
-                      })}
-                      className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
-                    />
-                  </div>
+                  <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Valor do Filme (R$)</label><input type="number" step="0.01" value={configTabelas[tabelaConfigAtual]?.valor_filme || 20} onChange={(e) => setConfigTabelas({...configTabelas, [tabelaConfigAtual]: {...configTabelas[tabelaConfigAtual], valor_filme: parseFloat(e.target.value)}})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" /></div>
                 </div>
               )}
               
@@ -1235,141 +935,26 @@ export default function Procedimentos() {
               {tabelaConfigAtual === 'CBHPM' && (
                 <div className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Valor UCO (R$)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={configTabelas.CBHPM?.valor_uco || 10}
-                        onChange={(e) => setConfigTabelas({
-                          ...configTabelas,
-                          CBHPM: {
-                            ...configTabelas.CBHPM,
-                            valor_uco: parseFloat(e.target.value)
-                          }
-                        })}
-                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Valor Porte Base (R$)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={configTabelas.CBHPM?.valor_porte_1 || 80}
-                        onChange={(e) => setConfigTabelas({
-                          ...configTabelas,
-                          CBHPM: {
-                            ...configTabelas.CBHPM,
-                            valor_porte_1: parseFloat(e.target.value)
-                          }
-                        })}
-                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
-                      />
-                    </div>
+                    <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Valor UCO (R$)</label><input type="number" step="0.01" value={configTabelas.CBHPM?.valor_uco || 10} onChange={(e) => setConfigTabelas({...configTabelas, CBHPM: {...configTabelas.CBHPM, valor_uco: parseFloat(e.target.value)}})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" /></div>
+                    <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Valor Porte Base (R$)</label><input type="number" step="0.01" value={configTabelas.CBHPM?.valor_porte_1 || 80} onChange={(e) => setConfigTabelas({...configTabelas, CBHPM: {...configTabelas.CBHPM, valor_porte_1: parseFloat(e.target.value)}})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" /></div>
                   </div>
                   
                   <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Auxiliar 1 (%)
-                      </label>
-                      <input
-                        type="number"
-                        step="1"
-                        value={configTabelas.CBHPM?.perc_aux_1 || 30}
-                        onChange={(e) => setConfigTabelas({
-                          ...configTabelas,
-                          CBHPM: {
-                            ...configTabelas.CBHPM,
-                            perc_aux_1: parseFloat(e.target.value)
-                          }
-                        })}
-                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Auxiliar 2 (%)
-                      </label>
-                      <input
-                        type="number"
-                        step="1"
-                        value={configTabelas.CBHPM?.perc_aux_2 || 20}
-                        onChange={(e) => setConfigTabelas({
-                          ...configTabelas,
-                          CBHPM: {
-                            ...configTabelas.CBHPM,
-                            perc_aux_2: parseFloat(e.target.value)
-                          }
-                        })}
-                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Auxiliar 3 (%)
-                      </label>
-                      <input
-                        type="number"
-                        step="1"
-                        value={configTabelas.CBHPM?.perc_aux_3 || 15}
-                        onChange={(e) => setConfigTabelas({
-                          ...configTabelas,
-                          CBHPM: {
-                            ...configTabelas.CBHPM,
-                            perc_aux_3: parseFloat(e.target.value)
-                          }
-                        })}
-                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
-                      />
-                    </div>
+                    <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Auxiliar 1 (%)</label><input type="number" step="1" value={configTabelas.CBHPM?.perc_aux_1 || 30} onChange={(e) => setConfigTabelas({...configTabelas, CBHPM: {...configTabelas.CBHPM, perc_aux_1: parseFloat(e.target.value)}})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" /></div>
+                    <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Auxiliar 2 (%)</label><input type="number" step="1" value={configTabelas.CBHPM?.perc_aux_2 || 20} onChange={(e) => setConfigTabelas({...configTabelas, CBHPM: {...configTabelas.CBHPM, perc_aux_2: parseFloat(e.target.value)}})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" /></div>
+                    <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Auxiliar 3 (%)</label><input type="number" step="1" value={configTabelas.CBHPM?.perc_aux_3 || 15} onChange={(e) => setConfigTabelas({...configTabelas, CBHPM: {...configTabelas.CBHPM, perc_aux_3: parseFloat(e.target.value)}})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" /></div>
                   </div>
                 </div>
               )}
               
               {/* Configuração Brasíndice / SIMPRO */}
               {(tabelaConfigAtual === 'BRASINDICE' || tabelaConfigAtual === 'SIMPRO') && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Valor do Ponto (R$)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={configTabelas[tabelaConfigAtual]?.valor_ponto || (tabelaConfigAtual === 'BRASINDICE' ? 0.80 : 0.90)}
-                    onChange={(e) => setConfigTabelas({
-                      ...configTabelas,
-                      [tabelaConfigAtual]: {
-                        ...configTabelas[tabelaConfigAtual],
-                        valor_ponto: parseFloat(e.target.value)
-                      }
-                    })}
-                    className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Valor de cada ponto para cálculo do procedimento: Valor = Pontos × Valor do Ponto
-                  </p>
-                </div>
+                <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Valor do Ponto (R$)</label><input type="number" step="0.01" value={configTabelas[tabelaConfigAtual]?.valor_ponto || 0.80} onChange={(e) => setConfigTabelas({...configTabelas, [tabelaConfigAtual]: {...configTabelas[tabelaConfigAtual], valor_ponto: parseFloat(e.target.value)}})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" /></div>
               )}
               
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <button 
-                  onClick={() => setShowConfigModal(false)} 
-                  className="px-4 py-2 border rounded-lg text-sm font-medium"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  onClick={() => salvarConfiguracoesTabelas(configTabelas)} 
-                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium shadow-md"
-                >
-                  Salvar Configurações
-                </button>
+                <button onClick={() => setShowConfigModal(false)} className="px-4 py-2 border rounded-lg text-sm font-medium">Cancelar</button>
+                <button onClick={() => salvarConfiguracoesTabelas(configTabelas)} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium shadow-md">Salvar Configurações</button>
               </div>
             </div>
           </div>
