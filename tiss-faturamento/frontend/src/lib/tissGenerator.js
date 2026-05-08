@@ -9,18 +9,47 @@ export const VERSAO_TISS = {
   '4.03.00': '4.03.00'
 };
 
+let configGlobal = null;
 let versaoAtual = VERSAO_TISS['4.03.00'];
 let sequencialTransacaoGlobal = 1;
+
+// ============================================
+// EXPORTAÇÕES NECESSÁRIAS
+// ============================================
+export function setConfig(config) { 
+  configGlobal = config; 
+  // Salvar também no localStorage para persistência
+  if (config) {
+    localStorage.setItem('config_sistema', JSON.stringify(config));
+  }
+}
+
+export function getConfig() { 
+  if (!configGlobal) {
+    const stored = localStorage.getItem('config_sistema');
+    if (stored) {
+      try {
+        configGlobal = JSON.parse(stored);
+      } catch (e) {
+        console.error('Erro ao carregar config do localStorage:', e);
+      }
+    }
+  }
+  return configGlobal; 
+}
 
 export function setVersao(versao) {
   if (Object.values(VERSAO_TISS).includes(versao)) versaoAtual = versao;
 }
+
 export function getVersao() { return versaoAtual; }
+
 export function getProximoSequencialTransacao() {
   const atual = sequencialTransacaoGlobal;
   sequencialTransacaoGlobal++;
   return atual.toString().padStart(4, '0');
 }
+
 export function resetSequencialTransacao() { sequencialTransacaoGlobal = 1; }
 export function setSequencialTransacao(valor) { sequencialTransacaoGlobal = valor; }
 
@@ -157,7 +186,7 @@ function escapeXML(str) {
 }
 
 // ============================================
-// VERSÃO SÍNCRONA (RECOMENDADA - NÃO PRECISA DE ASYNC/AWAIT)
+// GERAÇÃO DO XML PRINCIPAL
 // ============================================
 export function gerarXMLTISS(dados, config) {
   const versao = dados.versao || versaoAtual;
@@ -237,7 +266,7 @@ export function gerarXMLTISS(dados, config) {
 }
 
 // ============================================
-// GERAÇÃO DA GUIA SP-SADT (VERSÃO SÍNCRONA COM CNES CORRETO)
+// GERAÇÃO DA GUIA SP-SADT
 // ============================================
 function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   const numeroCarteira = guia.numeroCarteira || '000000000';
@@ -261,25 +290,16 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   const indicacaoClinica = guia.indicacao_clinica || '';
   const motivoEncerramento = getMotivoEncerramento(guia.motivo_encerramento);
 
-  // ============================================
-  // DADOS DO CONTRATADO SOLICITANTE (CONFIG)
-  // CORREÇÃO: Garantir que o CNES venha da config corretamente
-  // ============================================
   let cnpjContratado = (config?.cnpj || '20384928000124').replace(/\D/g, '');
   if (cnpjContratado.length < 14) cnpjContratado = cnpjContratado.padStart(14, '0');
   const nomeContratadoSolicitante = (config?.nome_contratado || 'HOSPITAL EXEMPLO').toUpperCase();
   
-  // ✅ CORREÇÃO AQUI: Buscar CNES da configuração
   let cnesExecutante = '0000000';
   if (config?.cnes) {
-    // Remove qualquer caractere não numérico e pega apenas os primeiros 7 dígitos
     const cnesLimpo = String(config.cnes).replace(/\D/g, '');
     if (cnesLimpo.length > 0) {
       cnesExecutante = cnesLimpo.padStart(7, '0').slice(0, 7);
     }
-    console.log('✅ CNES carregado da config:', cnesExecutante);
-  } else {
-    console.warn('⚠️ Config não possui CNES, usando padrão 0000000');
   }
   
   const conselhoClinica = getCodigoConselho(config?.conselho_clinica || '06');
@@ -538,7 +558,7 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
 }
 
 // ============================================
-// FUNÇÃO PARA CONVERTER ATENDIMENTO (SÍNCRONA)
+// FUNÇÃO PARA CONVERTER ATENDIMENTO
 // ============================================
 export function converterAtendimentoParaTISS(atendimento, convenio, config) {
   const numeroCarteira = atendimento.numero_carteira || '000000000';
@@ -591,4 +611,59 @@ export function converterAtendimentoParaTISS(atendimento, convenio, config) {
     motivo_encerramento: atendimento.motivo_encerramento || '',
     itens: itensConvertidos
   };
+}
+
+// ============================================
+// FUNÇÃO PARA GERAR EXEMPLO (TESTE)
+// ============================================
+export function gerarXMLExemplo() {
+  const config = {
+    cnpj: '20.384.928/0001-24',
+    cnes: '4931777',
+    nome_contratado: 'BLOOMY ABA THERAPY',
+    conselho_clinica: '06',
+    uf_clinica: 'SP',
+    cbos_clinica: '225125'
+  };
+
+  const dataAtual = new Date().toISOString().split('T')[0];
+  
+  const atendimento = {
+    numero_carteira: '09700020008288318',
+    numero_guia_prestador: 'G' + Date.now().toString(),
+    data_solicitacao: dataAtual,
+    profissional_solicitante: 'DR. JOAO SILVA',
+    numero_conselho_solicitante: '123456',
+    carater_atendimento: '1',
+    tipo_atendimento: '04',
+    regime_atendimento: '01',
+    itens: [
+      {
+        codigo: '01010101',
+        nome: 'CONSULTA MÉDICA',
+        quantidade: 1,
+        valor_unitario: 150.00,
+        data_execucao: dataAtual,
+        prestador_nome: 'DR. JOAO SILVA',
+        prestador_numero_conselho: '123456',
+        prestador_conselho: 'CRM',
+        prestador_uf_conselho: 'SP'
+      }
+    ]
+  };
+
+  const convenio = {
+    registro_ans: '005711',
+    codigo_prestador: '56509'
+  };
+
+  const dadosTISS = converterAtendimentoParaTISS(atendimento, convenio, config);
+  
+  return gerarXMLTISS({
+    versao: '4.03.00',
+    codigoPrestadorNaOperadora: convenio.codigo_prestador,
+    registroANS: convenio.registro_ans,
+    numeroLote: 'LOTE' + Date.now().toString(),
+    guias: [dadosTISS]
+  }, config);
 }
