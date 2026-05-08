@@ -626,7 +626,7 @@ export default function Procedimentos() {
                               <div className="col-span-full"><span className="text-xs text-gray-500">Observações:</span> <span className="text-gray-600 dark:text-gray-400">{p.dados_adicionais.observacoes}</span></div>
                             )}
                           </div>
-                        </tr>
+                        </td>
                       </tr>
                     )}
                   </>
