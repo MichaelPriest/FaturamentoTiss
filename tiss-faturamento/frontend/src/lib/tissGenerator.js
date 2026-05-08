@@ -9,12 +9,9 @@ export const VERSAO_TISS = {
   '4.03.00': '4.03.00'
 };
 
-let configGlobal = null;
 let versaoAtual = VERSAO_TISS['4.03.00'];
 let sequencialTransacaoGlobal = 1;
 
-export function setConfig(config) { configGlobal = config; }
-export function getConfig() { return configGlobal; }
 export function setVersao(versao) {
   if (Object.values(VERSAO_TISS).includes(versao)) versaoAtual = versao;
 }
@@ -240,7 +237,7 @@ export function gerarXMLTISS(dados, config) {
 }
 
 // ============================================
-// GERAÇÃO DA GUIA SP-SADT (VERSÃO SÍNCRONA)
+// GERAÇÃO DA GUIA SP-SADT (VERSÃO SÍNCRONA COM CNES CORRETO)
 // ============================================
 function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   const numeroCarteira = guia.numeroCarteira || '000000000';
@@ -264,15 +261,25 @@ function gerarGuiaSPSADT(guia, registroANS, config, versao) {
   const indicacaoClinica = guia.indicacao_clinica || '';
   const motivoEncerramento = getMotivoEncerramento(guia.motivo_encerramento);
 
-  // Dados do contratado solicitante (config)
+  // ============================================
+  // DADOS DO CONTRATADO SOLICITANTE (CONFIG)
+  // CORREÇÃO: Garantir que o CNES venha da config corretamente
+  // ============================================
   let cnpjContratado = (config?.cnpj || '20384928000124').replace(/\D/g, '');
   if (cnpjContratado.length < 14) cnpjContratado = cnpjContratado.padStart(14, '0');
   const nomeContratadoSolicitante = (config?.nome_contratado || 'HOSPITAL EXEMPLO').toUpperCase();
   
-  // ✅ Buscar CNES da configuração
+  // ✅ CORREÇÃO AQUI: Buscar CNES da configuração
   let cnesExecutante = '0000000';
   if (config?.cnes) {
-    cnesExecutante = String(config.cnes).replace(/\D/g, '').padStart(7, '0').slice(0, 7);
+    // Remove qualquer caractere não numérico e pega apenas os primeiros 7 dígitos
+    const cnesLimpo = String(config.cnes).replace(/\D/g, '');
+    if (cnesLimpo.length > 0) {
+      cnesExecutante = cnesLimpo.padStart(7, '0').slice(0, 7);
+    }
+    console.log('✅ CNES carregado da config:', cnesExecutante);
+  } else {
+    console.warn('⚠️ Config não possui CNES, usando padrão 0000000');
   }
   
   const conselhoClinica = getCodigoConselho(config?.conselho_clinica || '06');
@@ -561,12 +568,6 @@ export function converterAtendimentoParaTISS(atendimento, convenio, config) {
     grau_participacao: isBradesco ? '00' : (item.grau_participacao || '12')
   }));
 
-  // ✅ Buscar CNES da configuração
-  let cnesExecutante = '0000000';
-  if (config?.cnes) {
-    cnesExecutante = String(config.cnes).replace(/\D/g, '').padStart(7, '0').slice(0, 7);
-  }
-
   return {
     codigoPrestadorExecutante: convenio?.codigo_prestador || config?.codigo_prestador || '002535718',
     numeroCarteira,
@@ -588,72 +589,6 @@ export function converterAtendimentoParaTISS(atendimento, convenio, config) {
     saude_ocupacional: atendimento.saude_ocupacional || '',
     indicacao_clinica: atendimento.indicacao_clinica || '',
     motivo_encerramento: atendimento.motivo_encerramento || '',
-    itens: itensConvertidos,
-    cnes: cnesExecutante
+    itens: itensConvertidos
   };
-}
-
-// ============================================
-// FUNÇÃO DE EXEMPLO PARA TESTE
-// ============================================
-export function exemploGeracaoXML() {
-  const config = {
-    cnpj: '20.384.928/0001-24',
-    cnes: '4931777',
-    nome_contratado: 'BLOOMY ABA THERAPY',
-    conselho_clinica: '06',
-    uf_clinica: 'SP',
-    cbos_clinica: '225125'
-  };
-
-  const atendimento = {
-    numero_carteira: '09700020008288318',
-    numero_guia_prestador: 'G' + Date.now().toString(),
-    numero_guia_operadora: '',
-    data_autorizacao: '',
-    senha_autorizacao: '',
-    data_solicitacao: new Date().toISOString().split('T')[0],
-    profissional_solicitante: 'DR. JOAO SILVA',
-    numero_conselho_solicitante: '123456',
-    carater_atendimento: '1',
-    tipo_atendimento: '04',
-    indicacao_acidente: '9',
-    tipo_consulta: '1',
-    regime_atendimento: '01',
-    itens: [
-      {
-        codigo: '84250895',
-        nome: 'TRATAMENTO TRANSTORNO DO ESPECTRO AUTISTA - POR DIA COM PSICOLOGO',
-        quantidade: 1,
-        valor_unitario: 160.00,
-        data_execucao: new Date().toISOString().split('T')[0],
-        hora_inicial: '08:00:00',
-        hora_final: '09:00:00',
-        tabela_referencia: '22',
-        prestador_nome: 'DR. JOAO SILVA',
-        prestador_cpf: '12345678901',
-        prestador_conselho: 'CRM',
-        prestador_numero_conselho: '123456',
-        prestador_uf_conselho: 'SP',
-        prestador_cbos: '225125',
-        grau_participacao: '12'
-      }
-    ]
-  };
-
-  const convenio = {
-    registro_ans: '005711',
-    codigo_prestador: '56509'
-  };
-
-  const dadosTISS = converterAtendimentoParaTISS(atendimento, convenio, config);
-  const xml = gerarXMLTISS({
-    versao: '4.03.00',
-    codigoPrestadorNaOperadora: convenio.codigo_prestador,
-    registroANS: convenio.registro_ans,
-    numeroLote: 'LOTE' + Date.now().toString(),
-    guias: [dadosTISS]
-  }, config);
-
-  return xml;
 }
