@@ -6,7 +6,8 @@ import {
   DocumentTextIcon, TagIcon, BeakerIcon, HeartIcon,
   ChevronDownIcon, ChevronUpIcon, CheckCircleIcon,
   ExclamationTriangleIcon, InformationCircleIcon,
-  FolderIcon, FolderOpenIcon, AdjustmentsHorizontalIcon
+  FolderIcon, FolderOpenIcon, AdjustmentsHorizontalIcon,
+  SparklesIcon, TableCellsIcon, ClockIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { procedimentosService, conveniosService } from '../services/supabaseService';
@@ -42,17 +43,67 @@ const TIPOS_ITEM = [
   { value: 'PACOTE', label: 'Pacote', cor: 'indigo', icone: '📦' }
 ];
 
+// ============================================
+// UNIDADES DE MEDIDA - PADRÃO TISS (Tabela 60)
+// ============================================
 const UNIDADES_MEDIDA = [
-  { value: 'UN', label: 'UN - Unidade' },
-  { value: 'MG', label: 'MG - Miligrama' },
-  { value: 'G', label: 'G - Grama' },
-  { value: 'ML', label: 'ML - Mililitro' },
-  { value: 'AMP', label: 'AMP - Ampola' },
-  { value: 'FR', label: 'FR - Frasco' },
-  { value: 'CX', label: 'CX - Caixa' },
-  { value: 'KIT', label: 'KIT - Kit' }
+  { value: '001', label: '001 - AMP - Ampola' },
+  { value: '002', label: '002 - BUI - Bilhões de Unidades Internacionais' },
+  { value: '003', label: '003 - BG - Bisnaga' },
+  { value: '004', label: '004 - BOLS - Bolsa' },
+  { value: '005', label: '005 - CX - Caixa' },
+  { value: '006', label: '006 - CAP - Cápsula' },
+  { value: '007', label: '007 - CARP - Carpule' },
+  { value: '008', label: '008 - COM - Comprimido' },
+  { value: '009', label: '009 - DOSE - Dose' },
+  { value: '010', label: '010 - DRG - Drágea' },
+  { value: '011', label: '011 - ENV - Envelope' },
+  { value: '012', label: '012 - FLAC - Flaconete' },
+  { value: '013', label: '013 - FR - Frasco' },
+  { value: '014', label: '014 - FA - Frasco Ampola' },
+  { value: '015', label: '015 - GAL - Galão' },
+  { value: '016', label: '016 - GLOB - Glóbulo' },
+  { value: '017', label: '017 - GTS - Gotas' },
+  { value: '018', label: '018 - G - Grama' },
+  { value: '019', label: '019 - L - Litro' },
+  { value: '020', label: '020 - MCG - Microgramas' },
+  { value: '021', label: '021 - MUI - Milhões de Unidades Internacionais' },
+  { value: '022', label: '022 - MG - Miligrama' },
+  { value: '023', label: '023 - ML - Mililitro' },
+  { value: '024', label: '024 - OVL - Óvulo' },
+  { value: '025', label: '025 - PAS - Pastilha' },
+  { value: '026', label: '026 - LT - Lata' },
+  { value: '027', label: '027 - PER - Pérola' },
+  { value: '028', label: '028 - PIL - Pílula' },
+  { value: '029', label: '029 - PT - Pote' },
+  { value: '030', label: '030 - KG - Quilograma' },
+  { value: '031', label: '031 - SER - Seringa' },
+  { value: '032', label: '032 - SUP - Supositório' },
+  { value: '033', label: '033 - TABLE - Tablete' },
+  { value: '034', label: '034 - TUB - Tubete' },
+  { value: '035', label: '035 - TB - Tubo' },
+  { value: '036', label: '036 - UN - Unidade' },
+  { value: '037', label: '037 - UI - Unidade Internacional' },
+  { value: '038', label: '038 - CM - Centímetro' },
+  { value: '039', label: '039 - CONJ - Conjunto' },
+  { value: '040', label: '040 - KIT - Kit' },
+  { value: '041', label: '041 - MÇ - Maço' },
+  { value: '042', label: '042 - M - Metro' },
+  { value: '043', label: '043 - PC - Pacote' },
+  { value: '044', label: '044 - PÇ - Peça' },
+  { value: '045', label: '045 - RL - Rolo' },
+  { value: '046', label: '046 - GY - Gray' },
+  { value: '047', label: '047 - CGY - Centigray' },
+  { value: '048', label: '048 - PAR - Par' },
+  { value: '049', label: '049 - ADES - Adesivo Transdérmico' },
+  { value: '050', label: '050 - COM EFEV - Comprimido Efervescente' },
+  { value: '051', label: '051 - COM MST - Comprimido Mastigável' },
+  { value: '052', label: '052 - SACHE - Sachê' }
 ];
 
+// ============================================
+// CONFIGURAÇÕES PADRÃO DAS TABELAS
+// ============================================
 const CONFIG_PADRAO_TABELAS = {
   AMB90: { hm_ch: 0.50, sadt_ch: 0.40, anestesia_ch: 0.35, perc_aux_1: 30, perc_aux_2: 20, perc_aux_3: 15, valor_filme: 20, ativo: true },
   AMB92: { hm_ch: 0.55, sadt_ch: 0.45, anestesia_ch: 0.40, perc_aux_1: 30, perc_aux_2: 20, perc_aux_3: 15, valor_filme: 22, ativo: true },
@@ -92,7 +143,7 @@ export default function Procedimentos() {
     codigo: '', nome: '', tipo: 'PROCEDIMENTO', grupo: '', tabela: 'TUSS',
     valor: '', ch: '', porte: '', uco: '', pontos: '', auxiliar_1: false,
     auxiliar_2: false, auxiliar_3: false, filme: false, quantidade: 1,
-    unidade: 'UN', valor_unitario: '', valor_total: '', observacoes: ''
+    unidade: '036', valor_unitario: '', valor_total: '', observacoes: ''
   });
 
   useEffect(() => {
@@ -285,12 +336,11 @@ export default function Procedimentos() {
       codigo: '', nome: '', tipo: 'PROCEDIMENTO', grupo: '', tabela: 'TUSS',
       valor: '', ch: '', porte: '', uco: '', pontos: '', auxiliar_1: false,
       auxiliar_2: false, auxiliar_3: false, filme: false, quantidade: 1,
-      unidade: 'UN', valor_unitario: '', valor_total: '', observacoes: ''
+      unidade: '036', valor_unitario: '', valor_total: '', observacoes: ''
     });
   };
 
   const getCorTipo = (tipo) => {
-    const item = TIPOS_ITEM.find(t => t.value === tipo);
     const cores = {
       PROCEDIMENTO: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
       CONSULTA: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
@@ -319,7 +369,6 @@ export default function Procedimentos() {
            p.nome?.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
-  // Estatísticas para cards
   const totalItens = filtered.length;
   const totalMateriais = filtered.filter(p => p.tipo === 'MATERIAL').length;
   const totalMedicamentos = filtered.filter(p => p.tipo === 'MEDICAMENTO').length;
@@ -433,7 +482,7 @@ export default function Procedimentos() {
               <div key={tipo} className={`rounded-2xl border p-4 transition-all duration-300 ${temAjuste ? 'bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border-yellow-300 dark:border-yellow-700' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'}`}>
                 <div className="flex justify-between items-center">
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider">{tipo}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider capitalize">{tipo}</p>
                     <p className="text-xl font-bold mt-1">
                       {ajuste?.inflator > 0 && <span className="text-green-600 dark:text-green-400">+{ajuste.inflator}%</span>}
                       {ajuste?.deflator > 0 && <span className="text-red-600 dark:text-red-400">-{ajuste.deflator}%</span>}
@@ -609,14 +658,14 @@ export default function Procedimentos() {
                                 <div><span className="text-xs text-gray-500">Pontos:</span> <span>{p.dados_adicionais.pontos}</span></div>
                               )}
                               {p.dados_adicionais.quantidade && p.tipo !== 'PROCEDIMENTO' && (
-                                <div><span className="text-xs text-gray-500">Quantidade:</span> <span>{p.dados_adicionais.quantidade} {p.dados_adicionais.unidade}</span></div>
+                                <div><span className="text-xs text-gray-500">Quantidade:</span> <span>{p.dados_adicionais.quantidade} {UNIDADES_MEDIDA.find(u => u.value === p.dados_adicionais.unidade)?.label.split(' - ')[1] || p.dados_adicionais.unidade}</span></div>
                               )}
                               {p.dados_adicionais.observacoes && (
                                 <div className="col-span-full"><span className="text-xs text-gray-500">Observações:</span> <span className="text-gray-600 dark:text-gray-400">{p.dados_adicionais.observacoes}</span></div>
                               )}
                             </div>
                           </td>
-                        </tr>
+                        </td>
                       )}
                     </>
                   );
@@ -637,164 +686,325 @@ export default function Procedimentos() {
           )}
         </div>
 
-      {/* Modal de Cadastro/Edição */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
-                  {editing ? 'Editar Item' : 'Novo Item'}
-                </h3>
-                <button onClick={() => setShowModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
-                  <XMarkIcon className="w-5 h-5 text-gray-500" />
-                </button>
+        {/* Modal de Cadastro/Edição */}
+        {showModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
+                    {editing ? 'Editar Item' : 'Novo Item'}
+                  </h3>
+                  <button onClick={() => setShowModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <XMarkIcon className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
               </div>
-            </div>
-            
-            <div className="p-5">
-              <form onSubmit={handleSubmit}>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo</label>
-                      <select value={formData.tipo} onChange={e => setFormData({...formData, tipo: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700">
-                        {TIPOS_ITEM.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Código *</label>
-                      <input type="text" value={formData.codigo} onChange={e => setFormData({...formData, codigo: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm font-mono dark:bg-gray-700" required />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome *</label>
-                    <input type="text" value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" required />
-                  </div>
-                  
-                  {/* CAMPO TABELA - ADICIONAR AQUI */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tabela</label>
-                    <select 
-                      value={formData.tabela} 
-                      onChange={e => setFormData({...formData, tabela: e.target.value})} 
-                      className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
-                    >
-                      {TIPOS_TABELA.map(t => (
-                        <option key={t.value} value={t.value}>
-                          {t.label}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Selecione a tabela de referência para este item
-                    </p>
-                  </div>
-                  
-                  {/* Grupo */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Grupo</label>
-                    <input type="text" value={formData.grupo} onChange={e => setFormData({...formData, grupo: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
-                  </div>
-                  
-                  {/* Campos específicos para Materiais/Medicamentos/OPME */}
-                  {(formData.tipo === 'MATERIAL' || formData.tipo === 'MEDICAMENTO' || formData.tipo === 'OPME') && (
-                    <div className="grid grid-cols-3 gap-4">
+              
+              <div className="p-5">
+                <form onSubmit={handleSubmit}>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quantidade</label>
-                        <input type="number" step="0.01" value={formData.quantidade} onChange={e => setFormData({...formData, quantidade: parseFloat(e.target.value)})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Unidade</label>
-                        <select value={formData.unidade} onChange={e => setFormData({...formData, unidade: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700">
-                          {UNIDADES_MEDIDA.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo *</label>
+                        <select value={formData.tipo} onChange={e => setFormData({...formData, tipo: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" required>
+                          {TIPOS_ITEM.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Valor Unitário (R$)</label>
-                        <input type="number" step="0.01" value={formData.valor_unitario} onChange={e => setFormData({...formData, valor_unitario: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Código *</label>
+                        <input type="text" value={formData.codigo} onChange={e => setFormData({...formData, codigo: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm font-mono dark:bg-gray-700" required />
                       </div>
                     </div>
-                  )}
-                  
-                  {/* Campos específicos para procedimentos com CH (AMB 90/92) */}
-                  {(formData.tabela === 'AMB90' || formData.tabela === 'AMB92') && (
+                    
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CH (Coeficiente Honorário)</label>
-                      <input type="number" step="1" value={formData.ch} onChange={e => setFormData({...formData, ch: parseFloat(e.target.value)})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" placeholder="Ex: 200" />
-                      <p className="text-xs text-gray-500 mt-1">CH tabelado para este procedimento (ex: 200)</p>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome *</label>
+                      <input type="text" value={formData.nome} onChange={e => setFormData({...formData, nome: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" required />
                     </div>
-                  )}
-                  
-                  {/* Campos específicos para procedimentos CBHPM */}
-                  {formData.tabela === 'CBHPM' && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Porte</label>
-                        <input type="number" step="1" value={formData.porte} onChange={e => setFormData({...formData, porte: parseFloat(e.target.value)})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" placeholder="Ex: 3" />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UCO</label>
-                        <input type="number" step="1" value={formData.uco} onChange={e => setFormData({...formData, uco: parseFloat(e.target.value)})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" placeholder="Ex: 30" />
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Campos específicos para Brasíndice/SIMPRO */}
-                  {(formData.tabela === 'BRASINDICE' || formData.tabela === 'SIMPRO') && (
+                    
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pontos</label>
-                      <input type="number" step="1" value={formData.pontos} onChange={e => setFormData({...formData, pontos: parseFloat(e.target.value)})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" placeholder="Ex: 100" />
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tabela</label>
+                      <select value={formData.tabela} onChange={e => setFormData({...formData, tabela: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700">
+                        {TIPOS_TABELA.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </select>
                     </div>
-                  )}
-                  
-                  {/* Checkboxes para auxiliares e filme */}
-                  {(formData.tabela === 'AMB90' || formData.tabela === 'AMB92') && (
-                    <div className="flex flex-wrap gap-4">
-                      <label className="flex items-center gap-2">
-                        <input type="checkbox" checked={formData.auxiliar_1} onChange={e => setFormData({...formData, auxiliar_1: e.target.checked})} className="w-4 h-4" />
-                        <span className="text-sm">1º Auxiliar (30%)</span>
-                      </label>
-                      <label className="flex items-center gap-2">
-                        <input type="checkbox" checked={formData.auxiliar_2} onChange={e => setFormData({...formData, auxiliar_2: e.target.checked})} className="w-4 h-4" />
-                        <span className="text-sm">2º Auxiliar (20%)</span>
-                      </label>
-                      <label className="flex items-center gap-2">
-                        <input type="checkbox" checked={formData.auxiliar_3} onChange={e => setFormData({...formData, auxiliar_3: e.target.checked})} className="w-4 h-4" />
-                        <span className="text-sm">3º Auxiliar (15%)</span>
-                      </label>
-                      <label className="flex items-center gap-2">
-                        <input type="checkbox" checked={formData.filme} onChange={e => setFormData({...formData, filme: e.target.checked})} className="w-4 h-4" />
-                        <span className="text-sm">Incluir Filme</span>
-                      </label>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Grupo</label>
+                      <input type="text" value={formData.grupo} onChange={e => setFormData({...formData, grupo: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
                     </div>
-                  )}
+                    
+                    {/* Campos específicos para Materiais/Medicamentos/OPME */}
+                    {(formData.tipo === 'MATERIAL' || formData.tipo === 'MEDICAMENTO' || formData.tipo === 'OPME') && (
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quantidade</label>
+                          <input type="number" step="0.01" value={formData.quantidade} onChange={e => setFormData({...formData, quantidade: parseFloat(e.target.value)})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Unidade</label>
+                          <select value={formData.unidade} onChange={e => setFormData({...formData, unidade: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700">
+                            {UNIDADES_MEDIDA.map(u => <option key={u.value} value={u.value}>{u.label}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Valor Unitário (R$)</label>
+                          <input type="number" step="0.01" value={formData.valor_unitario} onChange={e => setFormData({...formData, valor_unitario: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Campos para procedimentos com CH (AMB) */}
+                    {(formData.tabela === 'AMB90' || formData.tabela === 'AMB92') && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CH (Coeficiente Honorário)</label>
+                        <input type="number" step="1" value={formData.ch} onChange={e => setFormData({...formData, ch: parseFloat(e.target.value)})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
+                      </div>
+                    )}
+                    
+                    {/* Campos para CBHPM */}
+                    {formData.tabela === 'CBHPM' && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Porte</label>
+                          <input type="number" step="1" value={formData.porte} onChange={e => setFormData({...formData, porte: parseFloat(e.target.value)})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UCO</label>
+                          <input type="number" step="1" value={formData.uco} onChange={e => setFormData({...formData, uco: parseFloat(e.target.value)})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Campos para Brasíndice/SIMPRO */}
+                    {(formData.tabela === 'BRASINDICE' || formData.tabela === 'SIMPRO') && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pontos</label>
+                        <input type="number" step="1" value={formData.pontos} onChange={e => setFormData({...formData, pontos: parseFloat(e.target.value)})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
+                      </div>
+                    )}
+                    
+                    {/* Checkboxes para auxiliares */}
+                    {(formData.tabela === 'AMB90' || formData.tabela === 'AMB92' || formData.tabela === 'CBHPM') && (
+                      <div className="flex flex-wrap gap-4">
+                        <label className="flex items-center gap-2">
+                          <input type="checkbox" checked={formData.auxiliar_1} onChange={e => setFormData({...formData, auxiliar_1: e.target.checked})} className="w-4 h-4" />
+                          <span className="text-sm">1º Auxiliar</span>
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input type="checkbox" checked={formData.auxiliar_2} onChange={e => setFormData({...formData, auxiliar_2: e.target.checked})} className="w-4 h-4" />
+                          <span className="text-sm">2º Auxiliar</span>
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input type="checkbox" checked={formData.auxiliar_3} onChange={e => setFormData({...formData, auxiliar_3: e.target.checked})} className="w-4 h-4" />
+                          <span className="text-sm">3º Auxiliar</span>
+                        </label>
+                        {(formData.tabela === 'AMB90' || formData.tabela === 'AMB92') && (
+                          <label className="flex items-center gap-2">
+                            <input type="checkbox" checked={formData.filme} onChange={e => setFormData({...formData, filme: e.target.checked})} className="w-4 h-4" />
+                            <span className="text-sm">Incluir Filme</span>
+                          </label>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Botão Calcular */}
+                    <button type="button" onClick={handleCalcular} className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white py-2.5 rounded-xl text-sm font-medium hover:shadow-lg hover:shadow-green-500/25 transition-all duration-200 flex items-center justify-center gap-2">
+                      <CalculatorIcon className="w-4 h-4" />
+                      Calcular Valor
+                    </button>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Valor Calculado (R$)</label>
+                      <input type="number" step="0.01" value={formData.valor} readOnly className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-100 dark:bg-gray-600 font-mono font-bold" />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações</label>
+                      <textarea rows="2" value={formData.observacoes} onChange={e => setFormData({...formData, observacoes: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
+                    </div>
+                  </div>
                   
-                  {/* Botão Calcular */}
-                  <button type="button" onClick={handleCalcular} className="w-full bg-green-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-all duration-200 flex items-center justify-center gap-2">
-                    <CalculatorIcon className="w-4 h-4" />
-                    Calcular Valor
+                  <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg text-sm font-medium">Cancelar</button>
+                    <button type="submit" className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium shadow-md">
+                      {editing ? 'Atualizar' : 'Salvar'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Configuração de Ajustes */}
+        {showAjustesModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
+                    Configurar Ajustes de Preços
+                  </h3>
+                  <button onClick={() => setShowAjustesModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <XMarkIcon className="w-5 h-5 text-gray-500" />
                   </button>
+                </div>
+              </div>
+              
+              <div className="p-5">
+                <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-700">
+                  {['materiais', 'medicamentos', 'opme'].map((tipo) => (
+                    <button
+                      key={tipo}
+                      onClick={() => setTipoAjusteAtual(tipo)}
+                      className={`px-4 py-2 text-sm font-medium capitalize transition-all duration-200 ${
+                        tipoAjusteAtual === tipo
+                          ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400'
+                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+                      }`}
+                    >
+                      {tipo}
+                    </button>
+                  ))}
+                </div>
+                
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Inflator (%)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={configAjustes[tipoAjusteAtual]?.inflator || 0}
+                        onChange={(e) => setConfigAjustes({
+                          ...configAjustes,
+                          [tipoAjusteAtual]: {
+                            ...configAjustes[tipoAjusteAtual],
+                            inflator: parseFloat(e.target.value) || 0
+                          }
+                        })}
+                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Aumento percentual no preço (ex: 10 = +10%)</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Deflator (%)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={configAjustes[tipoAjusteAtual]?.deflator || 0}
+                        onChange={(e) => setConfigAjustes({
+                          ...configAjustes,
+                          [tipoAjusteAtual]: {
+                            ...configAjustes[tipoAjusteAtual],
+                            deflator: parseFloat(e.target.value) || 0
+                          }
+                        })}
+                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Redução percentual no preço (ex: 5 = -5%)</p>
+                    </div>
+                  </div>
                   
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Valor Calculado (R$)</label>
-                    <input type="number" step="0.01" value={formData.valor} onChange={e => setFormData({...formData, valor: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm bg-gray-100 dark:bg-gray-600 font-mono font-bold" />
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg">
+                    <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                      💡 O inflator e deflator são aplicados em sequência. Primeiro o inflator, depois o deflator.
+                    </p>
+                  </div>
+                  
+                  <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <button onClick={() => setShowAjustesModal(false)} className="px-4 py-2 border rounded-lg text-sm font-medium">Cancelar</button>
+                    <button onClick={() => salvarConfiguracoesAjustes(configAjustes)} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium">Salvar Configurações</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Configuração das Tabelas */}
+        {showConfigModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
+                    Configuração das Tabelas
+                  </h3>
+                  <button onClick={() => setShowConfigModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <XMarkIcon className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-5">
+                <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
+                  {Object.keys(configTabelas).map((tabela) => (
+                    <button
+                      key={tabela}
+                      onClick={() => setTabelaConfigAtual(tabela)}
+                      className={`px-4 py-2 text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                        tabelaConfigAtual === tabela
+                          ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400'
+                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
+                      }`}
+                    >
+                      {TIPOS_TABELA.find(t => t.value === tabela)?.label || tabela}
+                    </button>
+                  ))}
+                </div>
+                
+                {/* Configuração simplificada - exibe apenas campos relevantes */}
+                <div className="space-y-4">
+                  {tabelaConfigAtual === 'CBHPM' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Valor do Ponto (UCO)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={configTabelas.CBHPM?.valor_uco || 10}
+                        onChange={(e) => setConfigTabelas({
+                          ...configTabelas,
+                          CBHPM: { ...configTabelas.CBHPM, valor_uco: parseFloat(e.target.value) }
+                        })}
+                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
+                      />
+                    </div>
+                  )}
+                  
+                  {(tabelaConfigAtual === 'BRASINDICE' || tabelaConfigAtual === 'SIMPRO') && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Valor do Ponto (R$)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={configTabelas[tabelaConfigAtual]?.valor_ponto || 0.80}
+                        onChange={(e) => setConfigTabelas({
+                          ...configTabelas,
+                          [tabelaConfigAtual]: { ...configTabelas[tabelaConfigAtual], valor_ponto: parseFloat(e.target.value) }
+                        })}
+                        className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700"
+                      />
+                    </div>
+                  )}
+                  
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                    <p className="text-xs text-blue-700 dark:text-blue-300 flex items-center gap-2">
+                      <TableCellsIcon className="w-4 h-4" />
+                      As configurações de todas as tabelas são salvas automaticamente.
+                    </p>
                   </div>
                 </div>
                 
                 <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg text-sm font-medium">Cancelar</button>
-                  <button type="submit" className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium shadow-md">
-                    {editing ? 'Atualizar' : 'Salvar'}
-                  </button>
+                  <button onClick={() => setShowConfigModal(false)} className="px-4 py-2 border rounded-lg text-sm font-medium">Cancelar</button>
+                  <button onClick={() => salvarConfiguracoesTabelas(configTabelas)} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium">Salvar Configurações</button>
                 </div>
-              </form>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-
+        )}
       </div>
     </div>
   );
