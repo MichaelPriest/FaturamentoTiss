@@ -140,6 +140,7 @@ table{
   width:100%;
   border-collapse:collapse;
   table-layout:fixed;
+  margin-bottom:2px;
   font-size:9px;
 }
 
@@ -281,7 +282,7 @@ const campo = (numero, titulo, valor = '') => `
 `;
 
 /* =========================================================
-   PÁGINA
+   PAGINA
 ========================================================= */
 
 const gerarPagina = (
@@ -300,6 +301,8 @@ const gerarPagina = (
 
   return `
 <div class="guia-page">
+
+  <!-- CABEÇALHO -->
 
   <table>
 
@@ -349,6 +352,70 @@ const gerarPagina = (
 
   </table>
 
+  <!-- AUTORIZAÇÃO -->
+
+  <table>
+
+    <tr>
+      <td colspan="5" class="secao">
+        Registro ANS / Autorização
+      </td>
+    </tr>
+
+    <tr>
+
+      ${campo(
+        '1',
+        'Registro ANS',
+        convenio?.registro_ans
+      )}
+
+      ${campo(
+        '2',
+        'Número Guia Principal',
+        atendimento.guia_principal
+      )}
+
+      ${campo(
+        '3',
+        'Data Autorização',
+        dataBR(atendimento.data_autorizacao)
+      )}
+
+      ${campo(
+        '4',
+        'Senha',
+        atendimento.senha_autorizacao
+      )}
+
+      ${campo(
+        '5',
+        'Validade Senha',
+        dataBR(atendimento.data_validade_senha)
+      )}
+
+    </tr>
+
+    <tr>
+
+      <td colspan="2">
+
+        <div class="campo-numero">
+          6 - Número Guia Operadora
+        </div>
+
+        <div class="campo-valor">
+          ${atendimento.numero_guia_operadora || ''}
+        </div>
+
+      </td>
+
+      <td colspan="3"></td>
+
+    </tr>
+
+  </table>
+
   <!-- BENEFICIÁRIO -->
 
   <table>
@@ -377,7 +444,157 @@ const gerarPagina = (
 
   </table>
 
-  <!-- EXECUÇÃO -->
+  <!-- SOLICITANTE -->
+
+  <table>
+
+    <tr>
+      <td colspan="6" class="secao">
+        Dados do Contratado Solicitante
+      </td>
+    </tr>
+
+    <tr>
+
+      ${campo(
+        '14',
+        'Nome Contratado',
+        atendimento.nome_contratado ||
+        configClinica.nome_empresa
+      )}
+
+      ${campo(
+        '15',
+        'Código Operadora',
+        convenio?.codigo_prestador
+      )}
+
+      ${campo(
+        '16',
+        'Profissional Solicitante',
+        atendimento.profissional_solicitante
+      )}
+
+      ${campo(
+        '17',
+        'Conselho',
+        CONSELHO_MAP[
+          atendimento.conselho_solicitante
+        ]
+      )}
+
+      ${campo(
+        '18',
+        'Número Conselho',
+        atendimento.numero_conselho_solicitante
+      )}
+
+      ${campo(
+        '19',
+        'UF',
+        atendimento.uf_solicitante
+      )}
+
+    </tr>
+
+    <tr>
+
+      ${campo(
+        '20',
+        'CBO',
+        atendimento.cbos_solicitante
+      )}
+
+      <td colspan="5"></td>
+
+    </tr>
+
+  </table>
+
+  <!-- EXECUTANTE -->
+
+  <table>
+
+    <tr>
+      <td colspan="3" class="secao">
+        Dados do Contratado Executante
+      </td>
+    </tr>
+
+    <tr>
+
+      ${campo(
+        '29',
+        'Código Operadora',
+        convenio?.codigo_prestador
+      )}
+
+      ${campo(
+        '30',
+        'Nome Contratado',
+        atendimento.nome_contratado_executante ||
+        configClinica.nome_empresa
+      )}
+
+      ${campo(
+        '31',
+        'CNES',
+        configClinica.cnes
+      )}
+
+    </tr>
+
+  </table>
+
+  <!-- DADOS ATENDIMENTO -->
+
+  <table>
+
+    <tr>
+      <td colspan="4" class="secao">
+        Dados do Atendimento
+      </td>
+    </tr>
+
+    <tr>
+
+      ${campo(
+        '32',
+        'Tipo Atendimento',
+        TIPO_ATENDIMENTO_MAP[
+          atendimento.tipo_atendimento
+        ]
+      )}
+
+      ${campo(
+        '33',
+        'Indicação Acidente',
+        INDICADOR_ACIDENTE_MAP[
+          atendimento.indicacao_acidente
+        ]
+      )}
+
+      ${campo(
+        '34',
+        'Tipo Consulta',
+        TIPO_CONSULTA_MAP[
+          atendimento.tipo_consulta
+        ]
+      )}
+
+      ${campo(
+        '35',
+        'Motivo Encerramento',
+        MOTIVO_ENCERRAMENTO_MAP[
+          atendimento.motivo_encerramento
+        ]
+      )}
+
+    </tr>
+
+  </table>
+
+  <!-- PROCEDIMENTOS -->
 
   <table class="tabela-procedimentos">
 
@@ -563,6 +780,62 @@ const gerarPagina = (
 
   </table>
 
+  <!-- OBSERVAÇÃO -->
+
+  <table>
+
+    <tr>
+
+      <td style="height:55px;">
+
+        <div class="campo-numero">
+          58 - Observação
+        </div>
+
+        <div class="campo-valor">
+          ${atendimento.observacao || ''}
+        </div>
+
+      </td>
+
+    </tr>
+
+  </table>
+
+  <!-- ASSINATURAS -->
+
+  <table>
+
+    <tr>
+
+      <td class="linha-assinatura">
+
+        <div>
+          Assinatura Responsável
+        </div>
+
+      </td>
+
+      <td class="linha-assinatura">
+
+        <div>
+          Assinatura Beneficiário
+        </div>
+
+      </td>
+
+      <td class="linha-assinatura">
+
+        <div>
+          Assinatura Contratado
+        </div>
+
+      </td>
+
+    </tr>
+
+  </table>
+
 </div>
 `;
 };
@@ -577,7 +850,9 @@ export const gerarHTMLGuiaTISSOficial = (
   configClinica = {}
 ) => {
 
-  const paginas = dividirEmPaginas(atendimento.itens || []);
+  const paginas = dividirEmPaginas(
+    atendimento.itens || []
+  );
 
   const htmlPaginas = paginas.map((pagina) =>
     gerarPagina(
@@ -597,7 +872,7 @@ export const gerarHTMLGuiaTISSOficial = (
 
 <head>
 
-<meta charset="UTF-8" />
+<meta charset="UTF-8"/>
 
 <title>
 Guia TISS
@@ -706,7 +981,7 @@ ${gerarCSS()}
     );
 
     const match = html.match(
-      /<body[^>]*>([\s\S]*)<\/body>/i
+      /<body[^>]*>([\\s\\S]*)<\\/body>/i
     );
 
     if (match?.[1]) {
