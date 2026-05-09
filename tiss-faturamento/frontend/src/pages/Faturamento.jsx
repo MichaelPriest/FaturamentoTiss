@@ -26,7 +26,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
 import { gerarXMLTISS, converterAtendimentoParaTISS, setVersao } from '../lib/tissGenerator';
-import { imprimirGuiaTISSOficial, imprimirMultiplasGuiasTISS } from '../components/ImpressaoGuiaTISSOficial';
+import { imprimirGuiaTISSOficial, imprimirMultiplasGuiasTISS } from '../components/ImpressaoGuiaTISS';
 
 // ============================================
 // MAPA DE CÓDIGOS CBOS (TISS)
@@ -1437,7 +1437,7 @@ export default function Faturamento() {
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Profissional / Especialidade</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor</th>
                         <th className="px-4 py-3 text-center w-32">Ações</th>
-                      </table>
+                      </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                       {convenioAtendimentos.map((a) => (
@@ -1477,7 +1477,7 @@ export default function Faturamento() {
                         <td colSpan="9" className="px-4 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">Total do Convênio:</td>
                         <td className="px-4 py-3 text-right font-bold text-blue-600 dark:text-blue-400">R$ {totalConvenio.toFixed(2)}</td>
                         <td className="px-4 py-3"></td>
-                      </table>
+                      </tr>
                     </tfoot>
                   </table>
                 </div>
@@ -1596,7 +1596,7 @@ export default function Faturamento() {
                     {logsLotes.length === 0 && (
                       <tr key="no-logs-row">
                         <td colSpan="7" className="px-4 py-12 text-center text-gray-500">Nenhum log encontrado</td>
-                      </td>
+                      </tr>
                     )}
                   </tbody>
                 </table>
