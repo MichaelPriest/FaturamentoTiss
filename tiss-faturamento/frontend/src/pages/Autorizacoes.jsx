@@ -701,7 +701,7 @@ export default function Autorizacoes() {
                       <DocumentPlusIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
                       Nenhuma autorização encontrada
                     </td>
-                  <tr>
+                  </tr>
                 )}
               </tbody>
             </table>
@@ -953,7 +953,6 @@ export default function Autorizacoes() {
                                   <td className="px-3 py-2 text-right font-bold text-blue-600">
                                     R$ {itensAutorizacao.reduce((sum, i) => sum + (i.valor_total || 0), 0).toFixed(2)}
                                   </td>
-                                  <td>
                                 </tr>
                               </tfoot>
                             </table>
@@ -1007,7 +1006,7 @@ export default function Autorizacoes() {
                         <th className="px-3 py-2 text-center text-xs">Saldo</th>
                         <th className="px-3 py-2 text-right text-xs">Valor Unit.</th>
                         <th className="px-3 py-2 text-right text-xs">Valor Total</th>
-                      </td>
+                      </tr>
                     </thead>
                     <tbody className="divide-y">
                       {selectedAutorizacao.itens_autorizados_list?.map((item, idx) => {
