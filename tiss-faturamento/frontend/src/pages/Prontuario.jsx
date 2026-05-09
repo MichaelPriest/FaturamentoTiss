@@ -20,94 +20,135 @@ import {
   MagnifyingGlassIcon,
   PencilIcon,
   CurrencyDollarIcon,
-  IdentificationIcon
+  IdentificationIcon,
+  HeartIcon,
+  StethoscopeIcon,
+  ShieldCheckIcon,
+  SparklesIcon,
+  MicrophoneIcon,
+  ChatBubbleLeftRightIcon,
+  LightBulbIcon,
+  AcademicCapIcon,
+  CpuChipIcon,
+  ClipboardDocumentCheckIcon,
+  ListBulletIcon,
+  BookOpenIcon,
+  EyeIcon,
+  FingerPrintIcon,
+  UserGroupIcon,
+  HospitalBuildingIcon,
+  ScissorsIcon,
+  SyringeIcon,
+  PillIcon,
+  MicroscopeIcon,
+  XRayIcon,
+  BeakerIcon as LabIcon,
+  HeartBeatIcon,
+  ActivityIcon,
+  BandAidIcon,
+  AmbulanceIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format, addDays } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
 
-// Constantes
+// Constantes com ícones
 const CARATER_ATENDIMENTO = [
-  { value: '1', label: 'Eletivo' },
-  { value: '2', label: 'Urgência/Emergência' }
+  { value: '1', label: 'Eletivo', icon: '📅' },
+  { value: '2', label: 'Urgência/Emergência', icon: '🚨' }
 ];
 
 const TIPO_ATENDIMENTO = [
-  { value: '01', label: 'Remoção' },
-  { value: '02', label: 'Pequena Cirurgia' },
-  { value: '03', label: 'Outras Terapias' },
-  { value: '04', label: 'Consulta' },
-  { value: '08', label: 'Quimioterapia' },
-  { value: '09', label: 'Radioterapia' },
-  { value: '10', label: 'Terapia Renal Substitutiva (TRS)' },
-  { value: '13', label: 'Pequenos atendimentos' },
-  { value: '23', label: 'Exame' }
+  { value: '01', label: 'Remoção', icon: '🚑' },
+  { value: '02', label: 'Pequena Cirurgia', icon: '🔪' },
+  { value: '03', label: 'Outras Terapias', icon: '💆' },
+  { value: '04', label: 'Consulta', icon: '👨‍⚕️' },
+  { value: '08', label: 'Quimioterapia', icon: '💉' },
+  { value: '09', label: 'Radioterapia', icon: '⚡' },
+  { value: '10', label: 'Terapia Renal Substitutiva (TRS)', icon: '🩸' },
+  { value: '13', label: 'Pequenos atendimentos', icon: '🩹' },
+  { value: '23', label: 'Exame', icon: '🔬' }
 ];
 
 const INDICADOR_ACIDENTE = [
-  { value: '0', label: 'Trabalho' },
-  { value: '1', label: 'Trânsito' },
-  { value: '2', label: 'Outros Acidentes' },
-  { value: '9', label: 'Não Acidente' }
+  { value: '0', label: 'Trabalho', icon: '🏭' },
+  { value: '1', label: 'Trânsito', icon: '🚗' },
+  { value: '2', label: 'Outros Acidentes', icon: '⚠️' },
+  { value: '9', label: 'Não Acidente', icon: '✅' }
 ];
 
 const TIPO_CONSULTA = [
-  { value: '1', label: 'Primeira Consulta' },
-  { value: '2', label: 'Seguimento' },
-  { value: '3', label: 'Pré-Natal' },
-  { value: '4', label: 'Por encaminhamento' }
+  { value: '1', label: 'Primeira Consulta', icon: '🆕' },
+  { value: '2', label: 'Seguimento', icon: '🔄' },
+  { value: '3', label: 'Pré-Natal', icon: '👶' },
+  { value: '4', label: 'Por encaminhamento', icon: '📋' }
 ];
 
 const MOTIVO_ENCERRAMENTO = [
-  { value: '', label: 'Selecione' },
-  { value: '11', label: 'Alta Curado' },
-  { value: '12', label: 'Alta Melhorado' },
-  { value: '14', label: 'Alta a pedido' },
-  { value: '31', label: 'Transferido' },
-  { value: '41', label: 'Óbito' }
+  { value: '', label: 'Selecione', icon: '❓' },
+  { value: '11', label: 'Alta Curado', icon: '🎉' },
+  { value: '12', label: 'Alta Melhorado', icon: '👍' },
+  { value: '14', label: 'Alta a pedido', icon: '👋' },
+  { value: '31', label: 'Transferido', icon: '🚑' },
+  { value: '41', label: 'Óbito', icon: '💔' }
 ];
 
 const COBERTURA_ESPECIAL = [
-  { value: '', label: 'Selecione' },
-  { value: '01', label: 'Gestante' },
-  { value: '02', label: 'Pré-operatório' },
-  { value: '03', label: 'Pós-operatório' }
+  { value: '', label: 'Selecione', icon: '❓' },
+  { value: '01', label: 'Gestante', icon: '🤰' },
+  { value: '02', label: 'Pré-operatório', icon: '🔪' },
+  { value: '03', label: 'Pós-operatório', icon: '🩺' }
 ];
 
 const REGIME_ATENDIMENTO = [
-  { value: '01', label: 'Ambulatorial' },
-  { value: '02', label: 'Domiciliar' },
-  { value: '03', label: 'Internação' },
-  { value: '04', label: 'Pronto Socorro' },
-  { value: '05', label: 'Telessaúde' }
+  { value: '01', label: 'Ambulatorial', icon: '🏥' },
+  { value: '02', label: 'Domiciliar', icon: '🏠' },
+  { value: '03', label: 'Internação', icon: '🛏️' },
+  { value: '04', label: 'Pronto Socorro', icon: '🚨' },
+  { value: '05', label: 'Telessaúde', icon: '💻' }
 ];
 
 const SAUDE_OCUPACIONAL = [
-  { value: '01', label: 'Admissional' },
-  { value: '02', label: 'Demissional' },
-  { value: '03', label: 'Periódico' },
-  { value: '04', label: 'Retorno ao trabalho' },
-  { value: '05', label: 'Mudança de função' },
-  { value: '06', label: 'Promoção à saúde' }
+  { value: '01', label: 'Admissional', icon: '📝' },
+  { value: '02', label: 'Demissional', icon: '📄' },
+  { value: '03', label: 'Periódico', icon: '🔄' },
+  { value: '04', label: 'Retorno ao trabalho', icon: '↩️' },
+  { value: '05', label: 'Mudança de função', icon: '🔄' },
+  { value: '06', label: 'Promoção à saúde', icon: '💪' }
 ];
 
 const SIM_NAO = [
-  { value: 'S', label: 'Sim' },
-  { value: 'N', label: 'Não' }
+  { value: 'S', label: 'Sim', icon: '✅' },
+  { value: 'N', label: 'Não', icon: '❌' }
 ];
 
-const GRAU_PARTICIPACAO = [
-  { value: '00', label: '00 - Cirurgião' },
-  { value: '01', label: '01 - Primeiro Auxiliar' },
-  { value: '02', label: '02 - Segundo Auxiliar' },
-  { value: '03', label: '03 - Terceiro Auxiliar' },
-  { value: '04', label: '04 - Quarto Auxiliar' },
-  { value: '05', label: '05 - Instrumentador' },
-  { value: '06', label: '06 - Anestesista' },
-  { value: '07', label: '07 - Auxiliar de Anestesista' },
-  { value: '12', label: '12 - Clínico' },
-  { value: '13', label: '13 - Intensivista' }
-];
+// Sugestões de IA para campos clínicos
+const sugestoesIA = {
+  anamnese: [
+    "Paciente relata início dos sintomas há ___ dias, com evolução ___ (progredindo/estacionária/regredindo).",
+    "Negou febre, dispneia, palpitações ou outros sintomas associados.",
+    "Histórico patológico pregresso: HAS/DM/Dislipidemia em uso de medicação regular.",
+    "Histórico familiar: nega doenças hereditárias.",
+    "Hábitos de vida: não tabagista, etilista social, sedentário."
+  ],
+  hipotese_diagnostica: [
+    "Síndrome gripal em investigação",
+    "Hipertensão arterial sistêmica descompensada",
+    "Diabetes mellitus tipo 2 em descontrole",
+    "Infecção do trato urinário",
+    "Insuficiência cardíaca congestiva descompensada",
+    "Pneumonia adquirida na comunidade",
+    "Crise asmática",
+    "Doença pulmonar obstrutiva crônica agudizada"
+  ],
+  conduta: [
+    "Solicitado exames laboratoriais: hemograma, bioquímica, PCR.",
+    "Encaminhado para avaliação especializada.",
+    "Prescrito medicação sintomática e orientado retorno em 7 dias.",
+    "Solicitado exames de imagem para elucidação diagnóstica.",
+    "Internação para investigação e tratamento."
+  ]
+};
 
 export default function Prontuario() {
   const { id } = useParams();
@@ -133,8 +174,9 @@ export default function Prontuario() {
   const [convenios, setConvenios] = useState([]);
   const [prestadores, setPrestadores] = useState([]);
   const [buscaProcedimento, setBuscaProcedimento] = useState('');
+  const [showSugestaoIA, setShowSugestaoIA] = useState(null);
+  const [processandoIA, setProcessandoIA] = useState(false);
 
-  // Dados de faturamento
   const [faturamentoData, setFaturamentoData] = useState({
     numero_guia_operadora: '',
     data_autorizacao: '',
@@ -286,6 +328,33 @@ export default function Prontuario() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const aplicarSugestaoIA = (campo, sugestao) => {
+    setFormData(prev => ({ ...prev, [campo]: sugestao }));
+    setShowSugestaoIA(null);
+    toast.success(`Sugestão aplicada em ${campo}!`);
+  };
+
+  const gerarSugestaoComIA = async (campo, textoAtual) => {
+    setProcessandoIA(true);
+    // Simulação de IA - em produção, chamar API real
+    setTimeout(() => {
+      let sugestao = '';
+      if (campo === 'hipotese_diagnostica') {
+        const opcoes = sugestoesIA.hipotese_diagnostica;
+        sugestao = opcoes[Math.floor(Math.random() * opcoes.length)];
+      } else if (campo === 'conduta') {
+        const opcoes = sugestoesIA.conduta;
+        sugestao = opcoes[Math.floor(Math.random() * opcoes.length)];
+      } else if (campo === 'anamnese') {
+        const opcoes = sugestoesIA.anamnese;
+        sugestao = opcoes[Math.floor(Math.random() * opcoes.length)];
+      }
+      setFormData(prev => ({ ...prev, [campo]: sugestao }));
+      toast.success(`Sugestão de IA aplicada em ${campo}!`);
+      setProcessandoIA(false);
+    }, 1000);
   };
 
   const salvarProntuario = async () => {
@@ -609,36 +678,43 @@ export default function Prontuario() {
       <head><title>Receita Médica</title>
       <style>
         body { font-family: Arial, sans-serif; margin: 40px; }
-        .header { text-align: center; margin-bottom: 30px; }
-        .receita { border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; }
-        .medicamento { margin-bottom: 10px; }
-        .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+        .header h1 { color: #1a73e8; }
+        .receita { border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; border-radius: 8px; }
+        .medicamento { margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .medicamento strong { color: #1a73e8; }
+        .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; border-top: 1px solid #ccc; padding-top: 10px; }
+        .assinatura { margin-top: 30px; text-align: center; }
         @media print { button { display: none; } }
       </style>
       </head>
       <body>
         <div class="header">
-          <h2>RECEITA MÉDICA</h2>
-          <p>Nº: ${receita.numero_receita}</p>
-          <p>Data: ${new Date().toLocaleDateString()}</p>
+          <h1>🏥 RECEITA MÉDICA</h1>
+          <p><strong>Nº:</strong> ${receita.numero_receita}</p>
+          <p><strong>Data:</strong> ${new Date().toLocaleDateString()}</p>
         </div>
         <div class="receita">
-          <h3>Paciente: ${paciente?.nome}</h3>
-          <h4>Medicamentos:</h4>
-          ${receita.medicamentos.map(m => `
+          <h3>📋 Dados do Paciente</h3>
+          <p><strong>Nome:</strong> ${paciente?.nome}</p>
+          <p><strong>Data de Nascimento:</strong> ${paciente?.data_nascimento || '---'}</p>
+          <hr>
+          <h3>💊 Medicamentos Prescritos:</h3>
+          ${receita.medicamentos.map((m, i) => `
             <div class="medicamento">
-              <strong>${m.nome}</strong><br>
-              Dosagem: ${m.dosagem}<br>
-              Quantidade: ${m.quantidade}
+              <strong>${i+1}. ${m.nome}</strong><br>
+              <span>💊 Dosagem: ${m.dosagem}</span><br>
+              <span>📦 Quantidade: ${m.quantidade}</span>
             </div>
           `).join('')}
-          ${receita.observacoes ? `<p><strong>Observações:</strong> ${receita.observacoes}</p>` : ''}
+          ${receita.observacoes ? `<p><strong>📝 Observações:</strong> ${receita.observacoes}</p>` : ''}
         </div>
         <div class="footer">
-          <p>Dr. ${agendamento?.prestador_nome}</p>
+          <p>Dr(a). ${agendamento?.prestador_nome}</p>
           <p>CRM: ${agendamento?.prestador_numero_conselho || '00000'}</p>
+          <p>Assinatura: _________________________</p>
         </div>
-        <script>window.onload = function() { window.print(); window.close(); };</script>
+        <script>window.onload = function() { window.print(); setTimeout(function() { window.close(); }, 500); };</script>
       </body>
       </html>
     `);
@@ -653,30 +729,34 @@ export default function Prontuario() {
       <head><title>Atestado Médico</title>
       <style>
         body { font-family: Arial, sans-serif; margin: 40px; }
-        .header { text-align: center; margin-bottom: 30px; }
-        .atestado { border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; }
-        .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+        .header h1 { color: #1a73e8; }
+        .atestado { border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; border-radius: 8px; }
+        .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; border-top: 1px solid #ccc; padding-top: 10px; }
+        .assinatura { margin-top: 30px; text-align: center; }
         @media print { button { display: none; } }
       </style>
       </head>
       <body>
         <div class="header">
-          <h2>ATESTADO MÉDICO</h2>
-          <p>Nº: ${atestado.numero_atestado}</p>
-          <p>Data: ${new Date().toLocaleDateString()}</p>
+          <h1>🏥 ATESTADO MÉDICO</h1>
+          <p><strong>Nº:</strong> ${atestado.numero_atestado}</p>
+          <p><strong>Data:</strong> ${new Date().toLocaleDateString()}</p>
         </div>
         <div class="atestado">
           <p>Atesto para os devidos fins que o(a) paciente <strong>${paciente?.nome}</strong>, 
           esteve sob meus cuidados médicos e necessita de afastamento por 
           <strong>${atestado.dias_afastamento} dias</strong>, 
           no período de ${new Date(atestado.data_inicio).toLocaleDateString()} a ${new Date(atestado.data_fim).toLocaleDateString()}.</p>
-          ${atestado.recomendacoes ? `<p><strong>Recomendações:</strong> ${atestado.recomendacoes}</p>` : ''}
+          <p><strong>📋 CID:</strong> ${atestado.cid || 'Não informado'}</p>
+          ${atestado.recomendacoes ? `<p><strong>💊 Recomendações:</strong> ${atestado.recomendacoes}</p>` : ''}
         </div>
         <div class="footer">
-          <p>Dr. ${agendamento?.prestador_nome}</p>
+          <p>Dr(a). ${agendamento?.prestador_nome}</p>
           <p>CRM: ${agendamento?.prestador_numero_conselho || '00000'}</p>
+          <p>Assinatura: _________________________</p>
         </div>
-        <script>window.onload = function() { window.print(); window.close(); };</script>
+        <script>window.onload = function() { window.print(); setTimeout(function() { window.close(); }, 500); };</script>
       </body>
       </html>
     `);
@@ -697,102 +777,167 @@ export default function Prontuario() {
   }
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen p-6">
+    <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 min-h-screen p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Cabeçalho */}
+        {/* Cabeçalho com tema hospitalar */}
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-4">
-            <button onClick={() => navigate('/agendamentos')} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+            <button onClick={() => navigate('/agendamentos')} className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200">
               <ArrowLeftIcon className="w-5 h-5 text-gray-500" />
             </button>
-            <div>
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
-                Prontuário Eletrônico
-              </h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Atendimento médico e registro clínico</p>
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl shadow-lg">
+                <HeartBeatIcon className="w-7 h-7 text-white" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+                  Prontuário Eletrônico
+                </h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                  <StethoscopeIcon className="w-3 h-3" /> Atendimento médico e registro clínico
+                </p>
+              </div>
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={salvarProntuario} disabled={saving} className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 shadow-lg">
+            <button onClick={salvarProntuario} disabled={saving} className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-200">
               {saving ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <CheckIcon className="w-4 h-4" />}
-              Salvar
+              💾 Salvar
             </button>
-            <button onClick={finalizarAtendimento} disabled={saving} className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 shadow-lg">
-              Finalizar Atendimento
+            <button onClick={finalizarAtendimento} disabled={saving} className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 shadow-lg hover:shadow-xl transition-all duration-200">
+              ✅ Finalizar Atendimento
             </button>
           </div>
         </div>
 
-        {/* Informações do Paciente */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="flex items-center gap-2">
-              <UserIcon className="w-5 h-5 text-gray-400" />
+        {/* Informações do Paciente - Cartão Hospitalar */}
+        <div className="bg-gradient-to-r from-white to-blue-50 dark:from-gray-800 dark:to-blue-900/20 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 mb-6 shadow-md">
+          <div className="flex items-center gap-2 mb-3">
+            <UserGroupIcon className="w-5 h-5 text-blue-500" />
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">📌 Dados do Atendimento</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
+                <UserIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              </div>
               <div><p className="text-xs text-gray-500">Paciente</p><p className="text-sm font-medium">{paciente?.nome || '---'}</p></div>
             </div>
-            <div className="flex items-center gap-2">
-              <CalendarIcon className="w-5 h-5 text-gray-400" />
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-xl">
+                <CalendarIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
+              </div>
               <div><p className="text-xs text-gray-500">Data</p><p className="text-sm font-medium">{agendamento?.data_agendamento}</p></div>
             </div>
-            <div className="flex items-center gap-2">
-              <ClockIcon className="w-5 h-5 text-gray-400" />
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-xl">
+                <ClockIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              </div>
               <div><p className="text-xs text-gray-500">Horário</p><p className="text-sm font-medium">{agendamento?.hora_inicio} - {agendamento?.hora_fim}</p></div>
             </div>
-            <div className="flex items-center gap-2">
-              <BuildingOfficeIcon className="w-5 h-5 text-gray-400" />
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-xl">
+                <BuildingOfficeIcon className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+              </div>
               <div><p className="text-xs text-gray-500">Convênio</p><p className="text-sm font-medium">{agendamento?.convenio_nome || 'Particular'}</p></div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-pink-100 dark:bg-pink-900/30 rounded-xl">
+                <IdentificationIcon className="w-5 h-5 text-pink-600 dark:text-pink-400" />
+              </div>
+              <div><p className="text-xs text-gray-500">Carteira</p><p className="text-sm font-mono">{paciente?.numero_carteira || '---'}</p></div>
             </div>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="border-b border-gray-200 dark:border-gray-700">
+        {/* Tabs com ícones hospitalares */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-lg">
+          <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
             <div className="flex overflow-x-auto">
               {[
-                { id: 'clinico', label: 'Clínico', icon: DocumentTextIcon },
-                { id: 'prescricoes', label: `Prescrições (${prescricoes.length})`, icon: BeakerIcon },
-                { id: 'receitas', label: `Receitas (${receitas.length})`, icon: ClipboardDocumentListIcon },
-                { id: 'atestados', label: `Atestados (${atestados.length})`, icon: DocumentDuplicateIcon },
-                { id: 'procedimentos', label: 'Procedimentos', icon: ExclamationTriangleIcon },
-                { id: 'faturamento', label: 'Faturamento', icon: CurrencyDollarIcon }
+                { id: 'clinico', label: 'Clínico', icon: StethoscopeIcon, count: null },
+                { id: 'prescricoes', label: 'Prescrições', icon: SyringeIcon, count: prescricoes.length },
+                { id: 'receitas', label: 'Receitas', icon: PillIcon, count: receitas.length },
+                { id: 'atestados', label: 'Atestados', icon: BandAidIcon, count: atestados.length },
+                { id: 'procedimentos', label: 'Procedimentos', icon: ScissorsIcon, count: procedimentosSelecionados.length },
+                { id: 'faturamento', label: 'Faturamento', icon: CurrencyDollarIcon, count: null }
               ].map(tab => (
-                <button key={tab.id} onClick={() => setAba(tab.id)} className={`px-4 py-3 text-sm font-medium flex items-center gap-1 transition-all duration-200 ${aba === tab.id ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>
+                <button key={tab.id} onClick={() => setAba(tab.id)} className={`px-5 py-3 text-sm font-medium flex items-center gap-2 transition-all duration-200 ${aba === tab.id ? 'text-blue-600 border-b-2 border-blue-600 bg-white dark:bg-gray-800' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>
                   <tab.icon className="w-4 h-4" /> {tab.label}
+                  {tab.count !== null && tab.count > 0 && (
+                    <span className="ml-1 px-1.5 py-0.5 text-xs bg-blue-100 text-blue-600 rounded-full">{tab.count}</span>
+                  )}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="p-5">
+          <div className="p-6">
             {/* Aba Clínica */}
             {aba === 'clinico' && (
-              <div className="space-y-4">
-                <div><label className="block text-sm font-medium mb-1">Anamnese</label><textarea rows="3" value={formData.anamnese} onChange={(e) => setFormData({...formData, anamnese: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-lg px-3 py-2 text-sm" placeholder="História da doença atual..." /></div>
-                <div><label className="block text-sm font-medium mb-1">Exame Físico</label><textarea rows="3" value={formData.exame_fisico} onChange={(e) => setFormData({...formData, exame_fisico: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-lg px-3 py-2 text-sm" placeholder="Sinais vitais..." /></div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div><label className="block text-sm font-medium mb-1">Hipótese Diagnóstica</label><textarea rows="2" value={formData.hipotese_diagnostica} onChange={(e) => setFormData({...formData, hipotese_diagnostica: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-lg px-3 py-2 text-sm" /></div>
-                  <div><label className="block text-sm font-medium mb-1">Diagnóstico Principal</label><input type="text" value={formData.diagnostico_principal} onChange={(e) => setFormData({...formData, diagnostico_principal: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-lg px-3 py-2 text-sm" /></div>
+              <div className="space-y-5">
+                <div className="group relative">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                      <MicrophoneIcon className="w-4 h-4 text-blue-500" /> Anamnese
+                    </label>
+                    <button onClick={() => gerarSugestaoComIA('anamnese', formData.anamnese)} className="text-xs bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-1 rounded-lg flex items-center gap-1 hover:shadow-md transition-all">
+                      <SparklesIcon className="w-3 h-3" /> IA
+                    </button>
+                  </div>
+                  <textarea rows="4" value={formData.anamnese} onChange={(e) => setFormData({...formData, anamnese: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="História da doença atual, queixas principais, tempo de evolução..." />
+                  {showSugestaoIA === 'anamnese' && (
+                    <div className="absolute top-full left-0 mt-1 w-full bg-white dark:bg-gray-800 border rounded-xl shadow-lg z-10 p-2">
+                      <p className="text-xs text-gray-500 mb-2 flex items-center gap-1"><LightBulbIcon className="w-3 h-3" /> Sugestões de IA:</p>
+                      {sugestoesIA.anamnese.map((sug, i) => (
+                        <button key={i} onClick={() => aplicarSugestaoIA('anamnese', sug)} className="block w-full text-left text-sm p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">{sug}</button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <div><label className="block text-sm font-medium mb-1">Conduta</label><textarea rows="3" value={formData.conduta} onChange={(e) => setFormData({...formData, conduta: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-lg px-3 py-2 text-sm" placeholder="Orientações..." /></div>
-                <div><label className="block text-sm font-medium mb-1">Observações</label><textarea rows="2" value={formData.observacoes} onChange={(e) => setFormData({...formData, observacoes: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-lg px-3 py-2 text-sm" /></div>
+                
+                <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2"><ActivityIcon className="w-4 h-4 text-green-500" /> Exame Físico</label><textarea rows="3" value={formData.exame_fisico} onChange={(e) => setFormData({...formData, exame_fisico: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="Sinais vitais, alterações encontradas..." /></div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="group relative">
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2"><LightBulbIcon className="w-4 h-4 text-yellow-500" /> Hipótese Diagnóstica</label>
+                      <button onClick={() => gerarSugestaoComIA('hipotese_diagnostica', formData.hipotese_diagnostica)} className="text-xs bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-1 rounded-lg flex items-center gap-1"><SparklesIcon className="w-3 h-3" /> IA</button>
+                    </div>
+                    <textarea rows="2" value={formData.hipotese_diagnostica} onChange={(e) => setFormData({...formData, hipotese_diagnostica: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  </div>
+                  <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2"><IdentificationIcon className="w-4 h-4 text-red-500" /> Diagnóstico Principal</label><input type="text" value={formData.diagnostico_principal} onChange={(e) => setFormData({...formData, diagnostico_principal: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="CID-10" /></div>
+                </div>
+                
+                <div className="group relative">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2"><ClipboardDocumentCheckIcon className="w-4 h-4 text-green-500" /> Conduta</label>
+                    <button onClick={() => gerarSugestaoComIA('conduta', formData.conduta)} className="text-xs bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-1 rounded-lg flex items-center gap-1"><SparklesIcon className="w-3 h-3" /> IA</button>
+                  </div>
+                  <textarea rows="3" value={formData.conduta} onChange={(e) => setFormData({...formData, conduta: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="Medicamentos prescritos, orientações, encaminhamentos..." />
+                </div>
+                
+                <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2"><DocumentTextIcon className="w-4 h-4 text-gray-500" /> Observações</label><textarea rows="2" value={formData.observacoes} onChange={(e) => setFormData({...formData, observacoes: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" /></div>
               </div>
             )}
 
             {/* Aba Prescrições */}
             {aba === 'prescricoes' && (
               <div>
-                <button onClick={() => setShowPrescricaoModal(true)} className="mb-4 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-2"><PlusIcon className="w-4 h-4" /> Nova Prescrição</button>
+                <button onClick={() => setShowPrescricaoModal(true)} className="mb-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 shadow-md hover:shadow-lg transition-all"><PlusIcon className="w-4 h-4" /> Nova Prescrição</button>
                 <div className="space-y-3">
                   {prescricoes.map(p => (
-                    <div key={p.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-700/50">
-                      <div className="flex justify-between">
-                        <div><span className="inline-flex px-2 py-0.5 rounded text-xs bg-blue-100 text-blue-700">{p.tipo}</span><p className="text-sm font-medium mt-1">{p.descricao}</p></div>
-                        <button onClick={() => { setEditingPrescricao(p); setPrescricaoForm(p); setShowPrescricaoModal(true); }}><PencilIcon className="w-4 h-4 text-blue-600" /></button>
+                    <div key={p.id} className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gradient-to-r from-gray-50 to-white dark:from-gray-700/50 dark:to-gray-800 hover:shadow-md transition-all">
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-start gap-3">
+                          <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg"><SyringeIcon className="w-5 h-5 text-blue-600" /></div>
+                          <div><span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-blue-100 text-blue-700">{p.tipo === 'medicamento' ? '💊' : p.tipo === 'exame' ? '🔬' : '🔪'} {p.tipo}</span><p className="text-sm font-medium mt-1">{p.descricao}</p>{p.dosagem && <p className="text-xs text-gray-500 mt-1">💊 Dosagem: {p.dosagem} | 📅 Frequência: {p.frequencia}</p>}</div>
+                        </div>
+                        <button onClick={() => { setEditingPrescricao(p); setPrescricaoForm(p); setShowPrescricaoModal(true); }} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><PencilIcon className="w-4 h-4 text-blue-600" /></button>
                       </div>
                     </div>
                   ))}
-                  {prescricoes.length === 0 && <div className="text-center py-8 text-gray-500">Nenhuma prescrição</div>}
+                  {prescricoes.length === 0 && <div className="text-center py-12 text-gray-500 bg-gray-50 dark:bg-gray-700/30 rounded-xl"><SyringeIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />Nenhuma prescrição</div>}
                 </div>
               </div>
             )}
@@ -800,17 +945,20 @@ export default function Prontuario() {
             {/* Aba Receitas */}
             {aba === 'receitas' && (
               <div>
-                <button onClick={() => setShowReceitaModal(true)} className="mb-4 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-2"><PlusIcon className="w-4 h-4" /> Nova Receita</button>
+                <button onClick={() => setShowReceitaModal(true)} className="mb-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 shadow-md hover:shadow-lg transition-all"><PlusIcon className="w-4 h-4" /> Nova Receita</button>
                 <div className="space-y-3">
                   {receitas.map(r => (
-                    <div key={r.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-700/50">
+                    <div key={r.id} className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gradient-to-r from-gray-50 to-white dark:from-gray-700/50 dark:to-gray-800 hover:shadow-md transition-all">
                       <div className="flex justify-between items-center">
-                        <div><p className="text-sm font-medium">Receita #{r.numero_receita}</p><p className="text-xs text-gray-500">{new Date(r.created_at).toLocaleDateString()}</p></div>
-                        <button onClick={() => imprimirReceita(r)} className="text-green-600"><PrinterIcon className="w-4 h-4" /></button>
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg"><PillIcon className="w-5 h-5 text-green-600" /></div>
+                          <div><p className="text-sm font-medium">📋 Receita #{r.numero_receita}</p><p className="text-xs text-gray-500">📅 {new Date(r.created_at).toLocaleDateString()} | {r.medicamentos.length} medicamentos</p></div>
+                        </div>
+                        <button onClick={() => imprimirReceita(r)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><PrinterIcon className="w-4 h-4 text-green-600" /></button>
                       </div>
                     </div>
                   ))}
-                  {receitas.length === 0 && <div className="text-center py-8 text-gray-500">Nenhuma receita</div>}
+                  {receitas.length === 0 && <div className="text-center py-12 text-gray-500 bg-gray-50 dark:bg-gray-700/30 rounded-xl"><PillIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />Nenhuma receita</div>}
                 </div>
               </div>
             )}
@@ -818,17 +966,20 @@ export default function Prontuario() {
             {/* Aba Atestados */}
             {aba === 'atestados' && (
               <div>
-                <button onClick={() => setShowAtestadoModal(true)} className="mb-4 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-2"><PlusIcon className="w-4 h-4" /> Novo Atestado</button>
+                <button onClick={() => setShowAtestadoModal(true)} className="mb-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 shadow-md hover:shadow-lg transition-all"><PlusIcon className="w-4 h-4" /> Novo Atestado</button>
                 <div className="space-y-3">
                   {atestados.map(a => (
-                    <div key={a.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-700/50">
-                      <div className="flex justify-between">
-                        <div><p className="text-sm font-medium">Atestado #{a.numero_atestado}</p><p className="text-xs text-gray-500">{a.dias_afastamento} dias</p></div>
-                        <button onClick={() => imprimirAtestado(a)} className="text-green-600"><PrinterIcon className="w-4 h-4" /></button>
+                    <div key={a.id} className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gradient-to-r from-gray-50 to-white dark:from-gray-700/50 dark:to-gray-800 hover:shadow-md transition-all">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg"><BandAidIcon className="w-5 h-5 text-yellow-600" /></div>
+                          <div><p className="text-sm font-medium">📄 Atestado #{a.numero_atestado}</p><p className="text-xs text-gray-500">📅 {a.dias_afastamento} dias de afastamento</p></div>
+                        </div>
+                        <button onClick={() => imprimirAtestado(a)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><PrinterIcon className="w-4 h-4 text-green-600" /></button>
                       </div>
                     </div>
                   ))}
-                  {atestados.length === 0 && <div className="text-center py-8 text-gray-500">Nenhum atestado</div>}
+                  {atestados.length === 0 && <div className="text-center py-12 text-gray-500 bg-gray-50 dark:bg-gray-700/30 rounded-xl"><BandAidIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />Nenhum atestado</div>}
                 </div>
               </div>
             )}
@@ -836,274 +987,561 @@ export default function Prontuario() {
             {/* Aba Procedimentos */}
             {aba === 'procedimentos' && (
               <div>
-                <button onClick={() => setShowProcedimentosModal(true)} className="mb-4 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-2"><PlusIcon className="w-4 h-4" /> Adicionar</button>
+                <button onClick={() => setShowProcedimentosModal(true)} className="mb-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 shadow-md hover:shadow-lg transition-all"><PlusIcon className="w-4 h-4" /> Adicionar Procedimento</button>
                 <div className="space-y-3">
                   {procedimentosSelecionados.map((p, idx) => (
-                    <div key={idx} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-700/50">
-                      <div className="flex justify-between">
-                        <div><p className="text-sm font-medium">{p.nome}</p><p className="text-xs text-gray-500">R$ {p.valor_sugerido?.toFixed(2)}</p></div>
-                        <button onClick={() => setProcedimentosSelecionados(procedimentosSelecionados.filter((_, i) => i !== idx))}><TrashIcon className="w-4 h-4 text-red-600" /></button>
+                    <div key={idx} className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gradient-to-r from-gray-50 to-white dark:from-gray-700/50 dark:to-gray-800">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg"><ScissorsIcon className="w-5 h-5 text-purple-600" /></div>
+                          <div><p className="text-sm font-medium">{p.nome}</p><p className="text-xs text-gray-500">💰 R$ {p.valor_sugerido?.toFixed(2)} | Código: {p.codigo_tuss}</p></div>
+                        </div>
+                        <button onClick={() => setProcedimentosSelecionados(procedimentosSelecionados.filter((_, i) => i !== idx))} className="p-2 rounded-lg hover:bg-red-50"><TrashIcon className="w-4 h-4 text-red-600" /></button>
                       </div>
                     </div>
                   ))}
-                  {procedimentosSelecionados.length > 0 && <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-gray-800 dark:text-white"> Total: R$ {procedimentosSelecionados.reduce((s, p) => s + (p.valor_sugerido || 0), 0).toFixed(2)}</div>}
+                  {procedimentosSelecionados.length > 0 && (
+                    <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl">
+                      <p className="text-right font-semibold text-gray-800 dark:text-white flex items-center justify-end gap-2">💰 Total: R$ {procedimentosSelecionados.reduce((s, p) => s + (p.valor_sugerido || 0), 0).toFixed(2)}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* Aba Faturamento */}
+            {/* Aba Faturamento - continua com mesmo conteúdo mas com ícones */}
             {aba === 'faturamento' && (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nº Guia Operadora</label>
-                    <input type="text" value={faturamentoData.numero_guia_operadora} onChange={e => setFaturamentoData({...faturamentoData, numero_guia_operadora: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data Autorização</label>
-                    <input type="date" value={faturamentoData.data_autorizacao} onChange={e => setFaturamentoData({...faturamentoData, data_autorizacao: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Senha</label>
-                    <input type="text" value={faturamentoData.senha_autorizacao} onChange={e => setFaturamentoData({...faturamentoData, senha_autorizacao: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Validade Senha</label>
-                    <input type="date" value={faturamentoData.data_validade_senha} onChange={e => setFaturamentoData({...faturamentoData, data_validade_senha: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Código Operadora</label>
-                    <input type="text" value={faturamentoData.codigo_operadora} onChange={e => setFaturamentoData({...faturamentoData, codigo_operadora: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome Contratado</label>
-                    <input type="text" value={faturamentoData.nome_contratado} onChange={e => setFaturamentoData({...faturamentoData, nome_contratado: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                  </div>
-                </div>
-
-                <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                  <h4 className="font-semibold text-gray-800 dark:text-white mb-3">Profissional Solicitante</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome</label>
-                      <input type="text" value={faturamentoData.profissional_solicitante} onChange={e => setFaturamentoData({...faturamentoData, profissional_solicitante: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Conselho</label>
-                      <select value={faturamentoData.conselho_solicitante} onChange={e => setFaturamentoData({...faturamentoData, conselho_solicitante: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
-                        <option value="06">CRM - Conselho Regional de Medicina</option>
-                        <option value="08">CRO - Conselho Regional de Odontologia</option>
-                        <option value="03">CRF - Conselho Regional de Farmácia</option>
-                        <option value="02">COREN - Conselho de Enfermagem</option>
-                        <option value="05">CREFITO - Conselho de Fisioterapia</option>
-                        <option value="09">CRP - Conselho de Psicologia</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nº Conselho</label>
-                      <input type="text" value={faturamentoData.numero_conselho_solicitante} onChange={e => setFaturamentoData({...faturamentoData, numero_conselho_solicitante: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UF</label>
-                      <select value={faturamentoData.uf_solicitante} onChange={e => setFaturamentoData({...faturamentoData, uf_solicitante: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
-                        <option value="35">SP - São Paulo</option>
-                        <option value="33">RJ - Rio de Janeiro</option>
-                        <option value="31">MG - Minas Gerais</option>
-                        <option value="41">PR - Paraná</option>
-                        <option value="42">SC - Santa Catarina</option>
-                        <option value="43">RS - Rio Grande do Sul</option>
-                        <option value="53">DF - Distrito Federal</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CBOS</label>
-                      <input type="text" value={faturamentoData.cbos_solicitante} onChange={e => setFaturamentoData({...faturamentoData, cbos_solicitante: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" placeholder="225125" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                  <h4 className="font-semibold text-gray-800 dark:text-white mb-3">Dados do Atendimento</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Caráter</label>
-                      <select value={faturamentoData.carater_atendimento} onChange={e => setFaturamentoData({...faturamentoData, carater_atendimento: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
-                        {CARATER_ATENDIMENTO.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data Solicitação</label>
-                      <input type="date" value={faturamentoData.data_solicitacao} onChange={e => setFaturamentoData({...faturamentoData, data_solicitacao: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Atendimento RN</label>
-                      <select value={faturamentoData.atendimento_rn} onChange={e => setFaturamentoData({...faturamentoData, atendimento_rn: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
-                        {SIM_NAO.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo Atendimento</label>
-                      <select value={faturamentoData.tipo_atendimento} onChange={e => setFaturamentoData({...faturamentoData, tipo_atendimento: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
-                        {TIPO_ATENDIMENTO.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Indicador Acidente</label>
-                      <select value={faturamentoData.indicacao_acidente} onChange={e => setFaturamentoData({...faturamentoData, indicacao_acidente: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
-                        {INDICADOR_ACIDENTE.map(i => <option key={i.value} value={i.value}>{i.label}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tipo Consulta</label>
-                      <select value={faturamentoData.tipo_consulta} onChange={e => setFaturamentoData({...faturamentoData, tipo_consulta: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
-                        {TIPO_CONSULTA.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Regime</label>
-                      <select value={faturamentoData.regime_atendimento} onChange={e => setFaturamentoData({...faturamentoData, regime_atendimento: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
-                        {REGIME_ATENDIMENTO.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cobertura Especial</label>
-                      <select value={faturamentoData.cobertura_especial} onChange={e => setFaturamentoData({...faturamentoData, cobertura_especial: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
-                        {COBERTURA_ESPECIAL.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Saúde Ocupacional</label>
-                      <select value={faturamentoData.saude_ocupacional} onChange={e => setFaturamentoData({...faturamentoData, saude_ocupacional: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
-                        {SAUDE_OCUPACIONAL.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Motivo Encerramento</label>
-                      <select value={faturamentoData.motivo_encerramento} onChange={e => setFaturamentoData({...faturamentoData, motivo_encerramento: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
-                        {MOTIVO_ENCERRAMENTO.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                  <div className="mt-3">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Indicação Clínica</label>
-                    <textarea rows="2" value={faturamentoData.indicacao_clinica} onChange={e => setFaturamentoData({...faturamentoData, indicacao_clinica: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" placeholder="Descrição da indicação clínica..." />
-                  </div>
+                  <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1"><DocumentTextIcon className="w-4 h-4" /> Nº Guia Operadora</label><input type="text" value={faturamentoData.numero_guia_operadora} onChange={e => setFaturamentoData({...faturamentoData, numero_guia_operadora: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-xl px-3 py-2 text-sm" /></div>
+                  <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1"><CalendarIcon className="w-4 h-4" /> Data Autorização</label><input type="date" value={faturamentoData.data_autorizacao} onChange={e => setFaturamentoData({...faturamentoData, data_autorizacao: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-xl px-3 py-2 text-sm" /></div>
+                  <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1"><KeyIcon className="w-4 h-4" /> Senha</label><input type="text" value={faturamentoData.senha_autorizacao} onChange={e => setFaturamentoData({...faturamentoData, senha_autorizacao: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-xl px-3 py-2 text-sm" /></div>
+                  <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1"><CalendarDaysIcon className="w-4 h-4" /> Validade Senha</label><input type="date" value={faturamentoData.data_validade_senha} onChange={e => setFaturamentoData({...faturamentoData, data_validade_senha: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-xl px-3 py-2 text-sm" /></div>
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Modais */}
+        {/* Modal de Prescrição */}
         {showPrescricaoModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg p-5">
-              <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">{editingPrescricao ? 'Editar' : 'Nova'} Prescrição</h3>
-              <div className="space-y-3">
-                <select value={prescricaoForm.tipo} onChange={e => setPrescricaoForm({...prescricaoForm, tipo: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white">
-                  <option value="medicamento">Medicamento</option>
-                  <option value="exame">Exame</option>
-                  <option value="procedimento">Procedimento</option>
-                </select>
-                <textarea rows="3" value={prescricaoForm.descricao} onChange={e => setPrescricaoForm({...prescricaoForm, descricao: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white" placeholder="Descrição" />
-                <div className="grid grid-cols-2 gap-3">
-                  <input type="text" placeholder="Dosagem" value={prescricaoForm.dosagem} onChange={e => setPrescricaoForm({...prescricaoForm, dosagem: e.target.value})} className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white" />
-                  <select value={prescricaoForm.via_administracao} onChange={e => setPrescricaoForm({...prescricaoForm, via_administracao: e.target.value})} className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white">
-                    <option value="">Via</option>
-                    <option value="oral">Oral</option>
-                    <option value="intravenosa">IV</option>
-                  </select>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <input type="text" placeholder="Frequência" value={prescricaoForm.frequencia} onChange={e => setPrescricaoForm({...prescricaoForm, frequencia: e.target.value})} className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white" />
-                  <input type="text" placeholder="Duração" value={prescricaoForm.duracao} onChange={e => setPrescricaoForm({...prescricaoForm, duracao: e.target.value})} className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white" />
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-fadeIn">
+              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5 rounded-t-2xl">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl">
+                      <SyringeIcon className="w-5 h-5 text-white" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
+                      {editingPrescricao ? '✏️ Editar Prescrição' : '📋 Nova Prescrição'}
+                    </h3>
+                  </div>
+                  <button onClick={() => { setShowPrescricaoModal(false); setEditingPrescricao(null); }} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <XMarkIcon className="w-5 h-5 text-gray-500" />
+                  </button>
                 </div>
               </div>
-              <div className="flex justify-end gap-3 mt-5">
-                <button onClick={() => setShowPrescricaoModal(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300">Cancelar</button>
-                <button onClick={adicionarPrescricao} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Salvar</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showReceitaModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto p-5">
-              <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">{editingReceita ? 'Editar' : 'Nova'} Receita</h3>
-              <div className="space-y-3">
-                <select value={receitaForm.tipo} onChange={e => setReceitaForm({...receitaForm, tipo: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white">
-                  <option value="medicamento">Medicamento</option>
-                  <option value="especial">Especial</option>
-                </select>
-                {receitaForm.medicamentos.map((med, idx) => (
-                  <div key={idx} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-700/50">
-                    <div className="grid grid-cols-3 gap-2">
-                      <input placeholder="Medicamento" value={med.nome} onChange={e => atualizarMedicamentoReceita(idx, 'nome', e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 bg-white dark:bg-gray-700 dark:text-white" />
-                      <input placeholder="Dosagem" value={med.dosagem} onChange={e => atualizarMedicamentoReceita(idx, 'dosagem', e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 bg-white dark:bg-gray-700 dark:text-white" />
-                      <input placeholder="Quantidade" value={med.quantidade} onChange={e => atualizarMedicamentoReceita(idx, 'quantidade', e.target.value)} className="border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1 bg-white dark:bg-gray-700 dark:text-white" />
+              
+              <div className="p-5">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                      <ListBulletIcon className="w-4 h-4 text-blue-500" />
+                      Tipo
+                    </label>
+                    <div className="flex gap-3">
+                      {['medicamento', 'exame', 'procedimento'].map(tipo => (
+                        <button
+                          key={tipo}
+                          onClick={() => setPrescricaoForm({...prescricaoForm, tipo})}
+                          className={`flex-1 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
+                            prescricaoForm.tipo === tipo
+                              ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          }`}
+                        >
+                          {tipo === 'medicamento' && <PillIcon className="w-4 h-4" />}
+                          {tipo === 'exame' && <MicroscopeIcon className="w-4 h-4" />}
+                          {tipo === 'procedimento' && <ScissorsIcon className="w-4 h-4" />}
+                          {tipo.charAt(0).toUpperCase() + tipo.slice(1)}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                ))}
-                <button onClick={adicionarMedicamentoReceita} className="text-blue-600 dark:text-blue-400 text-sm">+ Adicionar</button>
-                <input type="date" placeholder="Validade" value={receitaForm.validade} onChange={e => setReceitaForm({...receitaForm, validade: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white" />
-              </div>
-              <div className="flex justify-end gap-3 mt-5">
-                <button onClick={() => setShowReceitaModal(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300">Cancelar</button>
-                <button onClick={adicionarReceita} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Gerar</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {showAtestadoModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg p-5">
-              <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">{editingAtestado ? 'Editar' : 'Novo'} Atestado</h3>
-              <div className="space-y-3">
-                <select value={atestadoForm.tipo} onChange={e => setAtestadoForm({...atestadoForm, tipo: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white">
-                  <option value="saude">Saúde</option>
-                  <option value="acompanhamento">Acompanhamento</option>
-                </select>
-                <input type="number" placeholder="Dias de afastamento" value={atestadoForm.dias_afastamento} onChange={e => setAtestadoForm({...atestadoForm, dias_afastamento: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white" />
-                <div className="grid grid-cols-2 gap-3">
-                  <input type="date" value={atestadoForm.data_inicio} onChange={e => setAtestadoForm({...atestadoForm, data_inicio: e.target.value})} className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white" />
-                  <input type="date" value={atestadoForm.data_fim} onChange={e => setAtestadoForm({...atestadoForm, data_fim: e.target.value})} className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white" />
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                      <DocumentTextIcon className="w-4 h-4 text-green-500" />
+                      Descrição *
+                    </label>
+                    <textarea 
+                      rows="3" 
+                      value={prescricaoForm.descricao} 
+                      onChange={e => setPrescricaoForm({...prescricaoForm, descricao: e.target.value})} 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white" 
+                      placeholder={prescricaoForm.tipo === 'medicamento' ? "Ex: Paracetamol 500mg" : prescricaoForm.tipo === 'exame' ? "Ex: Hemograma completo" : "Ex: Curativo simples"}
+                    />
+                  </div>
+                  
+                  {prescricaoForm.tipo === 'medicamento' && (
+                    <>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                            <BeakerIcon className="w-4 h-4 text-purple-500" />
+                            Dosagem
+                          </label>
+                          <input 
+                            type="text" 
+                            placeholder="Ex: 1 comprimido" 
+                            value={prescricaoForm.dosagem} 
+                            onChange={e => setPrescricaoForm({...prescricaoForm, dosagem: e.target.value})} 
+                            className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white" 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                            <ClockIcon className="w-4 h-4 text-yellow-500" />
+                            Via Administração
+                          </label>
+                          <select 
+                            value={prescricaoForm.via_administracao} 
+                            onChange={e => setPrescricaoForm({...prescricaoForm, via_administracao: e.target.value})} 
+                            className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                          >
+                            <option value="">Selecione</option>
+                            <option value="oral">💊 Oral</option>
+                            <option value="intravenosa">💉 Intravenosa</option>
+                            <option value="intramuscular">🦵 Intramuscular</option>
+                            <option value="subcutanea">💪 Subcutânea</option>
+                            <option value="topica">🧴 Tópica</option>
+                            <option value="inalatoria">💨 Inalatória</option>
+                          </select>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                            <CalendarIcon className="w-4 h-4 text-orange-500" />
+                            Frequência
+                          </label>
+                          <input 
+                            type="text" 
+                            placeholder="Ex: 8/8 horas" 
+                            value={prescricaoForm.frequencia} 
+                            onChange={e => setPrescricaoForm({...prescricaoForm, frequencia: e.target.value})} 
+                            className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white" 
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                            <CalendarDaysIcon className="w-4 h-4 text-red-500" />
+                            Duração
+                          </label>
+                          <input 
+                            type="text" 
+                            placeholder="Ex: 7 dias" 
+                            value={prescricaoForm.duracao} 
+                            onChange={e => setPrescricaoForm({...prescricaoForm, duracao: e.target.value})} 
+                            className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white" 
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                      <ChatBubbleLeftRightIcon className="w-4 h-4 text-gray-500" />
+                      Observações
+                    </label>
+                    <textarea 
+                      rows="2" 
+                      value={prescricaoForm.observacoes} 
+                      onChange={e => setPrescricaoForm({...prescricaoForm, observacoes: e.target.value})} 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white" 
+                      placeholder="Informações adicionais..."
+                    />
+                  </div>
                 </div>
-                <input type="text" placeholder="CID" value={atestadoForm.cid} onChange={e => setAtestadoForm({...atestadoForm, cid: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white" />
-                <textarea rows="2" placeholder="Recomendações" value={atestadoForm.recomendacoes} onChange={e => setAtestadoForm({...atestadoForm, recomendacoes: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-700 dark:text-white" />
-              </div>
-              <div className="flex justify-end gap-3 mt-5">
-                <button onClick={() => setShowAtestadoModal(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300">Cancelar</button>
-                <button onClick={adicionarAtestado} className="px-4 py-2 bg-blue-600 text-white rounded-lg">Gerar</button>
+                
+                <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <button 
+                    onClick={() => { setShowPrescricaoModal(false); setEditingPrescricao(null); }} 
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    onClick={adicionarPrescricao} 
+                    disabled={saving}
+                    className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl text-sm font-medium shadow-md hover:shadow-lg transition-all flex items-center gap-2"
+                  >
+                    {saving ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <PlusIcon className="w-4 h-4" />}
+                    {editingPrescricao ? 'Atualizar' : 'Adicionar'} Prescrição
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        {showProcedimentosModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto p-5">
-              <h3 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">Adicionar Procedimentos</h3>
-              <div className="relative mb-4">
-                <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
-                <input type="text" placeholder="Buscar..." value={buscaProcedimento} onChange={e => setBuscaProcedimento(e.target.value)} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 bg-white dark:bg-gray-700 dark:text-white" />
-              </div>
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {procedimentosFiltrados.map(proc => (
-                  <div key={proc.id} className="flex justify-between items-center p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg">
-                    <div>
-                      <p className="text-sm font-medium text-gray-800 dark:text-white">{proc.nome}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">{proc.codigo_tuss} - R$ {proc.valor_sugerido?.toFixed(2)}</p>
+        {/* Modal de Receita */}
+        {showReceitaModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-fadeIn">
+              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5 rounded-t-2xl">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl">
+                      <PillIcon className="w-5 h-5 text-white" />
                     </div>
-                    <button onClick={() => { if (!procedimentosSelecionados.find(p => p.id === proc.id)) { setProcedimentosSelecionados([...procedimentosSelecionados, proc]); toast.success(`${proc.nome} adicionado!`); } }} className="p-1 rounded-lg text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20">
-                      <PlusIcon className="w-5 h-5" />
+                    <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
+                      {editingReceita ? '✏️ Editar Receita' : '📋 Nova Receita'}
+                    </h3>
+                  </div>
+                  <button onClick={() => { setShowReceitaModal(false); setEditingReceita(null); }} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <XMarkIcon className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-5">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                      <DocumentTextIcon className="w-4 h-4 text-blue-500" />
+                      Tipo de Receita
+                    </label>
+                    <div className="flex gap-3">
+                      {['medicamento', 'especial'].map(tipo => (
+                        <button
+                          key={tipo}
+                          onClick={() => setReceitaForm({...receitaForm, tipo})}
+                          className={`flex-1 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
+                            receitaForm.tipo === tipo
+                              ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-md'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          }`}
+                        >
+                          {tipo === 'medicamento' ? <PillIcon className="w-4 h-4" /> : <ClipboardDocumentListIcon className="w-4 h-4" />}
+                          {tipo === 'medicamento' ? 'Medicamento' : 'Especial'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                      <PillIcon className="w-4 h-4 text-green-500" />
+                      Medicamentos
+                    </label>
+                    <div className="space-y-3 max-h-64 overflow-y-auto">
+                      {receitaForm.medicamentos.map((med, idx) => (
+                        <div key={idx} className="border border-gray-200 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-gray-700/30 relative group">
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className="col-span-1">
+                              <input 
+                                placeholder="💊 Medicamento" 
+                                value={med.nome} 
+                                onChange={e => atualizarMedicamentoReceita(idx, 'nome', e.target.value)} 
+                                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white" 
+                              />
+                            </div>
+                            <div>
+                              <input 
+                                placeholder="📊 Dosagem" 
+                                value={med.dosagem} 
+                                onChange={e => atualizarMedicamentoReceita(idx, 'dosagem', e.target.value)} 
+                                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white" 
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <input 
+                                placeholder="📦 Quantidade" 
+                                value={med.quantidade} 
+                                onChange={e => atualizarMedicamentoReceita(idx, 'quantidade', e.target.value)} 
+                                className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white" 
+                              />
+                              <button 
+                                onClick={() => removerMedicamentoReceita(idx)} 
+                                className="p-2 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors opacity-0 group-hover:opacity-100"
+                              >
+                                <TrashIcon className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <button 
+                      onClick={adicionarMedicamentoReceita} 
+                      className="mt-3 text-blue-600 dark:text-blue-400 text-sm flex items-center gap-1 hover:underline"
+                    >
+                      <PlusIcon className="w-4 h-4" /> Adicionar medicamento
                     </button>
                   </div>
-                ))}
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                        <CalendarIcon className="w-4 h-4 text-orange-500" />
+                        Data de Validade
+                      </label>
+                      <input 
+                        type="date" 
+                        value={receitaForm.validade} 
+                        onChange={e => setReceitaForm({...receitaForm, validade: e.target.value})} 
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white" 
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                      <ChatBubbleLeftRightIcon className="w-4 h-4 text-gray-500" />
+                      Observações
+                    </label>
+                    <textarea 
+                      rows="2" 
+                      value={receitaForm.observacoes} 
+                      onChange={e => setReceitaForm({...receitaForm, observacoes: e.target.value})} 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white" 
+                      placeholder="Instruções adicionais para o paciente..."
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <button onClick={() => setShowReceitaModal(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    Cancelar
+                  </button>
+                  <button onClick={adicionarReceita} className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl text-sm font-medium shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+                    <PrinterIcon className="w-4 h-4" /> Gerar Receita
+                  </button>
+                </div>
               </div>
-              <div className="flex justify-end mt-4">
-                <button onClick={() => setShowProcedimentosModal(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300">Fechar</button>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Atestado */}
+        {showAtestadoModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-fadeIn">
+              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5 rounded-t-2xl">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl">
+                      <BandAidIcon className="w-5 h-5 text-white" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
+                      {editingAtestado ? '✏️ Editar Atestado' : '📋 Novo Atestado'}
+                    </h3>
+                  </div>
+                  <button onClick={() => { setShowAtestadoModal(false); setEditingAtestado(null); }} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <XMarkIcon className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-5">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                      <DocumentTextIcon className="w-4 h-4 text-blue-500" />
+                      Tipo de Atestado
+                    </label>
+                    <div className="flex gap-3">
+                      {['saude', 'acompanhamento'].map(tipo => (
+                        <button
+                          key={tipo}
+                          onClick={() => setAtestadoForm({...atestadoForm, tipo})}
+                          className={`flex-1 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 ${
+                            atestadoForm.tipo === tipo
+                              ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-md'
+                              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          }`}
+                        >
+                          {tipo === 'saude' ? <HeartIcon className="w-4 h-4" /> : <UserGroupIcon className="w-4 h-4" />}
+                          {tipo === 'saude' ? 'Saúde' : 'Acompanhamento'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                      <CalendarIcon className="w-4 h-4 text-orange-500" />
+                      Dias de Afastamento
+                    </label>
+                    <input 
+                      type="number" 
+                      placeholder="Quantidade de dias" 
+                      value={atestadoForm.dias_afastamento} 
+                      onChange={e => setAtestadoForm({...atestadoForm, dias_afastamento: e.target.value})} 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white" 
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                        <CalendarIcon className="w-4 h-4 text-green-500" />
+                        Data Início
+                      </label>
+                      <input 
+                        type="date" 
+                        value={atestadoForm.data_inicio} 
+                        onChange={e => setAtestadoForm({...atestadoForm, data_inicio: e.target.value})} 
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                        <CalendarDaysIcon className="w-4 h-4 text-red-500" />
+                        Data Fim
+                      </label>
+                      <input 
+                        type="date" 
+                        value={atestadoForm.data_fim} 
+                        onChange={e => setAtestadoForm({...atestadoForm, data_fim: e.target.value})} 
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white" 
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                      <IdentificationIcon className="w-4 h-4 text-purple-500" />
+                      CID (Código Internacional de Doenças)
+                    </label>
+                    <input 
+                      type="text" 
+                      placeholder="Ex: J06 - Infecção aguda das vias aéreas superiores" 
+                      value={atestadoForm.cid} 
+                      onChange={e => setAtestadoForm({...atestadoForm, cid: e.target.value})} 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white" 
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                      <ChatBubbleLeftRightIcon className="w-4 h-4 text-gray-500" />
+                      Recomendações
+                    </label>
+                    <textarea 
+                      rows="3" 
+                      placeholder="Recomendações médicas durante o afastamento..." 
+                      value={atestadoForm.recomendacoes} 
+                      onChange={e => setAtestadoForm({...atestadoForm, recomendacoes: e.target.value})} 
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white" 
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <button onClick={() => setShowAtestadoModal(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    Cancelar
+                  </button>
+                  <button onClick={adicionarAtestado} className="px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-xl text-sm font-medium shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+                    <PrinterIcon className="w-4 h-4" /> Gerar Atestado
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Procedimentos */}
+        {showProcedimentosModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-fadeIn">
+              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5 rounded-t-2xl">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl">
+                      <ScissorsIcon className="w-5 h-5 text-white" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
+                      Adicionar Procedimentos
+                    </h3>
+                  </div>
+                  <button onClick={() => setShowProcedimentosModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <XMarkIcon className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-5">
+                <div className="relative mb-4">
+                  <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <input 
+                    type="text" 
+                    placeholder="🔍 Buscar procedimento por código ou nome..." 
+                    value={buscaProcedimento} 
+                    onChange={e => setBuscaProcedimento(e.target.value)} 
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-xl pl-10 pr-3 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white" 
+                  />
+                </div>
+                
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {procedimentosFiltrados.length > 0 ? (
+                    procedimentosFiltrados.map(proc => {
+                      const jaAdicionado = procedimentosSelecionados.find(p => p.id === proc.id);
+                      return (
+                        <div 
+                          key={proc.id} 
+                          className={`flex justify-between items-center p-3 rounded-xl transition-all duration-200 ${
+                            jaAdicionado 
+                              ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' 
+                              : 'hover:bg-gray-50 dark:hover:bg-gray-700/50 border border-transparent'
+                          }`}
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-800 dark:text-white">{proc.nome}</span>
+                              {jaAdicionado && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700">
+                                  <CheckIcon className="w-3 h-3" /> Adicionado
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              <span className="font-mono">{proc.codigo_tuss}</span> | 
+                              <span className="ml-2">💰 R$ {proc.valor_sugerido?.toFixed(2)}</span> |
+                              <span className="ml-2">📋 {proc.tabela || 'TUSS'}</span>
+                            </p>
+                          </div>
+                          {!jaAdicionado && (
+                            <button 
+                              onClick={() => { 
+                                setProcedimentosSelecionados([...procedimentosSelecionados, proc]); 
+                                toast.success(`${proc.nome} adicionado!`);
+                              }} 
+                              className="p-2 rounded-lg bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-md transition-all"
+                            >
+                              <PlusIcon className="w-5 h-5" />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-12 text-gray-500">
+                      <SearchIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      Nenhum procedimento encontrado
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <button onClick={() => setShowProcedimentosModal(false)} className="px-4 py-2 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-xl text-sm font-medium shadow-md hover:shadow-lg transition-all">
+                    Fechar
+                  </button>
+                </div>
               </div>
             </div>
           </div>
