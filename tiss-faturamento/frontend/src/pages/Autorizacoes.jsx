@@ -6,12 +6,11 @@ import {
   CurrencyDollarIcon, CalendarIcon,
   ClockIcon, ExclamationTriangleIcon, 
   ArrowPathIcon, BuildingOfficeIcon,
-  ChevronUpIcon, ChevronDownIcon
+  ChevronUpIcon, ChevronDownIcon, TrashIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format, differenceInDays } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
-import { autorizacoesService } from '../services/autorizacoesService';
 
 // Constantes de status
 const STATUS_AUTORIZACAO = [
@@ -46,27 +45,26 @@ export default function Autorizacoes() {
     codigo: '',
     nome: '',
     quantidade_autorizada: 1,
-    valor_unitario: 0,
-    pendente_autorizacao: false
+    valor_unitario: 0
   });
   const [searchItemTerm, setSearchItemTerm] = useState('');
+  const [editandoItemId, setEditandoItemId] = useState(null);
 
   // Carregar dados iniciais
   useEffect(() => {
     carregarDados();
   }, []);
-  
-  // Carregar dados - apenas atendimentos com itens pendentes
+
   const carregarDados = async () => {
     setLoading(true);
     try {
       const [autorizacoesData, pacientesData, conveniosData, procedimentosData] = await Promise.all([
-        autorizacoesService.listarPendentes(),
+        listarAtendimentosComPendentes(),
         supabase.from('pacientes').select('*').order('nome'),
         supabase.from('convenios').select('*').order('razao_social'),
         supabase.from('procedimentos').select('*').order('codigo_tuss')
       ]);
-  
+
       setAutorizacoes(autorizacoesData);
       setPacientes(pacientesData.data || []);
       setConvenios(conveniosData.data || []);
@@ -79,27 +77,66 @@ export default function Autorizacoes() {
     }
   };
 
-  // Autorizar itens selecionados
-  const handleAutorizarItens = async (atendimentoId, itensSelecionados) => {
-    if (!itensSelecionados || itensSelecionados.length === 0) {
-      toast.error('Selecione pelo menos um item para autorizar');
-      return;
-    }
-  
-    try {
-      await autorizacoesService.autorizarItens(atendimentoId, itensSelecionados);
-      toast.success('Itens autorizados com sucesso!');
-      setShowModal(false);
-      setAtendimentoEncontrado(null);
-      setItensSelecionados([]);
-      setBuscaNumeroGuia('');
-      carregarDados();
-    } catch (error) {
-      console.error('Erro ao autorizar:', error);
-      toast.error('Erro ao autorizar itens');
-    }
+  const listarAtendimentosComPendentes = async () => {
+    const { data, error } = await supabase
+      .from('atendimentos')
+      .select(`
+        id,
+        numero_guia_prestador,
+        numero_guia_operadora,
+        data_autorizacao,
+        data_validade_senha,
+        senha_autorizacao,
+        observacao,
+        status,
+        valor_total,
+        itens,
+        itens_autorizados,
+        paciente_id,
+        paciente_nome,
+        numero_carteira,
+        paciente_convenio_id,
+        paciente_convenio_nome,
+        convenio_registro_ans,
+        convenio_codigo_prestador,
+        created_at,
+        updated_at
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return data.map(item => {
+      const itensExecutados = item.itens || [];
+      const itensAutorizadosList = item.itens_autorizados || [];
+      
+      // Calcular itens pendentes (que precisam de autorização)
+      const itensPendentes = itensExecutados.filter(executado => {
+        const autorizado = itensAutorizadosList.find(aut => aut.codigo === executado.codigo);
+        const qtdExecutada = executado.quantidade || 1;
+        const qtdAutorizada = autorizado?.quantidade_autorizada || 0;
+        return !autorizado || qtdAutorizada < qtdExecutada;
+      });
+
+      return {
+        ...item,
+        convenio: {
+          id: item.paciente_convenio_id,
+          razao_social: item.paciente_convenio_nome,
+          registro_ans: item.convenio_registro_ans,
+          codigo_prestador: item.convenio_codigo_prestador
+        },
+        paciente: {
+          id: item.paciente_id,
+          nome: item.paciente_nome,
+          numero_carteira: item.numero_carteira
+        },
+        itens_pendentes: itensPendentes,
+        itens_autorizados_list: itensAutorizadosList
+      };
+    });
   };
-  
+
   // Buscar atendimento por número de guia
   const handleBuscarAtendimento = async () => {
     if (!buscaNumeroGuia) {
@@ -109,22 +146,73 @@ export default function Autorizacoes() {
     
     setBuscandoAtendimento(true);
     try {
-      const atendimento = await autorizacoesService.buscarPorNumeroGuia(buscaNumeroGuia);
+      const { data, error } = await supabase
+        .from('atendimentos')
+        .select('*')
+        .eq('numero_guia_prestador', buscaNumeroGuia)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
       
-      if (!atendimento) {
+      if (!data) {
         toast.error('Guia não encontrada');
         setAtendimentoEncontrado(null);
         return;
       }
       
-      setAtendimentoEncontrado(atendimento);
-      setItensAutorizacao(atendimento.itens_autorizados || []);
-      toast.success(`Guia encontrada: ${atendimento.paciente_nome}`);
+      const itensExecutados = data.itens || [];
+      const itensAutorizadosList = data.itens_autorizados || [];
+      
+      // Mapear itens executados com informações de autorização
+      const itensComStatus = itensExecutados.map(executado => {
+        const autorizado = itensAutorizadosList.find(aut => aut.codigo === executado.codigo);
+        const qtdExecutada = executado.quantidade || 1;
+        const qtdAutorizada = autorizado?.quantidade_autorizada || 0;
+        const qtdUtilizada = autorizado?.quantidade_utilizada || 0;
+        const saldo = qtdAutorizada - qtdUtilizada;
+        const precisaAutorizar = qtdAutorizada < qtdExecutada;
+        
+        return {
+          ...executado,
+          id: executado.id || Date.now(),
+          quantidade_executada: qtdExecutada,
+          quantidade_autorizada: qtdAutorizada,
+          quantidade_utilizada: qtdUtilizada,
+          saldo_disponivel: saldo,
+          precisa_autorizar: precisaAutorizar,
+          pendente: !autorizado || precisaAutorizar,
+          valor_unitario: executado.valor_unitario || 0
+        };
+      });
+      
+      setAtendimentoEncontrado({
+        ...data,
+        itens_com_status: itensComStatus,
+        itens_autorizados_list: itensAutorizadosList
+      });
+      setItensAutorizacao(itensAutorizadosList);
+      toast.success(`Guia encontrada: ${data.paciente_nome}`);
     } catch (error) {
       console.error('Erro ao buscar guia:', error);
       toast.error('Erro ao buscar guia');
     } finally {
       setBuscandoAtendimento(false);
+    }
+  };
+
+  // Buscar procedimento pelo código
+  const handleBuscarProcedimento = async (codigo) => {
+    if (!codigo) return;
+    
+    const procedimento = procedimentos.find(p => p.codigo_tuss === codigo);
+    if (procedimento) {
+      setCurrentItem({
+        codigo: procedimento.codigo_tuss,
+        nome: procedimento.nome,
+        quantidade_autorizada: 1,
+        valor_unitario: procedimento.valor_convenio || procedimento.valor_sugerido || 0
+      });
+      setSearchItemTerm('');
     }
   };
 
@@ -135,28 +223,83 @@ export default function Autorizacoes() {
       return;
     }
 
-    if (itensAutorizacao.some(item => item.codigo === currentItem.codigo)) {
-      toast.warning('Este procedimento já foi autorizado!');
-      return;
+    // Verificar se já existe autorização para este item
+    const itemExistente = itensAutorizacao.find(item => item.codigo === currentItem.codigo);
+    
+    if (itemExistente) {
+      // Atualizar quantidade autorizada
+      const novaQuantidade = itemExistente.quantidade_autorizada + currentItem.quantidade_autorizada;
+      setItensAutorizacao(itensAutorizacao.map(item => 
+        item.codigo === currentItem.codigo 
+          ? {
+              ...item,
+              quantidade_autorizada: novaQuantidade,
+              valor_total: novaQuantidade * item.valor_unitario,
+              updated_at: new Date().toISOString()
+            }
+          : item
+      ));
+      toast.success(`Quantidade autorizada atualizada para ${novaQuantidade}`);
+    } else {
+      // Adicionar novo item
+      const novoItem = {
+        id: Date.now(),
+        codigo: currentItem.codigo,
+        nome: currentItem.nome,
+        quantidade_autorizada: currentItem.quantidade_autorizada,
+        quantidade_utilizada: 0,
+        valor_unitario: currentItem.valor_unitario,
+        valor_total: currentItem.valor_unitario * currentItem.quantidade_autorizada,
+        pendente_autorizacao: false,
+        created_at: new Date().toISOString()
+      };
+      setItensAutorizacao([...itensAutorizacao, novoItem]);
+      toast.success('Item adicionado!');
     }
 
-    const novoItem = {
-      id: Date.now(),
-      codigo: currentItem.codigo,
-      nome: currentItem.nome,
-      quantidade_autorizada: currentItem.quantidade_autorizada,
-      quantidade_utilizada: 0,
-      valor_unitario: currentItem.valor_unitario,
-      valor_total: currentItem.valor_unitario * currentItem.quantidade_autorizada,
-      pendente_autorizacao: false
-    };
-
-    setItensAutorizacao([...itensAutorizacao, novoItem]);
     setCurrentItem({
-      codigo: '', nome: '', quantidade_autorizada: 1, valor_unitario: 0, pendente_autorizacao: false
+      codigo: '',
+      nome: '',
+      quantidade_autorizada: 1,
+      valor_unitario: 0
     });
     setSearchItemTerm('');
-    toast.success('Item adicionado!');
+  };
+
+  // Editar item da autorização
+  const handleEditarItem = (item) => {
+    setEditandoItemId(item.id);
+    setCurrentItem({
+      codigo: item.codigo,
+      nome: item.nome,
+      quantidade_autorizada: item.quantidade_autorizada,
+      valor_unitario: item.valor_unitario
+    });
+  };
+
+  // Salvar edição do item
+  const handleSalvarEdicao = () => {
+    if (!currentItem.codigo) return;
+    
+    setItensAutorizacao(itensAutorizacao.map(item => 
+      item.id === editandoItemId
+        ? {
+            ...item,
+            quantidade_autorizada: currentItem.quantidade_autorizada,
+            valor_unitario: currentItem.valor_unitario,
+            valor_total: currentItem.quantidade_autorizada * currentItem.valor_unitario,
+            updated_at: new Date().toISOString()
+          }
+        : item
+    ));
+    setEditandoItemId(null);
+    setCurrentItem({
+      codigo: '',
+      nome: '',
+      quantidade_autorizada: 1,
+      valor_unitario: 0
+    });
+    toast.success('Item atualizado!');
   };
 
   // Remover item da autorização
@@ -165,7 +308,7 @@ export default function Autorizacoes() {
     toast.success('Item removido');
   };
 
-  // Salvar autorização
+  // Salvar autorização completa
   const handleSalvarAutorizacao = async () => {
     if (!atendimentoEncontrado) {
       toast.error('Nenhuma guia selecionada');
@@ -178,7 +321,19 @@ export default function Autorizacoes() {
     }
 
     try {
-      await autorizacoesService.atualizarItensAutorizados(atendimentoEncontrado.id, itensAutorizacao);
+      // Atualizar itens autorizados no Supabase
+      const { error } = await supabase
+        .from('atendimentos')
+        .update({
+          itens_autorizados: itensAutorizacao,
+          status: calcularStatusGeral(),
+          data_autorizacao: new Date().toISOString().split('T')[0],
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', atendimentoEncontrado.id);
+
+      if (error) throw error;
+      
       toast.success('Autorização salva com sucesso!');
       setShowModal(false);
       setAtendimentoEncontrado(null);
@@ -189,6 +344,29 @@ export default function Autorizacoes() {
       console.error('Erro ao salvar:', error);
       toast.error('Erro ao salvar autorização');
     }
+  };
+
+  // Calcular status geral baseado nos itens autorizados
+  const calcularStatusGeral = () => {
+    if (!atendimentoEncontrado) return 'pendente';
+    
+    const itensExecutados = atendimentoEncontrado.itens || [];
+    let todosAutorizados = true;
+    
+    for (const executado of itensExecutados) {
+      const autorizado = itensAutorizacao.find(aut => aut.codigo === executado.codigo);
+      const qtdExecutada = executado.quantidade || 1;
+      const qtdAutorizada = autorizado?.quantidade_autorizada || 0;
+      
+      if (qtdAutorizada < qtdExecutada) {
+        todosAutorizados = false;
+        break;
+      }
+    }
+    
+    if (todosAutorizados && itensAutorizacao.length > 0) return 'autorizado';
+    if (itensAutorizacao.length > 0) return 'parcial';
+    return 'pendente';
   };
 
   // Editar autorização existente
@@ -271,7 +449,7 @@ export default function Autorizacoes() {
                 Autorizações de Procedimentos
               </h1>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                Gerenciamento de autorizações de procedimentos por número de guia
+                Gerencie as autorizações de procedimentos por número de guia
               </p>
             </div>
             <button 
@@ -393,7 +571,7 @@ export default function Autorizacoes() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Convênio</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data Autorização</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Validade</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Itens</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Itens Pendentes</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Ações</th>
@@ -402,6 +580,8 @@ export default function Autorizacoes() {
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {autorizacoesFiltradas.map((a) => {
                   const isExpanded = expandedItems[a.id];
+                  const temItensPendentes = a.itens_pendentes?.length > 0;
+                  const itensPendentesCount = a.itens_pendentes?.length || 0;
                   const diasRestantes = a.data_validade_senha ? 
                     differenceInDays(new Date(a.data_validade_senha), new Date()) : 0;
                   
@@ -432,10 +612,14 @@ export default function Autorizacoes() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <button onClick={() => { setSelectedAutorizacao(a); setShowItensModal(true); }} className="text-blue-600 hover:text-blue-800 flex items-center gap-1 mx-auto">
-                            <DocumentPlusIcon className="w-4 h-4" />
-                            <span className="font-bold">{a.itens?.length || 0}</span>
-                          </button>
+                          {temItensPendentes ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                              <ExclamationTriangleIcon className="w-3 h-3" />
+                              {itensPendentesCount}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">
                           R$ {(a.valor_total || 0).toFixed(2)}
@@ -450,7 +634,7 @@ export default function Autorizacoes() {
                             <button onClick={() => { setSelectedAutorizacao(a); setShowItensModal(true); }} className="p-1 rounded-lg text-gray-600 hover:bg-gray-100" title="Ver Itens">
                               <EyeIcon className="w-4 h-4" />
                             </button>
-                            {a.status !== 'faturado' && a.status !== 'finalizado' && (
+                            {a.status !== 'faturado' && a.status !== 'finalizado' && temItensPendentes && (
                               <button onClick={() => handleEditarAutorizacao(a)} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50" title="Editar Autorização">
                                 <PencilIcon className="w-4 h-4" />
                               </button>
@@ -458,47 +642,52 @@ export default function Autorizacoes() {
                           </div>
                         </td>
                       </tr>
-                      {isExpanded && a.itens && a.itens.length > 0 && (
+                      {isExpanded && (
                         <tr className="bg-gray-50 dark:bg-gray-700/30">
                           <td colSpan="10" className="px-4 py-3">
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-xs">
-                                <thead className="bg-gray-100 dark:bg-gray-700">
-                                  <tr>
-                                    <th className="px-2 py-1 text-left">Código</th>
-                                    <th className="px-2 py-1 text-left">Procedimento</th>
-                                    <th className="px-2 py-1 text-center">Qtd Autorizada</th>
-                                    <th className="px-2 py-1 text-center">Qtd Utilizada</th>
-                                    <th className="px-2 py-1 text-center">Saldo</th>
-                                    <th className="px-2 py-1 text-right">Valor Unit.</th>
-                                    <th className="px-2 py-1 text-right">Valor Total</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200">
-                                  {a.itens.map((item, idx) => {
-                                    const saldo = (item.quantidade_autorizada || 0) - (item.quantidade_utilizada || 0);
-                                    return (
-                                      <tr key={idx}>
-                                        <td className="px-2 py-1 font-mono text-blue-600">{item.codigo}</td>
-                                        <td className="px-2 py-1">{item.nome}</td>
-                                        <td className="px-2 py-1 text-center">{item.quantidade_autorizada}</td>
-                                        <td className="px-2 py-1 text-center">{item.quantidade_utilizada || 0}</td>
-                                        <td className={`px-2 py-1 text-center font-semibold ${saldo > 0 ? 'text-green-600' : 'text-gray-500'}`}>{saldo}</td>
-                                        <td className="px-2 py-1 text-right">R$ {(item.valor_unitario || 0).toFixed(2)}</td>
-                                        <td className="px-2 py-1 text-right font-semibold">R$ {((item.valor_unitario || 0) * (item.quantidade_autorizada || 0)).toFixed(2)}</td>
+                            <div className="space-y-2">
+                              <h4 className="text-sm font-semibold text-gray-800 dark:text-white">Itens Pendentes de Autorização</h4>
+                              {a.itens_pendentes?.length > 0 ? (
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-xs">
+                                    <thead className="bg-gray-100 dark:bg-gray-700">
+                                      <tr>
+                                        <th className="px-2 py-1 text-left">Código</th>
+                                        <th className="px-2 py-1 text-left">Procedimento</th>
+                                        <th className="px-2 py-1 text-center">Qtd Executada</th>
+                                        <th className="px-2 py-1 text-center">Qtd Autorizada</th>
+                                        <th className="px-2 py-1 text-center">Necessita</th>
+                                        <th className="px-2 py-1 text-right">Valor Unit.</th>
                                       </tr>
-                                    );
-                                  })}
-                                </tbody>
-                                <tfoot className="bg-gray-100">
-                                  <tr className="border-t">
-                                    <td colSpan="6" className="px-2 py-1 text-right font-semibold">Total:</td>
-                                    <td className="px-2 py-1 text-right font-bold text-blue-600">
-                                      R$ {(a.itens || []).reduce((sum, i) => sum + ((i.valor_unitario || 0) * (i.quantidade_autorizada || 0)), 0).toFixed(2)}
-                                    </td>
-                                  </tr>
-                                </tfoot>
-                              </table>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200">
+                                      {a.itens_pendentes.map((item, idx) => {
+                                        const necessidade = (item.quantidade || 1) - (item.quantidade_autorizada || 0);
+                                        return (
+                                          <tr key={idx}>
+                                            <td className="px-2 py-1 font-mono text-blue-600">{item.codigo}</td>
+                                            <td className="px-2 py-1">{item.nome}</td>
+                                            <td className="px-2 py-1 text-center">{item.quantidade || 1}</td>
+                                            <td className="px-2 py-1 text-center">{item.quantidade_autorizada || 0}</td>
+                                            <td className="px-2 py-1 text-center font-semibold text-yellow-600">{necessidade} unidade(s)</td>
+                                            <td className="px-2 py-1 text-right">R$ {(item.valor_unitario || 0).toFixed(2)}</td>
+                                          </tr>
+                                        );
+                                      })}
+                                    </tbody>
+                                    <tfoot className="bg-gray-100 dark:bg-gray-700">
+                                      <tr className="border-t">
+                                        <td colSpan="5" className="px-2 py-1 text-right font-semibold">Total Pendente:</td>
+                                        <td className="px-2 py-1 text-right font-bold text-yellow-600">
+                                          R$ {a.itens_pendentes.reduce((sum, i) => sum + ((i.valor_unitario || 0) * ((i.quantidade || 1) - (i.quantidade_autorizada || 0))), 0).toFixed(2)}
+                                        </td>
+                                      </tr>
+                                    </tfoot>
+                                  </table>
+                                </div>
+                              ) : (
+                                <p className="text-sm text-gray-500">Nenhum item pendente de autorização</p>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -512,7 +701,7 @@ export default function Autorizacoes() {
                       <DocumentPlusIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
                       Nenhuma autorização encontrada
                     </td>
-                  </tr>
+                  <tr>
                 )}
               </tbody>
             </table>
@@ -522,7 +711,7 @@ export default function Autorizacoes() {
         {/* Modal de Nova/Editar Autorização */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
               <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
                 <div className="flex justify-between items-center">
                   <h3 className="text-xl font-semibold">
@@ -560,7 +749,7 @@ export default function Autorizacoes() {
                 {atendimentoEncontrado && (
                   <>
                     <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 mb-6">
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
                           <span className="text-xs text-gray-500">Paciente</span>
                           <p className="text-sm font-medium">{atendimentoEncontrado.paciente_nome}</p>
@@ -574,12 +763,47 @@ export default function Autorizacoes() {
                           <p className="text-sm">{atendimentoEncontrado.paciente_convenio_nome}</p>
                         </div>
                         <div>
-                          <span className="text-xs text-gray-500">Data do Atendimento</span>
-                          <p className="text-sm">{atendimentoEncontrado.data_atendimento ? format(new Date(atendimentoEncontrado.data_atendimento), 'dd/MM/yyyy') : '-'}</p>
-                        </div>
-                        <div>
                           <span className="text-xs text-gray-500">Status</span>
                           <p className="text-sm">{getStatusLabel(atendimentoEncontrado.status)}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Itens do Atendimento que precisam de autorização */}
+                    <div className="mb-6">
+                      <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <ExclamationTriangleIcon className="w-4 h-4 text-yellow-600" />
+                        Itens Pendentes de Autorização
+                      </h4>
+                      <div className="border rounded-xl overflow-hidden">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead className="bg-gray-50 dark:bg-gray-700/50">
+                              <tr>
+                                <th className="px-3 py-2 text-left text-xs">Código</th>
+                                <th className="px-3 py-2 text-left text-xs">Procedimento</th>
+                                <th className="px-3 py-2 text-center text-xs">Qtd Executada</th>
+                                <th className="px-3 py-2 text-center text-xs">Qtd Autorizada</th>
+                                <th className="px-3 py-2 text-center text-xs">Necessita</th>
+                                <th className="px-3 py-2 text-right text-xs">Valor Unit.</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                              {atendimentoEncontrado.itens_com_status?.filter(i => i.precisa_autorizar).map((item, idx) => {
+                                const necessidade = item.quantidade_executada - item.quantidade_autorizada;
+                                return (
+                                  <tr key={idx} className="bg-yellow-50 dark:bg-yellow-900/10">
+                                    <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
+                                    <td className="px-3 py-2 text-xs">{item.nome}</td>
+                                    <td className="px-3 py-2 text-xs text-center font-medium">{item.quantidade_executada}</td>
+                                    <td className="px-3 py-2 text-xs text-center">{item.quantidade_autorizada || 0}</td>
+                                    <td className="px-3 py-2 text-xs text-center font-semibold text-yellow-600">{necessidade} unidade(s)</td>
+                                    <td className="px-3 py-2 text-xs text-right">R$ {(item.valor_unitario || 0).toFixed(2)}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
                     </div>
@@ -588,7 +812,7 @@ export default function Autorizacoes() {
                     <div className="border-t pt-4">
                       <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
                         <PlusIcon className="w-4 h-4 text-green-600" />
-                        Itens Autorizados
+                        Autorizar Novos Itens
                       </h4>
                       
                       <div className="mb-4">
@@ -598,24 +822,21 @@ export default function Autorizacoes() {
                           <input
                             type="text"
                             value={searchItemTerm}
-                            onChange={(e) => setSearchItemTerm(e.target.value)}
+                            onChange={(e) => {
+                              setSearchItemTerm(e.target.value);
+                              if (e.target.value.length >= 3) {
+                                handleBuscarProcedimento(e.target.value);
+                              }
+                            }}
                             placeholder="Digite código ou descrição..."
                             className="w-full pl-8 pr-3 py-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
-                            list="itens-suggestions"
                           />
-                          <datalist id="itens-suggestions">
-                            {procedimentos.slice(0, 20).map(item => (
-                              <option key={item.codigo_tuss} value={item.codigo_tuss}>
-                                {item.codigo_tuss} - {item.nome}
-                              </option>
-                            ))}
-                          </datalist>
                         </div>
                       </div>
 
                       {currentItem.codigo && (
                         <div className="border rounded-xl p-4 bg-gray-50 dark:bg-gray-700/30 mb-4">
-                          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                             <div className="md:col-span-2">
                               <label className="block text-xs text-gray-500 mb-1">Procedimento</label>
                               <input type="text" value={currentItem.nome} disabled className="w-full bg-white dark:bg-gray-600 border rounded px-2 py-2 text-sm" />
@@ -637,23 +858,6 @@ export default function Autorizacoes() {
                                 className="w-full border rounded px-2 py-2 text-sm text-center dark:bg-white"
                               />
                             </div>
-                            <div>
-                              <label className="block text-xs text-gray-500 mb-1">Valor Unit. (R$)</label>
-                              <input 
-                                type="number" 
-                                step="0.01" 
-                                value={currentItem.valor_unitario} 
-                                onChange={e => {
-                                  const valor = parseFloat(e.target.value) || 0;
-                                  setCurrentItem({
-                                    ...currentItem,
-                                    valor_unitario: valor,
-                                    valor_total: currentItem.quantidade_autorizada * valor
-                                  });
-                                }}
-                                className="w-full border rounded px-2 py-2 text-sm text-right dark:bg-white"
-                              />
-                            </div>
                             <div className="flex items-end">
                               <button 
                                 type="button" 
@@ -667,6 +871,7 @@ export default function Autorizacoes() {
                         </div>
                       )}
 
+                      {/* Lista de Itens Autorizados */}
                       {itensAutorizacao.length > 0 && (
                         <div className="border rounded-xl overflow-hidden">
                           <div className="overflow-x-auto">
@@ -678,22 +883,67 @@ export default function Autorizacoes() {
                                   <th className="px-3 py-2 text-center text-xs">Qtd</th>
                                   <th className="px-3 py-2 text-right text-xs">Valor Unit.</th>
                                   <th className="px-3 py-2 text-right text-xs">Valor Total</th>
-                                  <th className="px-3 py-2 text-center text-xs w-16">Ações</th>
+                                  <th className="px-3 py-2 text-center text-xs w-20">Ações</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y">
                                 {itensAutorizacao.map((item) => (
                                   <tr key={item.id}>
-                                    <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
-                                    <td className="px-3 py-2 text-xs">{item.nome}</td>
-                                    <td className="px-3 py-2 text-xs text-center">{item.quantidade_autorizada}</td>
-                                    <td className="px-3 py-2 text-xs text-right">R$ {item.valor_unitario.toFixed(2)}</td>
-                                    <td className="px-3 py-2 text-xs text-right font-semibold">R$ {item.valor_total.toFixed(2)}</td>
-                                    <td className="px-3 py-2 text-center">
-                                      <button type="button" onClick={() => handleRemoverItem(item.id)} className="text-red-600 hover:text-red-800">
-                                        <TrashIcon className="w-4 h-4" />
-                                      </button>
-                                    </td>
+                                    {editandoItemId === item.id ? (
+                                      <>
+                                        <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
+                                        <td className="px-3 py-2 text-xs">{item.nome}</td>
+                                        <td className="px-3 py-2">
+                                          <input
+                                            type="number"
+                                            min="1"
+                                            value={currentItem.quantidade_autorizada}
+                                            onChange={(e) => setCurrentItem({...currentItem, quantidade_autorizada: parseInt(e.target.value) || 1})}
+                                            className="w-20 border rounded px-2 py-1 text-sm text-center"
+                                          />
+                                        </td>
+                                        <td className="px-3 py-2">
+                                          <input
+                                            type="number"
+                                            step="0.01"
+                                            value={currentItem.valor_unitario}
+                                            onChange={(e) => setCurrentItem({...currentItem, valor_unitario: parseFloat(e.target.value) || 0})}
+                                            className="w-24 border rounded px-2 py-1 text-sm text-right"
+                                          />
+                                        </td>
+                                        <td className="px-3 py-2 text-right font-semibold">
+                                          R$ {(currentItem.quantidade_autorizada * currentItem.valor_unitario).toFixed(2)}
+                                        </td>
+                                        <td className="px-3 py-2 text-center">
+                                          <div className="flex gap-1 justify-center">
+                                            <button onClick={handleSalvarEdicao} className="text-green-600 hover:text-green-800">
+                                              <CheckIcon className="w-4 h-4" />
+                                            </button>
+                                            <button onClick={() => setEditandoItemId(null)} className="text-red-600 hover:text-red-800">
+                                              <XMarkIcon className="w-4 h-4" />
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
+                                        <td className="px-3 py-2 text-xs">{item.nome}</td>
+                                        <td className="px-3 py-2 text-xs text-center font-medium">{item.quantidade_autorizada}</td>
+                                        <td className="px-3 py-2 text-xs text-right">R$ {(item.valor_unitario || 0).toFixed(2)}</td>
+                                        <td className="px-3 py-2 text-xs text-right font-semibold">R$ {(item.valor_total || 0).toFixed(2)}</td>
+                                        <td className="px-3 py-2 text-center">
+                                          <div className="flex gap-1 justify-center">
+                                            <button onClick={() => handleEditarItem(item)} className="text-blue-600 hover:text-blue-800">
+                                              <PencilIcon className="w-4 h-4" />
+                                            </button>
+                                            <button onClick={() => handleRemoverItem(item.id)} className="text-red-600 hover:text-red-800">
+                                              <TrashIcon className="w-4 h-4" />
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </>
+                                    )}
                                   </tr>
                                 ))}
                               </tbody>
@@ -703,6 +953,7 @@ export default function Autorizacoes() {
                                   <td className="px-3 py-2 text-right font-bold text-blue-600">
                                     R$ {itensAutorizacao.reduce((sum, i) => sum + (i.valor_total || 0), 0).toFixed(2)}
                                   </td>
+                                  <td>
                                 </tr>
                               </tfoot>
                             </table>
@@ -730,7 +981,7 @@ export default function Autorizacoes() {
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-y-auto">
               <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-xl font-semibold">Itens da Autorização</h3>
+                  <h3 className="text-xl font-semibold">Detalhes da Autorização</h3>
                   <button onClick={() => setShowItensModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
                     <XMarkIcon className="w-5 h-5 text-gray-500" />
                   </button>
@@ -756,10 +1007,10 @@ export default function Autorizacoes() {
                         <th className="px-3 py-2 text-center text-xs">Saldo</th>
                         <th className="px-3 py-2 text-right text-xs">Valor Unit.</th>
                         <th className="px-3 py-2 text-right text-xs">Valor Total</th>
-                      </tr>
+                      </td>
                     </thead>
                     <tbody className="divide-y">
-                      {selectedAutorizacao.itens?.map((item, idx) => {
+                      {selectedAutorizacao.itens_autorizados_list?.map((item, idx) => {
                         const saldo = (item.quantidade_autorizada || 0) - (item.quantidade_utilizada || 0);
                         return (
                           <tr key={idx}>
@@ -785,7 +1036,7 @@ export default function Autorizacoes() {
                   </table>
                 </div>
 
-                <div className="flex justify-end mt-5 pt-4 border-t dark:border-gray-700">
+                <div className="flex justify-end mt-5 pt-4 border-t">
                   <button onClick={() => setShowItensModal(false)} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium">Fechar</button>
                 </div>
               </div>
