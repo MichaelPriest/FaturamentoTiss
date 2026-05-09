@@ -415,7 +415,7 @@ export default function Autorizacoes() {
                               )}
                             </div>
                           </td>
-                        </td>
+                        </tr>
                       )}
                     </React.Fragment>
                   );
