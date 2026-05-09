@@ -28,25 +28,51 @@ import {
   MicrophoneIcon,
   ChatBubbleLeftRightIcon,
   LightBulbIcon,
-  AcademicCapIcon,
-  CpuChipIcon,
   ClipboardDocumentCheckIcon,
   ListBulletIcon,
-  BookOpenIcon,
-  EyeIcon,
-  FingerPrintIcon,
   UserGroupIcon,
-  HospitalBuildingIcon,
   ScissorsIcon,
   SyringeIcon,
   PillIcon,
   MicroscopeIcon,
-  XRayIcon,
-  BeakerIcon as LabIcon,
   ActivityIcon,
   BandAidIcon,
-  AmbulanceIcon
+  CalendarDaysIcon,
+  SearchIcon
 } from '@heroicons/react/24/outline';
+
+// Importando ícones adicionais do react-icons
+import { 
+  FaHospitalUser, 
+  FaNotesMedical, 
+  FaPrescriptionBottle, 
+  FaFilePrescription,
+  FaStethoscope,
+  FaHeartbeat,
+  FaSyringe,
+  FaPills,
+  FaBandAid,
+  FaScalpel,
+  FaMicroscope,
+  FaClipboardList,
+  FaCalendarCheck,
+  FaUserMd,
+  FaIdCard,
+  FaMoneyBillWave,
+  FaFileInvoiceDollar,
+  FaLock,
+  FaKey,
+  FaCalendarAlt,
+  FaClock,
+  FaBuilding,
+  FaPhoneAlt,
+  FaEnvelope,
+  FaMapMarkerAlt,
+  FaBirthdayCake,
+  FaVenusMars,
+  FaNotesMedical as FaClinicalNotes
+} from 'react-icons/fa';
+
 import { toast } from 'sonner';
 import { format, addDays } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
@@ -337,7 +363,6 @@ export default function Prontuario() {
 
   const gerarSugestaoComIA = async (campo, textoAtual) => {
     setProcessandoIA(true);
-    // Simulação de IA - em produção, chamar API real
     setTimeout(() => {
       let sugestao = '';
       if (campo === 'hipotese_diagnostica') {
@@ -786,14 +811,14 @@ export default function Prontuario() {
             </button>
             <div className="flex items-center gap-3">
               <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl shadow-lg">
-                <HeartIcon className="w-7 h-7 text-white" />
+                <FaHeartbeat className="w-7 h-7 text-white" />
               </div>
               <div>
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
                   Prontuário Eletrônico
                 </h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                  <StethoscopeIcon className="w-3 h-3" /> Atendimento médico e registro clínico
+                  <FaStethoscope className="w-3 h-3" /> Atendimento médico e registro clínico
                 </p>
               </div>
             </div>
@@ -812,7 +837,7 @@ export default function Prontuario() {
         {/* Informações do Paciente - Cartão Hospitalar */}
         <div className="bg-gradient-to-r from-white to-blue-50 dark:from-gray-800 dark:to-blue-900/20 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 mb-6 shadow-md">
           <div className="flex items-center gap-2 mb-3">
-            <UserGroupIcon className="w-5 h-5 text-blue-500" />
+            <FaHospitalUser className="w-5 h-5 text-blue-500" />
             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">📌 Dados do Atendimento</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -854,12 +879,12 @@ export default function Prontuario() {
           <div className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
             <div className="flex overflow-x-auto">
               {[
-                { id: 'clinico', label: 'Clínico', icon: StethoscopeIcon, count: null },
-                { id: 'prescricoes', label: 'Prescrições', icon: SyringeIcon, count: prescricoes.length },
-                { id: 'receitas', label: 'Receitas', icon: PillIcon, count: receitas.length },
-                { id: 'atestados', label: 'Atestados', icon: BandAidIcon, count: atestados.length },
-                { id: 'procedimentos', label: 'Procedimentos', icon: ScissorsIcon, count: procedimentosSelecionados.length },
-                { id: 'faturamento', label: 'Faturamento', icon: CurrencyDollarIcon, count: null }
+                { id: 'clinico', label: 'Clínico', icon: FaStethoscope, count: null },
+                { id: 'prescricoes', label: 'Prescrições', icon: FaSyringe, count: prescricoes.length },
+                { id: 'receitas', label: 'Receitas', icon: FaPills, count: receitas.length },
+                { id: 'atestados', label: 'Atestados', icon: FaBandAid, count: atestados.length },
+                { id: 'procedimentos', label: 'Procedimentos', icon: FaScalpel, count: procedimentosSelecionados.length },
+                { id: 'faturamento', label: 'Faturamento', icon: FaMoneyBillWave, count: null }
               ].map(tab => (
                 <button key={tab.id} onClick={() => setAba(tab.id)} className={`px-5 py-3 text-sm font-medium flex items-center gap-2 transition-all duration-200 ${aba === tab.id ? 'text-blue-600 border-b-2 border-blue-600 bg-white dark:bg-gray-800' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>
                   <tab.icon className="w-4 h-4" /> {tab.label}
@@ -878,7 +903,7 @@ export default function Prontuario() {
                 <div className="group relative">
                   <div className="flex justify-between items-center mb-2">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                      <MicrophoneIcon className="w-4 h-4 text-blue-500" /> Anamnese
+                      <FaClinicalNotes className="w-4 h-4 text-blue-500" /> Anamnese
                     </label>
                     <button onClick={() => gerarSugestaoComIA('anamnese', formData.anamnese)} className="text-xs bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-1 rounded-lg flex items-center gap-1 hover:shadow-md transition-all">
                       <SparklesIcon className="w-3 h-3" /> IA
@@ -929,14 +954,14 @@ export default function Prontuario() {
                     <div key={p.id} className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gradient-to-r from-gray-50 to-white dark:from-gray-700/50 dark:to-gray-800 hover:shadow-md transition-all">
                       <div className="flex justify-between items-start">
                         <div className="flex items-start gap-3">
-                          <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg"><SyringeIcon className="w-5 h-5 text-blue-600" /></div>
+                          <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg"><FaPrescriptionBottle className="w-5 h-5 text-blue-600" /></div>
                           <div><span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs bg-blue-100 text-blue-700">{p.tipo === 'medicamento' ? '💊' : p.tipo === 'exame' ? '🔬' : '🔪'} {p.tipo}</span><p className="text-sm font-medium mt-1">{p.descricao}</p>{p.dosagem && <p className="text-xs text-gray-500 mt-1">💊 Dosagem: {p.dosagem} | 📅 Frequência: {p.frequencia}</p>}</div>
                         </div>
                         <button onClick={() => { setEditingPrescricao(p); setPrescricaoForm(p); setShowPrescricaoModal(true); }} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><PencilIcon className="w-4 h-4 text-blue-600" /></button>
                       </div>
                     </div>
                   ))}
-                  {prescricoes.length === 0 && <div className="text-center py-12 text-gray-500 bg-gray-50 dark:bg-gray-700/30 rounded-xl"><SyringeIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />Nenhuma prescrição</div>}
+                  {prescricoes.length === 0 && <div className="text-center py-12 text-gray-500 bg-gray-50 dark:bg-gray-700/30 rounded-xl"><FaPrescriptionBottle className="w-12 h-12 mx-auto mb-3 opacity-50" />Nenhuma prescrição</div>}
                 </div>
               </div>
             )}
@@ -950,14 +975,14 @@ export default function Prontuario() {
                     <div key={r.id} className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gradient-to-r from-gray-50 to-white dark:from-gray-700/50 dark:to-gray-800 hover:shadow-md transition-all">
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg"><PillIcon className="w-5 h-5 text-green-600" /></div>
+                          <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg"><FaFilePrescription className="w-5 h-5 text-green-600" /></div>
                           <div><p className="text-sm font-medium">📋 Receita #{r.numero_receita}</p><p className="text-xs text-gray-500">📅 {new Date(r.created_at).toLocaleDateString()} | {r.medicamentos.length} medicamentos</p></div>
                         </div>
                         <button onClick={() => imprimirReceita(r)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><PrinterIcon className="w-4 h-4 text-green-600" /></button>
                       </div>
                     </div>
                   ))}
-                  {receitas.length === 0 && <div className="text-center py-12 text-gray-500 bg-gray-50 dark:bg-gray-700/30 rounded-xl"><PillIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />Nenhuma receita</div>}
+                  {receitas.length === 0 && <div className="text-center py-12 text-gray-500 bg-gray-50 dark:bg-gray-700/30 rounded-xl"><FaFilePrescription className="w-12 h-12 mx-auto mb-3 opacity-50" />Nenhuma receita</div>}
                 </div>
               </div>
             )}
@@ -971,14 +996,14 @@ export default function Prontuario() {
                     <div key={a.id} className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gradient-to-r from-gray-50 to-white dark:from-gray-700/50 dark:to-gray-800 hover:shadow-md transition-all">
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg"><BandAidIcon className="w-5 h-5 text-yellow-600" /></div>
+                          <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg"><FaBandAid className="w-5 h-5 text-yellow-600" /></div>
                           <div><p className="text-sm font-medium">📄 Atestado #{a.numero_atestado}</p><p className="text-xs text-gray-500">📅 {a.dias_afastamento} dias de afastamento</p></div>
                         </div>
                         <button onClick={() => imprimirAtestado(a)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><PrinterIcon className="w-4 h-4 text-green-600" /></button>
                       </div>
                     </div>
                   ))}
-                  {atestados.length === 0 && <div className="text-center py-12 text-gray-500 bg-gray-50 dark:bg-gray-700/30 rounded-xl"><BandAidIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />Nenhum atestado</div>}
+                  {atestados.length === 0 && <div className="text-center py-12 text-gray-500 bg-gray-50 dark:bg-gray-700/30 rounded-xl"><FaBandAid className="w-12 h-12 mx-auto mb-3 opacity-50" />Nenhum atestado</div>}
                 </div>
               </div>
             )}
@@ -992,7 +1017,7 @@ export default function Prontuario() {
                     <div key={idx} className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gradient-to-r from-gray-50 to-white dark:from-gray-700/50 dark:to-gray-800">
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg"><ScissorsIcon className="w-5 h-5 text-purple-600" /></div>
+                          <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg"><FaScalpel className="w-5 h-5 text-purple-600" /></div>
                           <div><p className="text-sm font-medium">{p.nome}</p><p className="text-xs text-gray-500">💰 R$ {p.valor_sugerido?.toFixed(2)} | Código: {p.codigo_tuss}</p></div>
                         </div>
                         <button onClick={() => setProcedimentosSelecionados(procedimentosSelecionados.filter((_, i) => i !== idx))} className="p-2 rounded-lg hover:bg-red-50"><TrashIcon className="w-4 h-4 text-red-600" /></button>
@@ -1001,28 +1026,48 @@ export default function Prontuario() {
                   ))}
                   {procedimentosSelecionados.length > 0 && (
                     <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl">
-                      <p className="text-right font-semibold text-gray-800 dark:text-white flex items-center justify-end gap-2">💰 Total: R$ {procedimentosSelecionados.reduce((s, p) => s + (p.valor_sugerido || 0), 0).toFixed(2)}</p>
+                      <p className="text-right font-semibold text-gray-800 dark:text-white flex items-center justify-end gap-2"><FaMoneyBillWave className="w-4 h-4" /> Total: R$ {procedimentosSelecionados.reduce((s, p) => s + (p.valor_sugerido || 0), 0).toFixed(2)}</p>
                     </div>
                   )}
                 </div>
               </div>
             )}
 
-            {/* Aba Faturamento - continua com mesmo conteúdo mas com ícones */}
+            {/* Aba Faturamento */}
             {aba === 'faturamento' && (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1"><DocumentTextIcon className="w-4 h-4" /> Nº Guia Operadora</label><input type="text" value={faturamentoData.numero_guia_operadora} onChange={e => setFaturamentoData({...faturamentoData, numero_guia_operadora: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-xl px-3 py-2 text-sm" /></div>
-                  <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1"><CalendarIcon className="w-4 h-4" /> Data Autorização</label><input type="date" value={faturamentoData.data_autorizacao} onChange={e => setFaturamentoData({...faturamentoData, data_autorizacao: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-xl px-3 py-2 text-sm" /></div>
-                  <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1"><KeyIcon className="w-4 h-4" /> Senha</label><input type="text" value={faturamentoData.senha_autorizacao} onChange={e => setFaturamentoData({...faturamentoData, senha_autorizacao: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-xl px-3 py-2 text-sm" /></div>
-                  <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1"><CalendarDaysIcon className="w-4 h-4" /> Validade Senha</label><input type="date" value={faturamentoData.data_validade_senha} onChange={e => setFaturamentoData({...faturamentoData, data_validade_senha: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-xl px-3 py-2 text-sm" /></div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1">
+                      <FaFileInvoiceDollar className="w-4 h-4" /> Nº Guia Operadora
+                    </label>
+                    <input type="text" value={faturamentoData.numero_guia_operadora} onChange={e => setFaturamentoData({...faturamentoData, numero_guia_operadora: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-xl px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1">
+                      <FaCalendarAlt className="w-4 h-4" /> Data Autorização
+                    </label>
+                    <input type="date" value={faturamentoData.data_autorizacao} onChange={e => setFaturamentoData({...faturamentoData, data_autorizacao: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-xl px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1">
+                      <FaKey className="w-4 h-4" /> Senha
+                    </label>
+                    <input type="text" value={faturamentoData.senha_autorizacao} onChange={e => setFaturamentoData({...faturamentoData, senha_autorizacao: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-xl px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1">
+                      <FaCalendarAlt className="w-4 h-4" /> Validade Senha
+                    </label>
+                    <input type="date" value={faturamentoData.data_validade_senha} onChange={e => setFaturamentoData({...faturamentoData, data_validade_senha: e.target.value})} className="w-full bg-white dark:bg-gray-700 border rounded-xl px-3 py-2 text-sm" />
+                  </div>
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Modal de Prescrição */}
+        {/* Modais (mantidos do código anterior) */}
         {showPrescricaoModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-fadeIn">
@@ -1030,7 +1075,7 @@ export default function Prontuario() {
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl">
-                      <SyringeIcon className="w-5 h-5 text-white" />
+                      <FaSyringe className="w-5 h-5 text-white" />
                     </div>
                     <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
                       {editingPrescricao ? '✏️ Editar Prescrição' : '📋 Nova Prescrição'}
@@ -1060,9 +1105,9 @@ export default function Prontuario() {
                               : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                           }`}
                         >
-                          {tipo === 'medicamento' && <PillIcon className="w-4 h-4" />}
-                          {tipo === 'exame' && <MicroscopeIcon className="w-4 h-4" />}
-                          {tipo === 'procedimento' && <ScissorsIcon className="w-4 h-4" />}
+                          {tipo === 'medicamento' && <FaPills className="w-4 h-4" />}
+                          {tipo === 'exame' && <FaMicroscope className="w-4 h-4" />}
+                          {tipo === 'procedimento' && <FaScalpel className="w-4 h-4" />}
                           {tipo.charAt(0).toUpperCase() + tipo.slice(1)}
                         </button>
                       ))}
@@ -1123,7 +1168,7 @@ export default function Prontuario() {
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                            <CalendarIcon className="w-4 h-4 text-orange-500" />
+                            <FaCalendarAlt className="w-4 h-4 text-orange-500" />
                             Frequência
                           </label>
                           <input 
@@ -1136,7 +1181,7 @@ export default function Prontuario() {
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                            <CalendarDaysIcon className="w-4 h-4 text-red-500" />
+                            <FaCalendarDays className="w-4 h-4 text-red-500" />
                             Duração
                           </label>
                           <input 
@@ -1167,19 +1212,11 @@ export default function Prontuario() {
                 </div>
                 
                 <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <button 
-                    onClick={() => { setShowPrescricaoModal(false); setEditingPrescricao(null); }} 
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                  >
+                  <button onClick={() => setShowPrescricaoModal(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                     Cancelar
                   </button>
-                  <button 
-                    onClick={adicionarPrescricao} 
-                    disabled={saving}
-                    className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl text-sm font-medium shadow-md hover:shadow-lg transition-all flex items-center gap-2"
-                  >
-                    {saving ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <PlusIcon className="w-4 h-4" />}
-                    {editingPrescricao ? 'Atualizar' : 'Adicionar'} Prescrição
+                  <button onClick={adicionarPrescricao} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl text-sm font-medium shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+                    <PlusIcon className="w-4 h-4" /> {editingPrescricao ? 'Atualizar' : 'Adicionar'} Prescrição
                   </button>
                 </div>
               </div>
@@ -1195,7 +1232,7 @@ export default function Prontuario() {
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl">
-                      <PillIcon className="w-5 h-5 text-white" />
+                      <FaFilePrescription className="w-5 h-5 text-white" />
                     </div>
                     <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
                       {editingReceita ? '✏️ Editar Receita' : '📋 Nova Receita'}
@@ -1225,7 +1262,7 @@ export default function Prontuario() {
                               : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                           }`}
                         >
-                          {tipo === 'medicamento' ? <PillIcon className="w-4 h-4" /> : <ClipboardDocumentListIcon className="w-4 h-4" />}
+                          {tipo === 'medicamento' ? <FaPills className="w-4 h-4" /> : <FaClipboardList className="w-4 h-4" />}
                           {tipo === 'medicamento' ? 'Medicamento' : 'Especial'}
                         </button>
                       ))}
@@ -1234,7 +1271,7 @@ export default function Prontuario() {
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                      <PillIcon className="w-4 h-4 text-green-500" />
+                      <FaPills className="w-4 h-4 text-green-500" />
                       Medicamentos
                     </label>
                     <div className="space-y-3 max-h-64 overflow-y-auto">
@@ -1286,7 +1323,7 @@ export default function Prontuario() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                        <CalendarIcon className="w-4 h-4 text-orange-500" />
+                        <FaCalendarAlt className="w-4 h-4 text-orange-500" />
                         Data de Validade
                       </label>
                       <input 
@@ -1334,7 +1371,7 @@ export default function Prontuario() {
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-xl">
-                      <BandAidIcon className="w-5 h-5 text-white" />
+                      <FaBandAid className="w-5 h-5 text-white" />
                     </div>
                     <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
                       {editingAtestado ? '✏️ Editar Atestado' : '📋 Novo Atestado'}
@@ -1373,7 +1410,7 @@ export default function Prontuario() {
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                      <CalendarIcon className="w-4 h-4 text-orange-500" />
+                      <FaCalendarAlt className="w-4 h-4 text-orange-500" />
                       Dias de Afastamento
                     </label>
                     <input 
@@ -1388,7 +1425,7 @@ export default function Prontuario() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                        <CalendarIcon className="w-4 h-4 text-green-500" />
+                        <FaCalendarAlt className="w-4 h-4 text-green-500" />
                         Data Início
                       </label>
                       <input 
@@ -1400,7 +1437,7 @@ export default function Prontuario() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
-                        <CalendarDaysIcon className="w-4 h-4 text-red-500" />
+                        <FaCalendarDays className="w-4 h-4 text-red-500" />
                         Data Fim
                       </label>
                       <input 
@@ -1462,7 +1499,7 @@ export default function Prontuario() {
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl">
-                      <ScissorsIcon className="w-5 h-5 text-white" />
+                      <FaScalpel className="w-5 h-5 text-white" />
                     </div>
                     <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
                       Adicionar Procedimentos
