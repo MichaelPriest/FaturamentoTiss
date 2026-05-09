@@ -72,28 +72,9 @@ const TECNICA_MAP = {
   '3': 'Robótica'
 };
 
-// Calcula a altura aproximada de uma guia em pixels (para quebra automática)
-const calcularAlturaConteudo = (procedimentos, profissionais) => {
-  // Altura base da guia (cabeçalhos fixos + rodapé) ~ 450px
-  const ALTURA_BASE = 450;
-  // Cada linha de procedimento ocupa ~ 35px
-  const ALTURA_POR_PROCEDIMENTO = 35;
-  // Cada linha de profissional ocupa ~ 30px
-  const ALTURA_POR_PROFISSIONAL = 30;
-  // Altura máxima disponível para A4 paisagem (aprox. 800px)
-  const ALTURA_MAXIMA = 780;
-  
-  let alturaTotal = ALTURA_BASE;
-  alturaTotal += procedimentos * ALTURA_POR_PROCEDIMENTO;
-  alturaTotal += profissionais * ALTURA_POR_PROFISSIONAL;
-  
-  return alturaTotal;
-};
-
 // Divide os itens em múltiplas páginas/guias
 const dividirEmGuias = (itens, itensAutorizados = []) => {
   const MAX_PROCEDIMENTOS_POR_GUIA = 8;
-  const MAX_PROFISSIONAIS_POR_GUIA = 8;
   
   const guias = [];
   let currentIndex = 0;
@@ -101,9 +82,6 @@ const dividirEmGuias = (itens, itensAutorizados = []) => {
   while (currentIndex < itens.length) {
     const fimProcedimentos = Math.min(currentIndex + MAX_PROCEDIMENTOS_POR_GUIA, itens.length);
     const procedimentosPagina = itens.slice(currentIndex, fimProcedimentos);
-    
-    // Profissionais correspondentes a esta página (mesmos índices dos procedimentos)
-    const profissionaisPagina = procedimentosPagina;
     
     guias.push({
       numero_guia: currentIndex + 1,
@@ -115,7 +93,6 @@ const dividirEmGuias = (itens, itensAutorizados = []) => {
     currentIndex = fimProcedimentos;
   }
   
-  // Se não houver itens, retorna uma guia vazia
   if (guias.length === 0) {
     guias.push({
       numero_guia: 1,
@@ -128,15 +105,173 @@ const dividirEmGuias = (itens, itensAutorizados = []) => {
   return guias;
 };
 
+// Gera o CSS para impressão
+const gerarCSS = () => {
+  return `
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Helvetica', 'Arial', sans-serif;
+      font-size: 10pt;
+      line-height: 1.2;
+      background: white;
+      margin: 0;
+      padding: 0;
+    }
+    
+    .guia-page {
+      page-break-after: always;
+      break-after: page;
+    }
+    
+    .guia-page:last-child {
+      page-break-after: auto;
+      break-after: auto;
+    }
+    
+    .guia-container {
+      max-width: 297mm;
+      width: 100%;
+      min-height: 210mm;
+      margin: 0 auto;
+      background: white;
+      border: 1px solid #000;
+      padding: 8px;
+      position: relative;
+    }
+    
+    .grid {
+      display: grid;
+      gap: 0;
+    }
+    
+    .grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .grid-4 { grid-template-columns: repeat(4, 1fr); }
+    .grid-5 { grid-template-columns: repeat(5, 1fr); }
+    .grid-6 { grid-template-columns: repeat(6, 1fr); }
+    .grid-8 { grid-template-columns: repeat(8, 1fr); }
+    
+    .titulo-principal {
+      font-size: 10pt;
+      font-weight: bold;
+      text-align: center;
+      text-transform: uppercase;
+    }
+    
+    .titulo-secao {
+      font-size: 9pt;
+      font-weight: bold;
+      background: #e0e0e0;
+      padding: 3px 5px;
+      margin-top: 5px;
+      border: 1px solid #000;
+      border-bottom: none;
+    }
+    
+    .campo {
+      padding: 3px 5px;
+      border: 1px solid #000;
+      font-size: 8pt;
+    }
+    
+    .numero-campo {
+      font-size: 6pt;
+      font-weight: bold;
+      margin-right: 4px;
+    }
+    
+    .tabela-wrapper {
+      overflow-x: auto;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 7.5pt;
+    }
+    
+    th, td {
+      border: 1px solid #000;
+      padding: 3px 2px;
+      vertical-align: top;
+    }
+    
+    th {
+      background: #e8e8e8;
+      font-weight: bold;
+      text-align: center;
+    }
+    
+    .text-center { text-align: center; }
+    .text-right { text-align: right; }
+    
+    .assinatura {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 15px;
+    }
+    
+    .assinatura-item {
+      text-align: center;
+      width: 30%;
+      font-size: 7pt;
+    }
+    
+    .linha-assinatura {
+      border-top: 1px solid #000;
+      padding-top: 4px;
+      margin-top: 20px;
+      margin-bottom: 5px;
+    }
+    
+    .rodape {
+      margin-top: 10px;
+      padding-top: 5px;
+      border-top: 1px solid #ccc;
+      font-size: 6pt;
+      text-align: center;
+    }
+    
+    .continuacao {
+      margin-top: 10px;
+    }
+    
+    @media print {
+      body { 
+        padding: 0; 
+        margin: 0; 
+      }
+      .guia-container { 
+        border: none; 
+        padding: 5mm;
+      }
+      th, .titulo-secao { 
+        background: #e8e8e8 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .guia-page {
+        page-break-after: always;
+        break-after: page;
+      }
+    }
+    
+    @page {
+      size: A4 landscape;
+      margin: 5mm;
+    }
+  `;
+};
+
 // Gera o HTML de uma única guia (página)
 const gerarPaginaGuia = (atendimento, convenio, configClinica, paginaAtual, totalPaginas, itensPagina) => {
-  const totalProcedimentos = itensPagina.reduce((sum, item) => sum + (item.valor_total || 0), 0);
-  const totalMateriais = 0;
-  const totalMedicamentos = 0;
-  const totalTaxas = 0;
-  const totalOPME = 0;
-  const totalGases = 0;
-  const totalGeral = totalProcedimentos + totalMateriais + totalMedicamentos + totalTaxas + totalOPME + totalGases;
+  const totalGeral = itensPagina.reduce((sum, item) => sum + (item.valor_total || 0), 0);
+  const totalTodosItens = (atendimento.itens || []).reduce((sum, item) => sum + (item.valor_total || 0), 0);
 
   return `
     <div class="guia-page">
@@ -203,7 +338,7 @@ const gerarPaginaGuia = (atendimento, convenio, configClinica, paginaAtual, tota
         
         <!-- 4 - SOLICITAÇÃO / PROCEDIMENTOS -->
         <div class="titulo-secao">4 - SOLICITAÇÃO / PROCEDIMENTOS</div>
-        <table class="tabela-solicitacao">
+        <table>
           <thead>
             <tr><th width="15">Seq</th><th width="30">Tabela</th><th width="45">Código</th><th>Descrição</th><th width="20">Qtd Sol.</th><th width="20">Qtd Aut.</th></tr>
           </thead>
@@ -243,7 +378,7 @@ const gerarPaginaGuia = (atendimento, convenio, configClinica, paginaAtual, tota
         <!-- 7 - EXECUÇÃO / PROCEDIMENTOS REALIZADOS -->
         <div class="titulo-secao">7 - EXECUÇÃO / PROCEDIMENTOS REALIZADOS</div>
         <div class="tabela-wrapper">
-          <table class="tabela-procedimentos">
+          <table>
             <thead>
               <tr>
                 <th width="8">Seq</th>
@@ -287,7 +422,7 @@ const gerarPaginaGuia = (atendimento, convenio, configClinica, paginaAtual, tota
         <!-- 8 - IDENTIFICAÇÃO DOS PROFISSIONAIS EXECUTANTES -->
         <div class="titulo-secao">8 - IDENTIFICAÇÃO DOS PROFISSIONAIS EXECUTANTES</div>
         <div class="tabela-wrapper">
-          <table class="tabela-profissionais">
+          <table>
             <thead>
               <tr>
                 <th width="8">Seq</th>
@@ -320,17 +455,17 @@ const gerarPaginaGuia = (atendimento, convenio, configClinica, paginaAtual, tota
           </table>
         </div>
         
-        <!-- 9 - VALORES TOTAIS (apenas na última página) -->
         ${paginaAtual === totalPaginas ? `
+          <!-- 9 - VALORES TOTAIS -->
           <div class="titulo-secao">9 - VALORES TOTAIS (R$)</div>
           <div class="grid grid-8" style="border: 1px solid #000; border-top: none;">
-            <div class="campo"><span class="numero-campo">31</span> Procedimentos<br>R$ ${(atendimento.itens || []).reduce((sum, item) => sum + (item.valor_total || 0), 0).toFixed(2)}</div>
+            <div class="campo"><span class="numero-campo">31</span> Procedimentos<br>R$ ${totalTodosItens.toFixed(2)}</div>
             <div class="campo"><span class="numero-campo">32</span> Taxas/Aluguéis<br>R$ 0,00</div>
             <div class="campo"><span class="numero-campo">33</span> Materiais<br>R$ 0,00</div>
             <div class="campo"><span class="numero-campo">34</span> OPME<br>R$ 0,00</div>
             <div class="campo"><span class="numero-campo">35</span> Medicamentos<br>R$ 0,00</div>
             <div class="campo"><span class="numero-campo">36</span> Gases<br>R$ 0,00</div>
-            <div class="campo"><span class="numero-campo">37</span> TOTAL GERAL<br><strong>R$ ${(atendimento.itens || []).reduce((sum, item) => sum + (item.valor_total || 0), 0).toFixed(2)}</strong></div>
+            <div class="campo"><span class="numero-campo">37</span> TOTAL GERAL<br><strong>R$ ${totalTodosItens.toFixed(2)}</strong></div>
             <div class="campo"><span class="numero-campo">38</span> FORMA PAGTO<br>_______________</div>
           </div>
           
@@ -346,10 +481,9 @@ const gerarPaginaGuia = (atendimento, convenio, configClinica, paginaAtual, tota
             <div class="assinatura-item"><div class="linha-assinatura"></div>ASSINATURA DO CONTRATADO</div>
           </div>
         ` : `
-          <!-- Rodapé de continuação -->
           <div class="continuacao">
             <div style="margin-top: 15px; padding: 8px; background: #f0f0f0; text-align: center; border: 1px solid #000;">
-              ⚠️ CONTINUA NA PRÓXIMA PÁGINA - Guia ${atendimento.numero_guia_prestador || '1000000'}-${paginaAtual + 1}
+              CONTINUA NA PROXIMA PAGINA - Guia ${atendimento.numero_guia_prestador || '1000000'}-${paginaAtual + 1}
             </div>
           </div>
         `}
@@ -367,246 +501,55 @@ export const gerarHTMLGuiaTISSOficial = (atendimento, convenio, configClinica = 
   const itens = atendimento.itens || [];
   const itensAutorizados = atendimento.itens_autorizados || [];
   
-  // Divide os itens em múltiplas páginas
   const guias = dividirEmGuias(itens, itensAutorizados);
   
-  // Gera HTML para cada página
   const paginasHTML = guias.map((guia, index) => 
     gerarPaginaGuia(atendimento, convenio, configClinica, index + 1, guias.length, guia.itens)
   );
   
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <title>GUIA SP/SADT - ${atendimento.numero_guia_prestador || '1000000'}</title>
-      <style>
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-        }
-        
-        body {
-          font-family: 'Helvetica', 'Arial', sans-serif;
-          font-size: 10pt;
-          line-height: 1.2;
-          background: white;
-          margin: 0;
-          padding: 0;
-        }
-        
-        .guia-page {
-          page-break-after: always;
-          break-after: page;
-        }
-        
-        .guia-page:last-child {
-          page-break-after: auto;
-          break-after: auto;
-        }
-        
-        .guia-container {
-          max-width: 297mm;
-          width: 100%;
-          min-height: 210mm;
-          margin: 0 auto;
-          background: white;
-          border: 1px solid #000;
-          padding: 8px;
-          position: relative;
-        }
-        
-        /* Grid System */
-        .grid {
-          display: grid;
-          gap: 0;
-        }
-        
-        .grid-2 { grid-template-columns: repeat(2, 1fr); }
-        .grid-3 { grid-template-columns: repeat(3, 1fr); }
-        .grid-4 { grid-template-columns: repeat(4, 1fr); }
-        .grid-5 { grid-template-columns: repeat(5, 1fr); }
-        .grid-6 { grid-template-columns: repeat(6, 1fr); }
-        .grid-8 { grid-template-columns: repeat(8, 1fr); }
-        
-        /* Bordas */
-        .borda { border: 1px solid #000; }
-        .borda-top { border-top: 1px solid #000; }
-        .borda-bottom { border-bottom: 1px solid #000; }
-        .borda-left { border-left: 1px solid #000; }
-        .borda-right { border-right: 1px solid #000; }
-        
-        .titulo-principal {
-          font-size: 10pt;
-          font-weight: bold;
-          text-align: center;
-          text-transform: uppercase;
-        }
-        
-        .titulo-secao {
-          font-size: 9pt;
-          font-weight: bold;
-          background: #e0e0e0;
-          padding: 3px 5px;
-          margin-top: 5px;
-          border: 1px solid #000;
-          border-bottom: none;
-        }
-        
-        .campo {
-          padding: 3px 5px;
-          border: 1px solid #000;
-          font-size: 8pt;
-        }
-        
-        .campo-label {
-          font-size: 7pt;
-          font-weight: bold;
-          display: block;
-          margin-bottom: 2px;
-        }
-        
-        .campo-valor {
-          font-size: 9pt;
-        }
-        
-        .campo-valor-grande {
-          font-size: 11pt;
-          font-weight: bold;
-        }
-        
-        .numero-campo {
-          font-size: 6pt;
-          font-weight: bold;
-          margin-right: 4px;
-        }
-        
-        /* Tabelas */
-        .tabela-wrapper {
-          overflow-x: auto;
-        }
-        
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 7.5pt;
-        }
-        
-        th, td {
-          border: 1px solid #000;
-          padding: 3px 2px;
-          vertical-align: top;
-        }
-        
-        th {
-          background: #e8e8e8;
-          font-weight: bold;
-          text-align: center;
-        }
-        
-        .tabela-procedimentos td, 
-        .tabela-procedimentos th {
-          font-size: 7pt;
-        }
-        
-        .tabela-profissionais td,
-        .tabela-profissionais th {
-          font-size: 7pt;
-        }
-        
-        .tabela-solicitacao td,
-        .tabela-solicitacao th {
-          font-size: 8pt;
-        }
-        
-        .text-center { text-align: center; }
-        .text-right { text-align: right; }
-        
-        /* Assinaturas */
-        .assinatura {
-          display: flex;
-          justify-content: space-between;
-          margin-top: 15px;
-        }
-        
-        .assinatura-item {
-          text-align: center;
-          width: 30%;
-          font-size: 7pt;
-        }
-        
-        .linha-assinatura {
-          border-top: 1px solid #000;
-          padding-top: 4px;
-          margin-top: 20px;
-          margin-bottom: 5px;
-        }
-        
-        .rodape {
-          margin-top: 10px;
-          padding-top: 5px;
-          border-top: 1px solid #ccc;
-          font-size: 6pt;
-          text-align: center;
-        }
-        
-        .continuacao {
-          margin-top: 10px;
-        }
-        
-        @media print {
-          body { 
-            padding: 0; 
-            margin: 0; 
-          }
-          .guia-container { 
-            border: none; 
-            padding: 5mm;
-          }
-          th, .titulo-secao { 
-            background: #e8e8e8 !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
-          .guia-page {
-            page-break-after: always;
-            break-after: page;
-          }
-        }
-        
-        @page {
-          size: A4 landscape;
-          margin: 5mm;
-        }
-      </style>
-    </head>
-    <body>
-      ${paginasHTML.join('')}
-    </body>
-    </html>
-  `;
+  const css = gerarCSS();
+  
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>GUIA SP/SADT - ${atendimento.numero_guia_prestador || '1000000'}</title>
+  <style>${css}</style>
+</head>
+<body>
+  ${paginasHTML.join('')}
+</body>
+</html>`;
 };
 
 // Função para imprimir uma única guia
 export const imprimirGuiaTISSOficial = (atendimento, convenio, configClinica = {}) => {
   const html = gerarHTMLGuiaTISSOficial(atendimento, convenio, configClinica);
   const printWindow = window.open('', '_blank');
-  printWindow.document.write(html);
-  printWindow.document.close();
-  printWindow.focus();
-  printWindow.print();
-  printWindow.onafterprint = () => printWindow.close();
+  if (printWindow) {
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.onafterprint = () => printWindow.close();
+  }
 };
 
 // Função para imprimir múltiplas guias
 export const imprimirMultiplasGuiasTISS = (guias, convenio, configClinica = {}) => {
-  let htmlCompleto = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Múltiplas Guias TISS</title><style>${gerarHTMLGuiaTISSOficial(guias[0], convenio, configClinica).match(/<style>([\\s\\S]*?)<\\/style>/)?.[1] || ''}</style></head><body>`;
+  const css = gerarCSS();
+  let htmlCompleto = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Múltiplas Guias TISS</title>
+  <style>${css}</style>
+</head>
+<body>`;
   
   guias.forEach((guia, index) => {
     const guiaHtml = gerarHTMLGuiaTISSOficial(guia, convenio, configClinica);
-    const bodyContent = guiaHtml.match(/<body>([\\s\\S]*?)<\\/body>/)?.[1] || '';
+    const bodyContent = guiaHtml.match(/<body>([\s\S]*?)<\/body>/)?.[1] || '';
     htmlCompleto += bodyContent;
     if (index < guias.length - 1) {
       htmlCompleto += '<div style="page-break-before: always;"></div>';
@@ -616,9 +559,11 @@ export const imprimirMultiplasGuiasTISS = (guias, convenio, configClinica = {}) 
   htmlCompleto += `</body></html>`;
   
   const printWindow = window.open('', '_blank');
-  printWindow.document.write(htmlCompleto);
-  printWindow.document.close();
-  printWindow.focus();
-  printWindow.print();
-  printWindow.onafterprint = () => printWindow.close();
+  if (printWindow) {
+    printWindow.document.write(htmlCompleto);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.onafterprint = () => printWindow.close();
+  }
 };
