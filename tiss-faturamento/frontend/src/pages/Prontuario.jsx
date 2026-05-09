@@ -31,46 +31,31 @@ import {
   ClipboardDocumentCheckIcon,
   ListBulletIcon,
   UserGroupIcon,
-  ScissorsIcon,
-  SyringeIcon,
-  PillIcon,
-  MicroscopeIcon,
   ActivityIcon,
   BandAidIcon,
   CalendarDaysIcon,
   SearchIcon
 } from '@heroicons/react/24/outline';
 
-// Importando ícones adicionais do react-icons
+// Ícones do react-icons que realmente existem
 import { 
-  FaHospitalUser, 
-  FaNotesMedical, 
   FaPrescriptionBottle, 
   FaFilePrescription,
-  FaStethoscope,
   FaHeartbeat,
-  FaSyringe,
+  FaStethoscope,
   FaPills,
+  FaSyringe,
   FaBandAid,
-  FaScalpel,
-  FaMicroscope,
-  FaClipboardList,
-  FaCalendarCheck,
-  FaUserMd,
-  FaIdCard,
   FaMoneyBillWave,
-  FaFileInvoiceDollar,
-  FaLock,
   FaKey,
   FaCalendarAlt,
-  FaClock,
-  FaBuilding,
-  FaPhoneAlt,
-  FaEnvelope,
-  FaMapMarkerAlt,
-  FaBirthdayCake,
-  FaVenusMars,
-  FaNotesMedical as FaClinicalNotes
+  FaHospitalUser,
+  FaFileInvoiceDollar,
+  FaClipboardList,
+  FaMicroscope,
+  FaNotesMedical,
+  FaCut,
+  FaScissors
 } from 'react-icons/fa';
 
 import { toast } from 'sonner';
@@ -883,7 +868,7 @@ export default function Prontuario() {
                 { id: 'prescricoes', label: 'Prescrições', icon: FaSyringe, count: prescricoes.length },
                 { id: 'receitas', label: 'Receitas', icon: FaPills, count: receitas.length },
                 { id: 'atestados', label: 'Atestados', icon: FaBandAid, count: atestados.length },
-                { id: 'procedimentos', label: 'Procedimentos', icon: FaScalpel, count: procedimentosSelecionados.length },
+                { id: 'procedimentos', label: 'Procedimentos', icon: FaCut, count: procedimentosSelecionados.length },
                 { id: 'faturamento', label: 'Faturamento', icon: FaMoneyBillWave, count: null }
               ].map(tab => (
                 <button key={tab.id} onClick={() => setAba(tab.id)} className={`px-5 py-3 text-sm font-medium flex items-center gap-2 transition-all duration-200 ${aba === tab.id ? 'text-blue-600 border-b-2 border-blue-600 bg-white dark:bg-gray-800' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}>
@@ -1017,7 +1002,7 @@ export default function Prontuario() {
                     <div key={idx} className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 bg-gradient-to-r from-gray-50 to-white dark:from-gray-700/50 dark:to-gray-800">
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg"><FaScalpel className="w-5 h-5 text-purple-600" /></div>
+                          <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg"><FaCut className="w-5 h-5 text-purple-600" /></div>
                           <div><p className="text-sm font-medium">{p.nome}</p><p className="text-xs text-gray-500">💰 R$ {p.valor_sugerido?.toFixed(2)} | Código: {p.codigo_tuss}</p></div>
                         </div>
                         <button onClick={() => setProcedimentosSelecionados(procedimentosSelecionados.filter((_, i) => i !== idx))} className="p-2 rounded-lg hover:bg-red-50"><TrashIcon className="w-4 h-4 text-red-600" /></button>
@@ -1107,7 +1092,7 @@ export default function Prontuario() {
                         >
                           {tipo === 'medicamento' && <FaPills className="w-4 h-4" />}
                           {tipo === 'exame' && <FaMicroscope className="w-4 h-4" />}
-                          {tipo === 'procedimento' && <FaScalpel className="w-4 h-4" />}
+                          {tipo === 'procedimento' && <FaCut className="w-4 h-4" />}
                           {tipo.charAt(0).toUpperCase() + tipo.slice(1)}
                         </button>
                       ))}
@@ -1499,7 +1484,7 @@ export default function Prontuario() {
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl">
-                      <FaScalpel className="w-5 h-5 text-white" />
+                      <FaCut className="w-5 h-5 text-white" />
                     </div>
                     <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
                       Adicionar Procedimentos
