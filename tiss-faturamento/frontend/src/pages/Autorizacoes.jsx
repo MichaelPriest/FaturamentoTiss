@@ -1,5 +1,5 @@
 // src/pages/Autorizacoes.jsx
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, 
   CheckIcon, XMarkIcon, EyeIcon, DocumentPlusIcon,
