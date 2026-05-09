@@ -8,7 +8,7 @@ import {
   Bars3Icon, XMarkIcon, ArrowRightOnRectangleIcon,
   ChevronLeftIcon, ChevronRightIcon, SunIcon, MoonIcon,
   CalendarDaysIcon, FolderIcon, ChevronDownIcon, ChevronUpIcon,
-  HomeModernIcon, BanknotesIcon
+  HomeModernIcon, BanknotesIcon, ClipboardDocumentCheckIcon
 } from '@heroicons/react/24/outline';
 
 import Dashboard from './pages/Dashboard';
@@ -18,6 +18,7 @@ import Pacientes from './pages/Pacientes';
 import Prestadores from './pages/Prestadores';
 import Procedimentos from './pages/Procedimentos';
 import Atendimentos from './pages/Atendimentos';
+import Autorizacoes from './pages/Autorizacoes';
 import Faturamento from './pages/Faturamento';
 import Glosas from './pages/Glosas';
 import Financeiro from './pages/Financeiro';
@@ -65,6 +66,7 @@ function MainApp() {
     principal: true,
     cadastros: false,
     agenda: false,
+    autorizacoes: false,
     faturamento: false,
     financeiro: false,
     relatorios: false
@@ -146,6 +148,12 @@ function MainApp() {
       ]
     },
     {
+      id: 'autorizacoes', name: 'Autorizações', icon: ClipboardDocumentCheckIcon,
+      items: [
+        { id: 'autorizacoes', name: 'Autorizações TISS', icon: ClipboardDocumentCheckIcon, color: 'from-indigo-500 to-indigo-600' }
+      ]
+    },
+    {
       id: 'faturamento', name: 'Faturamento', icon: CurrencyDollarIcon,
       items: [
         { id: 'faturamento', name: 'Lotes TISS', icon: CurrencyDollarIcon, color: 'from-emerald-500 to-emerald-600' },
@@ -183,6 +191,7 @@ function MainApp() {
       case 'salas': return <Salas />;
       case 'atendimentos': return <Atendimentos />;
       case 'agendamentos': return <Agendamentos />;
+      case 'autorizacoes': return <Autorizacoes />;
       case 'faturamento': return <Faturamento />;
       case 'glosas': return <Glosas />;
       case 'financeiro': return <Financeiro />;
@@ -208,6 +217,7 @@ function MainApp() {
     
     const subtitles = {
       dashboard: 'Visão geral do sistema',
+      autorizacoes: 'Gerenciamento de autorizações de procedimentos pelos convênios',
       faturamento: 'Geração e envio de lotes TISS',
       atendimentos: 'Registro de atendimentos e guias',
       agendamentos: 'Gerenciamento de agenda e consultas',
