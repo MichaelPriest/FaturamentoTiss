@@ -9,12 +9,12 @@ import { format } from 'date-fns';
 const TIPO_ATENDIMENTO_MAP = {
   '01': 'Remoção',
   '02': 'Pequena Cirurgia',
-  '03': 'Outras Terapias',
+  '03': 'Terapias',
   '04': 'Consulta',
   '08': 'Quimioterapia',
   '09': 'Radioterapia',
   '10': 'TRS',
-  '13': 'Pequenos Atendimentos',
+  '13': 'Peq. Atendimento',
   '23': 'Exame'
 };
 
@@ -22,7 +22,7 @@ const INDICADOR_ACIDENTE_MAP = {
   '0': 'Ac. Trabalho',
   '1': 'Ac. Trânsito',
   '2': 'Outros',
-  '9': 'Não Acidente'
+  '9': 'Não'
 };
 
 const TIPO_CONSULTA_MAP = {
@@ -40,6 +40,16 @@ const MOTIVO_ENCERRAMENTO_MAP = {
   '41': 'Óbito'
 };
 
+const CONSELHO_MAP = {
+  '06': 'CRM',
+  '08': 'CRO',
+  '03': 'CRF',
+  '02': 'COREN',
+  '05': 'CREFITO',
+  '09': 'CRP',
+  '07': 'CRN'
+};
+
 const GRAU_PARTICIPACAO_MAP = {
   '00': 'Cirurgião',
   '01': '1º Aux',
@@ -52,37 +62,11 @@ const GRAU_PARTICIPACAO_MAP = {
   '13': 'Intensivista'
 };
 
-const CONSELHO_MAP = {
-  '06': 'CRM',
-  '08': 'CRO',
-  '03': 'CRF',
-  '02': 'COREN',
-  '05': 'CREFITO',
-  '09': 'CRP',
-  '07': 'CRN'
-};
-
 /* =========================================================
    HELPERS
 ========================================================= */
 
-const moeda = (valor) =>
-  Number(valor || 0).toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
-
-const limitarTexto = (texto = '', tamanho = 150) => {
-  if (!texto) return '';
-
-  if (texto.length <= tamanho) {
-    return texto;
-  }
-
-  return texto.substring(0, tamanho) + '...';
-};
-
-const dataBR = (data) => {
+const formatarData = (data) => {
   if (!data) return '';
 
   try {
@@ -92,7 +76,21 @@ const dataBR = (data) => {
   }
 };
 
-const dividirEmPaginas = (itens = []) => {
+const moeda = (v) =>
+  Number(v || 0).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
+const limitar = (txt = '', max = 150) => {
+  if (!txt) return '';
+
+  return txt.length > max
+    ? txt.substring(0, max) + '...'
+    : txt;
+};
+
+const dividirPaginas = (itens = []) => {
 
   const MAX = 8;
 
@@ -101,9 +99,9 @@ const dividirEmPaginas = (itens = []) => {
   for (let i = 0; i < itens.length; i += MAX) {
 
     paginas.push({
-      numero: paginas.length + 1,
-      total: Math.ceil(itens.length / MAX),
-      itens: itens.slice(i, i + MAX)
+      itens: itens.slice(i, i + MAX),
+      pagina: paginas.length + 1,
+      total: Math.ceil(itens.length / MAX)
     });
 
   }
@@ -111,16 +109,34 @@ const dividirEmPaginas = (itens = []) => {
   if (!paginas.length) {
 
     paginas.push({
-      numero: 1,
-      total: 1,
-      itens: []
+      itens: [],
+      pagina: 1,
+      total: 1
     });
 
   }
 
   return paginas;
-
 };
+
+const campo = (
+  numero,
+  titulo,
+  valor = '',
+  colspan = 1
+) => `
+<td colspan="${colspan}">
+
+<div class="campo-numero">
+${numero} - ${titulo}
+</div>
+
+<div class="campo-valor">
+${valor || '&nbsp;'}
+</div>
+
+</td>
+`;
 
 /* =========================================================
    CSS
@@ -143,14 +159,10 @@ body{
 .guia-page{
   width:297mm;
   min-height:210mm;
-  margin:0 auto;
   padding:4mm;
+  margin:0 auto;
   background:#FFF;
   page-break-after:always;
-}
-
-.guia-page:last-child{
-  page-break-after:auto;
 }
 
 table{
@@ -163,7 +175,7 @@ td{
   border:1px solid #000;
   padding:2px;
   vertical-align:top;
-  font-size:9px;
+  font-size:8px;
   line-height:1.1;
 }
 
@@ -171,23 +183,23 @@ th{
   border:1px solid #000;
   padding:2px;
   background:#d9d9d9;
-  font-size:8px;
+  font-size:7px;
   font-weight:bold;
   text-align:center;
 }
 
 .secao{
   background:#d9d9d9;
-  font-size:8px;
   font-weight:bold;
-}
-
-.campo-numero{
   font-size:7px;
 }
 
+.campo-numero{
+  font-size:6px;
+}
+
 .campo-valor{
-  font-size:9px;
+  font-size:8px;
   font-weight:bold;
   margin-top:2px;
   word-break:break-word;
@@ -201,14 +213,14 @@ th{
   text-align:right;
 }
 
-.titulo-guia{
+.titulo{
   font-size:11px;
   font-weight:bold;
   text-align:center;
 }
 
 .numero-guia{
-  font-size:20px;
+  font-size:18px;
   font-weight:bold;
   text-align:center;
 }
@@ -225,75 +237,19 @@ th{
   padding-top:2px;
 }
 
-/* =========================================================
-   PROCEDIMENTOS EXECUTADOS
-========================================================= */
-
-.tabela-procedimentos{
-  width:100%;
-  border-collapse:collapse;
+.proc-table{
   table-layout:auto;
 }
 
-.tabela-procedimentos th{
+.proc-table td{
   font-size:8px;
-  background:#d9d9d9;
-  white-space:nowrap;
 }
 
-.tabela-procedimentos td{
-  font-size:9px;
-  padding:2px;
-  vertical-align:top;
-  white-space:nowrap;
-}
-
-.tabela-procedimentos .descricao{
-  width:100%;
+.proc-desc{
   min-width:260px;
+  width:100%;
   white-space:normal;
   word-break:break-word;
-  line-height:1.15;
-}
-
-.tabela-procedimentos .w-data{
-  width:60px;
-}
-
-.tabela-procedimentos .w-hora{
-  width:45px;
-}
-
-.tabela-procedimentos .w-tabela{
-  width:40px;
-}
-
-.tabela-procedimentos .w-codigo{
-  width:75px;
-}
-
-.tabela-procedimentos .w-qtd{
-  width:35px;
-}
-
-.tabela-procedimentos .w-via{
-  width:35px;
-}
-
-.tabela-procedimentos .w-tec{
-  width:35px;
-}
-
-.tabela-procedimentos .w-fator{
-  width:45px;
-}
-
-.tabela-procedimentos .w-valor{
-  width:75px;
-}
-
-.tabela-procedimentos .w-seq{
-  width:35px;
 }
 
 @page{
@@ -315,24 +271,6 @@ th{
 
 }
 
-`;
-
-/* =========================================================
-   CAMPO
-========================================================= */
-
-const campo = (numero, titulo, valor = '') => `
-<td>
-
-<div class="campo-numero">
-${numero} - ${titulo}
-</div>
-
-<div class="campo-valor">
-${valor || '&nbsp;'}
-</div>
-
-</td>
 `;
 
 /* =========================================================
@@ -377,13 +315,13 @@ CNES: ${configClinica.cnes || ''}
 
 </td>
 
-<td style="width:56%;vertical-align:middle;">
+<td style="width:56%;">
 
-<div class="titulo-guia">
+<div class="titulo">
 GUIA SP/SADT
 </div>
 
-<div class="titulo-guia">
+<div class="titulo">
 SERVIÇO PROFISSIONAL / SADT
 </div>
 
@@ -391,7 +329,7 @@ SERVIÇO PROFISSIONAL / SADT
 
 <td style="width:22%;">
 
-<div style="font-size:8px;">
+<div style="font-size:7px;">
 Nº Guia Prestador
 </div>
 
@@ -405,13 +343,13 @@ ${atendimento.numero_guia_prestador || ''}
 
 </table>
 
-<!-- AUTORIZAÇÃO -->
+<!-- 1-6 -->
 
 <table>
 
 <tr>
-<td colspan="5" class="secao">
-Registro ANS / Autorização
+<td colspan="6" class="secao">
+1 - Registro ANS / Autorização
 </td>
 </tr>
 
@@ -419,70 +357,73 @@ Registro ANS / Autorização
 
 ${campo('1', 'Registro ANS', convenio?.registro_ans)}
 ${campo('2', 'Guia Principal', atendimento.guia_principal)}
-${campo('3', 'Data Aut.', dataBR(atendimento.data_autorizacao))}
+${campo('3', 'Data Aut.', formatarData(atendimento.data_autorizacao))}
 ${campo('4', 'Senha', atendimento.senha_autorizacao)}
-${campo('5', 'Validade', dataBR(atendimento.data_validade_senha))}
+${campo('5', 'Validade', formatarData(atendimento.data_validade_senha))}
+${campo('6', 'Guia Operadora', atendimento.numero_guia_operadora)}
 
 </tr>
 
 </table>
 
-<!-- BENEFICIARIO -->
+<!-- 7-12 -->
 
 <table>
 
 <tr>
 <td colspan="6" class="secao">
-Dados Beneficiário
+2 - Dados Beneficiário
 </td>
 </tr>
 
 <tr>
 
-${campo('6', 'Carteira', atendimento.numero_carteira)}
-${campo('7', 'Validade', atendimento.validade_carteira)}
-${campo('8', 'Nome', atendimento.paciente_nome)}
-${campo('9', 'CNS', atendimento.cns)}
-${campo('10', 'RN', atendimento.atendimento_rn)}
-${campo('11', 'Nascimento', atendimento.data_nascimento)}
+${campo('7', 'Carteira', atendimento.numero_carteira)}
+${campo('8', 'Validade', atendimento.validade_carteira)}
+${campo('9', 'Nome', atendimento.paciente_nome, 2)}
+${campo('10', 'CNS', atendimento.cns)}
+${campo('11', 'RN', atendimento.atendimento_rn)}
+${campo('12', 'Nascimento', atendimento.data_nascimento)}
 
 </tr>
 
 </table>
 
-<!-- SOLICITANTE -->
+<!-- 13-20 -->
 
 <table>
 
 <tr>
-<td colspan="6" class="secao">
-Contratado Solicitante
+<td colspan="8" class="secao">
+3 - Contratado Solicitante
 </td>
 </tr>
 
 <tr>
-
-${campo(
-  '12',
-  'Nome Contratado',
-  atendimento.nome_contratado ||
-  configClinica.nome_empresa
-)}
 
 ${campo(
   '13',
+  'Nome Contratado',
+  atendimento.nome_contratado ||
+  configClinica.nome_empresa,
+  2
+)}
+
+${campo(
+  '14',
   'Código Operadora',
   convenio?.codigo_prestador
 )}
 
 ${campo(
-  '14',
+  '15',
   'Profissional',
-  atendimento.profissional_solicitante
+  atendimento.profissional_solicitante,
+  2
 )}
 
 ${campo(
-  '15',
+  '16',
   'Conselho',
   CONSELHO_MAP[
     atendimento.conselho_solicitante
@@ -490,39 +431,51 @@ ${campo(
 )}
 
 ${campo(
-  '16',
+  '17',
   'Nº Conselho',
   atendimento.numero_conselho_solicitante
 )}
 
 ${campo(
-  '17',
+  '18',
   'UF',
   atendimento.uf_solicitante
+)}
+
+${campo(
+  '19',
+  'CBO',
+  atendimento.cbos_solicitante
+)}
+
+${campo(
+  '20',
+  'Assinatura',
+  ''
 )}
 
 </tr>
 
 </table>
 
-<!-- SOLICITAÇÃO -->
+<!-- 21-26 -->
 
 <table>
 
 <tr>
 <td colspan="6" class="secao">
-Solicitação / Procedimentos
+4 - Solicitação / Procedimentos
 </td>
 </tr>
 
 <tr>
 
-<th>Seq</th>
-<th>Tabela</th>
-<th>Código</th>
-<th>Descrição</th>
-<th>Qtd Sol.</th>
-<th>Qtd Aut.</th>
+<th>21 Seq</th>
+<th>22 Tabela</th>
+<th>23 Código</th>
+<th>24 Descrição</th>
+<th>25 Qtd Sol.</th>
+<th>26 Qtd Aut.</th>
 
 </tr>
 
@@ -547,7 +500,7 @@ ${
       </td>
 
       <td>
-      ${limitarTexto(item.nome)}
+      ${limitar(item.nome)}
       </td>
 
       <td class="text-center">
@@ -566,9 +519,7 @@ ${
     : `
 
     <tr>
-
-    <td colspan="6" style="height:35px;"></td>
-
+    <td colspan="6" style="height:30px;"></td>
     </tr>
 
     `
@@ -576,63 +527,28 @@ ${
 
 </table>
 
-<!-- EXECUTANTE -->
+<!-- 27-30 -->
 
 <table>
 
 <tr>
 <td colspan="4" class="secao">
-Contratado Executante
+5 - Dados Atendimento
 </td>
 </tr>
 
 <tr>
 
 ${campo(
-  '18',
-  'Código Operadora',
-  convenio?.codigo_prestador
-)}
-
-${campo(
-  '19',
-  'Nome Contratado',
-  atendimento.nome_contratado_executante ||
-  configClinica.nome_empresa
-)}
-
-${campo(
-  '20',
-  'CNES',
-  configClinica.cnes
-)}
-
-${campo(
-  '21',
+  '27',
   'Tipo Atendimento',
   TIPO_ATENDIMENTO_MAP[
     atendimento.tipo_atendimento
   ] || ''
 )}
 
-</tr>
-
-</table>
-
-<!-- DADOS ATENDIMENTO -->
-
-<table>
-
-<tr>
-<td colspan="4" class="secao">
-Dados Atendimento
-</td>
-</tr>
-
-<tr>
-
 ${campo(
-  '22',
+  '28',
   'Indicação Acidente',
   INDICADOR_ACIDENTE_MAP[
     atendimento.indicacao_acidente
@@ -640,7 +556,7 @@ ${campo(
 )}
 
 ${campo(
-  '23',
+  '29',
   'Tipo Consulta',
   TIPO_CONSULTA_MAP[
     atendimento.tipo_consulta
@@ -648,139 +564,126 @@ ${campo(
 )}
 
 ${campo(
-  '24',
+  '30',
   'Motivo Encerramento',
   MOTIVO_ENCERRAMENTO_MAP[
     atendimento.motivo_encerramento
   ] || ''
 )}
 
-${campo(
-  '25',
-  'Observação',
-  limitarTexto(atendimento.observacao || '', 120)
-)}
-
 </tr>
 
 </table>
 
-<!-- PROCEDIMENTOS EXECUTADOS -->
+<!-- 31-48 -->
 
-<table class="tabela-procedimentos">
+<table class="proc-table">
 
 <tr>
-<td colspan="12" class="secao">
-Procedimentos Executados
+<td colspan="18" class="secao">
+6 - Procedimentos Executados
 </td>
 </tr>
 
 <tr>
 
-<th class="w-data">
-Data
-</th>
-
-<th class="w-hora">
-Hora
-</th>
-
-<th class="w-tabela">
-Tabela
-</th>
-
-<th class="w-codigo">
-Código
-</th>
-
-<th>
-Descrição
-</th>
-
-<th class="w-qtd">
-Qtd
-</th>
-
-<th class="w-via">
-Via
-</th>
-
-<th class="w-tec">
-Tec
-</th>
-
-<th class="w-fator">
-Fator
-</th>
-
-<th class="w-valor">
-Vl Unit.
-</th>
-
-<th class="w-valor">
-Vl Total
-</th>
-
-<th class="w-seq">
-Seq
-</th>
+<th>31 Data</th>
+<th>32 H.Ini</th>
+<th>33 H.Fim</th>
+<th>34 Tabela</th>
+<th>35 Código</th>
+<th>36 Descrição</th>
+<th>37 Qtde</th>
+<th>38 Via</th>
+<th>39 Técnica</th>
+<th>40 Red/Acresc</th>
+<th>41 Fator</th>
+<th>42 Valor Unit.</th>
+<th>43 Valor Total</th>
+<th>44 Filme</th>
+<th>45 %</th>
+<th>46 Unidade</th>
+<th>47 Seq Ref</th>
+<th>48 Seq</th>
 
 </tr>
 
 ${
-  itensPagina.length > 0
+  itensPagina.length
 
     ? itensPagina.map((item, idx) => `
 
       <tr>
 
-      <td class="text-center w-data">
+      <td class="text-center">
       ${item.data_execucao || ''}
       </td>
 
-      <td class="text-center w-hora">
+      <td class="text-center">
       ${item.hora_inicial || ''}
       </td>
 
-      <td class="text-center w-tabela">
+      <td class="text-center">
+      ${item.hora_final || ''}
+      </td>
+
+      <td class="text-center">
       ${item.tabela_referencia || '22'}
       </td>
 
-      <td class="text-center w-codigo">
+      <td class="text-center">
       ${item.codigo || ''}
       </td>
 
-      <td class="descricao">
-
-      ${limitarTexto(item.nome || '', 150)}
-
+      <td class="proc-desc">
+      ${limitar(item.nome || '', 150)}
       </td>
 
-      <td class="text-center w-qtd">
+      <td class="text-center">
       ${item.quantidade || 1}
       </td>
 
-      <td class="text-center w-via">
-      ${item.viaAcesso || '1'}
+      <td class="text-center">
+      ${item.viaAcesso || ''}
       </td>
 
-      <td class="text-center w-tec">
-      ${item.tecnicaUtilizada || '1'}
+      <td class="text-center">
+      ${item.tecnicaUtilizada || ''}
       </td>
 
-      <td class="text-center w-fator">
-      1,00
+      <td class="text-center">
+      ${item.reducao_acrescimo || ''}
       </td>
 
-      <td class="text-right w-valor">
+      <td class="text-center">
+      ${item.fator_reducao || '1,00'}
+      </td>
+
+      <td class="text-right">
       ${moeda(item.valor_unitario)}
       </td>
 
-      <td class="text-right w-valor">
+      <td class="text-right">
       ${moeda(item.valor_total)}
       </td>
 
-      <td class="text-center w-seq">
+      <td class="text-center">
+      ${item.filme || ''}
+      </td>
+
+      <td class="text-center">
+      ${item.percentual_reducao || ''}
+      </td>
+
+      <td class="text-center">
+      ${item.unidade_medida || ''}
+      </td>
+
+      <td class="text-center">
+      ${item.sequencial_referencia || ''}
+      </td>
+
+      <td class="text-center">
       ${idx + 1}
       </td>
 
@@ -790,37 +693,35 @@ ${
 
     : `
 
-      <tr>
-
-      <td colspan="12" style="height:50px;"></td>
-
-      </tr>
+    <tr>
+    <td colspan="18" style="height:40px;"></td>
+    </tr>
 
     `
 }
 
 </table>
 
-<!-- PROFISSIONAIS -->
+<!-- 49-58 -->
 
 <table>
 
 <tr>
 <td colspan="8" class="secao">
-Profissionais Executantes
+7 - Profissionais Executantes
 </td>
 </tr>
 
 <tr>
 
-<th>Seq</th>
-<th>Grau</th>
-<th>CPF</th>
-<th>Nome</th>
-<th>Cons.</th>
-<th>Nº Conselho</th>
-<th>UF</th>
-<th>CBO</th>
+<th>49 Seq</th>
+<th>50 Grau Participação</th>
+<th>51 CPF</th>
+<th>52 Nome</th>
+<th>53 Conselho</th>
+<th>54 Nº Conselho</th>
+<th>55 UF</th>
+<th>56 CBO</th>
 
 </tr>
 
@@ -842,7 +743,7 @@ ${
   </td>
 
   <td>
-  ${limitarTexto(item.prestador_nome || '', 60)}
+  ${limitar(item.prestador_nome || '', 60)}
   </td>
 
   <td class="text-center">
@@ -868,46 +769,70 @@ ${
 
 </table>
 
-<!-- TOTAIS -->
+<!-- 59-65 -->
 
 <table>
 
 <tr>
 <td colspan="7" class="secao">
-Valores Totais
+8 - Valores Totais
 </td>
 </tr>
 
 <tr>
 
 ${campo('59', 'Procedimentos', moeda(total))}
-${campo('60', 'Taxas', '0,00')}
-${campo('61', 'Materiais', '0,00')}
-${campo('62', 'OPME', '0,00')}
-${campo('63', 'Medicamentos', '0,00')}
-${campo('64', 'Gases', '0,00')}
+${campo('60', 'Taxas', moeda(atendimento.total_taxas))}
+${campo('61', 'Materiais', moeda(atendimento.total_materiais))}
+${campo('62', 'OPME', moeda(atendimento.total_opme))}
+${campo('63', 'Medicamentos', moeda(atendimento.total_medicamentos))}
+${campo('64', 'Gases', moeda(atendimento.total_gases))}
 ${campo('65', 'Total Geral', moeda(total))}
 
 </tr>
 
 </table>
 
-<!-- ASSINATURAS -->
+<!-- 66 -->
+
+<table>
+
+<tr>
+<td class="secao">
+66 - Observações
+</td>
+</tr>
+
+<tr>
+
+<td style="height:35px;">
+${limitar(atendimento.observacao || '', 300)}
+</td>
+
+</tr>
+
+</table>
+
+<!-- 67-68 -->
 
 <table>
 
 <tr>
 
 <td class="assinatura">
-<div>Assinatura Responsável</div>
+
+<div>
+67 - Assinatura Beneficiário
+</div>
+
 </td>
 
 <td class="assinatura">
-<div>Assinatura Beneficiário</div>
-</td>
 
-<td class="assinatura">
-<div>Assinatura Contratado</div>
+<div>
+68 - Assinatura Contratado
+</div>
+
 </td>
 
 </tr>
@@ -920,7 +845,7 @@ ${campo('65', 'Total Geral', moeda(total))}
 };
 
 /* =========================================================
-   HTML
+   HTML COMPLETO
 ========================================================= */
 
 export const gerarHTMLGuiaTISSOficial = (
@@ -929,11 +854,12 @@ export const gerarHTMLGuiaTISSOficial = (
   configClinica = {}
 ) => {
 
-  const paginas = dividirEmPaginas(
+  const paginas = dividirPaginas(
     atendimento.itens || []
   );
 
   return `
+
 <!DOCTYPE html>
 
 <html>
@@ -943,7 +869,7 @@ export const gerarHTMLGuiaTISSOficial = (
 <meta charset="UTF-8"/>
 
 <title>
-Guia TISS
+Guia SP/SADT
 </title>
 
 <style>
@@ -954,18 +880,19 @@ ${gerarCSS()}
 
 <body>
 
-${paginas.map((pagina) =>
+${paginas.map((p) =>
   gerarPagina(
     atendimento,
     convenio,
     configClinica,
-    pagina.itens
+    p.itens
   )
 ).join('')}
 
 </body>
 
 </html>
+
 `;
 
 };
@@ -1031,6 +958,7 @@ export const imprimirMultiplasGuiasTISS = (
   }
 
   let htmlFinal = `
+
 <!DOCTYPE html>
 
 <html>
@@ -1046,6 +974,7 @@ ${gerarCSS()}
 </head>
 
 <body>
+
 `;
 
   guias.forEach((guia) => {
