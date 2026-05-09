@@ -2,8 +2,8 @@
 import { supabase } from '../lib/supabaseClient';
 
 export const autorizacoesService = {
-  // Listar todas as autorizações (buscar da tabela atendimentos)
-  async listar(filtros = {}) {
+  // Listar atendimentos com itens pendentes de autorização
+  async listarPendentes(filtros = {}) {
     let query = supabase
       .from('atendimentos')
       .select(`
@@ -16,6 +16,7 @@ export const autorizacoesService = {
         observacao,
         status,
         valor_total,
+        itens,
         itens_autorizados,
         paciente_id,
         paciente_nome,
@@ -29,25 +30,39 @@ export const autorizacoesService = {
       `)
       .order('created_at', { ascending: false });
 
-    // Aplicar filtros
-    if (filtros.status && filtros.status !== 'todos') {
-      query = query.eq('status', filtros.status);
-    }
-    if (filtros.paciente_id) {
-      query = query.eq('paciente_id', filtros.paciente_id);
-    }
-    if (filtros.convenio_id) {
-      query = query.eq('paciente_convenio_id', filtros.convenio_id);
-    }
-    if (filtros.numero_guia) {
-      query = query.eq('numero_guia_prestador', filtros.numero_guia);
-    }
-
     const { data, error } = await query;
     if (error) throw error;
-    
-    // Transformar os dados para o formato esperado
-    return data.map(item => ({
+
+    // Filtrar atendimentos que têm itens pendentes de autorização
+    const pendentes = data.filter(atendimento => {
+      const itensExecutados = atendimento.itens || [];
+      const itensAutorizados = atendimento.itens_autorizados || [];
+      
+      // Verificar se há itens executados sem autorização
+      const temPendente = itensExecutados.some(itemExecutado => {
+        const autorizado = itensAutorizados.find(aut => aut.codigo === itemExecutado.codigo);
+        return !autorizado;
+      });
+      
+      return temPendente;
+    });
+
+    // Aplicar filtros adicionais
+    let resultado = pendentes;
+    if (filtros.status && filtros.status !== 'todos') {
+      resultado = resultado.filter(a => a.status === filtros.status);
+    }
+    if (filtros.paciente_id) {
+      resultado = resultado.filter(a => a.paciente_id === parseInt(filtros.paciente_id));
+    }
+    if (filtros.convenio_id) {
+      resultado = resultado.filter(a => a.paciente_convenio_id === parseInt(filtros.convenio_id));
+    }
+    if (filtros.numero_guia) {
+      resultado = resultado.filter(a => a.numero_guia_prestador === filtros.numero_guia);
+    }
+
+    return resultado.map(item => ({
       ...item,
       convenio: {
         id: item.paciente_convenio_id,
@@ -60,11 +75,11 @@ export const autorizacoesService = {
         nome: item.paciente_nome,
         numero_carteira: item.numero_carteira
       },
-      itens: item.itens_autorizados || []
+      itens_pendentes: this.getItensPendentes(item.itens, item.itens_autorizados)
     }));
   },
 
-  // Buscar autorização por ID
+  // Buscar atendimento por ID com itens pendentes
   async buscarPorId(id) {
     const { data, error } = await supabase
       .from('atendimentos')
@@ -76,7 +91,7 @@ export const autorizacoesService = {
     
     return {
       ...data,
-      itens: data.itens_autorizados || []
+      itens_pendentes: this.getItensPendentes(data.itens, data.itens_autorizados)
     };
   },
 
@@ -89,58 +104,104 @@ export const autorizacoesService = {
       .single();
 
     if (error && error.code !== 'PGRST116') throw error;
+    
+    if (data) {
+      return {
+        ...data,
+        itens_pendentes: this.getItensPendentes(data.itens, data.itens_autorizados)
+      };
+    }
     return data;
   },
 
-  // Adicionar autorização a um atendimento existente
-  async adicionarAutorizacao(atendimentoId, autorizacao) {
-    // Primeiro buscar o atendimento existente
+  // Obter itens pendentes de autorização
+  getItensPendentes(itensExecutados, itensAutorizados) {
+    const executados = itensExecutados || [];
+    const autorizados = itensAutorizados || [];
+    
+    return executados.filter(itemExecutado => {
+      const autorizado = autorizados.find(aut => aut.codigo === itemExecutado.codigo);
+      // Item está pendente se não tem autorização OU quantidade autorizada insuficiente
+      if (!autorizado) return true;
+      
+      const qtdAutorizada = autorizado.quantidade_autorizada || 0;
+      const qtdUtilizada = autorizado.quantidade_utilizada || 0;
+      const qtdExecutada = itemExecutado.quantidade || 1;
+      
+      return qtdAutorizada < qtdExecutada;
+    }).map(item => ({
+      ...item,
+      pendente_autorizacao: true,
+      quantidade_autorizada_sugerida: item.quantidade || 1,
+      ja_autorizado: false
+    }));
+  },
+
+  // Autorizar itens específicos
+  async autorizarItens(atendimentoId, itensAutorizados) {
+    // Buscar atendimento atual
     const { data: atendimento, error: fetchError } = await supabase
       .from('atendimentos')
-      .select('itens_autorizados, status')
+      .select('itens_autorizados, status, itens')
       .eq('id', atendimentoId)
       .single();
 
     if (fetchError) throw fetchError;
 
-    // Mesclar itens autorizados existentes com os novos
     const itensExistentes = atendimento.itens_autorizados || [];
-    const novosItens = autorizacao.itens || [];
+    const itensExecutados = atendimento.itens || [];
     
-    // Verificar se algum item já existe (pelo código)
+    // Mesclar itens autorizados (atualizar quantidades ou adicionar novos)
     const itensMesclados = [...itensExistentes];
-    for (const novoItem of novosItens) {
-      const existe = itensMesclados.some(item => item.codigo === novoItem.codigo);
-      if (!existe) {
-        itensMesclados.push(novoItem);
-      }
-    }
-
-    // Calcular novo status baseado nos itens autorizados
-    let novoStatus = 'pendente';
-    if (itensMesclados.length > 0) {
-      const todosAutorizados = itensMesclados.every(item => !item.pendente_autorizacao);
-      const algumAutorizado = itensMesclados.some(item => !item.pendente_autorizacao);
+    
+    for (const novoItem of itensAutorizados) {
+      const indiceExistente = itensMesclados.findIndex(item => item.codigo === novoItem.codigo);
       
-      if (todosAutorizados && itensMesclados.length > 0) {
-        novoStatus = 'autorizado';
-      } else if (algumAutorizado && !todosAutorizados) {
-        novoStatus = 'parcial';
+      if (indiceExistente >= 0) {
+        // Atualizar existente - somar quantidade autorizada
+        const qtdAtual = itensMesclados[indiceExistente].quantidade_autorizada || 0;
+        itensMesclados[indiceExistente] = {
+          ...itensMesclados[indiceExistente],
+          quantidade_autorizada: qtdAtual + novoItem.quantidade_autorizada,
+          valor_total: (qtdAtual + novoItem.quantidade_autorizada) * novoItem.valor_unitario,
+          data_autorizacao: novoItem.data_autorizacao || new Date().toISOString().split('T')[0],
+          updated_at: new Date().toISOString()
+        };
       } else {
-        novoStatus = 'pendente';
+        // Adicionar novo
+        itensMesclados.push({
+          ...novoItem,
+          id: Date.now(),
+          quantidade_utilizada: 0,
+          created_at: new Date().toISOString()
+        });
       }
     }
 
-    // Atualizar o atendimento com os novos itens autorizados
+    // Calcular novo status do atendimento
+    let todosAutorizados = true;
+    for (const itemExecutado of itensExecutados) {
+      const autorizado = itensMesclados.find(aut => aut.codigo === itemExecutado.codigo);
+      const qtdExecutada = itemExecutado.quantidade || 1;
+      const qtdAutorizada = autorizado?.quantidade_autorizada || 0;
+      
+      if (qtdAutorizada < qtdExecutada) {
+        todosAutorizados = false;
+        break;
+      }
+    }
+    
+    const novoStatus = todosAutorizados ? 'autorizado' : 'parcial';
+
+    // Atualizar o atendimento
     const { data, error } = await supabase
       .from('atendimentos')
       .update({
         itens_autorizados: itensMesclados,
         status: novoStatus,
-        data_autorizacao: autorizacao.data_autorizacao || new Date().toISOString().split('T')[0],
-        data_validade_senha: autorizacao.data_validade_senha,
-        senha_autorizacao: autorizacao.senha_autorizacao,
-        observacao: autorizacao.observacao,
+        data_autorizacao: itensAutorizados[0]?.data_autorizacao || new Date().toISOString().split('T')[0],
+        data_validade_senha: itensAutorizados[0]?.data_validade_senha,
+        senha_autorizacao: itensAutorizados[0]?.senha_autorizacao,
         updated_at: new Date().toISOString()
       })
       .eq('id', atendimentoId)
@@ -150,65 +211,47 @@ export const autorizacoesService = {
     return data[0];
   },
 
-  // Atualizar status da autorização
-  async atualizarStatus(atendimentoId, novoStatus) {
-    const { data, error } = await supabase
-      .from('atendimentos')
-      .update({
-        status: novoStatus,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', atendimentoId)
-      .select();
-
-    if (error) throw error;
-    return data[0];
-  },
-
-  // Atualizar itens autorizados
-  async atualizarItensAutorizados(atendimentoId, itensAutorizados) {
-    // Calcular status baseado nos itens
-    let novoStatus = 'pendente';
-    if (itensAutorizados.length > 0) {
-      const todosAutorizados = itensAutorizados.every(item => !item.pendente_autorizacao);
-      const algumAutorizado = itensAutorizados.some(item => !item.pendente_autorizacao);
-      
-      if (todosAutorizados && itensAutorizados.length > 0) {
-        novoStatus = 'autorizado';
-      } else if (algumAutorizado && !todosAutorizados) {
-        novoStatus = 'parcial';
-      }
-    }
-
-    const { data, error } = await supabase
-      .from('atendimentos')
-      .update({
-        itens_autorizados: itensAutorizados,
-        status: novoStatus,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', atendimentoId)
-      .select();
-
-    if (error) throw error;
-    return data[0];
-  },
-
-  // Estatísticas de autorizações
+  // Estatísticas de autorizações pendentes
   async getEstatisticas() {
     const { data, error } = await supabase
       .from('atendimentos')
-      .select('status, valor_total');
+      .select('status, valor_total, itens, itens_autorizados');
 
     if (error) throw error;
 
-    const pendentes = data.filter(a => a.status === 'pendente').length;
-    const autorizados = data.filter(a => a.status === 'autorizado').length;
-    const parciais = data.filter(a => a.status === 'parcial').length;
-    const faturados = data.filter(a => a.status === 'faturado').length;
-    const finalizados = data.filter(a => a.status === 'finalizado').length;
-    const valorTotal = data.reduce((sum, a) => sum + (a.valor_total || 0), 0);
+    let pendentes = 0;
+    let autorizados = 0;
+    let parciais = 0;
+    let faturados = 0;
+    let finalizados = 0;
+    let valorTotalPendente = 0;
 
-    return { pendentes, autorizados, parciais, faturados, finalizados, valorTotal, total: data.length };
+    for (const item of data) {
+      const itensExecutados = item.itens || [];
+      const itensAutorizados = item.itens_autorizados || [];
+      
+      // Verificar se tem itens pendentes
+      const temPendente = itensExecutados.some(executado => {
+        const autorizado = itensAutorizados.find(aut => aut.codigo === executado.codigo);
+        const qtdExecutada = executado.quantidade || 1;
+        const qtdAutorizada = autorizado?.quantidade_autorizada || 0;
+        return !autorizado || qtdAutorizada < qtdExecutada;
+      });
+
+      if (temPendente) {
+        pendentes++;
+        valorTotalPendente += item.valor_total || 0;
+      } else if (item.status === 'autorizado') {
+        autorizados++;
+      } else if (item.status === 'parcial') {
+        parciais++;
+      } else if (item.status === 'faturado') {
+        faturados++;
+      } else if (item.status === 'finalizado') {
+        finalizados++;
+      }
+    }
+
+    return { pendentes, autorizados, parciais, faturados, finalizados, valorTotalPendente, total: data.length };
   }
 };
