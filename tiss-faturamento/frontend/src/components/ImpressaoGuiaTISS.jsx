@@ -72,40 +72,31 @@ const TECNICA_MAP = {
   '3': 'Robótica'
 };
 
-// Divide os itens em múltiplas páginas/guias (mantém mesmo número da guia)
-const dividirEmPaginas = (itens, itensAutorizados = []) => {
-  const MAX_PROCEDIMENTOS_POR_PAGINA = 8;
-  
+// Divide os itens em múltiplas páginas
+const dividirEmPaginas = (itens) => {
+  const MAX_PROCEDIMENTOS_POR_PAGINA = 7;
   const paginas = [];
-  let currentIndex = 0;
   
-  while (currentIndex < itens.length) {
-    const fimProcedimentos = Math.min(currentIndex + MAX_PROCEDIMENTOS_POR_PAGINA, itens.length);
-    const procedimentosPagina = itens.slice(currentIndex, fimProcedimentos);
-    
+  for (let i = 0; i < itens.length; i += MAX_PROCEDIMENTOS_POR_PAGINA) {
     paginas.push({
       numero_pagina: paginas.length + 1,
-      itens: procedimentosPagina,
-      itens_autorizados: itensAutorizados,
-      continua_proxima_pagina: fimProcedimentos < itens.length
+      itens: itens.slice(i, i + MAX_PROCEDIMENTOS_POR_PAGINA),
+      total_paginas: Math.ceil(itens.length / MAX_PROCEDIMENTOS_POR_PAGINA)
     });
-    
-    currentIndex = fimProcedimentos;
   }
   
   if (paginas.length === 0) {
     paginas.push({
       numero_pagina: 1,
       itens: [],
-      itens_autorizados: itensAutorizados,
-      continua_proxima_pagina: false
+      total_paginas: 1
     });
   }
   
   return paginas;
 };
 
-// Gera o CSS para impressão
+// Gera o CSS para impressão A4 paisagem
 const gerarCSS = () => {
   return `
     * {
@@ -116,16 +107,27 @@ const gerarCSS = () => {
     
     body {
       font-family: 'Helvetica', 'Arial', sans-serif;
-      font-size: 10pt;
-      line-height: 1.2;
       background: white;
       margin: 0;
       padding: 0;
     }
     
+    /* Container para impressão */
+    .print-container {
+      width: 100%;
+      background: white;
+    }
+    
+    /* Cada página da guia */
     .guia-page {
+      width: 297mm;
+      min-height: 210mm;
+      margin: 0 auto;
+      background: white;
+      position: relative;
       page-break-after: always;
       break-after: page;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
     }
     
     .guia-page:last-child {
@@ -134,19 +136,17 @@ const gerarCSS = () => {
     }
     
     .guia-container {
-      max-width: 297mm;
       width: 100%;
-      min-height: 210mm;
-      margin: 0 auto;
+      height: 100%;
+      padding: 8mm;
       background: white;
-      border: 1px solid #000;
-      padding: 8px;
-      position: relative;
     }
     
+    /* Grid System */
     .grid {
       display: grid;
       gap: 0;
+      width: 100%;
     }
     
     .grid-2 { grid-template-columns: repeat(2, 1fr); }
@@ -157,26 +157,30 @@ const gerarCSS = () => {
     .grid-8 { grid-template-columns: repeat(8, 1fr); }
     
     .titulo-principal {
-      font-size: 10pt;
+      font-size: 11pt;
       font-weight: bold;
       text-align: center;
       text-transform: uppercase;
+      line-height: 1.3;
     }
     
     .titulo-secao {
       font-size: 9pt;
       font-weight: bold;
       background: #e0e0e0;
-      padding: 3px 5px;
-      margin-top: 5px;
+      padding: 4px 6px;
+      margin-top: 6px;
+      margin-bottom: 0;
       border: 1px solid #000;
       border-bottom: none;
     }
     
     .campo {
-      padding: 3px 5px;
+      padding: 4px 6px;
       border: 1px solid #000;
       font-size: 8pt;
+      line-height: 1.3;
+      word-break: break-word;
     }
     
     .numero-campo {
@@ -187,17 +191,18 @@ const gerarCSS = () => {
     
     .tabela-wrapper {
       overflow-x: auto;
+      margin: 0;
     }
     
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 7.5pt;
+      font-size: 7pt;
     }
     
     th, td {
       border: 1px solid #000;
-      padding: 3px 2px;
+      padding: 3px 4px;
       vertical-align: top;
     }
     
@@ -209,23 +214,25 @@ const gerarCSS = () => {
     
     .text-center { text-align: center; }
     .text-right { text-align: right; }
+    .text-left { text-align: left; }
     
     .assinatura {
       display: flex;
       justify-content: space-between;
       margin-top: 15px;
+      gap: 20px;
     }
     
     .assinatura-item {
       text-align: center;
-      width: 30%;
+      flex: 1;
       font-size: 7pt;
     }
     
     .linha-assinatura {
       border-top: 1px solid #000;
       padding-top: 4px;
-      margin-top: 20px;
+      margin-top: 25px;
       margin-bottom: 5px;
     }
     
@@ -238,46 +245,62 @@ const gerarCSS = () => {
     }
     
     .continuacao {
-      margin-top: 10px;
+      margin-top: 20px;
     }
     
     .pagina-info {
-      font-size: 7pt;
-      margin-top: 2px;
+      font-size: 8pt;
+      margin-top: 3px;
       color: #333;
+      font-weight: normal;
     }
     
+    .aviso-continuacao {
+      background: #ffffcc;
+      text-align: center;
+      padding: 8px;
+      border: 1px solid #000;
+      font-size: 9pt;
+      font-weight: bold;
+    }
+    
+    /* Configuração específica para impressão */
     @media print {
-      body { 
-        padding: 0; 
-        margin: 0; 
+      body {
+        margin: 0;
+        padding: 0;
       }
-      .guia-container { 
-        border: none; 
-        padding: 5mm;
+      
+      .guia-page {
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+        page-break-after: always;
       }
+      
+      .guia-container {
+        padding: 10mm;
+      }
+      
       th, .titulo-secao { 
         background: #e8e8e8 !important;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
-      .guia-page {
-        page-break-after: always;
-        break-after: page;
+      
+      @page {
+        size: A4 landscape;
+        margin: 0;
       }
-    }
-    
-    @page {
-      size: A4 landscape;
-      margin: 5mm;
     }
   `;
 };
 
-// Gera o HTML de uma única página da guia
+// Gera o HTML de uma única página
 const gerarPaginaGuia = (atendimento, convenio, configClinica, paginaAtual, totalPaginas, itensPagina) => {
   const totalTodosItens = (atendimento.itens || []).reduce((sum, item) => sum + (item.valor_total || 0), 0);
   const numeroGuiaOriginal = atendimento.numero_guia_prestador || '1000000';
+  const ehUltimaPagina = paginaAtual === totalPaginas;
 
   return `
     <div class="guia-page">
@@ -293,11 +316,11 @@ const gerarPaginaGuia = (atendimento, convenio, configClinica, paginaAtual, tota
             <div class="titulo-principal">GUIA DE SERVIÇO PROFISSIONAL /</div>
             <div class="titulo-principal">SERVIÇO AUXILIAR DE DIAGNÓSTICO E TERAPIA</div>
             <div style="font-size: 9pt; font-weight: bold;">SP/SADT</div>
-            ${totalPaginas > 1 ? `<div class="pagina-info">Página ${paginaAtual} de ${totalPaginas}</div>` : ''}
+            ${totalPaginas > 1 ? `<div class="pagina-info"><strong>Página ${paginaAtual} de ${totalPaginas}</strong></div>` : ''}
           </div>
           <div class="campo text-right">
             <div style="font-size: 7pt;">Nº DA GUIA</div>
-            <div style="font-size: 14pt; font-weight: bold;">${numeroGuiaOriginal}</div>
+            <div style="font-size: 16pt; font-weight: bold;">${numeroGuiaOriginal}</div>
             <div style="font-size: 6pt;">Versão TISS: ${atendimento.versao_tiss || '4.03.00'}</div>
           </div>
         </div>
@@ -321,7 +344,7 @@ const gerarPaginaGuia = (atendimento, convenio, configClinica, paginaAtual, tota
         <div class="grid grid-6" style="border: 1px solid #000; border-top: none;">
           <div class="campo"><span class="numero-campo">07</span> Nº CARTEIRA<br>${atendimento.numero_carteira || '_________________________'}</div>
           <div class="campo"><span class="numero-campo">08</span> VALIDADE<br>${atendimento.validade_carteira || '___/___/_____'}</div>
-          <div class="campo"><span class="numero-campo">09</span> NOME<br>${atendimento.paciente_nome || '________________________________________'}</div>
+          <div class="campo"><span class="numero-campo">09</span> NOME<br><strong>${atendimento.paciente_nome || '________________________________________'}</strong></div>
           <div class="campo"><span class="numero-campo">10</span> CNS<br>${atendimento.cns || '_______________________________'}</div>
           <div class="campo"><span class="numero-campo">11</span> ATENDIMENTO RN<br>${atendimento.atendimento_rn === 'S' ? '[X] SIM' : '[ ] SIM / [ ] NÃO'}</div>
           <div class="campo"><span class="numero-campo">12</span> DATA NASCIMENTO<br>${atendimento.data_nascimento || '___/___/_____'}</div>
@@ -344,22 +367,16 @@ const gerarPaginaGuia = (atendimento, convenio, configClinica, paginaAtual, tota
         
         <!-- 4 - SOLICITAÇÃO / PROCEDIMENTOS -->
         <div class="titulo-secao">4 - SOLICITAÇÃO / PROCEDIMENTOS</div>
-        <table>
+        <table style="width: 100%;">
           <thead>
-            <tr><th width="15">Seq</th><th width="30">Tabela</th><th width="45">Código</th><th>Descrição</th><th width="20">Qtd Sol.</th><th width="20">Qtd Aut.</th></tr>
+            <tr><th width="10">Seq</th><th width="20">Tabela</th><th width="30">Código</th><th>Descrição</th><th width="15">Qtd Sol.</th><th width="15">Qtd Aut.</th></tr>
           </thead>
           <tbody>
             ${atendimento.itens_autorizados && atendimento.itens_autorizados.length > 0 ? 
               atendimento.itens_autorizados.slice(0, 5).map((item, idx) => `
-                <tr><td class="text-center">${idx+1}</td>
-                <td class="text-center">${item.tabela_referencia || '22'}</td>
-                <td class="text-center">${item.codigo || '-'}</td>
-                <td>${item.nome || '-'}</td>
-                <td class="text-center">${item.quantidade_solicitada || '-'}</td>
-                <td class="text-center">${item.quantidade_autorizada || 0}</td>
-              </tr>
+                <tr><td class="text-center">${idx+1}</td><td class="text-center">${item.tabela_referencia || '22'}</td><td class="text-center">${item.codigo || '-'}</td><td class="text-left">${item.nome || '-'}</td><td class="text-center">${item.quantidade_solicitada || '-'}</td><td class="text-center">${item.quantidade_autorizada || 0}</td></tr>
               `).join('') : 
-              '<tr><td colspan="6" style="height: 60px; text-align: center;">Nenhum procedimento solicitado</td></tr>'
+              '<tr><td colspan="6" style="height: 50px; text-align: center;">Nenhum procedimento solicitado</td></tr>'
             }
           </tbody>
         </table>
@@ -384,33 +401,33 @@ const gerarPaginaGuia = (atendimento, convenio, configClinica, paginaAtual, tota
         <!-- 7 - EXECUÇÃO / PROCEDIMENTOS REALIZADOS -->
         <div class="titulo-secao">7 - EXECUÇÃO / PROCEDIMENTOS REALIZADOS</div>
         <div class="tabela-wrapper">
-          <table>
+          <table style="width: 100%;">
             <thead>
               <tr>
-                <th width="8">Seq</th>
-                <th width="12">Data</th>
+                <th width="5">Seq</th>
+                <th width="10">Data</th>
                 <th width="8">H.Ini</th>
                 <th width="8">H.Fim</th>
-                <th width="12">Tabela</th>
+                <th width="10">Tabela</th>
                 <th width="12">Código</th>
                 <th>Descrição</th>
                 <th width="6">Qtd</th>
                 <th width="8">Via</th>
                 <th width="8">Téc</th>
-                <th width="15">Valor Unit</th>
-                <th width="15">Valor Total</th>
+                <th width="12">Valor Unit</th>
+                <th width="12">Valor Total</th>
               </tr>
             </thead>
             <tbody>
               ${itensPagina.map((item, idx) => `
                 <tr>
-                  <td class="text-center">${idx+1}</td>
+                  <td class="text-center">${((paginaAtual - 1) * 7) + idx + 1}</td>
                   <td class="text-center">${item.data_execucao || '___/___/___'}</td>
                   <td class="text-center">${item.hora_inicial || '__:__'}</td>
                   <td class="text-center">${item.hora_final || '__:__'}</td>
                   <td class="text-center">${item.tabela_referencia || '22'}</td>
                   <td class="text-center">${item.codigo || '_______'}</td>
-                  <td>${item.nome || '_________________________________________________'}</td>
+                  <td class="text-left">${(item.nome || '_________________________________________________').substring(0, 50)}</td>
                   <td class="text-center">${item.quantidade || 1}</td>
                   <td class="text-center">${VIA_ACESSO_MAP[item.viaAcesso] || item.viaAcesso || '_'}</td>
                   <td class="text-center">${TECNICA_MAP[item.tecnicaUtilizada] || item.tecnicaUtilizada || '_'}</td>
@@ -419,7 +436,7 @@ const gerarPaginaGuia = (atendimento, convenio, configClinica, paginaAtual, tota
                 </tr>
               `).join('')}
               ${itensPagina.length === 0 ? 
-                '<tr><td colspan="12" style="height: 100px; text-align: center;">Nenhum procedimento registrado nesta página</td></tr>' : 
+                '<tr><td colspan="12" style="height: 80px; text-align: center;">Nenhum procedimento registrado nesta página</td></tr>' : 
                 ''}
             </tbody>
           </table>
@@ -428,50 +445,50 @@ const gerarPaginaGuia = (atendimento, convenio, configClinica, paginaAtual, tota
         <!-- 8 - IDENTIFICAÇÃO DOS PROFISSIONAIS EXECUTANTES -->
         <div class="titulo-secao">8 - IDENTIFICAÇÃO DOS PROFISSIONAIS EXECUTANTES</div>
         <div class="tabela-wrapper">
-          <table>
+          <table style="width: 100%;">
             <thead>
               <tr>
-                <th width="8">Seq</th>
-                <th width="14">Grau Part.</th>
-                <th width="18">CPF</th>
+                <th width="5">Seq</th>
+                <th width="12">Grau Part.</th>
+                <th width="15">CPF</th>
                 <th>Nome</th>
-                <th width="10">Cons.</th>
-                <th width="16">Nº Conselho</th>
-                <th width="8">UF</th>
-                <th width="14">CBO</th>
+                <th width="8">Cons.</th>
+                <th width="15">Nº Conselho</th>
+                <th width="6">UF</th>
+                <th width="12">CBO</th>
               </tr>
             </thead>
             <tbody>
               ${itensPagina.map((item, idx) => `
                 <tr>
-                  <td class="text-center">${idx+1}</td>
+                  <td class="text-center">${((paginaAtual - 1) * 7) + idx + 1}</td>
                   <td class="text-center">${GRAU_PARTICIPACAO_MAP[item.grau_participacao] || item.grau_participacao || '___'}</td>
-                  <td>${item.prestador_cpf || '_______________'}</td>
-                  <td>${item.prestador_nome || '________________________________________'}</td>
+                  <td class="text-center">${item.prestador_cpf || '_______________'}</td>
+                  <td class="text-left">${(item.prestador_nome || '________________________________________').substring(0, 40)}</td>
                   <td class="text-center">${CONSELHO_MAP[item.prestador_conselho] || item.prestador_conselho || '___'}</td>
-                  <td>${item.prestador_numero_conselho || '_______________'}</td>
+                  <td class="text-center">${item.prestador_numero_conselho || '_______________'}</td>
                   <td class="text-center">${item.prestador_uf_conselho || '___'}</td>
-                  <td>${item.prestador_cbos || '________'}</td>
+                  <td class="text-center">${item.prestador_cbos || '________'}</td>
                 </tr>
               `).join('')}
               ${itensPagina.length === 0 ?
-                '<tr><td colspan="8" style="height: 80px; text-align: center;">Nenhum profissional registrado nesta página</td></tr>' :
+                '<tr><td colspan="8" style="height: 60px; text-align: center;">Nenhum profissional registrado nesta página</td></tr>' :
                 ''}
             </tbody>
           </table>
         </div>
         
-        ${paginaAtual === totalPaginas ? `
+        ${ehUltimaPagina ? `
           <!-- 9 - VALORES TOTAIS -->
           <div class="titulo-secao">9 - VALORES TOTAIS (R$)</div>
           <div class="grid grid-8" style="border: 1px solid #000; border-top: none;">
-            <div class="campo"><span class="numero-campo">31</span> Procedimentos<br>R$ ${totalTodosItens.toFixed(2)}</div>
+            <div class="campo"><span class="numero-campo">31</span> Procedimentos<br><strong>R$ ${totalTodosItens.toFixed(2)}</strong></div>
             <div class="campo"><span class="numero-campo">32</span> Taxas/Aluguéis<br>R$ 0,00</div>
             <div class="campo"><span class="numero-campo">33</span> Materiais<br>R$ 0,00</div>
             <div class="campo"><span class="numero-campo">34</span> OPME<br>R$ 0,00</div>
             <div class="campo"><span class="numero-campo">35</span> Medicamentos<br>R$ 0,00</div>
             <div class="campo"><span class="numero-campo">36</span> Gases<br>R$ 0,00</div>
-            <div class="campo"><span class="numero-campo">37</span> TOTAL GERAL<br><strong>R$ ${totalTodosItens.toFixed(2)}</strong></div>
+            <div class="campo"><span class="numero-campo">37</span> TOTAL GERAL<br><strong style="font-size: 10pt;">R$ ${totalTodosItens.toFixed(2)}</strong></div>
             <div class="campo"><span class="numero-campo">38</span> FORMA PAGTO<br>_______________</div>
           </div>
           
@@ -488,14 +505,15 @@ const gerarPaginaGuia = (atendimento, convenio, configClinica, paginaAtual, tota
           </div>
         ` : `
           <div class="continuacao">
-            <div style="margin-top: 15px; padding: 8px; background: #f0f0f0; text-align: center; border: 1px solid #000;">
-              CONTINUA NA PRÓXIMA PÁGINA
+            <div class="aviso-continuacao">
+              ► CONTINUA NA PRÓXIMA PÁGINA ◄<br>
+              Guia: ${numeroGuiaOriginal} - Página ${paginaAtual + 1} de ${totalPaginas}
             </div>
           </div>
         `}
         
         <div class="rodape">
-          Documento gerado eletronicamente - Sistema de Faturamento TISS - ${new Date().toLocaleString()}
+          Documento gerado eletronicamente - Sistema de Faturamento TISS - ${new Date().toLocaleString('pt-BR')}
         </div>
       </div>
     </div>
@@ -505,15 +523,12 @@ const gerarPaginaGuia = (atendimento, convenio, configClinica, paginaAtual, tota
 // Gera HTML completo com múltiplas páginas
 export const gerarHTMLGuiaTISSOficial = (atendimento, convenio, configClinica = {}) => {
   const itens = atendimento.itens || [];
-  const itensAutorizados = atendimento.itens_autorizados || [];
-  
-  const paginas = dividirEmPaginas(itens, itensAutorizados);
-  
-  const paginasHTML = paginas.map((pagina, index) => 
-    gerarPaginaGuia(atendimento, convenio, configClinica, index + 1, paginas.length, pagina.itens)
-  );
-  
+  const paginas = dividirEmPaginas(itens);
   const css = gerarCSS();
+  
+  const paginasHTML = paginas.map((pagina) => 
+    gerarPaginaGuia(atendimento, convenio, configClinica, pagina.numero_pagina, pagina.total_paginas, pagina.itens)
+  );
   
   return `<!DOCTYPE html>
 <html>
@@ -523,7 +538,9 @@ export const gerarHTMLGuiaTISSOficial = (atendimento, convenio, configClinica = 
   <style>${css}</style>
 </head>
 <body>
-  ${paginasHTML.join('')}
+  <div class="print-container">
+    ${paginasHTML.join('')}
+  </div>
 </body>
 </html>`;
 };
@@ -531,45 +548,80 @@ export const gerarHTMLGuiaTISSOficial = (atendimento, convenio, configClinica = 
 // Função para imprimir uma única guia
 export const imprimirGuiaTISSOficial = (atendimento, convenio, configClinica = {}) => {
   const html = gerarHTMLGuiaTISSOficial(atendimento, convenio, configClinica);
-  const printWindow = window.open('', '_blank');
+  const printWindow = window.open('', '_blank', 'width=1200,height=800');
   if (printWindow) {
     printWindow.document.write(html);
     printWindow.document.close();
     printWindow.focus();
-    printWindow.print();
-    printWindow.onafterprint = () => printWindow.close();
+    
+    // Aguarda o carregamento do conteúdo para imprimir
+    printWindow.onload = () => {
+      printWindow.print();
+      printWindow.onafterprint = () => printWindow.close();
+    };
+  } else {
+    alert('Por favor, permita pop-ups para imprimir a guia.');
   }
 };
 
-// Função para imprimir múltiplas guias
+// Função para imprimir múltiplas guias (lote)
 export const imprimirMultiplasGuiasTISS = (guias, convenio, configClinica = {}) => {
+  if (!guias || guias.length === 0) {
+    alert('Nenhuma guia selecionada para impressão.');
+    return;
+  }
+  
   const css = gerarCSS();
   let htmlCompleto = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Múltiplas Guias TISS</title>
+  <title>Múltiplas Guias TISS - Lote de ${guias.length} guia(s)</title>
   <style>${css}</style>
+  <style>
+    .separador-guias {
+      page-break-before: always;
+      break-before: page;
+    }
+    .separador-guias:first-child {
+      page-break-before: avoid;
+      break-before: avoid;
+    }
+  </style>
 </head>
-<body>`;
+<body>
+  <div class="print-container">`;
   
   guias.forEach((guia, index) => {
     const guiaHtml = gerarHTMLGuiaTISSOficial(guia, convenio, configClinica);
-    const bodyContent = guiaHtml.match(/<body>([\s\S]*?)<\/body>/)?.[1] || '';
-    htmlCompleto += bodyContent;
-    if (index < guias.length - 1) {
-      htmlCompleto += '<div style="page-break-before: always;"></div>';
+    const bodyMatch = guiaHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    const bodyContent = bodyMatch ? bodyMatch[1] : '';
+    
+    // Remove o print-container para evitar duplicação
+    const contentWithoutContainer = bodyContent.replace(/<div class="print-container">/, '').replace('</div>', '');
+    
+    if (index > 0) {
+      htmlCompleto += '<div class="separador-guias"></div>';
     }
+    htmlCompleto += contentWithoutContainer;
   });
   
-  htmlCompleto += `</body></html>`;
+  htmlCompleto += `
+  </div>
+</body>
+</html>`;
   
-  const printWindow = window.open('', '_blank');
+  const printWindow = window.open('', '_blank', 'width=1200,height=800');
   if (printWindow) {
     printWindow.document.write(htmlCompleto);
     printWindow.document.close();
     printWindow.focus();
-    printWindow.print();
-    printWindow.onafterprint = () => printWindow.close();
+    
+    printWindow.onload = () => {
+      printWindow.print();
+      printWindow.onafterprint = () => printWindow.close();
+    };
+  } else {
+    alert('Por favor, permita pop-ups para imprimir as guias em lote.');
   }
 };
