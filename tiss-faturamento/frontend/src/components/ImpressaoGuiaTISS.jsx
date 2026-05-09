@@ -964,3 +964,107 @@ export const imprimirGuiaTISSOficial = (
     };
   };
 };
+
+export const imprimirMultiplasGuiasTISS = (
+  guias,
+  convenio,
+  configClinica = {}
+) => {
+
+  if (!guias || guias.length === 0) {
+    alert('Nenhuma guia selecionada.');
+    return;
+  }
+
+  const css = gerarCSS();
+
+  let htmlCompleto = `
+    <!DOCTYPE html>
+
+    <html>
+
+      <head>
+
+        <meta charset="UTF-8" />
+
+        <title>
+          Impressão em Lote
+        </title>
+
+        <style>
+          ${css}
+        </style>
+
+      </head>
+
+      <body>
+
+        <div class="print-container">
+  `;
+
+  guias.forEach((guia, index) => {
+
+    const htmlGuia = gerarHTMLGuiaTISSOficial(
+      guia,
+      convenio,
+      configClinica
+    );
+
+    const bodyMatch = htmlGuia.match(
+      /<body[^>]*>([\s\S]*?)<\/body>/i
+    );
+
+    const bodyContent = bodyMatch
+      ? bodyMatch[1]
+      : '';
+
+    const conteudoLimpo = bodyContent
+      .replace('<div class="print-container">', '')
+      .replace('</div>', '');
+
+    if (index > 0) {
+      htmlCompleto += `
+        <div style="page-break-before:always;"></div>
+      `;
+    }
+
+    htmlCompleto += conteudoLimpo;
+
+  });
+
+  htmlCompleto += `
+        </div>
+
+      </body>
+
+    </html>
+  `;
+
+  const win = window.open(
+    '',
+    '_blank',
+    'width=1200,height=900'
+  );
+
+  if (!win) {
+    alert('Permita popups para imprimir.');
+    return;
+  }
+
+  win.document.write(htmlCompleto);
+
+  win.document.close();
+
+  win.focus();
+
+  win.onload = () => {
+
+    win.print();
+
+    win.onafterprint = () => {
+      win.close();
+    };
+
+  };
+
+};
