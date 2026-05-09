@@ -140,20 +140,37 @@ table{
   width:100%;
   border-collapse:collapse;
   table-layout:fixed;
+  font-size:9px;
 }
 
-td, th{
+td{
   border:1px solid #000;
   padding:2px;
   vertical-align:top;
+  font-size:9px;
+  line-height:1.1;
 }
 
 th{
+  border:1px solid #000;
+  padding:2px;
   background:#d9d9d9;
-  font-size:7px;
+  font-size:9px;
   font-weight:bold;
   text-align:center;
-  line-height:1;
+  line-height:1.1;
+}
+
+.tabela-procedimentos td,
+.tabela-procedimentos th{
+  font-size:9px !important;
+  line-height:1.1 !important;
+}
+
+.tabela-profissionais td,
+.tabela-profissionais th{
+  font-size:9px !important;
+  line-height:1.1 !important;
 }
 
 .secao{
@@ -225,10 +242,6 @@ th{
   text-align:right;
 }
 
-.sem-borda{
-  border:none !important;
-}
-
 @page{
   size:A4 landscape;
   margin:4mm;
@@ -288,8 +301,6 @@ const gerarPagina = (
   return `
 <div class="guia-page">
 
-  <!-- CABEÇALHO -->
-
   <table>
 
     <tr>
@@ -325,7 +336,7 @@ const gerarPagina = (
       <td style="width:22%;">
 
         <div class="numero-guia-label">
-          2 - Nº Guia no Prestador
+          Nº Guia no Prestador
         </div>
 
         <div class="numero-guia">
@@ -333,50 +344,6 @@ const gerarPagina = (
         </div>
 
       </td>
-
-    </tr>
-
-  </table>
-
-  <!-- AUTORIZAÇÃO -->
-
-  <table>
-
-    <tr>
-      <td colspan="5" class="secao">
-        Registro ANS / Autorização
-      </td>
-    </tr>
-
-    <tr>
-
-      ${campo('1', 'Registro ANS', convenio?.registro_ans)}
-
-      ${campo('3', 'Número Guia Principal', atendimento.guia_principal)}
-
-      ${campo('4', 'Data Autorização', dataBR(atendimento.data_autorizacao))}
-
-      ${campo('5', 'Senha', atendimento.senha_autorizacao)}
-
-      ${campo('6', 'Data Validade Senha', dataBR(atendimento.data_validade_senha))}
-
-    </tr>
-
-    <tr>
-
-      <td colspan="2">
-
-        <div class="campo-numero">
-          7 - Número Guia Operadora
-        </div>
-
-        <div class="campo-valor">
-          ${atendimento.numero_guia_operadora || ''}
-        </div>
-
-      </td>
-
-      <td colspan="3"></td>
 
     </tr>
 
@@ -396,13 +363,13 @@ const gerarPagina = (
 
       ${campo('8', 'Número Carteira', atendimento.numero_carteira)}
 
-      ${campo('9', 'Validade Carteira', atendimento.validade_carteira)}
+      ${campo('9', 'Validade', atendimento.validade_carteira)}
 
       ${campo('10', 'Nome', atendimento.paciente_nome)}
 
-      ${campo('11', 'Cartão Nacional Saúde', atendimento.cns)}
+      ${campo('11', 'CNS', atendimento.cns)}
 
-      ${campo('12', 'Atendimento RN', atendimento.atendimento_rn)}
+      ${campo('12', 'RN', atendimento.atendimento_rn)}
 
       ${campo('13', 'Nascimento', atendimento.data_nascimento)}
 
@@ -410,235 +377,30 @@ const gerarPagina = (
 
   </table>
 
-  <!-- SOLICITANTE -->
-
-  <table>
-
-    <tr>
-      <td colspan="6" class="secao">
-        Dados do Solicitante
-      </td>
-    </tr>
-
-    <tr>
-
-      ${campo(
-        '14',
-        'Nome Contratado',
-        atendimento.nome_contratado || configClinica.nome_empresa
-      )}
-
-      ${campo(
-        '15',
-        'Código Operadora',
-        convenio?.codigo_prestador
-      )}
-
-      ${campo(
-        '16',
-        'Nome Profissional Solicitante',
-        atendimento.profissional_solicitante
-      )}
-
-      ${campo(
-        '17',
-        'Conselho',
-        CONSELHO_MAP[atendimento.conselho_solicitante]
-      )}
-
-      ${campo(
-        '18',
-        'Número Conselho',
-        atendimento.numero_conselho_solicitante
-      )}
-
-      ${campo(
-        '19',
-        'UF',
-        atendimento.uf_solicitante
-      )}
-
-    </tr>
-
-  </table>
-
-  <!-- PROCEDIMENTOS SOLICITADOS -->
-
-  <table>
-
-    <tr>
-      <td colspan="6" class="secao">
-        Dados da Solicitação / Procedimentos ou Itens Assistenciais Solicitados
-      </td>
-    </tr>
-
-    <tr>
-
-      <th style="width:10%">
-        24 - Tabela
-      </th>
-
-      <th style="width:15%">
-        25 - Código Procedimento
-      </th>
-
-      <th style="width:45%">
-        26 - Descrição
-      </th>
-
-      <th style="width:10%">
-        27 - Qtde Sol.
-      </th>
-
-      <th style="width:10%">
-        28 - Qtde Aut.
-      </th>
-
-      <th style="width:10%">
-        Seq
-      </th>
-
-    </tr>
-
-    ${
-      atendimento.itens_autorizados?.length
-        ? atendimento.itens_autorizados.map((item, idx) => `
-          <tr>
-
-            <td class="text-center">
-              ${item.tabela_referencia || '22'}
-            </td>
-
-            <td class="text-center">
-              ${item.codigo || ''}
-            </td>
-
-            <td>
-              ${(item.nome || '').substring(0, 100)}
-            </td>
-
-            <td class="text-center">
-              ${item.quantidade_solicitada || '1,00'}
-            </td>
-
-            <td class="text-center">
-              ${item.quantidade_autorizada || '1,00'}
-            </td>
-
-            <td class="text-center">
-              ${idx + 1}
-            </td>
-
-          </tr>
-        `).join('')
-        : `
-          <tr>
-            <td colspan="6" style="height:35px;"></td>
-          </tr>
-        `
-    }
-
-  </table>
-
-  <!-- EXECUTANTE -->
-
-  <table>
-
-    <tr>
-      <td colspan="3" class="secao">
-        Dados do Contratado Executante
-      </td>
-    </tr>
-
-    <tr>
-
-      ${campo(
-        '29',
-        'Código Operadora',
-        convenio?.codigo_prestador
-      )}
-
-      ${campo(
-        '30',
-        'Nome Contratado',
-        atendimento.nome_contratado_executante ||
-        configClinica.nome_empresa
-      )}
-
-      ${campo(
-        '31',
-        'CNES',
-        configClinica.cnes
-      )}
-
-    </tr>
-
-  </table>
-
-  <!-- DADOS ATENDIMENTO -->
-
-  <table>
-
-    <tr>
-      <td colspan="4" class="secao">
-        Dados do Atendimento
-      </td>
-    </tr>
-
-    <tr>
-
-      ${campo(
-        '32',
-        'Tipo Atendimento',
-        TIPO_ATENDIMENTO_MAP[atendimento.tipo_atendimento]
-      )}
-
-      ${campo(
-        '33',
-        'Indicação Acidente',
-        INDICADOR_ACIDENTE_MAP[atendimento.indicacao_acidente]
-      )}
-
-      ${campo(
-        '34',
-        'Tipo Consulta',
-        TIPO_CONSULTA_MAP[atendimento.tipo_consulta]
-      )}
-
-      ${campo(
-        '35',
-        'Motivo Encerramento',
-        MOTIVO_ENCERRAMENTO_MAP[atendimento.motivo_encerramento]
-      )}
-
-    </tr>
-
-  </table>
-
   <!-- EXECUÇÃO -->
 
-  <table>
+  <table class="tabela-procedimentos">
 
     <tr>
       <td colspan="12" class="secao">
-        Dados da Execução / Procedimentos e Exames Realizados
+        Procedimentos Realizados
       </td>
     </tr>
 
     <tr>
 
-      <th style="width:7%">36 - Data</th>
-      <th style="width:10%">37/38 Hora</th>
-      <th style="width:6%">39 Tabela</th>
-      <th style="width:10%">40 Código</th>
-      <th style="width:30%">41 Descrição</th>
-      <th style="width:5%">42 Qtde</th>
-      <th style="width:4%">43 Via</th>
-      <th style="width:4%">44 Tec</th>
-      <th style="width:7%">45 Fator</th>
-      <th style="width:8%">46 Valor Unit.</th>
-      <th style="width:9%">47 Valor Total</th>
-      <th style="width:5%">48 Seq</th>
+      <th style="width:7%">Data</th>
+      <th style="width:10%">Hora</th>
+      <th style="width:6%">Tabela</th>
+      <th style="width:10%">Código</th>
+      <th style="width:30%">Descrição</th>
+      <th style="width:5%">Qtd</th>
+      <th style="width:4%">Via</th>
+      <th style="width:4%">Tec</th>
+      <th style="width:7%">Fator</th>
+      <th style="width:8%">Valor Unit.</th>
+      <th style="width:9%">Valor Total</th>
+      <th style="width:5%">Seq</th>
 
     </tr>
 
@@ -652,7 +414,7 @@ const gerarPagina = (
             </td>
 
             <td class="text-center">
-              ${item.hora_inicial || ''} a ${item.hora_final || ''}
+              ${item.hora_inicial || ''}
             </td>
 
             <td class="text-center">
@@ -668,7 +430,7 @@ const gerarPagina = (
             </td>
 
             <td class="text-center">
-              ${item.quantidade || '1,00'}
+              ${item.quantidade || '1'}
             </td>
 
             <td class="text-center">
@@ -708,24 +470,24 @@ const gerarPagina = (
 
   <!-- PROFISSIONAIS -->
 
-  <table>
+  <table class="tabela-profissionais">
 
     <tr>
       <td colspan="8" class="secao">
-        Identificação do(s) Profissional(is) Executante(s)
+        Profissionais Executantes
       </td>
     </tr>
 
     <tr>
 
-      <th style="width:6%">48 Seq</th>
-      <th style="width:10%">49 Grau</th>
-      <th style="width:16%">50 CPF</th>
-      <th style="width:32%">51 Nome</th>
-      <th style="width:8%">52 Conselho</th>
-      <th style="width:12%">53 Nº Conselho</th>
-      <th style="width:6%">54 UF</th>
-      <th style="width:10%">55 CBO</th>
+      <th style="width:6%">Seq</th>
+      <th style="width:10%">Grau</th>
+      <th style="width:16%">CPF</th>
+      <th style="width:32%">Nome</th>
+      <th style="width:8%">Conselho</th>
+      <th style="width:12%">Nº Conselho</th>
+      <th style="width:6%">UF</th>
+      <th style="width:10%">CBO</th>
 
     </tr>
 
@@ -777,7 +539,7 @@ const gerarPagina = (
 
   </table>
 
-  <!-- TOTAIS -->
+  <!-- TOTAL -->
 
   <table>
 
@@ -789,7 +551,7 @@ const gerarPagina = (
 
     <tr>
 
-      ${campo('59', 'Total Procedimentos', moeda(total))}
+      ${campo('59', 'Procedimentos', moeda(total))}
       ${campo('60', 'Taxas', '0,00')}
       ${campo('61', 'Materiais', '0,00')}
       ${campo('62', 'OPME', '0,00')}
@@ -801,64 +563,12 @@ const gerarPagina = (
 
   </table>
 
-  <!-- OBS -->
-
-  <table>
-
-    <tr>
-
-      <td style="height:55px;">
-
-        <div class="campo-numero">
-          58 - Observação / Justificativa
-        </div>
-
-      </td>
-
-    </tr>
-
-  </table>
-
-  <!-- ASSINATURAS -->
-
-  <table>
-
-    <tr>
-
-      <td class="linha-assinatura">
-
-        <div>
-          66 - Assinatura do Responsável pela Autorização
-        </div>
-
-      </td>
-
-      <td class="linha-assinatura">
-
-        <div>
-          67 - Assinatura do Beneficiário ou Responsável
-        </div>
-
-      </td>
-
-      <td class="linha-assinatura">
-
-        <div>
-          68 - Assinatura do Contratado
-        </div>
-
-      </td>
-
-    </tr>
-
-  </table>
-
 </div>
 `;
 };
 
 /* =========================================================
-   HTML COMPLETO
+   HTML
 ========================================================= */
 
 export const gerarHTMLGuiaTISSOficial = (
@@ -955,7 +665,7 @@ export const imprimirGuiaTISSOficial = (
 };
 
 /* =========================================================
-   MÚLTIPLAS GUIAS
+   MULTIPLAS GUIAS
 ========================================================= */
 
 export const imprimirMultiplasGuiasTISS = (
