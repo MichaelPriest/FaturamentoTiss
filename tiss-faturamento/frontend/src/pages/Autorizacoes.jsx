@@ -6,7 +6,7 @@ import {
   CurrencyDollarIcon, CalendarIcon, UserGroupIcon,
   ClockIcon, ExclamationTriangleIcon, LockClosedIcon,
   LockOpenIcon, ArrowPathIcon, BuildingOfficeIcon,
-  RefreshIcon, ChevronUpIcon, ChevronDownIcon
+  ArrowPathIcon, ChevronUpIcon, ChevronDownIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format, differenceInDays } from 'date-fns';
@@ -268,7 +268,7 @@ export default function Autorizacoes() {
               onClick={carregarDados} 
               className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-lg text-sm flex items-center justify-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
             >
-              <RefreshIcon className="w-4 h-4" /> Atualizar
+              <ArrowPathIcon className="w-4 h-4" /> Atualizar
             </button>
           </div>
         </div>
