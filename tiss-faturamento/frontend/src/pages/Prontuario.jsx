@@ -31,7 +31,7 @@ import {
   ClipboardDocumentCheckIcon,
   ListBulletIcon,
   UserGroupIcon,
-  ActivityIcon,
+  HeartIcon,
   BandAidIcon,
   CalendarDaysIcon,
   SearchIcon
@@ -905,7 +905,7 @@ export default function Prontuario() {
                   )}
                 </div>
                 
-                <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2"><ActivityIcon className="w-4 h-4 text-green-500" /> Exame Físico</label><textarea rows="3" value={formData.exame_fisico} onChange={(e) => setFormData({...formData, exame_fisico: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="Sinais vitais, alterações encontradas..." /></div>
+                <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2"><HeartIcon className="w-4 h-4 text-green-500" /> Exame Físico</label><textarea rows="3" value={formData.exame_fisico} onChange={(e) => setFormData({...formData, exame_fisico: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="Sinais vitais, alterações encontradas..." /></div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="group relative">
