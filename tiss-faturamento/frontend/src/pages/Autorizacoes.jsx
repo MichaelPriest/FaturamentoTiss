@@ -712,24 +712,26 @@ export default function Autorizacoes() {
                     </div>
 
                     {/* Itens Pendentes (que precisam de autorização) */}
+                    {/* Itens Pendentes (que precisam de autorização) */}
                     {atendimentoEncontrado.itens_pendentes?.length > 0 && (
                       <div className="mb-6">
-                        <h4 className="text-sm font-semibold mb-3 flex items-center gap-2"><ExclamationTriangleIcon className="w-4 h-4 text-yellow-600" />Itens que Precisam de Autorização</h4>
+                        <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                          <ExclamationTriangleIcon className="w-4 h-4 text-yellow-600" />
+                          Itens que Precisam de Autorização
+                        </h4>
                         <div className="border rounded-xl overflow-hidden">
                           <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                               <thead className="bg-gray-50 dark:bg-gray-700/50">
-                                <table>
-                                  <tr>
-                                    <th className="px-3 py-2 text-left text-xs">Código</th>
-                                    <th className="px-3 py-2 text-left text-xs">Procedimento</th>
-                                    <th className="px-3 py-2 text-center text-xs">Qtd Executada</th>
-                                    <th className="px-3 py-2 text-center text-xs">Qtd Autorizada</th>
-                                    <th className="px-3 py-2 text-center text-xs">Necessita</th>
-                                    <th className="px-3 py-2 text-right text-xs">Valor Unit.</th>
-                                    <th className="px-3 py-2 text-center text-xs w-24">Ação</th>
-                                  </tr>
-                                </table>
+                                <tr>
+                                  <th className="px-3 py-2 text-left text-xs">Código</th>
+                                  <th className="px-3 py-2 text-left text-xs">Procedimento</th>
+                                  <th className="px-3 py-2 text-center text-xs">Qtd Executada</th>
+                                  <th className="px-3 py-2 text-center text-xs">Qtd Autorizada</th>
+                                  <th className="px-3 py-2 text-center text-xs">Necessita</th>
+                                  <th className="px-3 py-2 text-right text-xs">Valor Unit.</th>
+                                  <th className="px-3 py-2 text-center text-xs w-24">Ação</th>
+                                </tr>
                               </thead>
                               <tbody className="divide-y">
                                 {atendimentoEncontrado.itens_pendentes.map((item, idx) => (
@@ -741,7 +743,12 @@ export default function Autorizacoes() {
                                     <td className="px-3 py-2 text-xs text-center font-semibold text-yellow-600">{item.quantidade_necessaria} unidade(s)</td>
                                     <td className="px-3 py-2 text-xs text-right">R$ {(item.valor_unitario || 0).toFixed(2)}</td>
                                     <td className="px-3 py-2 text-center">
-                                      <button onClick={() => handleAdicionarItemPendente({...item, quantidade_autorizar: item.quantidade_necessaria})} className="bg-green-600 text-white px-3 py-1 rounded-lg text-xs hover:bg-green-700">Autorizar</button>
+                                      <button 
+                                        onClick={() => handleAdicionarItemPendente({...item, quantidade_autorizar: item.quantidade_necessaria})} 
+                                        className="bg-green-600 text-white px-3 py-1 rounded-lg text-xs hover:bg-green-700"
+                                      >
+                                        Autorizar
+                                      </button>
                                     </td>
                                   </tr>
                                 ))}
