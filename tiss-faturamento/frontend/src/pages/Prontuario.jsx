@@ -1551,7 +1551,7 @@ export default function Prontuario() {
                     })
                   ) : (
                     <div className="text-center py-12 text-gray-500">
-                      <SearchIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <MagnifyingGlassIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
                       Nenhum procedimento encontrado
                     </div>
                   )}
