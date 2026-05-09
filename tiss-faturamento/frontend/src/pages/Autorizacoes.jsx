@@ -388,10 +388,10 @@ export default function Autorizacoes() {
                       <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
                         <td className="px-4 py-3">
                           <button onClick={() => toggleExpand(a.id)} className="p-1 hover:bg-gray-100 rounded">
-                            {isExpanded ? <ChevronUpIcon className="w-4 h-4" /> : <ChevronDownIcon className="w-4 h-4" />}
+                            {isExpanded ? <ChevronUpIcon className="w-4 h-4 text-gray-400" /> : <ChevronDownIcon className="w-4 h-4 text-gray-400" />}
                           </button>
                         </td>
-                        <td className="px-4 py-3 font-mono text-sm font-semibold text-blue-600">
+                        <td className="px-4 py-3 font-mono text-sm font-semibold text-blue-600 dark:text-blue-400">
                           {a.numero_guia_prestador}
                         </td>
                         <td className="px-4 py-3 text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -428,7 +428,6 @@ export default function Autorizacoes() {
                             <button onClick={() => { setSelectedAutorizacao(a); setShowItensModal(true); }} className="p-1 rounded-lg text-gray-600 hover:bg-gray-100" title="Ver Itens">
                               <EyeIcon className="w-4 h-4" />
                             </button>
-                            {/* Só permite editar se não estiver faturado ou finalizado */}
                             {a.status !== 'faturado' && a.status !== 'finalizado' && (
                               <button onClick={() => handleEditarAutorizacao(a)} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50" title="Editar Autorização">
                                 <PencilIcon className="w-4 h-4" />
@@ -461,7 +460,7 @@ export default function Autorizacoes() {
                                         <td className="px-2 py-1 font-mono text-blue-600">{item.codigo}</td>
                                         <td className="px-2 py-1">{item.nome}</td>
                                         <td className="px-2 py-1 text-center">{item.quantidade_autorizada}</td>
-                                        <td className="px-2 py-1 text-center">{item.quantidade_utilizada || 0}<td>
+                                        <td className="px-2 py-1 text-center">{item.quantidade_utilizada || 0}</td>
                                         <td className={`px-2 py-1 text-center font-semibold ${saldo > 0 ? 'text-green-600' : 'text-gray-500'}`}>{saldo}</td>
                                         <td className="px-2 py-1 text-right">R$ {(item.valor_unitario || 0).toFixed(2)}</td>
                                         <td className="px-2 py-1 text-right font-semibold">R$ {((item.valor_unitario || 0) * (item.quantidade_autorizada || 0)).toFixed(2)}</td>
@@ -507,14 +506,13 @@ export default function Autorizacoes() {
                   <h3 className="text-xl font-semibold">
                     {editing ? 'Editar Autorização' : 'Nova Autorização'}
                   </h3>
-                  <button onClick={() => setShowModal(false)} className="p-2 rounded-lg hover:bg-gray-100">
+                  <button onClick={() => setShowModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
                     <XMarkIcon className="w-5 h-5 text-gray-500" />
                   </button>
                 </div>
               </div>
               
               <div className="p-5">
-                {/* Buscar por número de guia (apenas para nova autorização) */}
                 {!editing && !atendimentoEncontrado && (
                   <div className="mb-6">
                     <label className="block text-sm font-medium mb-2">Número da Guia *</label>
@@ -524,7 +522,7 @@ export default function Autorizacoes() {
                         value={buscaNumeroGuia}
                         onChange={(e) => setBuscaNumeroGuia(e.target.value)}
                         placeholder="Digite o número da guia prestador..."
-                        className="flex-1 border rounded-lg px-3 py-2 text-sm"
+                        className="flex-1 border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600"
                       />
                       <button
                         onClick={handleBuscarAtendimento}
@@ -537,7 +535,6 @@ export default function Autorizacoes() {
                   </div>
                 )}
 
-                {/* Dados da guia encontrada */}
                 {atendimentoEncontrado && (
                   <>
                     <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 mb-6">
@@ -572,7 +569,6 @@ export default function Autorizacoes() {
                         Itens Autorizados
                       </h4>
                       
-                      {/* Buscar Procedimento */}
                       <div className="mb-4">
                         <label className="block text-sm font-medium mb-1">Buscar Procedimento</label>
                         <div className="relative">
@@ -582,7 +578,7 @@ export default function Autorizacoes() {
                             value={searchItemTerm}
                             onChange={(e) => setSearchItemTerm(e.target.value)}
                             placeholder="Digite código ou descrição..."
-                            className="w-full pl-8 pr-3 py-2 border rounded-lg text-sm"
+                            className="w-full pl-8 pr-3 py-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600"
                             list="itens-suggestions"
                           />
                           <datalist id="itens-suggestions">
@@ -595,13 +591,12 @@ export default function Autorizacoes() {
                         </div>
                       </div>
 
-                      {/* Formulário do Item */}
                       {currentItem.codigo && (
-                        <div className="border rounded-xl p-4 bg-gray-50 mb-4">
+                        <div className="border rounded-xl p-4 bg-gray-50 dark:bg-gray-700/30 mb-4">
                           <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
                             <div className="md:col-span-2">
                               <label className="block text-xs text-gray-500 mb-1">Procedimento</label>
-                              <input type="text" value={currentItem.nome} disabled className="w-full bg-white border rounded px-2 py-2 text-sm" />
+                              <input type="text" value={currentItem.nome} disabled className="w-full bg-white dark:bg-gray-600 border rounded px-2 py-2 text-sm" />
                             </div>
                             <div>
                               <label className="block text-xs text-gray-500 mb-1">Qtd. Autorizada</label>
@@ -617,7 +612,7 @@ export default function Autorizacoes() {
                                     valor_total: qtd * currentItem.valor_unitario
                                   });
                                 }}
-                                className="w-full border rounded px-2 py-2 text-sm text-center"
+                                className="w-full border rounded px-2 py-2 text-sm text-center dark:bg-white"
                               />
                             </div>
                             <div>
@@ -634,7 +629,7 @@ export default function Autorizacoes() {
                                     valor_total: currentItem.quantidade_autorizada * valor
                                   });
                                 }}
-                                className="w-full border rounded px-2 py-2 text-sm text-right"
+                                className="w-full border rounded px-2 py-2 text-sm text-right dark:bg-white"
                               />
                             </div>
                             <div className="flex items-end">
@@ -650,12 +645,11 @@ export default function Autorizacoes() {
                         </div>
                       )}
 
-                      {/* Lista de Itens Adicionados */}
                       {itensAutorizacao.length > 0 && (
                         <div className="border rounded-xl overflow-hidden">
                           <div className="overflow-x-auto">
                             <table className="w-full text-sm">
-                              <thead className="bg-gray-50">
+                              <thead className="bg-gray-50 dark:bg-gray-700/50">
                                 <tr>
                                   <th className="px-3 py-2 text-left text-xs">Código</th>
                                   <th className="px-3 py-2 text-left text-xs">Procedimento</th>
@@ -681,13 +675,13 @@ export default function Autorizacoes() {
                                   </tr>
                                 ))}
                               </tbody>
-                              <tfoot className="bg-gray-50">
+                              <tfoot className="bg-gray-50 dark:bg-gray-700/50">
                                 <tr className="border-t">
-                                  <td colSpan="4" className="px-3 py-2 text-right font-semibold">Total Autorizado:</td>
+                                  <td colSpan="4" className="px-3 py-2 text-right font-semibold">Total:</td>
                                   <td className="px-3 py-2 text-right font-bold text-blue-600">
                                     R$ {itensAutorizacao.reduce((sum, i) => sum + (i.valor_total || 0), 0).toFixed(2)}
                                   </td>
-                                  </table>
+                                  </td>
                                 </tr>
                               </tfoot>
                             </table>
@@ -696,8 +690,8 @@ export default function Autorizacoes() {
                       )}
                     </div>
 
-                    <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-                      <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg text-sm font-medium">Cancelar</button>
+                    <div className="flex justify-end gap-3 mt-6 pt-4 border-t dark:border-gray-700">
+                      <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg text-sm font-medium dark:border-gray-600">Cancelar</button>
                       <button onClick={handleSalvarAutorizacao} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium shadow-md">
                         Salvar Autorização
                       </button>
@@ -713,16 +707,16 @@ export default function Autorizacoes() {
         {showItensModal && selectedAutorizacao && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 p-5">
+              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
                 <div className="flex justify-between items-center">
                   <h3 className="text-xl font-semibold">Itens da Autorização</h3>
-                  <button onClick={() => setShowItensModal(false)} className="p-2 rounded-lg hover:bg-gray-100">
+                  <button onClick={() => setShowItensModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700">
                     <XMarkIcon className="w-5 h-5 text-gray-500" />
                   </button>
                 </div>
               </div>
               <div className="p-5">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 p-4 bg-gray-50 rounded-xl">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
                   <div><span className="text-xs text-gray-500">Nº Guia:</span> <span className="text-sm font-mono">{selectedAutorizacao.numero_guia_prestador}</span></div>
                   <div><span className="text-xs text-gray-500">Paciente:</span> <span className="text-sm font-medium">{selectedAutorizacao.paciente_nome}</span></div>
                   <div><span className="text-xs text-gray-500">Convênio:</span> <span className="text-sm">{selectedAutorizacao.paciente_convenio_nome}</span></div>
@@ -732,7 +726,7 @@ export default function Autorizacoes() {
                 <h4 className="text-sm font-semibold mb-3">Itens Autorizados</h4>
                 <div className="overflow-x-auto border rounded-xl">
                   <table className="w-full text-sm">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-gray-50 dark:bg-gray-700/50">
                       <tr>
                         <th className="px-3 py-2 text-left text-xs">Código</th>
                         <th className="px-3 py-2 text-left text-xs">Procedimento</th>
@@ -759,7 +753,7 @@ export default function Autorizacoes() {
                         );
                       })}
                     </tbody>
-                    <tfoot className="bg-gray-50">
+                    <tfoot className="bg-gray-50 dark:bg-gray-700/50">
                       <tr className="border-t">
                         <td colSpan="6" className="px-3 py-2 text-right font-semibold">Total:</td>
                         <td className="px-3 py-2 text-right font-bold text-blue-600">
@@ -770,7 +764,7 @@ export default function Autorizacoes() {
                   </table>
                 </div>
 
-                <div className="flex justify-end mt-5 pt-4 border-t">
+                <div className="flex justify-end mt-5 pt-4 border-t dark:border-gray-700">
                   <button onClick={() => setShowItensModal(false)} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium">Fechar</button>
                 </div>
               </div>
