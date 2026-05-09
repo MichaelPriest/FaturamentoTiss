@@ -31,7 +31,6 @@ import {
   ClipboardDocumentCheckIcon,
   ListBulletIcon,
   UserGroupIcon,
-  HeartIcon,
   BandAidIcon,
   CalendarDaysIcon,
   SearchIcon
