@@ -55,17 +55,18 @@ export default function Autorizacoes() {
   useEffect(() => {
     carregarDados();
   }, []);
-
+  
+  // Carregar dados - apenas atendimentos com itens pendentes
   const carregarDados = async () => {
     setLoading(true);
     try {
       const [autorizacoesData, pacientesData, conveniosData, procedimentosData] = await Promise.all([
-        autorizacoesService.listar(),
+        autorizacoesService.listarPendentes(),
         supabase.from('pacientes').select('*').order('nome'),
         supabase.from('convenios').select('*').order('razao_social'),
         supabase.from('procedimentos').select('*').order('codigo_tuss')
       ]);
-
+  
       setAutorizacoes(autorizacoesData);
       setPacientes(pacientesData.data || []);
       setConvenios(conveniosData.data || []);
@@ -78,6 +79,27 @@ export default function Autorizacoes() {
     }
   };
 
+  // Autorizar itens selecionados
+  const handleAutorizarItens = async (atendimentoId, itensSelecionados) => {
+    if (!itensSelecionados || itensSelecionados.length === 0) {
+      toast.error('Selecione pelo menos um item para autorizar');
+      return;
+    }
+  
+    try {
+      await autorizacoesService.autorizarItens(atendimentoId, itensSelecionados);
+      toast.success('Itens autorizados com sucesso!');
+      setShowModal(false);
+      setAtendimentoEncontrado(null);
+      setItensSelecionados([]);
+      setBuscaNumeroGuia('');
+      carregarDados();
+    } catch (error) {
+      console.error('Erro ao autorizar:', error);
+      toast.error('Erro ao autorizar itens');
+    }
+  };
+  
   // Buscar atendimento por número de guia
   const handleBuscarAtendimento = async () => {
     if (!buscaNumeroGuia) {
