@@ -719,7 +719,17 @@ export default function Autorizacoes() {
                           <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                               <thead className="bg-gray-50 dark:bg-gray-700/50">
-                                <table><th className="px-3 py-2 text-left text-xs">Código</th><th className="px-3 py-2 text-left text-xs">Procedimento</th><th className="px-3 py-2 text-center text-xs">Qtd Executada</th><th className="px-3 py-2 text-center text-xs">Qtd Autorizada</th><th className="px-3 py-2 text-center text-xs">Necessita</th><th className="px-3 py-2 text-right text-xs">Valor Unit.</th><th className="px-3 py-2 text-center text-xs w-24">Ação</th></tr>
+                                <table>
+                                  <tr>
+                                    <th className="px-3 py-2 text-left text-xs">Código</th>
+                                    <th className="px-3 py-2 text-left text-xs">Procedimento</th>
+                                    <th className="px-3 py-2 text-center text-xs">Qtd Executada</th>
+                                    <th className="px-3 py-2 text-center text-xs">Qtd Autorizada</th>
+                                    <th className="px-3 py-2 text-center text-xs">Necessita</th>
+                                    <th className="px-3 py-2 text-right text-xs">Valor Unit.</th>
+                                    <th className="px-3 py-2 text-center text-xs w-24">Ação</th>
+                                  </tr>
+                                </table>
                               </thead>
                               <tbody className="divide-y">
                                 {atendimentoEncontrado.itens_pendentes.map((item, idx) => (
@@ -834,11 +844,23 @@ export default function Autorizacoes() {
                 <div className="overflow-x-auto border rounded-xl">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 dark:bg-gray-700/50">
-                      <tr><th className="px-3 py-2 text-left text-xs">Código</th><th className="px-3 py-2 text-left text-xs">Procedimento</th><th className="px-3 py-2 text-center text-xs">Qtd</th><th className="px-3 py-2 text-right text-xs">Valor Unit.</th><th className="px-3 py-2 text-right text-xs">Valor Total</th></tr>
+                      <tr>
+                        <th className="px-3 py-2 text-left text-xs">Código</th>
+                        <th className="px-3 py-2 text-left text-xs">Procedimento</th>
+                        <th className="px-3 py-2 text-center text-xs">Qtd</th>
+                        <th className="px-3 py-2 text-right text-xs">Valor Unit.</th>
+                        <th className="px-3 py-2 text-right text-xs">Valor Total</th>
+                      </tr>
                     </thead>
                     <tbody className="divide-y">
                       {selectedAutorizacao.itens_autorizados_list?.map((item, idx) => (
-                        <tr key={idx}><td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td><td className="px-3 py-2 text-xs">{item.nome}</td><td className="px-3 py-2 text-xs text-center">{item.quantidade_autorizada}</td><td className="px-3 py-2 text-xs text-right">R$ {(item.valor_unitario || 0).toFixed(2)}</td><td className="px-3 py-2 text-xs text-right font-semibold">R$ {((item.valor_unitario || 0) * (item.quantidade_autorizada || 0)).toFixed(2)}</td></table>
+                        <tr key={idx}>
+                          <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
+                          <td className="px-3 py-2 text-xs">{item.nome}</td>
+                          <td className="px-3 py-2 text-xs text-center">{item.quantidade_autorizada}</td>
+                          <td className="px-3 py-2 text-xs text-right">R$ {(item.valor_unitario || 0).toFixed(2)}</td>
+                          <td className="px-3 py-2 text-xs text-right font-semibold">R$ {((item.valor_unitario || 0) * (item.quantidade_autorizada || 0)).toFixed(2)}</td>
+                        </tr>
                       ))}
                     </tbody>
                     <tfoot className="bg-gray-50 dark:bg-gray-700/50"><tr className="border-t"><td colSpan="4" className="px-3 py-2 text-right font-semibold">Total:</td><td className="px-3 py-2 text-right font-bold text-blue-600">R$ {(selectedAutorizacao.valor_total || 0).toFixed(2)}</td></tr></tfoot>
