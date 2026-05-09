@@ -2,67 +2,111 @@
 import { supabase } from '../lib/supabaseClient';
 
 export const autorizacoesService = {
-  // Listar todas as autorizações
+  // Listar todas as autorizações (buscar da tabela atendimentos onde itens_autorizados não está vazio)
   async listar(filtros = {}) {
     let query = supabase
-      .from('autorizacoes')
+      .from('atendimentos')
       .select(`
-        *,
-        paciente:paciente_id(id, nome, numero_carteira, cpf),
-        convenio:convenio_id(id, razao_social, registro_ans, codigo_prestador)
+        id,
+        numero_guia_prestador,
+        numero_guia_operadora,
+        data_autorizacao,
+        data_validade_senha,
+        senha_autorizacao,
+        observacao,
+        status,
+        valor_total,
+        itens_autorizados,
+        paciente_id,
+        paciente_nome,
+        numero_carteira,
+        paciente_convenio_id,
+        paciente_convenio_nome,
+        convenio_registro_ans,
+        convenio_codigo_prestador,
+        created_at,
+        updated_at
       `)
+      .not('itens_autorizados', 'is', null)
       .order('created_at', { ascending: false });
 
     if (filtros.status) query = query.eq('status', filtros.status);
     if (filtros.paciente_id) query = query.eq('paciente_id', filtros.paciente_id);
-    if (filtros.convenio_id) query = query.eq('convenio_id', filtros.convenio_id);
-    if (filtros.data_inicio) query = query.gte('data_autorizacao', filtros.data_inicio);
-    if (filtros.data_fim) query = query.lte('data_autorizacao', filtros.data_fim);
+    if (filtros.convenio_id) query = query.eq('paciente_convenio_id', filtros.convenio_id);
 
     const { data, error } = await query;
     if (error) throw error;
-    return data;
+    
+    // Transformar os dados para o formato esperado
+    return data.map(item => ({
+      ...item,
+      convenio: {
+        id: item.paciente_convenio_id,
+        razao_social: item.paciente_convenio_nome,
+        registro_ans: item.convenio_registro_ans,
+        codigo_prestador: item.convenio_codigo_prestador
+      },
+      paciente: {
+        id: item.paciente_id,
+        nome: item.paciente_nome,
+        numero_carteira: item.numero_carteira
+      },
+      itens: item.itens_autorizados || [],
+      status: item.status === 'finalizado' ? 'expirada' : 
+              item.status === 'faturado' ? 'expirada' :
+              item.status === 'cancelado' ? 'cancelada' :
+              item.status === 'pendente' ? 'ativa' : 'ativa'
+    }));
   },
 
   // Buscar autorização por ID
   async buscarPorId(id) {
     const { data, error } = await supabase
-      .from('autorizacoes')
-      .select(`
-        *,
-        paciente:paciente_id(id, nome, numero_carteira, cpf, data_nascimento),
-        convenio:convenio_id(id, razao_social, registro_ans, codigo_prestador),
-        itens_autorizados:itens_autorizacao(*)
-      `)
+      .from('atendimentos')
+      .select('*')
       .eq('id', id)
       .single();
 
     if (error) throw error;
-    return data;
+    
+    return {
+      ...data,
+      itens: data.itens_autorizados || [],
+      status: data.status === 'finalizado' ? 'expirada' : 
+              data.status === 'faturado' ? 'expirada' :
+              data.status === 'cancelado' ? 'cancelada' : 'ativa'
+    };
   },
 
-  // Buscar autorização por número da guia
-  async buscarPorNumeroGuia(numeroGuia) {
-    const { data, error } = await supabase
-      .from('autorizacoes')
-      .select('*')
-      .eq('numero_guia_operadora', numeroGuia)
-      .single();
-
-    if (error && error.code !== 'PGRST116') throw error;
-    return data;
-  },
-
-  // Criar nova autorização
+  // Criar nova autorização (como um atendimento)
   async criar(autorizacao) {
+    const autorizacaoData = {
+      numero_guia_operadora: autorizacao.numero_guia_operadora,
+      data_autorizacao: autorizacao.data_autorizacao,
+      data_validade_senha: autorizacao.data_validade_senha,
+      senha_autorizacao: autorizacao.senha_autorizacao,
+      observacao: autorizacao.observacao,
+      itens_autorizados: autorizacao.itens,
+      valor_total: autorizacao.valor_total,
+      paciente_id: autorizacao.paciente_id,
+      paciente_nome: autorizacao.paciente_nome,
+      numero_carteira: autorizacao.numero_carteira,
+      paciente_convenio_id: autorizacao.convenio_id,
+      paciente_convenio_nome: autorizacao.convenio_nome,
+      convenio_registro_ans: autorizacao.convenio_registro_ans,
+      convenio_codigo_prestador: autorizacao.convenio_codigo_prestador,
+      status: 'pendente',
+      data_solicitacao: autorizacao.data_autorizacao,
+      carater_atendimento: '1',
+      tipo_atendimento: '04',
+      regime_atendimento: '01',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
     const { data, error } = await supabase
-      .from('autorizacoes')
-      .insert([{
-        ...autorizacao,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        status: 'ativa'
-      }])
+      .from('atendimentos')
+      .insert([autorizacaoData])
       .select();
 
     if (error) throw error;
@@ -72,9 +116,15 @@ export const autorizacoesService = {
   // Atualizar autorização
   async atualizar(id, autorizacao) {
     const { data, error } = await supabase
-      .from('autorizacoes')
+      .from('atendimentos')
       .update({
-        ...autorizacao,
+        numero_guia_operadora: autorizacao.numero_guia_operadora,
+        data_autorizacao: autorizacao.data_autorizacao,
+        data_validade_senha: autorizacao.data_validade_senha,
+        senha_autorizacao: autorizacao.senha_autorizacao,
+        observacao: autorizacao.observacao,
+        itens_autorizados: autorizacao.itens,
+        valor_total: autorizacao.valor_total,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -87,10 +137,10 @@ export const autorizacoesService = {
   // Cancelar autorização
   async cancelar(id, motivo) {
     const { data, error } = await supabase
-      .from('autorizacoes')
+      .from('atendimentos')
       .update({
-        status: 'cancelada',
-        motivo_cancelamento: motivo,
+        status: 'cancelado',
+        observacao: `Cancelado: ${motivo}`,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -103,11 +153,11 @@ export const autorizacoesService = {
   // Renovar autorização
   async renovar(id, novaDataValidade, novaSenha) {
     const { data, error } = await supabase
-      .from('autorizacoes')
+      .from('atendimentos')
       .update({
         data_validade_senha: novaDataValidade,
         senha_autorizacao: novaSenha,
-        status: 'ativa',
+        status: 'pendente',
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -117,128 +167,32 @@ export const autorizacoesService = {
     return data[0];
   },
 
-  // Adicionar item à autorização
-  async adicionarItem(autorizacaoId, item) {
-    const { data, error } = await supabase
-      .from('itens_autorizacao')
-      .insert([{
-        autorizacao_id: autorizacaoId,
-        ...item,
-        created_at: new Date().toISOString()
-      }])
-      .select();
-
-    if (error) throw error;
-    return data[0];
-  },
-
-  // Atualizar item da autorização
-  async atualizarItem(itemId, item) {
-    const { data, error } = await supabase
-      .from('itens_autorizacao')
-      .update({
-        ...item,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', itemId)
-      .select();
-
-    if (error) throw error;
-    return data[0];
-  },
-
-  // Remover item da autorização
-  async removerItem(itemId) {
-    const { error } = await supabase
-      .from('itens_autorizacao')
-      .delete()
-      .eq('id', itemId);
-
-    if (error) throw error;
-    return true;
-  },
-
-  // Listar itens de uma autorização
-  async listarItens(autorizacaoId) {
-    const { data, error } = await supabase
-      .from('itens_autorizacao')
-      .select('*')
-      .eq('autorizacao_id', autorizacaoId)
-      .order('created_at');
-
-    if (error) throw error;
-    return data;
-  },
-
-  // Verificar saldo disponível de um item
-  async verificarSaldo(autorizacaoId, itemCodigo) {
-    const { data, error } = await supabase
-      .from('itens_autorizacao')
-      .select('quantidade_autorizada, quantidade_utilizada')
-      .eq('autorizacao_id', autorizacaoId)
-      .eq('codigo', itemCodigo)
-      .single();
-
-    if (error && error.code !== 'PGRST116') throw error;
-    
-    if (!data) return 0;
-    return (data.quantidade_autorizada || 0) - (data.quantidade_utilizada || 0);
-  },
-
-  // Consumir saldo (usar um item autorizado)
-  async consumirSaldo(autorizacaoId, itemCodigo, quantidade) {
-    const item = await this.verificarSaldo(autorizacaoId, itemCodigo);
-    if (item < quantidade) {
-      throw new Error('Saldo insuficiente para este procedimento');
-    }
-
-    const { data, error } = await supabase
-      .from('itens_autorizacao')
-      .update({
-        quantidade_utilizada: supabase.raw('quantidade_utilizada + ?', [quantidade]),
-        updated_at: new Date().toISOString()
-      })
-      .eq('autorizacao_id', autorizacaoId)
-      .eq('codigo', itemCodigo)
-      .select();
-
-    if (error) throw error;
-    return data[0];
-  },
-
   // Estatísticas de autorizações
   async getEstatisticas() {
     const { data, error } = await supabase
-      .from('autorizacoes')
-      .select('status, valor_total, data_autorizacao');
+      .from('atendimentos')
+      .select('status, valor_total, data_validade_senha, itens_autorizados')
+      .not('itens_autorizados', 'is', null);
 
     if (error) throw error;
 
-    const ativas = data.filter(a => a.status === 'ativa').length;
-    const expiradas = data.filter(a => a.status === 'expirada').length;
-    const canceladas = data.filter(a => a.status === 'cancelada').length;
+    const hoje = new Date();
+    const ativas = data.filter(a => a.status === 'pendente' || a.status === 'parcial').length;
+    const expiradas = data.filter(a => {
+      if (a.status === 'finalizado' || a.status === 'faturado') return true;
+      if (a.data_validade_senha && new Date(a.data_validade_senha) < hoje) return true;
+      return false;
+    }).length;
+    const canceladas = data.filter(a => a.status === 'cancelado').length;
     const valorTotal = data.reduce((sum, a) => sum + (a.valor_total || 0), 0);
+    
+    const proximasVencer = data.filter(a => {
+      if (a.status !== 'pendente' && a.status !== 'parcial') return false;
+      if (!a.data_validade_senha) return false;
+      const diasRestantes = Math.ceil((new Date(a.data_validade_senha) - hoje) / (1000 * 60 * 60 * 24));
+      return diasRestantes >= 0 && diasRestantes <= 7;
+    }).length;
 
-    return { ativas, expiradas, canceladas, valorTotal, total: data.length };
-  },
-
-  // Buscar autorizações próximas ao vencimento
-  async getProximasVencer(dias = 7) {
-    const dataLimite = new Date();
-    dataLimite.setDate(dataLimite.getDate() + dias);
-
-    const { data, error } = await supabase
-      .from('autorizacoes')
-      .select(`
-        *,
-        paciente:paciente_id(id, nome, numero_carteira)
-      `)
-      .eq('status', 'ativa')
-      .lte('data_validade_senha', dataLimite.toISOString().split('T')[0])
-      .gte('data_validade_senha', new Date().toISOString().split('T')[0])
-      .order('data_validade_senha', { ascending: true });
-
-    if (error) throw error;
-    return data;
+    return { ativas, expiradas, canceladas, valorTotal, proximasVencer, total: data.length };
   }
 };
