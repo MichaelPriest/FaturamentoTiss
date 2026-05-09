@@ -681,7 +681,6 @@ export default function Autorizacoes() {
                                   <td className="px-3 py-2 text-right font-bold text-blue-600">
                                     R$ {itensAutorizacao.reduce((sum, i) => sum + (i.valor_total || 0), 0).toFixed(2)}
                                   </td>
-                                  </td>
                                 </tr>
                               </tfoot>
                             </table>
