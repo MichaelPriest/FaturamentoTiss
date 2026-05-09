@@ -72,6 +72,16 @@ const moeda = (valor) =>
     maximumFractionDigits: 2
   });
 
+const limitarTexto = (texto = '', tamanho = 150) => {
+  if (!texto) return '';
+
+  if (texto.length <= tamanho) {
+    return texto;
+  }
+
+  return texto.substring(0, tamanho) + '...';
+};
+
 const dataBR = (data) => {
   if (!data) return '';
 
@@ -146,9 +156,7 @@ body{
 table{
   width:100%;
   border-collapse:collapse;
-  table-layout:fixed;
   margin-bottom:2px;
-  font-size:9px;
 }
 
 td{
@@ -166,56 +174,23 @@ th{
   font-size:8px;
   font-weight:bold;
   text-align:center;
-  line-height:1.1;
 }
 
 .secao{
   background:#d9d9d9;
   font-size:8px;
   font-weight:bold;
-  padding:2px 4px;
 }
 
 .campo-numero{
   font-size:7px;
-  line-height:1;
-  min-height:10px;
 }
 
 .campo-valor{
   font-size:9px;
   font-weight:bold;
-  line-height:1.1;
   margin-top:2px;
   word-break:break-word;
-}
-
-.titulo-guia{
-  font-size:11px;
-  font-weight:bold;
-  text-align:center;
-  line-height:1.2;
-}
-
-.numero-guia-label{
-  font-size:8px;
-}
-
-.numero-guia{
-  font-size:22px;
-  font-weight:bold;
-  text-align:center;
-  margin-top:5px;
-}
-
-.empresa-nome{
-  font-size:9px;
-  font-weight:bold;
-}
-
-.empresa-info{
-  font-size:7px;
-  margin-top:2px;
 }
 
 .text-center{
@@ -226,58 +201,99 @@ th{
   text-align:right;
 }
 
-.linha-assinatura{
+.titulo-guia{
+  font-size:11px;
+  font-weight:bold;
+  text-align:center;
+}
+
+.numero-guia{
+  font-size:20px;
+  font-weight:bold;
+  text-align:center;
+}
+
+.assinatura{
   height:45px;
   vertical-align:bottom;
   text-align:center;
   font-size:7px;
 }
 
-.linha-assinatura div{
+.assinatura div{
   border-top:1px solid #000;
   padding-top:2px;
 }
 
 /* =========================================================
-   PROCEDIMENTOS
+   PROCEDIMENTOS EXECUTADOS
 ========================================================= */
 
 .tabela-procedimentos{
   width:100%;
   border-collapse:collapse;
-  table-layout:fixed;
-  margin-bottom:2px;
+  table-layout:auto;
 }
 
 .tabela-procedimentos th{
-  border:1px solid #000;
+  font-size:8px;
   background:#d9d9d9;
-  font-size:8px !important;
-  font-weight:bold;
-  text-align:center;
-  padding:2px;
-  line-height:1.1;
-  vertical-align:middle;
+  white-space:nowrap;
 }
 
 .tabela-procedimentos td{
-  border:1px solid #000;
-  font-size:9px !important;
+  font-size:9px;
   padding:2px;
-  line-height:1.15;
   vertical-align:top;
-  word-break:break-word;
-  overflow-wrap:break-word;
+  white-space:nowrap;
 }
 
 .tabela-procedimentos .descricao{
-  font-size:9px !important;
-  line-height:1.15;
+  width:100%;
+  min-width:260px;
   white-space:normal;
   word-break:break-word;
-  overflow-wrap:break-word;
-  text-align:left;
-  vertical-align:top;
+  line-height:1.15;
+}
+
+.tabela-procedimentos .w-data{
+  width:60px;
+}
+
+.tabela-procedimentos .w-hora{
+  width:45px;
+}
+
+.tabela-procedimentos .w-tabela{
+  width:40px;
+}
+
+.tabela-procedimentos .w-codigo{
+  width:75px;
+}
+
+.tabela-procedimentos .w-qtd{
+  width:35px;
+}
+
+.tabela-procedimentos .w-via{
+  width:35px;
+}
+
+.tabela-procedimentos .w-tec{
+  width:35px;
+}
+
+.tabela-procedimentos .w-fator{
+  width:45px;
+}
+
+.tabela-procedimentos .w-valor{
+  width:75px;
+}
+
+.tabela-procedimentos .w-seq{
+  width:35px;
 }
 
 @page{
@@ -308,13 +324,13 @@ th{
 const campo = (numero, titulo, valor = '') => `
 <td>
 
-  <div class="campo-numero">
-    ${numero} - ${titulo}
-  </div>
+<div class="campo-numero">
+${numero} - ${titulo}
+</div>
 
-  <div class="campo-valor">
-    ${valor || '&nbsp;'}
-  </div>
+<div class="campo-valor">
+${valor || '&nbsp;'}
+</div>
 
 </td>
 `;
@@ -347,15 +363,15 @@ const gerarPagina = (
 
 <td style="width:22%;height:55px;">
 
-<div class="empresa-nome">
+<div style="font-size:9px;font-weight:bold;">
 ${configClinica.nome_empresa || ''}
 </div>
 
-<div class="empresa-info">
+<div style="font-size:7px;">
 CNPJ: ${configClinica.cnpj || ''}
 </div>
 
-<div class="empresa-info">
+<div style="font-size:7px;">
 CNES: ${configClinica.cnes || ''}
 </div>
 
@@ -364,26 +380,48 @@ CNES: ${configClinica.cnes || ''}
 <td style="width:56%;vertical-align:middle;">
 
 <div class="titulo-guia">
-GUIA DE SERVIÇO PROFISSIONAL / SERVIÇO AUXILIAR DE
+GUIA SP/SADT
 </div>
 
 <div class="titulo-guia">
-DIAGNÓSTICO E TERAPIA - SP/SADT
+SERVIÇO PROFISSIONAL / SADT
 </div>
 
 </td>
 
 <td style="width:22%;">
 
-<div class="numero-guia-label">
-Nº Guia no Prestador
+<div style="font-size:8px;">
+Nº Guia Prestador
 </div>
 
 <div class="numero-guia">
-${atendimento.numero_guia_prestador || '1000000'}
+${atendimento.numero_guia_prestador || ''}
 </div>
 
 </td>
+
+</tr>
+
+</table>
+
+<!-- AUTORIZAÇÃO -->
+
+<table>
+
+<tr>
+<td colspan="5" class="secao">
+Registro ANS / Autorização
+</td>
+</tr>
+
+<tr>
+
+${campo('1', 'Registro ANS', convenio?.registro_ans)}
+${campo('2', 'Guia Principal', atendimento.guia_principal)}
+${campo('3', 'Data Aut.', dataBR(atendimento.data_autorizacao))}
+${campo('4', 'Senha', atendimento.senha_autorizacao)}
+${campo('5', 'Validade', dataBR(atendimento.data_validade_senha))}
 
 </tr>
 
@@ -395,89 +433,295 @@ ${atendimento.numero_guia_prestador || '1000000'}
 
 <tr>
 <td colspan="6" class="secao">
-Dados do Beneficiário
+Dados Beneficiário
 </td>
 </tr>
 
 <tr>
 
-${campo('8', 'Número Carteira', atendimento.numero_carteira)}
-
-${campo('9', 'Validade', atendimento.validade_carteira)}
-
-${campo('10', 'Nome', atendimento.paciente_nome)}
-
-${campo('11', 'CNS', atendimento.cns)}
-
-${campo('12', 'RN', atendimento.atendimento_rn)}
-
-${campo('13', 'Nascimento', atendimento.data_nascimento)}
+${campo('6', 'Carteira', atendimento.numero_carteira)}
+${campo('7', 'Validade', atendimento.validade_carteira)}
+${campo('8', 'Nome', atendimento.paciente_nome)}
+${campo('9', 'CNS', atendimento.cns)}
+${campo('10', 'RN', atendimento.atendimento_rn)}
+${campo('11', 'Nascimento', atendimento.data_nascimento)}
 
 </tr>
 
 </table>
 
-<!-- PROCEDIMENTOS -->
+<!-- SOLICITANTE -->
 
-<table class="tabela-procedimentos">
+<table>
 
 <tr>
-
-<td colspan="12" class="secao">
-
-Procedimentos Realizados
-
+<td colspan="6" class="secao">
+Contratado Solicitante
 </td>
-
 </tr>
 
 <tr>
 
-<th style="width:8%">
+${campo(
+  '12',
+  'Nome Contratado',
+  atendimento.nome_contratado ||
+  configClinica.nome_empresa
+)}
+
+${campo(
+  '13',
+  'Código Operadora',
+  convenio?.codigo_prestador
+)}
+
+${campo(
+  '14',
+  'Profissional',
+  atendimento.profissional_solicitante
+)}
+
+${campo(
+  '15',
+  'Conselho',
+  CONSELHO_MAP[
+    atendimento.conselho_solicitante
+  ] || ''
+)}
+
+${campo(
+  '16',
+  'Nº Conselho',
+  atendimento.numero_conselho_solicitante
+)}
+
+${campo(
+  '17',
+  'UF',
+  atendimento.uf_solicitante
+)}
+
+</tr>
+
+</table>
+
+<!-- SOLICITAÇÃO -->
+
+<table>
+
+<tr>
+<td colspan="6" class="secao">
+Solicitação / Procedimentos
+</td>
+</tr>
+
+<tr>
+
+<th>Seq</th>
+<th>Tabela</th>
+<th>Código</th>
+<th>Descrição</th>
+<th>Qtd Sol.</th>
+<th>Qtd Aut.</th>
+
+</tr>
+
+${
+  atendimento.itens_autorizados?.length
+
+    ? atendimento.itens_autorizados.map(
+      (item, idx) => `
+
+      <tr>
+
+      <td class="text-center">
+      ${idx + 1}
+      </td>
+
+      <td class="text-center">
+      ${item.tabela_referencia || '22'}
+      </td>
+
+      <td class="text-center">
+      ${item.codigo || ''}
+      </td>
+
+      <td>
+      ${limitarTexto(item.nome)}
+      </td>
+
+      <td class="text-center">
+      ${item.quantidade_solicitada || 1}
+      </td>
+
+      <td class="text-center">
+      ${item.quantidade_autorizada || 1}
+      </td>
+
+      </tr>
+
+    `
+    ).join('')
+
+    : `
+
+    <tr>
+
+    <td colspan="6" style="height:35px;"></td>
+
+    </tr>
+
+    `
+}
+
+</table>
+
+<!-- EXECUTANTE -->
+
+<table>
+
+<tr>
+<td colspan="4" class="secao">
+Contratado Executante
+</td>
+</tr>
+
+<tr>
+
+${campo(
+  '18',
+  'Código Operadora',
+  convenio?.codigo_prestador
+)}
+
+${campo(
+  '19',
+  'Nome Contratado',
+  atendimento.nome_contratado_executante ||
+  configClinica.nome_empresa
+)}
+
+${campo(
+  '20',
+  'CNES',
+  configClinica.cnes
+)}
+
+${campo(
+  '21',
+  'Tipo Atendimento',
+  TIPO_ATENDIMENTO_MAP[
+    atendimento.tipo_atendimento
+  ] || ''
+)}
+
+</tr>
+
+</table>
+
+<!-- DADOS ATENDIMENTO -->
+
+<table>
+
+<tr>
+<td colspan="4" class="secao">
+Dados Atendimento
+</td>
+</tr>
+
+<tr>
+
+${campo(
+  '22',
+  'Indicação Acidente',
+  INDICADOR_ACIDENTE_MAP[
+    atendimento.indicacao_acidente
+  ] || ''
+)}
+
+${campo(
+  '23',
+  'Tipo Consulta',
+  TIPO_CONSULTA_MAP[
+    atendimento.tipo_consulta
+  ] || ''
+)}
+
+${campo(
+  '24',
+  'Motivo Encerramento',
+  MOTIVO_ENCERRAMENTO_MAP[
+    atendimento.motivo_encerramento
+  ] || ''
+)}
+
+${campo(
+  '25',
+  'Observação',
+  limitarTexto(atendimento.observacao || '', 120)
+)}
+
+</tr>
+
+</table>
+
+<!-- PROCEDIMENTOS EXECUTADOS -->
+
+<table class="tabela-procedimentos">
+
+<tr>
+<td colspan="12" class="secao">
+Procedimentos Executados
+</td>
+</tr>
+
+<tr>
+
+<th class="w-data">
 Data
 </th>
 
-<th style="width:6%">
+<th class="w-hora">
 Hora
 </th>
 
-<th style="width:5%">
+<th class="w-tabela">
 Tabela
 </th>
 
-<th style="width:9%">
+<th class="w-codigo">
 Código
 </th>
 
-<th style="width:34%">
+<th>
 Descrição
 </th>
 
-<th style="width:4%">
+<th class="w-qtd">
 Qtd
 </th>
 
-<th style="width:4%">
+<th class="w-via">
 Via
 </th>
 
-<th style="width:4%">
+<th class="w-tec">
 Tec
 </th>
 
-<th style="width:6%">
+<th class="w-fator">
 Fator
 </th>
 
-<th style="width:8%">
-Valor Unit.
+<th class="w-valor">
+Vl Unit.
 </th>
 
-<th style="width:8%">
-Valor Total
+<th class="w-valor">
+Vl Total
 </th>
 
-<th style="width:4%">
+<th class="w-seq">
 Seq
 </th>
 
@@ -490,55 +734,53 @@ ${
 
       <tr>
 
-      <td class="text-center">
+      <td class="text-center w-data">
       ${item.data_execucao || ''}
       </td>
 
-      <td class="text-center">
+      <td class="text-center w-hora">
       ${item.hora_inicial || ''}
       </td>
 
-      <td class="text-center">
+      <td class="text-center w-tabela">
       ${item.tabela_referencia || '22'}
       </td>
 
-      <td class="text-center">
+      <td class="text-center w-codigo">
       ${item.codigo || ''}
       </td>
 
       <td class="descricao">
 
-      ${(item.nome || '')
-        .replace(/\n/g, '<br>')
-        .substring(0, 180)}
+      ${limitarTexto(item.nome || '', 150)}
 
       </td>
 
-      <td class="text-center">
-      ${item.quantidade || '1'}
+      <td class="text-center w-qtd">
+      ${item.quantidade || 1}
       </td>
 
-      <td class="text-center">
+      <td class="text-center w-via">
       ${item.viaAcesso || '1'}
       </td>
 
-      <td class="text-center">
+      <td class="text-center w-tec">
       ${item.tecnicaUtilizada || '1'}
       </td>
 
-      <td class="text-center">
+      <td class="text-center w-fator">
       1,00
       </td>
 
-      <td class="text-right">
+      <td class="text-right w-valor">
       ${moeda(item.valor_unitario)}
       </td>
 
-      <td class="text-right">
+      <td class="text-right w-valor">
       ${moeda(item.valor_total)}
       </td>
 
-      <td class="text-center">
+      <td class="text-center w-seq">
       ${idx + 1}
       </td>
 
@@ -550,8 +792,7 @@ ${
 
       <tr>
 
-      <td colspan="12" style="height:55px;">
-      </td>
+      <td colspan="12" style="height:50px;"></td>
 
       </tr>
 
@@ -565,11 +806,9 @@ ${
 <table>
 
 <tr>
-
 <td colspan="8" class="secao">
 Profissionais Executantes
 </td>
-
 </tr>
 
 <tr>
@@ -578,7 +817,7 @@ Profissionais Executantes
 <th>Grau</th>
 <th>CPF</th>
 <th>Nome</th>
-<th>Conselho</th>
+<th>Cons.</th>
 <th>Nº Conselho</th>
 <th>UF</th>
 <th>CBO</th>
@@ -603,7 +842,7 @@ ${
   </td>
 
   <td>
-  ${item.prestador_nome || ''}
+  ${limitarTexto(item.prestador_nome || '', 60)}
   </td>
 
   <td class="text-center">
@@ -629,16 +868,14 @@ ${
 
 </table>
 
-<!-- TOTAL -->
+<!-- TOTAIS -->
 
 <table>
 
 <tr>
-
 <td colspan="7" class="secao">
 Valores Totais
 </td>
-
 </tr>
 
 <tr>
@@ -661,15 +898,15 @@ ${campo('65', 'Total Geral', moeda(total))}
 
 <tr>
 
-<td class="linha-assinatura">
+<td class="assinatura">
 <div>Assinatura Responsável</div>
 </td>
 
-<td class="linha-assinatura">
+<td class="assinatura">
 <div>Assinatura Beneficiário</div>
 </td>
 
-<td class="linha-assinatura">
+<td class="assinatura">
 <div>Assinatura Contratado</div>
 </td>
 
@@ -696,15 +933,6 @@ export const gerarHTMLGuiaTISSOficial = (
     atendimento.itens || []
   );
 
-  const paginasHTML = paginas.map((pagina) =>
-    gerarPagina(
-      atendimento,
-      convenio,
-      configClinica,
-      pagina.itens
-    )
-  ).join('');
-
   return `
 <!DOCTYPE html>
 
@@ -726,7 +954,14 @@ ${gerarCSS()}
 
 <body>
 
-${paginasHTML}
+${paginas.map((pagina) =>
+  gerarPagina(
+    atendimento,
+    convenio,
+    configClinica,
+    pagina.itens
+  )
+).join('')}
 
 </body>
 
