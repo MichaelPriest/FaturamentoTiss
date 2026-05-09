@@ -887,7 +887,7 @@ export default function Prontuario() {
                 <div className="group relative">
                   <div className="flex justify-between items-center mb-2">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                      <FaClinicalNotes className="w-4 h-4 text-blue-500" /> Anamnese
+                      <FaNotesMedical className="w-4 h-4 text-blue-500" /> Anamnese
                     </label>
                     <button onClick={() => gerarSugestaoComIA('anamnese', formData.anamnese)} className="text-xs bg-gradient-to-r from-purple-500 to-pink-500 text-white px-2 py-1 rounded-lg flex items-center gap-1 hover:shadow-md transition-all">
                       <SparklesIcon className="w-3 h-3" /> IA
