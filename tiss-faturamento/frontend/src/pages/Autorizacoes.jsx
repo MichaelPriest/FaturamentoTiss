@@ -1,12 +1,12 @@
 // src/pages/Autorizacoes.jsx
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, 
   CheckIcon, XMarkIcon, EyeIcon, DocumentPlusIcon,
   CurrencyDollarIcon, CalendarIcon, UserGroupIcon,
   ClockIcon, ExclamationTriangleIcon, LockClosedIcon,
   LockOpenIcon, ArrowPathIcon, BuildingOfficeIcon,
-  ArrowPathIcon, ChevronUpIcon, ChevronDownIcon
+  ChevronUpIcon, ChevronDownIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format, differenceInDays } from 'date-fns';
@@ -86,7 +86,6 @@ export default function Autorizacoes() {
     const canceladas = autorizacoes.filter(a => a.status === 'cancelada').length;
     const valorTotal = autorizacoes.reduce((sum, a) => sum + (a.valor_total || 0), 0);
     
-    // Calcular próximas ao vencimento (7 dias)
     const hoje = new Date();
     const proximasVencer = autorizacoes.filter(a => {
       if (a.status !== 'ativa') return false;
@@ -207,7 +206,7 @@ export default function Autorizacoes() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-6">
       <div className="max-w-7xl mx-auto">
         
         {/* Header */}
@@ -289,7 +288,7 @@ export default function Autorizacoes() {
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-40">Ações</th>
-                </tr>
+                </td>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {autorizacoesFiltradas.map((a) => {
@@ -398,7 +397,7 @@ export default function Autorizacoes() {
                                     })}
                                   </tbody>
                                   <tfoot className="bg-gray-100 dark:bg-gray-700">
-                                    <tr>
+                                    <tr className="border-t">
                                       <td colSpan="6" className="px-2 py-1 text-right font-semibold text-gray-700">Total:</td>
                                       <td className="px-2 py-1 text-right font-bold text-blue-600">
                                         R$ {(a.itens || []).reduce((sum, i) => sum + ((i.valor_unitario || 0) * (i.quantidade_autorizada || 0)), 0).toFixed(2)}
