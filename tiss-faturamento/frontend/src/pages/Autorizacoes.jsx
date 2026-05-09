@@ -6,18 +6,22 @@ import {
   CurrencyDollarIcon, CalendarIcon,
   ClockIcon, ExclamationTriangleIcon, 
   ArrowPathIcon, BuildingOfficeIcon,
-  ChevronUpIcon, ChevronDownIcon, TrashIcon
+  ChevronUpIcon, ChevronDownIcon, TrashIcon,
+  KeyIcon, ShieldCheckIcon, UserCircleIcon,
+  IdentificationIcon, CreditCardIcon,
+  CalendarDaysIcon, CubeIcon, ListBulletIcon,
+  CheckBadgeIcon, XCircleIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format, differenceInDays } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
 
 const STATUS_AUTORIZACAO = [
-  { value: 'pendente', label: 'Sem Autorização', cor: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' },
-  { value: 'parcial', label: 'Parcialmente Autorizada', cor: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
-  { value: 'autorizado', label: 'Autorizada', cor: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
-  { value: 'faturado', label: 'Faturado', cor: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-  { value: 'finalizado', label: 'Finalizado', cor: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' }
+  { value: 'pendente', label: 'Sem Autorização', cor: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400', icone: ClockIcon },
+  { value: 'parcial', label: 'Parcialmente Autorizada', cor: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400', icone: ExclamationTriangleIcon },
+  { value: 'autorizado', label: 'Autorizada', cor: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', icone: CheckBadgeIcon },
+  { value: 'faturado', label: 'Faturado', cor: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', icone: CurrencyDollarIcon },
+  { value: 'finalizado', label: 'Finalizado', cor: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400', icone: ShieldCheckIcon }
 ];
 
 export default function Autorizacoes() {
@@ -37,8 +41,8 @@ export default function Autorizacoes() {
   const [buscaNumeroGuia, setBuscaNumeroGuia] = useState('');
   const [atendimentoEncontrado, setAtendimentoEncontrado] = useState(null);
   const [buscandoAtendimento, setBuscandoAtendimento] = useState(false);
+  const [quantidadesAutorizar, setQuantidadesAutorizar] = useState({});
   
-  // Dados da autorização
   const [dadosAutorizacao, setDadosAutorizacao] = useState({
     numero_guia_operadora: '',
     data_autorizacao: new Date().toISOString().split('T')[0],
@@ -46,7 +50,6 @@ export default function Autorizacoes() {
     senha_autorizacao: ''
   });
   
-  // Estado para itens da autorização
   const [itensAutorizacao, setItensAutorizacao] = useState([]);
   const [currentItem, setCurrentItem] = useState({
     codigo: '',
@@ -121,6 +124,21 @@ export default function Autorizacoes() {
         const qtdExecutada = executado.quantidade || 1;
         const qtdAutorizada = autorizado?.quantidade_autorizada || 0;
         return !autorizado || qtdAutorizada < qtdExecutada;
+      }).map(executado => {
+        const autorizado = itensAutorizadosList.find(aut => aut.codigo === executado.codigo);
+        const qtdExecutada = executado.quantidade || 1;
+        const qtdAutorizada = autorizado?.quantidade_autorizada || 0;
+        
+        return {
+          id: executado.id || `${executado.codigo}_${Date.now()}`,
+          codigo: executado.codigo,
+          nome: executado.nome,
+          quantidade_executada: qtdExecutada,
+          quantidade_autorizada: qtdAutorizada,
+          quantidade_necessaria: qtdExecutada - qtdAutorizada,
+          valor_unitario: executado.valor_unitario || 0,
+          precisa_autorizar: true
+        };
       });
 
       return {
@@ -136,7 +154,6 @@ export default function Autorizacoes() {
     });
   };
 
-  // Buscar atendimento por número de guia
   const handleBuscarAtendimento = async () => {
     if (!buscaNumeroGuia) {
       toast.error('Digite o número da guia');
@@ -162,7 +179,6 @@ export default function Autorizacoes() {
       const itensExecutados = data.itens || [];
       const itensAutorizadosList = data.itens_autorizados || [];
       
-      // Mapear itens que precisam de autorização
       const itensPendentes = itensExecutados.filter(executado => {
         const autorizado = itensAutorizadosList.find(aut => aut.codigo === executado.codigo);
         const qtdExecutada = executado.quantidade || 1;
@@ -174,16 +190,14 @@ export default function Autorizacoes() {
         const qtdAutorizada = autorizado?.quantidade_autorizada || 0;
         
         return {
-          id: executado.id || Date.now(),
+          id: executado.id || `${executado.codigo}_${Date.now()}`,
           codigo: executado.codigo,
           nome: executado.nome,
           quantidade_executada: qtdExecutada,
           quantidade_autorizada: qtdAutorizada,
           quantidade_necessaria: qtdExecutada - qtdAutorizada,
           valor_unitario: executado.valor_unitario || 0,
-          precisa_autorizar: true,
-          selecionado: false,
-          quantidade_autorizar: qtdExecutada - qtdAutorizada
+          precisa_autorizar: true
         };
       });
       
@@ -193,7 +207,13 @@ export default function Autorizacoes() {
         itens_autorizados_list: itensAutorizadosList
       });
       
-      // Preencher dados da autorização se já existirem
+      // Inicializar quantidades para autorização
+      const quantidadesIniciais = {};
+      itensPendentes.forEach(item => {
+        quantidadesIniciais[item.id] = item.quantidade_necessaria;
+      });
+      setQuantidadesAutorizar(quantidadesIniciais);
+      
       if (data.numero_guia_operadora || data.data_autorizacao || data.senha_autorizacao) {
         setDadosAutorizacao({
           numero_guia_operadora: data.numero_guia_operadora || '',
@@ -220,8 +240,23 @@ export default function Autorizacoes() {
     }
   };
 
-  // Adicionar item pendente à autorização
+  const handleQuantidadeChange = (itemId, valor, maxQuantidade) => {
+    let novaQuantidade = parseInt(valor) || 0;
+    if (novaQuantidade > maxQuantidade) novaQuantidade = maxQuantidade;
+    if (novaQuantidade < 0) novaQuantidade = 0;
+    
+    setQuantidadesAutorizar(prev => ({
+      ...prev,
+      [itemId]: novaQuantidade
+    }));
+  };
+
   const handleAdicionarItemPendente = (itemPendente) => {
+    if (itemPendente.quantidade_autorizar <= 0) {
+      toast.warning('Informe uma quantidade válida');
+      return;
+    }
+    
     const itemExistente = itensAutorizacao.find(item => item.codigo === itemPendente.codigo);
     
     if (itemExistente) {
@@ -252,9 +287,35 @@ export default function Autorizacoes() {
       setItensAutorizacao([...itensAutorizacao, novoItem]);
       toast.success('Item adicionado!');
     }
+    
+    // Atualizar a quantidade pendente no objeto atendimentoEncontrado
+    setAtendimentoEncontrado(prev => {
+      if (!prev) return prev;
+      const novosItensPendentes = prev.itens_pendentes.map(item => {
+        if (item.id === itemPendente.id) {
+          const novaNecessaria = item.quantidade_necessaria - itemPendente.quantidade_autorizar;
+          return {
+            ...item,
+            quantidade_necessaria: novaNecessaria,
+            quantidade_autorizada: item.quantidade_autorizada + itemPendente.quantidade_autorizar
+          };
+        }
+        return item;
+      }).filter(item => item.quantidade_necessaria > 0);
+      
+      return {
+        ...prev,
+        itens_pendentes: novosItensPendentes
+      };
+    });
+    
+    // Resetar a quantidade do input
+    setQuantidadesAutorizar(prev => ({
+      ...prev,
+      [itemPendente.id]: 0
+    }));
   };
 
-  // Buscar procedimento para adicionar manualmente
   const handleBuscarProcedimento = (codigo) => {
     if (!codigo) return;
     
@@ -270,7 +331,6 @@ export default function Autorizacoes() {
     }
   };
 
-  // Adicionar item manual à autorização
   const handleAdicionarItem = () => {
     if (!currentItem.codigo) {
       toast.error('Selecione um procedimento');
@@ -317,7 +377,6 @@ export default function Autorizacoes() {
     setSearchItemTerm('');
   };
 
-  // Editar item da autorização
   const handleEditarItem = (item) => {
     setEditandoItemId(item.id);
     setCurrentItem({
@@ -328,7 +387,6 @@ export default function Autorizacoes() {
     });
   };
 
-  // Salvar edição do item
   const handleSalvarEdicao = () => {
     if (!currentItem.codigo) return;
     
@@ -353,13 +411,11 @@ export default function Autorizacoes() {
     toast.success('Item atualizado!');
   };
 
-  // Remover item da autorização
   const handleRemoverItem = (itemId) => {
     setItensAutorizacao(itensAutorizacao.filter(item => item.id !== itemId));
     toast.success('Item removido');
   };
 
-  // Salvar autorização completa
   const handleSalvarAutorizacao = async () => {
     if (!atendimentoEncontrado) {
       toast.error('Nenhuma guia selecionada');
@@ -384,7 +440,7 @@ export default function Autorizacoes() {
           data_autorizacao: dadosAutorizacao.data_autorizacao,
           data_validade_senha: dadosAutorizacao.data_validade_senha,
           senha_autorizacao: dadosAutorizacao.senha_autorizacao,
-          status: 'autorizado',
+          status: itensAutorizacao.length > 0 ? 'autorizado' : 'pendente',
           updated_at: new Date().toISOString()
         })
         .eq('id', atendimentoEncontrado.id);
@@ -395,6 +451,7 @@ export default function Autorizacoes() {
       setShowModal(false);
       setAtendimentoEncontrado(null);
       setItensAutorizacao([]);
+      setQuantidadesAutorizar({});
       setDadosAutorizacao({
         numero_guia_operadora: '',
         data_autorizacao: new Date().toISOString().split('T')[0],
@@ -409,7 +466,6 @@ export default function Autorizacoes() {
     }
   };
 
-  // Editar autorização existente
   const handleEditarAutorizacao = async (atendimento) => {
     setEditing(atendimento);
     setAtendimentoEncontrado(atendimento);
@@ -488,16 +544,22 @@ export default function Autorizacoes() {
         {/* Header */}
         <div className="mb-8">
           <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">
-                Autorizações de Procedimentos
-              </h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                Gerencie as autorizações de procedimentos por número de guia
-              </p>
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl shadow-lg">
+                <ShieldCheckIcon className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent">
+                  Autorizações de Procedimentos
+                </h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 flex items-center gap-2">
+                  <KeyIcon className="w-4 h-4" />
+                  Gerencie as autorizações de procedimentos por número de guia
+                </p>
+              </div>
             </div>
             <button 
-              onClick={() => { setEditing(null); setAtendimentoEncontrado(null); setItensAutorizacao([]); setBuscaNumeroGuia(''); setDadosAutorizacao({numero_guia_operadora: '', data_autorizacao: new Date().toISOString().split('T')[0], data_validade_senha: '', senha_autorizacao: ''}); setShowModal(true); }} 
+              onClick={() => { setEditing(null); setAtendimentoEncontrado(null); setItensAutorizacao([]); setQuantidadesAutorizar({}); setBuscaNumeroGuia(''); setDadosAutorizacao({numero_guia_operadora: '', data_autorizacao: new Date().toISOString().split('T')[0], data_validade_senha: '', senha_autorizacao: ''}); setShowModal(true); }} 
               className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 hover:shadow-lg transition-all"
             >
               <PlusIcon className="w-4 h-4" /> Nova Autorização
@@ -507,40 +569,70 @@ export default function Autorizacoes() {
 
         {/* Cards de Estatísticas */}
         <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-            <div className="flex justify-between">
-              <div><p className="text-xs text-gray-500">Total</p><p className="text-2xl font-bold text-gray-800 dark:text-white">{estatisticas.total}</p></div>
-              <DocumentPlusIcon className="w-8 h-8 text-blue-500 opacity-50" />
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-lg transition-all">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-xs text-gray-500 flex items-center gap-1"><DocumentPlusIcon className="w-3 h-3" /> Total</p>
+                <p className="text-2xl font-bold text-gray-800 dark:text-white">{estatisticas.total}</p>
+              </div>
+              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                <DocumentPlusIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              </div>
             </div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-            <div className="flex justify-between">
-              <div><p className="text-xs text-gray-500">Sem Autorização</p><p className="text-2xl font-bold text-yellow-600">{estatisticas.pendentes}</p></div>
-              <ClockIcon className="w-8 h-8 text-yellow-500 opacity-50" />
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-lg transition-all">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-xs text-gray-500 flex items-center gap-1"><ClockIcon className="w-3 h-3" /> Sem Autorização</p>
+                <p className="text-2xl font-bold text-yellow-600">{estatisticas.pendentes}</p>
+              </div>
+              <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl flex items-center justify-center">
+                <ClockIcon className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+              </div>
             </div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-            <div className="flex justify-between">
-              <div><p className="text-xs text-gray-500">Autorizadas</p><p className="text-2xl font-bold text-green-600">{estatisticas.autorizados}</p></div>
-              <CheckIcon className="w-8 h-8 text-green-500 opacity-50" />
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-lg transition-all">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-xs text-gray-500 flex items-center gap-1"><CheckBadgeIcon className="w-3 h-3" /> Autorizadas</p>
+                <p className="text-2xl font-bold text-green-600">{estatisticas.autorizados}</p>
+              </div>
+              <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center">
+                <CheckBadgeIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
+              </div>
             </div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-            <div className="flex justify-between">
-              <div><p className="text-xs text-gray-500">Parcialmente Autorizada</p><p className="text-2xl font-bold text-orange-600">{estatisticas.parciais}</p></div>
-              <ExclamationTriangleIcon className="w-8 h-8 text-orange-500 opacity-50" />
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-lg transition-all">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-xs text-gray-500 flex items-center gap-1"><ExclamationTriangleIcon className="w-3 h-3" /> Parcialmente Autorizada</p>
+                <p className="text-2xl font-bold text-orange-600">{estatisticas.parciais}</p>
+              </div>
+              <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center">
+                <ExclamationTriangleIcon className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+              </div>
             </div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-            <div className="flex justify-between">
-              <div><p className="text-xs text-gray-500">Faturados</p><p className="text-2xl font-bold text-blue-600">{estatisticas.faturados}</p></div>
-              <CurrencyDollarIcon className="w-8 h-8 text-blue-500 opacity-50" />
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-lg transition-all">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-xs text-gray-500 flex items-center gap-1"><CurrencyDollarIcon className="w-3 h-3" /> Faturados</p>
+                <p className="text-2xl font-bold text-blue-600">{estatisticas.faturados}</p>
+              </div>
+              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                <CurrencyDollarIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              </div>
             </div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-            <div className="flex justify-between">
-              <div><p className="text-xs text-gray-500">Finalizados</p><p className="text-2xl font-bold text-purple-600">{estatisticas.finalizados}</p></div>
-              <CheckIcon className="w-8 h-8 text-purple-500 opacity-50" />
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-lg transition-all">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-xs text-gray-500 flex items-center gap-1"><ShieldCheckIcon className="w-3 h-3" /> Finalizados</p>
+                <p className="text-2xl font-bold text-purple-600">{estatisticas.finalizados}</p>
+              </div>
+              <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
+                <ShieldCheckIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              </div>
             </div>
           </div>
         </div>
@@ -571,14 +663,14 @@ export default function Autorizacoes() {
               <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-8"></th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nº Guia</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paciente</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Convênio</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nº Guia Operadora</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Validade</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Itens</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><IdentificationIcon className="w-3 h-3 inline mr-1" />Nº Guia</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><UserCircleIcon className="w-3 h-3 inline mr-1" />Paciente</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><BuildingOfficeIcon className="w-3 h-3 inline mr-1" />Convênio</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><CreditCardIcon className="w-3 h-3 inline mr-1" />Guia Operadora</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><CalendarDaysIcon className="w-3 h-3 inline mr-1" />Validade</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><ListBulletIcon className="w-3 h-3 inline mr-1" />Itens</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><CurrencyDollarIcon className="w-3 h-3 inline mr-1" />Valor</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><ShieldCheckIcon className="w-3 h-3 inline mr-1" />Status</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Ações</th>
                 </tr>
               </thead>
@@ -593,7 +685,7 @@ export default function Autorizacoes() {
                     <React.Fragment key={a.id}>
                       <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
                         <td className="px-4 py-3">
-                          <button onClick={() => toggleExpand(a.id)} className="p-1 hover:bg-gray-100 rounded">
+                          <button onClick={() => toggleExpand(a.id)} className="p-1 hover:bg-gray-100 rounded transition-colors">
                             {isExpanded ? <ChevronUpIcon className="w-4 h-4 text-gray-400" /> : <ChevronDownIcon className="w-4 h-4 text-gray-400" />}
                           </button>
                         </td>
@@ -602,9 +694,12 @@ export default function Autorizacoes() {
                         <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{a.paciente_convenio_nome || '-'}</td>
                         <td className="px-4 py-3 font-mono text-sm text-gray-600 dark:text-gray-400">{a.numero_guia_operadora || '-'}</td>
                         <td className="px-4 py-3 text-sm">
-                          <span className={diasRestantes < 0 ? 'text-red-600' : diasRestantes < 7 ? 'text-yellow-600' : 'text-gray-600'}>
-                            {a.data_validade_senha ? format(new Date(a.data_validade_senha), 'dd/MM/yyyy') : '-'}
-                          </span>
+                          <div className="flex items-center gap-1">
+                            <CalendarDaysIcon className="w-3 h-3 text-gray-400" />
+                            <span className={diasRestantes < 0 ? 'text-red-600' : diasRestantes < 7 ? 'text-yellow-600' : 'text-gray-600'}>
+                              {a.data_validade_senha ? format(new Date(a.data_validade_senha), 'dd/MM/yyyy') : '-'}
+                            </span>
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-center">
                           {temItensPendentes ? (
@@ -614,30 +709,63 @@ export default function Autorizacoes() {
                           ) : (<span className="text-gray-400">-</span>)}
                         </td>
                         <td className="px-4 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">R$ {(a.valor_total || 0).toFixed(2)}</td>
-                        <td className="px-4 py-3"><span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getStatusCor(a.status)}`}>{getStatusLabel(a.status)}</span></td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusCor(a.status)}`}>
+                            {STATUS_AUTORIZACAO.find(s => s.value === a.status)?.icone && React.createElement(STATUS_AUTORIZACAO.find(s => s.value === a.status).icone, { className: "w-3 h-3" })}
+                            {getStatusLabel(a.status)}
+                          </span>
+                        </td>
                         <td className="px-4 py-3 text-center">
                           <div className="flex gap-1 justify-center">
-                            <button onClick={() => { setSelectedAutorizacao(a); setShowItensModal(true); }} className="p-1 rounded-lg text-gray-600 hover:bg-gray-100" title="Ver Itens"><EyeIcon className="w-4 h-4" /></button>
+                            <button onClick={() => { setSelectedAutorizacao(a); setShowItensModal(true); }} className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors" title="Ver Itens">
+                              <EyeIcon className="w-4 h-4" />
+                            </button>
                             {a.status !== 'faturado' && a.status !== 'finalizado' && temItensPendentes && (
-                              <button onClick={() => handleEditarAutorizacao(a)} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50" title="Editar Autorização"><PencilIcon className="w-4 h-4" /></button>
+                              <button onClick={() => handleEditarAutorizacao(a)} className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors" title="Editar Autorização">
+                                <PencilIcon className="w-4 h-4" />
+                              </button>
                             )}
                           </div>
                         </td>
-                       </tr>
+                      </tr>
                       {isExpanded && a.itens_pendentes?.length > 0 && (
                         <tr className="bg-gray-50 dark:bg-gray-700/30">
                           <td colSpan="10" className="px-4 py-3">
                             <div className="overflow-x-auto">
                               <table className="w-full text-xs">
                                 <thead className="bg-gray-100 dark:bg-gray-700">
-                                  <tr><th className="px-2 py-1 text-left">Código</th><th className="px-2 py-1 text-left">Procedimento</th><th className="px-2 py-1 text-center">Qtd Executada</th><th className="px-2 py-1 text-center">Qtd Autorizada</th><th className="px-2 py-1 text-center">Necessita</th><th className="px-2 py-1 text-right">Valor Unit.</th></tr>
+                                  <tr>
+                                    <th className="px-2 py-1 text-left"><CubeIcon className="w-3 h-3 inline mr-1" />Código</th>
+                                    <th className="px-2 py-1 text-left">Procedimento</th>
+                                    <th className="px-2 py-1 text-center"><ListBulletIcon className="w-3 h-3 inline mr-1" />Qtd Executada</th>
+                                    <th className="px-2 py-1 text-center"><CheckBadgeIcon className="w-3 h-3 inline mr-1" />Qtd Autorizada</th>
+                                    <th className="px-2 py-1 text-center"><ExclamationTriangleIcon className="w-3 h-3 inline mr-1" />Necessita</th>
+                                    <th className="px-2 py-1 text-right"><CurrencyDollarIcon className="w-3 h-3 inline mr-1" />Valor Unit.</th>
+                                  </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
                                   {a.itens_pendentes.map((item, idx) => {
-                                    const necessidade = (item.quantidade || 1) - (item.quantidade_autorizada || 0);
-                                    return (<tr key={idx}><td className="px-2 py-1 font-mono text-blue-600">{item.codigo}</td><td className="px-2 py-1">{item.nome}</td><td className="px-2 py-1 text-center">{item.quantidade || 1}</td><td className="px-2 py-1 text-center">{item.quantidade_autorizada || 0}</td><td className="px-2 py-1 text-center font-semibold text-yellow-600">{necessidade}</td><td className="px-2 py-1 text-right">R$ {(item.valor_unitario || 0).toFixed(2)}</td></tr>);
+                                    const necessidade = (item.quantidade_executada || 1) - (item.quantidade_autorizada || 0);
+                                    return (
+                                      <tr key={idx} className="hover:bg-gray-100">
+                                        <td className="px-2 py-1 font-mono text-blue-600">{item.codigo}</td>
+                                        <td className="px-2 py-1">{item.nome}</td>
+                                        <td className="px-2 py-1 text-center font-medium">{item.quantidade_executada || 1}</td>
+                                        <td className="px-2 py-1 text-center">{item.quantidade_autorizada || 0}</td>
+                                        <td className="px-2 py-1 text-center font-semibold text-yellow-600">{necessidade} unidade(s)</td>
+                                        <td className="px-2 py-1 text-right">R$ {(item.valor_unitario || 0).toFixed(2)}</td>
+                                      </tr>
+                                    );
                                   })}
                                 </tbody>
+                                <tfoot className="bg-gray-100 dark:bg-gray-700">
+                                  <tr className="border-t">
+                                    <td colSpan="5" className="px-2 py-1 text-right font-semibold">Total Pendente:</td>
+                                    <td className="px-2 py-1 text-right font-bold text-yellow-600">
+                                      R$ {a.itens_pendentes.reduce((sum, i) => sum + ((i.valor_unitario || 0) * ((i.quantidade_executada || 1) - (i.quantidade_autorizada || 0))), 0).toFixed(2)}
+                                    </td>
+                                  </tr>
+                                </tfoot>
                               </table>
                             </div>
                           </td>
@@ -647,7 +775,12 @@ export default function Autorizacoes() {
                   );
                 })}
                 {autorizacoesFiltradas.length === 0 && (
-                  <tr><td colSpan="10" className="px-4 py-12 text-center text-gray-500"><DocumentPlusIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />Nenhuma autorização encontrada</td></tr>
+                  <tr>
+                    <td colSpan="10" className="px-4 py-12 text-center text-gray-500">
+                      <DocumentPlusIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      Nenhuma autorização encontrada
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>
@@ -657,21 +790,42 @@ export default function Autorizacoes() {
         {/* Modal de Nova/Editar Autorização */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-7xl max-h-[90vh] overflow-y-auto">
               <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-xl font-semibold">{editing ? 'Editar Autorização' : 'Nova Autorização'}</h3>
-                  <button onClick={() => setShowModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><XMarkIcon className="w-5 h-5 text-gray-500" /></button>
+                  <div className="flex items-center gap-2">
+                    <ShieldCheckIcon className="w-6 h-6 text-blue-600" />
+                    <h3 className="text-xl font-semibold">{editing ? 'Editar Autorização' : 'Nova Autorização'}</h3>
+                  </div>
+                  <button onClick={() => setShowModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <XMarkIcon className="w-5 h-5 text-gray-500" />
+                  </button>
                 </div>
               </div>
               
               <div className="p-5">
                 {!editing && !atendimentoEncontrado && (
                   <div className="mb-6">
-                    <label className="block text-sm font-medium mb-2">Número da Guia Prestador *</label>
+                    <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                      <IdentificationIcon className="w-4 h-4 text-gray-500" />
+                      Número da Guia Prestador *
+                    </label>
                     <div className="flex gap-3">
-                      <input type="text" value={buscaNumeroGuia} onChange={(e) => setBuscaNumeroGuia(e.target.value)} placeholder="Digite o número da guia prestador..." className="flex-1 border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600" />
-                      <button onClick={handleBuscarAtendimento} disabled={buscandoAtendimento} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">{buscandoAtendimento ? 'Buscando...' : 'Buscar Guia'}</button>
+                      <input 
+                        type="text" 
+                        value={buscaNumeroGuia} 
+                        onChange={(e) => setBuscaNumeroGuia(e.target.value)} 
+                        placeholder="Digite o número da guia prestador..." 
+                        className="flex-1 border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                      <button 
+                        onClick={handleBuscarAtendimento} 
+                        disabled={buscandoAtendimento} 
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors flex items-center gap-2"
+                      >
+                        <MagnifyingGlassIcon className="w-4 h-4" />
+                        {buscandoAtendimento ? 'Buscando...' : 'Buscar Guia'}
+                      </button>
                     </div>
                   </div>
                 )}
@@ -679,40 +833,96 @@ export default function Autorizacoes() {
                 {atendimentoEncontrado && (
                   <>
                     {/* Informações da Guia */}
-                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 mb-6">
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 mb-6">
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div><span className="text-xs text-gray-500">Paciente</span><p className="text-sm font-medium">{atendimentoEncontrado.paciente_nome}</p></div>
-                        <div><span className="text-xs text-gray-500">Carteira</span><p className="text-sm font-mono">{atendimentoEncontrado.numero_carteira}</p></div>
-                        <div><span className="text-xs text-gray-500">Convênio</span><p className="text-sm">{atendimentoEncontrado.paciente_convenio_nome}</p></div>
-                        <div><span className="text-xs text-gray-500">Status Atual</span><p className="text-sm">{getStatusLabel(atendimentoEncontrado.status)}</p></div>
+                        <div className="flex items-center gap-2">
+                          <UserCircleIcon className="w-5 h-5 text-blue-500" />
+                          <div>
+                            <span className="text-xs text-gray-500">Paciente</span>
+                            <p className="text-sm font-medium">{atendimentoEncontrado.paciente_nome}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CreditCardIcon className="w-5 h-5 text-blue-500" />
+                          <div>
+                            <span className="text-xs text-gray-500">Carteira</span>
+                            <p className="text-sm font-mono">{atendimentoEncontrado.numero_carteira}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <BuildingOfficeIcon className="w-5 h-5 text-blue-500" />
+                          <div>
+                            <span className="text-xs text-gray-500">Convênio</span>
+                            <p className="text-sm">{atendimentoEncontrado.paciente_convenio_nome}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <ClockIcon className="w-5 h-5 text-blue-500" />
+                          <div>
+                            <span className="text-xs text-gray-500">Status Atual</span>
+                            <p className="text-sm">{getStatusLabel(atendimentoEncontrado.status)}</p>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
                     {/* Dados da Autorização */}
                     <div className="border rounded-xl p-4 mb-6 bg-blue-50 dark:bg-blue-900/20">
-                      <h4 className="text-sm font-semibold mb-3 flex items-center gap-2"><CheckIcon className="w-4 h-4 text-blue-600" />Dados da Autorização</h4>
+                      <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <KeyIcon className="w-4 h-4 text-blue-600" />
+                        Dados da Autorização
+                      </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium mb-1">Número Guia Operadora</label>
-                          <input type="text" value={dadosAutorizacao.numero_guia_operadora} onChange={e => setDadosAutorizacao({...dadosAutorizacao, numero_guia_operadora: e.target.value})} placeholder="Número fornecido pela operadora" className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
+                          <label className="block text-sm font-medium mb-1 flex items-center gap-1">
+                            <CreditCardIcon className="w-3 h-3" /> Número Guia Operadora
+                          </label>
+                          <input 
+                            type="text" 
+                            value={dadosAutorizacao.numero_guia_operadora} 
+                            onChange={e => setDadosAutorizacao({...dadosAutorizacao, numero_guia_operadora: e.target.value})} 
+                            placeholder="Número fornecido pela operadora" 
+                            className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium mb-1">Senha de Autorização</label>
-                          <input type="text" value={dadosAutorizacao.senha_autorizacao} onChange={e => setDadosAutorizacao({...dadosAutorizacao, senha_autorizacao: e.target.value})} placeholder="Senha fornecida pela operadora" className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
+                          <label className="block text-sm font-medium mb-1 flex items-center gap-1">
+                            <KeyIcon className="w-3 h-3" /> Senha de Autorização
+                          </label>
+                          <input 
+                            type="text" 
+                            value={dadosAutorizacao.senha_autorizacao} 
+                            onChange={e => setDadosAutorizacao({...dadosAutorizacao, senha_autorizacao: e.target.value})} 
+                            placeholder="Senha fornecida pela operadora" 
+                            className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium mb-1">Data da Autorização</label>
-                          <input type="date" value={dadosAutorizacao.data_autorizacao} onChange={e => setDadosAutorizacao({...dadosAutorizacao, data_autorizacao: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
+                          <label className="block text-sm font-medium mb-1 flex items-center gap-1">
+                            <CalendarIcon className="w-3 h-3" /> Data da Autorização
+                          </label>
+                          <input 
+                            type="date" 
+                            value={dadosAutorizacao.data_autorizacao} 
+                            onChange={e => setDadosAutorizacao({...dadosAutorizacao, data_autorizacao: e.target.value})} 
+                            className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium mb-1">Data Validade da Senha</label>
-                          <input type="date" value={dadosAutorizacao.data_validade_senha} onChange={e => setDadosAutorizacao({...dadosAutorizacao, data_validade_senha: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
+                          <label className="block text-sm font-medium mb-1 flex items-center gap-1">
+                            <CalendarDaysIcon className="w-3 h-3" /> Data Validade da Senha
+                          </label>
+                          <input 
+                              type="date" 
+                            value={dadosAutorizacao.data_validade_senha} 
+                            onChange={e => setDadosAutorizacao({...dadosAutorizacao, data_validade_senha: e.target.value})} 
+                            className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
                         </div>
                       </div>
                     </div>
 
-                    {/* Itens Pendentes (que precisam de autorização) */}
-                    {/* Itens Pendentes (que precisam de autorização) */}
+                    {/* Itens Pendentes com campo para digitar quantidade autorizada */}
                     {atendimentoEncontrado.itens_pendentes?.length > 0 && (
                       <div className="mb-6">
                         <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
@@ -724,34 +934,63 @@ export default function Autorizacoes() {
                             <table className="w-full text-sm">
                               <thead className="bg-gray-50 dark:bg-gray-700/50">
                                 <tr>
-                                  <th className="px-3 py-2 text-left text-xs">Código</th>
+                                  <th className="px-3 py-2 text-left text-xs"><CubeIcon className="w-3 h-3 inline" /> Código</th>
                                   <th className="px-3 py-2 text-left text-xs">Procedimento</th>
-                                  <th className="px-3 py-2 text-center text-xs">Qtd Executada</th>
-                                  <th className="px-3 py-2 text-center text-xs">Qtd Autorizada</th>
-                                  <th className="px-3 py-2 text-center text-xs">Necessita</th>
-                                  <th className="px-3 py-2 text-right text-xs">Valor Unit.</th>
-                                  <th className="px-3 py-2 text-center text-xs w-24">Ação</th>
+                                  <th className="px-3 py-2 text-center text-xs"><ListBulletIcon className="w-3 h-3 inline" /> Qtd Executada</th>
+                                  <th className="px-3 py-2 text-center text-xs"><CheckBadgeIcon className="w-3 h-3 inline" /> Qtd Autorizada</th>
+                                  <th className="px-3 py-2 text-center text-xs"><ExclamationTriangleIcon className="w-3 h-3 inline" /> Necessita</th>
+                                  <th className="px-3 py-2 text-center text-xs"><PencilIcon className="w-3 h-3 inline" /> Qtd a Autorizar</th>
+                                  <th className="px-3 py-2 text-right text-xs"><CurrencyDollarIcon className="w-3 h-3 inline" /> Valor Unit.</th>
+                                  <th className="px-3 py-2 text-center text-xs w-28">Ação</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y">
-                                {atendimentoEncontrado.itens_pendentes.map((item, idx) => (
-                                  <tr key={idx} className="bg-yellow-50 dark:bg-yellow-900/10">
-                                    <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
-                                    <td className="px-3 py-2 text-xs">{item.nome}</td>
-                                    <td className="px-3 py-2 text-xs text-center font-medium">{item.quantidade_executada}</td>
-                                    <td className="px-3 py-2 text-xs text-center">{item.quantidade_autorizada || 0}</td>
-                                    <td className="px-3 py-2 text-xs text-center font-semibold text-yellow-600">{item.quantidade_necessaria} unidade(s)</td>
-                                    <td className="px-3 py-2 text-xs text-right">R$ {(item.valor_unitario || 0).toFixed(2)}</td>
-                                    <td className="px-3 py-2 text-center">
-                                      <button 
-                                        onClick={() => handleAdicionarItemPendente({...item, quantidade_autorizar: item.quantidade_necessaria})} 
-                                        className="bg-green-600 text-white px-3 py-1 rounded-lg text-xs hover:bg-green-700"
-                                      >
-                                        Autorizar
-                                      </button>
-                                    </td>
-                                  </tr>
-                                ))}
+                                {atendimentoEncontrado.itens_pendentes.map((item) => {
+                                  const quantidadeAtual = quantidadesAutorizar[item.id] || item.quantidade_necessaria;
+                                  
+                                  return (
+                                    <tr key={item.id} className="bg-yellow-50 dark:bg-yellow-900/10">
+                                      <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
+                                      <td className="px-3 py-2 text-xs">{item.nome}</td>
+                                      <td className="px-3 py-2 text-xs text-center font-medium">{item.quantidade_executada}</td>
+                                      <td className="px-3 py-2 text-xs text-center">{item.quantidade_autorizada || 0}</td>
+                                      <td className="px-3 py-2 text-xs text-center font-semibold text-yellow-600">{item.quantidade_necessaria} unidade(s)</td>
+                                      <td className="px-3 py-2 text-center">
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          max={item.quantidade_necessaria}
+                                          value={quantidadeAtual}
+                                          onChange={(e) => handleQuantidadeChange(item.id, e.target.value, item.quantidade_necessaria)}
+                                          className="w-24 border rounded px-2 py-1 text-xs text-center focus:ring-2 focus:ring-blue-500 outline-none dark:bg-gray-700"
+                                        />
+                                      </td>
+                                      <td className="px-3 py-2 text-xs text-right">R$ {(item.valor_unitario || 0).toFixed(2)}</td>
+                                      <td className="px-3 py-2 text-center">
+                                        <button 
+                                          onClick={() => {
+                                            if (quantidadeAtual > 0) {
+                                              handleAdicionarItemPendente({
+                                                ...item, 
+                                                quantidade_autorizar: quantidadeAtual
+                                              });
+                                            } else {
+                                              toast.warning('Informe uma quantidade válida');
+                                            }
+                                          }} 
+                                          disabled={quantidadeAtual === 0}
+                                          className={`px-3 py-1 rounded-lg text-xs transition-colors flex items-center gap-1 ${
+                                            quantidadeAtual > 0 
+                                              ? 'bg-green-600 text-white hover:bg-green-700' 
+                                              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                          }`}
+                                        >
+                                          <CheckIcon className="w-3 h-3" /> Autorizar
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
                               </tbody>
                             </table>
                           </div>
@@ -761,21 +1000,50 @@ export default function Autorizacoes() {
 
                     {/* Adicionar Itens Manualmente */}
                     <div className="border-t pt-4">
-                      <h4 className="text-sm font-semibold mb-3 flex items-center gap-2"><PlusIcon className="w-4 h-4 text-green-600" />Adicionar Outros Itens Manualmente</h4>
+                      <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                        <PlusIcon className="w-4 h-4 text-green-600" />
+                        Adicionar Outros Itens Manualmente
+                      </h4>
                       <div className="mb-4">
                         <label className="block text-sm font-medium mb-1">Buscar Procedimento</label>
                         <div className="relative">
                           <MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                          <input type="text" value={searchItemTerm} onChange={(e) => { setSearchItemTerm(e.target.value); if (e.target.value.length >= 3) handleBuscarProcedimento(e.target.value); }} placeholder="Digite código ou descrição..." className="w-full pl-8 pr-3 py-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600" />
+                          <input 
+                            type="text" 
+                            value={searchItemTerm} 
+                            onChange={(e) => { setSearchItemTerm(e.target.value); if (e.target.value.length >= 3) handleBuscarProcedimento(e.target.value); }} 
+                            placeholder="Digite código ou descrição..." 
+                            className="w-full pl-8 pr-3 py-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
                         </div>
                       </div>
 
                       {currentItem.codigo && (
                         <div className="border rounded-xl p-4 bg-gray-50 dark:bg-gray-700/30 mb-4">
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                            <div className="md:col-span-2"><label className="block text-xs text-gray-500 mb-1">Procedimento</label><input type="text" value={currentItem.nome} disabled className="w-full bg-white dark:bg-gray-600 border rounded px-2 py-2 text-sm" /></div>
-                            <div><label className="block text-xs text-gray-500 mb-1">Qtd. Autorizada</label><input type="number" min="1" value={currentItem.quantidade_autorizada} onChange={e => setCurrentItem({...currentItem, quantidade_autorizada: parseInt(e.target.value) || 1})} className="w-full border rounded px-2 py-2 text-sm text-center dark:bg-white" /></div>
-                            <div className="flex items-end"><button type="button" onClick={handleAdicionarItem} className="w-full bg-green-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-green-700">Adicionar</button></div>
+                            <div className="md:col-span-2">
+                              <label className="block text-xs text-gray-500 mb-1">Procedimento</label>
+                              <input type="text" value={currentItem.nome} disabled className="w-full bg-white dark:bg-gray-600 border rounded px-2 py-2 text-sm" />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">Qtd. Autorizada</label>
+                              <input 
+                                type="number" 
+                                min="1" 
+                                value={currentItem.quantidade_autorizada} 
+                                onChange={e => setCurrentItem({...currentItem, quantidade_autorizada: parseInt(e.target.value) || 1})} 
+                                className="w-full border rounded px-2 py-2 text-sm text-center dark:bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                              />
+                            </div>
+                            <div className="flex items-end">
+                              <button 
+                                type="button" 
+                                onClick={handleAdicionarItem} 
+                                className="w-full bg-green-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+                              >
+                                <PlusIcon className="w-4 h-4" /> Adicionar
+                              </button>
+                            </div>
                           </div>
                         </div>
                       )}
@@ -786,7 +1054,14 @@ export default function Autorizacoes() {
                           <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                               <thead className="bg-gray-50 dark:bg-gray-700/50">
-                                <tr><th className="px-3 py-2 text-left text-xs">Código</th><th className="px-3 py-2 text-left text-xs">Procedimento</th><th className="px-3 py-2 text-center text-xs">Qtd</th><th className="px-3 py-2 text-right text-xs">Valor Unit.</th><th className="px-3 py-2 text-right text-xs">Valor Total</th><th className="px-3 py-2 text-center text-xs w-20">Ações</th></tr>
+                                <tr>
+                                  <th className="px-3 py-2 text-left text-xs"><CubeIcon className="w-3 h-3 inline" /> Código</th>
+                                  <th className="px-3 py-2 text-left text-xs">Procedimento</th>
+                                  <th className="px-3 py-2 text-center text-xs"><ListBulletIcon className="w-3 h-3 inline" /> Qtd</th>
+                                  <th className="px-3 py-2 text-right text-xs"><CurrencyDollarIcon className="w-3 h-3 inline" /> Valor Unit.</th>
+                                  <th className="px-3 py-2 text-right text-xs">Valor Total</th>
+                                  <th className="px-3 py-2 text-center text-xs w-20">Ações</th>
+                                </tr>
                               </thead>
                               <tbody className="divide-y">
                                 {itensAutorizacao.map((item) => (
@@ -795,10 +1070,35 @@ export default function Autorizacoes() {
                                       <>
                                         <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
                                         <td className="px-3 py-2 text-xs">{item.nome}</td>
-                                        <td className="px-3 py-2"><input type="number" min="1" value={currentItem.quantidade_autorizada} onChange={(e) => setCurrentItem({...currentItem, quantidade_autorizada: parseInt(e.target.value) || 1})} className="w-20 border rounded px-2 py-1 text-sm text-center" /></td>
-                                        <td className="px-3 py-2"><input type="number" step="0.01" value={currentItem.valor_unitario} onChange={(e) => setCurrentItem({...currentItem, valor_unitario: parseFloat(e.target.value) || 0})} className="w-24 border rounded px-2 py-1 text-sm text-right" /></td>
+                                        <td className="px-3 py-2">
+                                          <input 
+                                            type="number" 
+                                            min="1" 
+                                            value={currentItem.quantidade_autorizada} 
+                                            onChange={(e) => setCurrentItem({...currentItem, quantidade_autorizada: parseInt(e.target.value) || 1})} 
+                                            className="w-20 border rounded px-2 py-1 text-sm text-center dark:bg-white focus:ring-2 focus:ring-blue-500 outline-none" 
+                                          />
+                                        </td>
+                                        <td className="px-3 py-2">
+                                          <input 
+                                            type="number" 
+                                            step="0.01" 
+                                            value={currentItem.valor_unitario} 
+                                            onChange={(e) => setCurrentItem({...currentItem, valor_unitario: parseFloat(e.target.value) || 0})} 
+                                            className="w-24 border rounded px-2 py-1 text-sm text-right dark:bg-white focus:ring-2 focus:ring-blue-500 outline-none" 
+                                          />
+                                        </td>
                                         <td className="px-3 py-2 text-right font-semibold">R$ {(currentItem.quantidade_autorizada * currentItem.valor_unitario).toFixed(2)}</td>
-                                        <td className="px-3 py-2 text-center"><div className="flex gap-1 justify-center"><button onClick={handleSalvarEdicao} className="text-green-600 hover:text-green-800"><CheckIcon className="w-4 h-4" /></button><button onClick={() => setEditandoItemId(null)} className="text-red-600 hover:text-red-800"><XMarkIcon className="w-4 h-4" /></button></div></td>
+                                        <td className="px-3 py-2 text-center">
+                                          <div className="flex gap-1 justify-center">
+                                            <button onClick={handleSalvarEdicao} className="text-green-600 hover:text-green-800 transition-colors" title="Salvar">
+                                              <CheckIcon className="w-4 h-4" />
+                                            </button>
+                                            <button onClick={() => setEditandoItemId(null)} className="text-red-600 hover:text-red-800 transition-colors" title="Cancelar">
+                                              <XMarkIcon className="w-4 h-4" />
+                                            </button>
+                                          </div>
+                                        </td>
                                       </>
                                     ) : (
                                       <>
@@ -807,14 +1107,29 @@ export default function Autorizacoes() {
                                         <td className="px-3 py-2 text-xs text-center font-medium">{item.quantidade_autorizada}</td>
                                         <td className="px-3 py-2 text-xs text-right">R$ {(item.valor_unitario || 0).toFixed(2)}</td>
                                         <td className="px-3 py-2 text-xs text-right font-semibold">R$ {(item.valor_total || 0).toFixed(2)}</td>
-                                        <td className="px-3 py-2 text-center"><div className="flex gap-1 justify-center"><button onClick={() => handleEditarItem(item)} className="text-blue-600 hover:text-blue-800"><PencilIcon className="w-4 h-4" /></button><button onClick={() => handleRemoverItem(item.id)} className="text-red-600 hover:text-red-800"><TrashIcon className="w-4 h-4" /></button></div></td>
+                                        <td className="px-3 py-2 text-center">
+                                          <div className="flex gap-1 justify-center">
+                                            <button onClick={() => handleEditarItem(item)} className="text-blue-600 hover:text-blue-800 transition-colors" title="Editar">
+                                              <PencilIcon className="w-4 h-4" />
+                                            </button>
+                                            <button onClick={() => handleRemoverItem(item.id)} className="text-red-600 hover:text-red-800 transition-colors" title="Remover">
+                                              <TrashIcon className="w-4 h-4" />
+                                            </button>
+                                          </div>
+                                        </td>
                                       </>
                                     )}
                                   </tr>
                                 ))}
                               </tbody>
                               <tfoot className="bg-gray-50 dark:bg-gray-700/50">
-                                <tr className="border-t"><td colSpan="4" className="px-3 py-2 text-right font-semibold">Total:</td><td className="px-3 py-2 text-right font-bold text-blue-600">R$ {itensAutorizacao.reduce((sum, i) => sum + (i.valor_total || 0), 0).toFixed(2)}</td><td className="px-3 py-2"></td></tr>
+                                <tr className="border-t">
+                                  <td colSpan="4" className="px-3 py-2 text-right font-semibold">Total:</td>
+                                  <td className="px-3 py-2 text-right font-bold text-blue-600">
+                                    R$ {itensAutorizacao.reduce((sum, i) => sum + (i.valor_total || 0), 0).toFixed(2)}
+                                  </td>
+                                  <td className="px-3 py-2"></td>
+                                </tr>
                               </tfoot>
                             </table>
                           </div>
@@ -823,8 +1138,12 @@ export default function Autorizacoes() {
                     </div>
 
                     <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-                      <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg text-sm font-medium dark:border-gray-600">Cancelar</button>
-                      <button onClick={handleSalvarAutorizacao} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium shadow-md">Salvar Autorização</button>
+                      <button onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg text-sm font-medium dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                        Cancelar
+                      </button>
+                      <button onClick={handleSalvarAutorizacao} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+                        <ShieldCheckIcon className="w-4 h-4" /> Salvar Autorização
+                      </button>
                     </div>
                   </>
                 )}
@@ -838,30 +1157,50 @@ export default function Autorizacoes() {
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-y-auto">
               <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5">
-                <div className="flex justify-between items-center"><h3 className="text-xl font-semibold">Itens Autorizados</h3><button onClick={() => setShowItensModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"><XMarkIcon className="w-5 h-5 text-gray-500" /></button></div>
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <ListBulletIcon className="w-6 h-6 text-blue-600" />
+                    <h3 className="text-xl font-semibold">Itens Autorizados</h3>
+                  </div>
+                  <button onClick={() => setShowItensModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <XMarkIcon className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
               </div>
               <div className="p-5">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                  <div><span className="text-xs text-gray-500">Nº Guia:</span><span className="text-sm font-mono">{selectedAutorizacao.numero_guia_prestador}</span></div>
-                  <div><span className="text-xs text-gray-500">Paciente:</span><span className="text-sm font-medium">{selectedAutorizacao.paciente_nome}</span></div>
-                  <div><span className="text-xs text-gray-500">Convênio:</span><span className="text-sm">{selectedAutorizacao.paciente_convenio_nome}</span></div>
-                  <div><span className="text-xs text-gray-500">Status:</span><span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${getStatusCor(selectedAutorizacao.status)}`}>{getStatusLabel(selectedAutorizacao.status)}</span></div>
+                  <div className="flex items-center gap-2">
+                    <IdentificationIcon className="w-4 h-4 text-gray-500" />
+                    <div><span className="text-xs text-gray-500">Nº Guia</span><p className="text-sm font-mono">{selectedAutorizacao.numero_guia_prestador}</p></div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <UserCircleIcon className="w-4 h-4 text-gray-500" />
+                    <div><span className="text-xs text-gray-500">Paciente</span><p className="text-sm font-medium">{selectedAutorizacao.paciente_nome}</p></div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <BuildingOfficeIcon className="w-4 h-4 text-gray-500" />
+                    <div><span className="text-xs text-gray-500">Convênio</span><p className="text-sm">{selectedAutorizacao.paciente_convenio_nome}</p></div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ShieldCheckIcon className="w-4 h-4 text-gray-500" />
+                    <div><span className="text-xs text-gray-500">Status</span><p className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${getStatusCor(selectedAutorizacao.status)}`}>{getStatusLabel(selectedAutorizacao.status)}</p></div>
+                  </div>
                 </div>
 
                 <div className="overflow-x-auto border rounded-xl">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 dark:bg-gray-700/50">
                       <tr>
-                        <th className="px-3 py-2 text-left text-xs">Código</th>
+                        <th className="px-3 py-2 text-left text-xs"><CubeIcon className="w-3 h-3 inline" /> Código</th>
                         <th className="px-3 py-2 text-left text-xs">Procedimento</th>
-                        <th className="px-3 py-2 text-center text-xs">Qtd</th>
-                        <th className="px-3 py-2 text-right text-xs">Valor Unit.</th>
+                        <th className="px-3 py-2 text-center text-xs"><ListBulletIcon className="w-3 h-3 inline" /> Qtd</th>
+                        <th className="px-3 py-2 text-right text-xs"><CurrencyDollarIcon className="w-3 h-3 inline" /> Valor Unit.</th>
                         <th className="px-3 py-2 text-right text-xs">Valor Total</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
                       {selectedAutorizacao.itens_autorizados_list?.map((item, idx) => (
-                        <tr key={idx}>
+                        <tr key={idx} className="hover:bg-gray-50">
                           <td className="px-3 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
                           <td className="px-3 py-2 text-xs">{item.nome}</td>
                           <td className="px-3 py-2 text-xs text-center">{item.quantidade_autorizada}</td>
@@ -870,11 +1209,20 @@ export default function Autorizacoes() {
                         </tr>
                       ))}
                     </tbody>
-                    <tfoot className="bg-gray-50 dark:bg-gray-700/50"><tr className="border-t"><td colSpan="4" className="px-3 py-2 text-right font-semibold">Total:</td><td className="px-3 py-2 text-right font-bold text-blue-600">R$ {(selectedAutorizacao.valor_total || 0).toFixed(2)}</td></tr></tfoot>
+                    <tfoot className="bg-gray-50 dark:bg-gray-700/50">
+                      <tr className="border-t">
+                        <td colSpan="4" className="px-3 py-2 text-right font-semibold">Total:</td>
+                        <td className="px-3 py-2 text-right font-bold text-blue-600">R$ {(selectedAutorizacao.valor_total || 0).toFixed(2)}</td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
 
-                <div className="flex justify-end mt-5 pt-4 border-t"><button onClick={() => setShowItensModal(false)} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium">Fechar</button></div>
+                <div className="flex justify-end mt-5 pt-4 border-t">
+                  <button onClick={() => setShowItensModal(false)} className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+                    <XMarkIcon className="w-4 h-4" /> Fechar
+                  </button>
+                </div>
               </div>
             </div>
           </div>
