@@ -1,6 +1,5 @@
 // src/components/ImpressaoGuiaTISS.jsx
 
-import React from 'react';
 import { format } from 'date-fns';
 
 /* =========================================================
@@ -20,8 +19,8 @@ const TIPO_ATENDIMENTO_MAP = {
 };
 
 const INDICADOR_ACIDENTE_MAP = {
-  '0': 'Trabalho',
-  '1': 'Trânsito',
+  '0': 'Ac. Trabalho',
+  '1': 'Ac. Trânsito',
   '2': 'Outros',
   '9': 'Não Acidente'
 };
@@ -63,18 +62,6 @@ const CONSELHO_MAP = {
   '07': 'CRN'
 };
 
-const VIA_ACESSO_MAP = {
-  '1': '1',
-  '2': '2',
-  '3': '3'
-};
-
-const TECNICA_MAP = {
-  '1': '1',
-  '2': '2',
-  '3': '3'
-};
-
 /* =========================================================
    HELPERS
 ========================================================= */
@@ -85,8 +72,9 @@ const moeda = (valor) =>
     maximumFractionDigits: 2
   });
 
-const formatarData = (data) => {
+const dataBR = (data) => {
   if (!data) return '';
+
   try {
     return format(new Date(data), 'dd/MM/yyyy');
   } catch {
@@ -94,23 +82,24 @@ const formatarData = (data) => {
   }
 };
 
-const dividirEmPaginas = (itens) => {
-  const MAX = 7;
+const dividirEmPaginas = (itens = []) => {
+  const MAX = 8;
+
   const paginas = [];
 
   for (let i = 0; i < itens.length; i += MAX) {
     paginas.push({
-      numero_pagina: paginas.length + 1,
-      itens: itens.slice(i, i + MAX),
-      total_paginas: Math.ceil(itens.length / MAX)
+      numero: paginas.length + 1,
+      total: Math.ceil(itens.length / MAX),
+      itens: itens.slice(i, i + MAX)
     });
   }
 
-  if (paginas.length === 0) {
+  if (!paginas.length) {
     paginas.push({
-      numero_pagina: 1,
-      itens: [],
-      total_paginas: 1
+      numero: 1,
+      total: 1,
+      itens: []
     });
   }
 
@@ -121,239 +110,168 @@ const dividirEmPaginas = (itens) => {
    CSS
 ========================================================= */
 
-const gerarCSS = () => {
-  return `
-    *{
-      margin:0;
-      padding:0;
-      box-sizing:border-box;
-    }
+const gerarCSS = () => `
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+}
 
-    body{
-      font-family: Arial, Helvetica, sans-serif;
-      background:#fff;
-      color:#000;
-    }
+body{
+  font-family:Arial, Helvetica, sans-serif;
+  background:#FFF;
+  color:#000;
+}
 
-    .print-container{
-      width:100%;
-    }
+.guia-page{
+  width:297mm;
+  min-height:210mm;
+  margin:0 auto;
+  padding:4mm;
+  background:#FFF;
+  page-break-after:always;
+}
 
-    .guia-page{
-      width:297mm;
-      min-height:210mm;
-      margin:0 auto;
-      background:#fff;
-      page-break-after:always;
-      overflow:hidden;
-    }
+.guia-page:last-child{
+  page-break-after:auto;
+}
 
-    .guia-page:last-child{
-      page-break-after:auto;
-    }
+table{
+  width:100%;
+  border-collapse:collapse;
+  table-layout:fixed;
+}
 
-    .guia-container{
-      padding:4mm;
-      width:100%;
-    }
+td, th{
+  border:1px solid #000;
+  padding:2px;
+  vertical-align:top;
+}
 
-    .grid{
-      display:grid;
-      width:100%;
-    }
+th{
+  background:#d9d9d9;
+  font-size:7px;
+  font-weight:bold;
+  text-align:center;
+  line-height:1;
+}
 
-    .grid-2{ grid-template-columns:1fr 1fr; }
-    .grid-3{ grid-template-columns:1fr 1fr 1fr; }
-    .grid-4{ grid-template-columns:repeat(4,1fr); }
-    .grid-5{ grid-template-columns:repeat(5,1fr); }
-    .grid-6{ grid-template-columns:repeat(6,1fr); }
-    .grid-8{ grid-template-columns:repeat(8,1fr); }
+.secao{
+  background:#d9d9d9;
+  font-size:8px;
+  font-weight:bold;
+  padding:2px 4px;
+}
 
-    .titulo-principal{
-      font-size:10pt;
-      font-weight:bold;
-      text-align:center;
-      line-height:1.1;
-      margin-top:2px;
-    }
+.campo-numero{
+  font-size:7px;
+  line-height:1;
+  min-height:10px;
+}
 
-    .titulo-secao{
-      background:#d9d9d9;
-      border:1px solid #000;
-      border-bottom:none;
-      padding:2px 4px;
-      font-size:7pt;
-      font-weight:bold;
-      text-transform:uppercase;
-    }
+.campo-valor{
+  font-size:9px;
+  font-weight:bold;
+  line-height:1.1;
+  margin-top:2px;
+  word-break:break-word;
+}
 
-    .campo{
-      border:1px solid #000;
-      padding:2px 3px;
-      min-height:28px;
-      font-size:7pt;
-      line-height:1.1;
-      overflow:hidden;
-    }
+.titulo-guia{
+  font-size:11px;
+  font-weight:bold;
+  text-align:center;
+  line-height:1.2;
+}
 
-    .numero-campo{
-      font-weight:bold;
-      font-size:6pt;
-    }
+.numero-guia-label{
+  font-size:8px;
+}
 
-    .label{
-      font-size:6pt;
-    }
+.numero-guia{
+  font-size:22px;
+  font-weight:bold;
+  text-align:center;
+  margin-top:5px;
+}
 
-    .valor{
-      font-size:8pt;
-      font-weight:bold;
-      margin-top:2px;
-      word-break:break-word;
-    }
+.empresa-nome{
+  font-size:9px;
+  font-weight:bold;
+}
 
-    .altura-fixa{
-      height:28px;
-    }
+.empresa-info{
+  font-size:7px;
+  margin-top:2px;
+}
 
-    .altura-media{
-      height:42px;
-    }
+.linha-assinatura{
+  height:45px;
+  vertical-align:bottom;
+  text-align:center;
+  font-size:7px;
+}
 
-    .altura-grande{
-      height:60px;
-    }
+.linha-assinatura div{
+  border-top:1px solid #000;
+  padding-top:2px;
+}
 
-    table{
-      width:100%;
-      border-collapse:collapse;
-      table-layout:fixed;
-      font-size:6.5pt;
-    }
+.text-center{
+  text-align:center;
+}
 
-    th{
-      border:1px solid #000;
-      background:#d9d9d9;
-      padding:2px;
-      font-size:6pt;
-      line-height:1;
-      font-weight:bold;
-      text-align:center;
-      vertical-align:middle;
-    }
+.text-right{
+  text-align:right;
+}
 
-    td{
-      border:1px solid #000;
-      padding:2px;
-      line-height:1.1;
-      vertical-align:top;
-      word-wrap:break-word;
-    }
+.sem-borda{
+  border:none !important;
+}
 
-    .text-center{
-      text-align:center;
-    }
+@page{
+  size:A4 landscape;
+  margin:4mm;
+}
 
-    .text-right{
-      text-align:right;
-    }
+@media print{
 
-    .text-left{
-      text-align:left;
-    }
+  body{
+    -webkit-print-color-adjust:exact;
+    print-color-adjust:exact;
+  }
 
-    .assinatura{
-      display:grid;
-      grid-template-columns:1fr 1fr 1fr;
-      gap:10px;
-      margin-top:10px;
-    }
+  th,
+  .secao{
+    background:#d9d9d9 !important;
+  }
 
-    .assinatura-item{
-      font-size:6pt;
-      text-align:center;
-    }
-
-    .linha-assinatura{
-      border-top:1px solid #000;
-      margin-top:18px;
-      padding-top:2px;
-    }
-
-    .rodape{
-      margin-top:4px;
-      font-size:5pt;
-      text-align:center;
-    }
-
-    .pagina-info{
-      font-size:7pt;
-      margin-top:2px;
-    }
-
-    .aviso-continuacao{
-      border:1px solid #000;
-      padding:5px;
-      text-align:center;
-      font-size:8pt;
-      font-weight:bold;
-    }
-
-    .tabela-wrapper{
-      width:100%;
-      overflow:hidden;
-    }
-
-    @media print{
-
-      body{
-        margin:0;
-        padding:0;
-      }
-
-      .guia-page{
-        width:297mm;
-        height:210mm;
-        margin:0;
-      }
-
-      .titulo-secao,
-      th{
-        background:#d9d9d9 !important;
-        -webkit-print-color-adjust:exact;
-        print-color-adjust:exact;
-      }
-
-      @page{
-        size:A4 landscape;
-        margin:4mm;
-      }
-    }
-  `;
-};
+}
+`;
 
 /* =========================================================
-   COMPONENTE DE CAMPO
+   CAMPO
 ========================================================= */
 
-const campo = (numero, label, valor, classe = 'altura-fixa') => `
-  <div class="campo ${classe}">
-    <div class="label">
-      <span class="numero-campo">${numero}</span>
-      ${label}
-    </div>
+const campo = (numero, titulo, valor = '') => `
+<td>
 
-    <div class="valor">
-      ${valor || ''}
-    </div>
+  <div class="campo-numero">
+    ${numero} - ${titulo}
   </div>
+
+  <div class="campo-valor">
+    ${valor || '&nbsp;'}
+  </div>
+
+</td>
 `;
 
 /* =========================================================
    PÁGINA
 ========================================================= */
 
-const gerarPaginaGuia = (
+const gerarPagina = (
   atendimento,
   convenio,
   configClinica,
@@ -362,509 +280,581 @@ const gerarPaginaGuia = (
   itensPagina
 ) => {
 
-  const totalTodosItens = (atendimento.itens || []).reduce(
+  const total = (atendimento.itens || []).reduce(
     (s, i) => s + Number(i.valor_total || 0),
     0
   );
 
-  const ehUltimaPagina = paginaAtual === totalPaginas;
-
   return `
-  <div class="guia-page">
+<div class="guia-page">
 
-    <div class="guia-container">
+  <!-- CABEÇALHO -->
 
-      <!-- CABEÇALHO -->
+  <table>
 
-      <div class="grid grid-3">
+    <tr>
 
-        <div class="campo altura-media">
-          <div class="valor">
-            ${configClinica.nome_empresa || ''}
-          </div>
+      <td style="width:22%;height:55px;">
 
-          <div style="font-size:6pt;">
-            CNPJ: ${configClinica.cnpj || ''}
-          </div>
-
-          <div style="font-size:6pt;">
-            CNES: ${configClinica.cnes || ''}
-          </div>
+        <div class="empresa-nome">
+          ${configClinica.nome_empresa || ''}
         </div>
 
-        <div class="campo altura-media text-center">
-
-          <div class="titulo-principal">
-            GUIA DE SERVIÇO PROFISSIONAL /
-          </div>
-
-          <div class="titulo-principal">
-            SERVIÇO AUXILIAR DE DIAGNÓSTICO E TERAPIA
-          </div>
-
-          <div style="font-size:9pt;font-weight:bold;">
-            SP/SADT
-          </div>
-
-          ${
-            totalPaginas > 1
-              ? `<div class="pagina-info">
-                  Página ${paginaAtual} de ${totalPaginas}
-                </div>`
-              : ''
-          }
-
+        <div class="empresa-info">
+          CNPJ: ${configClinica.cnpj || ''}
         </div>
 
-        <div class="campo altura-media text-center">
-
-          <div style="font-size:7pt;">
-            Nº Guia Prestador
-          </div>
-
-          <div style="font-size:14pt;font-weight:bold;margin-top:4px;">
-            ${atendimento.numero_guia_prestador || '1000000'}
-          </div>
-
+        <div class="empresa-info">
+          CNES: ${configClinica.cnes || ''}
         </div>
 
-      </div>
+      </td>
 
-      <!-- REGISTRO -->
+      <td style="width:56%;vertical-align:middle;">
 
-      <div class="titulo-secao">
-        1 - Registro ANS / Autorização
-      </div>
+        <div class="titulo-guia">
+          GUIA DE SERVIÇO PROFISSIONAL / SERVIÇO AUXILIAR DE
+        </div>
 
-      <div class="grid grid-5">
+        <div class="titulo-guia">
+          DIAGNÓSTICO E TERAPIA - SP/SADT
+        </div>
 
-        ${campo('01', 'Registro ANS', convenio?.registro_ans)}
-        ${campo('02', 'Nº Guia Principal', atendimento.guia_principal)}
-        ${campo('03', 'Data Autorização', formatarData(atendimento.data_autorizacao))}
-        ${campo('04', 'Senha', atendimento.senha_autorizacao)}
-        ${campo('05', 'Validade Senha', formatarData(atendimento.data_validade_senha))}
+      </td>
 
-      </div>
+      <td style="width:22%;">
 
-      <div class="grid grid-2">
+        <div class="numero-guia-label">
+          2 - Nº Guia no Prestador
+        </div>
 
-        ${campo('06', 'Nº Guia Operadora', atendimento.numero_guia_operadora)}
-        ${campo('', '', '')}
+        <div class="numero-guia">
+          ${atendimento.numero_guia_prestador || '1000000'}
+        </div>
 
-      </div>
+      </td>
 
-      <!-- BENEFICIARIO -->
+    </tr>
 
-      <div class="titulo-secao">
-        2 - Dados do Beneficiário
-      </div>
+  </table>
 
-      <div class="grid grid-6">
+  <!-- AUTORIZAÇÃO -->
 
-        ${campo('07', 'Número Carteira', atendimento.numero_carteira)}
-        ${campo('08', 'Validade', atendimento.validade_carteira)}
-        ${campo('09', 'Nome', atendimento.paciente_nome)}
-        ${campo('10', 'CNS', atendimento.cns)}
-        ${campo('11', 'Atendimento RN', atendimento.atendimento_rn)}
-        ${campo('12', 'Nascimento', atendimento.data_nascimento)}
+  <table>
 
-      </div>
+    <tr>
+      <td colspan="5" class="secao">
+        Registro ANS / Autorização
+      </td>
+    </tr>
 
-      <!-- SOLICITANTE -->
+    <tr>
 
-      <div class="titulo-secao">
-        3 - Dados do Solicitante
-      </div>
+      ${campo('1', 'Registro ANS', convenio?.registro_ans)}
 
-      <div class="grid grid-2">
+      ${campo('3', 'Número Guia Principal', atendimento.guia_principal)}
 
-        ${campo(
-          '13',
-          'Nome Contratado',
-          atendimento.nome_contratado || configClinica.nome_empresa
-        )}
+      ${campo('4', 'Data Autorização', dataBR(atendimento.data_autorizacao))}
 
-        ${campo(
-          '14',
-          'Código Operadora',
-          convenio?.codigo_prestador
-        )}
+      ${campo('5', 'Senha', atendimento.senha_autorizacao)}
 
-      </div>
+      ${campo('6', 'Data Validade Senha', dataBR(atendimento.data_validade_senha))}
 
-      <div class="grid grid-6">
+    </tr>
 
-        ${campo('15', 'Profissional', atendimento.profissional_solicitante)}
-        ${campo('16', 'Conselho', CONSELHO_MAP[atendimento.conselho_solicitante])}
-        ${campo('17', 'Número Conselho', atendimento.numero_conselho_solicitante)}
-        ${campo('18', 'UF', atendimento.uf_solicitante)}
-        ${campo('19', 'CBO', atendimento.cbos_solicitante)}
-        ${campo('20', 'Assinatura', '________________')}
+    <tr>
 
-      </div>
+      <td colspan="2">
 
-      <!-- PROCEDIMENTOS -->
+        <div class="campo-numero">
+          7 - Número Guia Operadora
+        </div>
 
-      <div class="titulo-secao">
-        4 - Solicitação / Procedimentos
-      </div>
+        <div class="campo-valor">
+          ${atendimento.numero_guia_operadora || ''}
+        </div>
 
-      <table>
+      </td>
 
-        <thead>
-          <tr>
-            <th style="width:5%">Seq</th>
-            <th style="width:8%">Tabela</th>
-            <th style="width:12%">Código</th>
-            <th style="width:50%">Descrição</th>
-            <th style="width:12%">Qtd Sol.</th>
-            <th style="width:13%">Qtd Aut.</th>
-          </tr>
-        </thead>
+      <td colspan="3"></td>
 
-        <tbody>
+    </tr>
 
-          ${
-            atendimento.itens_autorizados?.length
-              ? atendimento.itens_autorizados.map((item, idx) => `
-                <tr>
+  </table>
 
-                  <td class="text-center">${idx + 1}</td>
+  <!-- BENEFICIÁRIO -->
 
-                  <td class="text-center">
-                    ${item.tabela_referencia || '22'}
-                  </td>
+  <table>
 
-                  <td class="text-center">
-                    ${item.codigo || ''}
-                  </td>
+    <tr>
+      <td colspan="6" class="secao">
+        Dados do Beneficiário
+      </td>
+    </tr>
 
-                  <td>
-                    ${(item.nome || '').substring(0, 90)}
-                  </td>
+    <tr>
 
-                  <td class="text-center">
-                    ${item.quantidade_solicitada || '1'}
-                  </td>
+      ${campo('8', 'Número Carteira', atendimento.numero_carteira)}
 
-                  <td class="text-center">
-                    ${item.quantidade_autorizada || '1'}
-                  </td>
+      ${campo('9', 'Validade Carteira', atendimento.validade_carteira)}
 
-                </tr>
-              `).join('')
-              : `
-                <tr>
-                  <td colspan="6" style="height:40px;text-align:center;">
-                    Nenhum procedimento
-                  </td>
-                </tr>
-              `
-          }
+      ${campo('10', 'Nome', atendimento.paciente_nome)}
 
-        </tbody>
+      ${campo('11', 'Cartão Nacional Saúde', atendimento.cns)}
 
-      </table>
+      ${campo('12', 'Atendimento RN', atendimento.atendimento_rn)}
 
-      <!-- EXECUTANTE -->
+      ${campo('13', 'Nascimento', atendimento.data_nascimento)}
 
-      <div class="titulo-secao">
-        5 - Dados do Contratado Executante
-      </div>
+    </tr>
 
-      <div class="grid grid-3">
+  </table>
 
-        ${campo('24', 'Código Operadora', convenio?.codigo_prestador)}
+  <!-- SOLICITANTE -->
 
-        ${campo(
-          '25',
-          'Nome Contratado',
-          atendimento.nome_contratado_executante ||
-          configClinica.nome_empresa
-        )}
+  <table>
 
-        ${campo('26', 'CNES', configClinica.cnes)}
+    <tr>
+      <td colspan="6" class="secao">
+        Dados do Solicitante
+      </td>
+    </tr>
 
-      </div>
+    <tr>
 
-      <!-- ATENDIMENTO -->
+      ${campo(
+        '14',
+        'Nome Contratado',
+        atendimento.nome_contratado || configClinica.nome_empresa
+      )}
 
-      <div class="titulo-secao">
-        6 - Dados do Atendimento
-      </div>
+      ${campo(
+        '15',
+        'Código Operadora',
+        convenio?.codigo_prestador
+      )}
 
-      <div class="grid grid-4">
+      ${campo(
+        '16',
+        'Nome Profissional Solicitante',
+        atendimento.profissional_solicitante
+      )}
 
-        ${campo(
-          '27',
-          'Tipo Atendimento',
-          TIPO_ATENDIMENTO_MAP[atendimento.tipo_atendimento]
-        )}
+      ${campo(
+        '17',
+        'Conselho',
+        CONSELHO_MAP[atendimento.conselho_solicitante]
+      )}
 
-        ${campo(
-          '28',
-          'Indicação Acidente',
-          INDICADOR_ACIDENTE_MAP[atendimento.indicacao_acidente]
-        )}
+      ${campo(
+        '18',
+        'Número Conselho',
+        atendimento.numero_conselho_solicitante
+      )}
 
-        ${campo(
-          '29',
-          'Tipo Consulta',
-          TIPO_CONSULTA_MAP[atendimento.tipo_consulta]
-        )}
+      ${campo(
+        '19',
+        'UF',
+        atendimento.uf_solicitante
+      )}
 
-        ${campo(
-          '30',
-          'Motivo Encerramento',
-          MOTIVO_ENCERRAMENTO_MAP[atendimento.motivo_encerramento]
-        )}
+    </tr>
 
-      </div>
+  </table>
 
-      <!-- EXECUÇÃO -->
+  <!-- PROCEDIMENTOS SOLICITADOS -->
 
-      <div class="titulo-secao">
-        7 - Execução / Procedimentos Realizados
-      </div>
+  <table>
 
-      <table>
+    <tr>
+      <td colspan="6" class="secao">
+        Dados da Solicitação / Procedimentos ou Itens Assistenciais Solicitados
+      </td>
+    </tr>
 
-        <thead>
+    <tr>
 
+      <th style="width:10%">
+        24 - Tabela
+      </th>
+
+      <th style="width:15%">
+        25 - Código Procedimento
+      </th>
+
+      <th style="width:45%">
+        26 - Descrição
+      </th>
+
+      <th style="width:10%">
+        27 - Qtde Sol.
+      </th>
+
+      <th style="width:10%">
+        28 - Qtde Aut.
+      </th>
+
+      <th style="width:10%">
+        Seq
+      </th>
+
+    </tr>
+
+    ${
+      atendimento.itens_autorizados?.length
+        ? atendimento.itens_autorizados.map((item, idx) => `
           <tr>
 
-            <th style="width:4%">Seq</th>
-            <th style="width:8%">Data</th>
-            <th style="width:7%">H.Ini</th>
-            <th style="width:7%">H.Fim</th>
-            <th style="width:6%">Tabela</th>
-            <th style="width:10%">Código</th>
-            <th style="width:30%">Descrição</th>
-            <th style="width:5%">Qtd</th>
-            <th style="width:4%">Via</th>
-            <th style="width:4%">Tec</th>
-            <th style="width:7%">Unit</th>
-            <th style="width:8%">Total</th>
+            <td class="text-center">
+              ${item.tabela_referencia || '22'}
+            </td>
+
+            <td class="text-center">
+              ${item.codigo || ''}
+            </td>
+
+            <td>
+              ${(item.nome || '').substring(0, 100)}
+            </td>
+
+            <td class="text-center">
+              ${item.quantidade_solicitada || '1,00'}
+            </td>
+
+            <td class="text-center">
+              ${item.quantidade_autorizada || '1,00'}
+            </td>
+
+            <td class="text-center">
+              ${idx + 1}
+            </td>
 
           </tr>
-
-        </thead>
-
-        <tbody>
-
-          ${
-            itensPagina.length
-              ? itensPagina.map((item, idx) => `
-                <tr>
-
-                  <td class="text-center">
-                    ${idx + 1}
-                  </td>
-
-                  <td class="text-center">
-                    ${item.data_execucao || ''}
-                  </td>
-
-                  <td class="text-center">
-                    ${item.hora_inicial || ''}
-                  </td>
-
-                  <td class="text-center">
-                    ${item.hora_final || ''}
-                  </td>
-
-                  <td class="text-center">
-                    ${item.tabela_referencia || '22'}
-                  </td>
-
-                  <td class="text-center">
-                    ${item.codigo || ''}
-                  </td>
-
-                  <td>
-                    ${(item.nome || '').substring(0, 90)}
-                  </td>
-
-                  <td class="text-center">
-                    ${item.quantidade || 1}
-                  </td>
-
-                  <td class="text-center">
-                    ${VIA_ACESSO_MAP[item.viaAcesso] || ''}
-                  </td>
-
-                  <td class="text-center">
-                    ${TECNICA_MAP[item.tecnicaUtilizada] || ''}
-                  </td>
-
-                  <td class="text-right">
-                    ${moeda(item.valor_unitario)}
-                  </td>
-
-                  <td class="text-right">
-                    ${moeda(item.valor_total)}
-                  </td>
-
-                </tr>
-              `).join('')
-              : `
-                <tr>
-                  <td colspan="12" style="height:60px;text-align:center;">
-                    Nenhum procedimento
-                  </td>
-                </tr>
-              `
-          }
-
-        </tbody>
-
-      </table>
-
-      <!-- PROFISSIONAIS -->
-
-      <div class="titulo-secao">
-        8 - Identificação dos Profissionais Executantes
-      </div>
-
-      <table>
-
-        <thead>
-
+        `).join('')
+        : `
           <tr>
-
-            <th style="width:4%">Seq</th>
-            <th style="width:10%">Grau</th>
-            <th style="width:14%">CPF</th>
-            <th style="width:32%">Nome</th>
-            <th style="width:8%">Cons.</th>
-            <th style="width:14%">Nº Conselho</th>
-            <th style="width:6%">UF</th>
-            <th style="width:12%">CBO</th>
-
+            <td colspan="6" style="height:35px;"></td>
           </tr>
-
-        </thead>
-
-        <tbody>
-
-          ${
-            itensPagina.length
-              ? itensPagina.map((item, idx) => `
-                <tr>
-
-                  <td class="text-center">${idx + 1}</td>
-
-                  <td class="text-center">
-                    ${GRAU_PARTICIPACAO_MAP[item.grau_participacao] || ''}
-                  </td>
-
-                  <td class="text-center">
-                    ${item.prestador_cpf || ''}
-                  </td>
-
-                  <td>
-                    ${(item.prestador_nome || '').substring(0, 70)}
-                  </td>
-
-                  <td class="text-center">
-                    ${CONSELHO_MAP[item.prestador_conselho] || ''}
-                  </td>
-
-                  <td class="text-center">
-                    ${item.prestador_numero_conselho || ''}
-                  </td>
-
-                  <td class="text-center">
-                    ${item.prestador_uf_conselho || ''}
-                  </td>
-
-                  <td class="text-center">
-                    ${item.prestador_cbos || ''}
-                  </td>
-
-                </tr>
-              `).join('')
-              : `
-                <tr>
-                  <td colspan="8" style="height:50px;text-align:center;">
-                    Nenhum profissional
-                  </td>
-                </tr>
-              `
-          }
-
-        </tbody>
-
-      </table>
-
-      ${
-        ehUltimaPagina
-          ? `
-          <!-- VALORES -->
-
-          <div class="titulo-secao">
-            9 - Valores Totais
-          </div>
-
-          <div class="grid grid-8">
-
-            ${campo('31', 'Procedimentos', moeda(totalTodosItens))}
-            ${campo('32', 'Taxas', '0,00')}
-            ${campo('33', 'Materiais', '0,00')}
-            ${campo('34', 'OPME', '0,00')}
-            ${campo('35', 'Medicamentos', '0,00')}
-            ${campo('36', 'Gases', '0,00')}
-            ${campo('37', 'Total Geral', moeda(totalTodosItens))}
-            ${campo('38', 'Forma Pagto', '')}
-
-          </div>
-
-          <!-- OBS -->
-
-          <div class="titulo-secao">
-            10 - Observações
-          </div>
-
-          <div class="campo altura-grande">
-            ${atendimento.observacao || ''}
-          </div>
-
-          <!-- ASSINATURAS -->
-
-          <div class="assinatura">
-
-            <div class="assinatura-item">
-              <div class="linha-assinatura"></div>
-              Assinatura Responsável
-            </div>
-
-            <div class="assinatura-item">
-              <div class="linha-assinatura"></div>
-              Assinatura Beneficiário
-            </div>
-
-            <div class="assinatura-item">
-              <div class="linha-assinatura"></div>
-              Assinatura Contratado
-            </div>
-
-          </div>
         `
-          : `
-            <div class="aviso-continuacao">
-              CONTINUA NA PRÓXIMA PÁGINA
-            </div>
-          `
-      }
+    }
 
-      <div class="rodape">
-        Documento gerado eletronicamente
-      </div>
+  </table>
 
-    </div>
+  <!-- EXECUTANTE -->
 
-  </div>
-  `;
+  <table>
+
+    <tr>
+      <td colspan="3" class="secao">
+        Dados do Contratado Executante
+      </td>
+    </tr>
+
+    <tr>
+
+      ${campo(
+        '29',
+        'Código Operadora',
+        convenio?.codigo_prestador
+      )}
+
+      ${campo(
+        '30',
+        'Nome Contratado',
+        atendimento.nome_contratado_executante ||
+        configClinica.nome_empresa
+      )}
+
+      ${campo(
+        '31',
+        'CNES',
+        configClinica.cnes
+      )}
+
+    </tr>
+
+  </table>
+
+  <!-- DADOS ATENDIMENTO -->
+
+  <table>
+
+    <tr>
+      <td colspan="4" class="secao">
+        Dados do Atendimento
+      </td>
+    </tr>
+
+    <tr>
+
+      ${campo(
+        '32',
+        'Tipo Atendimento',
+        TIPO_ATENDIMENTO_MAP[atendimento.tipo_atendimento]
+      )}
+
+      ${campo(
+        '33',
+        'Indicação Acidente',
+        INDICADOR_ACIDENTE_MAP[atendimento.indicacao_acidente]
+      )}
+
+      ${campo(
+        '34',
+        'Tipo Consulta',
+        TIPO_CONSULTA_MAP[atendimento.tipo_consulta]
+      )}
+
+      ${campo(
+        '35',
+        'Motivo Encerramento',
+        MOTIVO_ENCERRAMENTO_MAP[atendimento.motivo_encerramento]
+      )}
+
+    </tr>
+
+  </table>
+
+  <!-- EXECUÇÃO -->
+
+  <table>
+
+    <tr>
+      <td colspan="12" class="secao">
+        Dados da Execução / Procedimentos e Exames Realizados
+      </td>
+    </tr>
+
+    <tr>
+
+      <th style="width:7%">36 - Data</th>
+      <th style="width:10%">37/38 Hora</th>
+      <th style="width:6%">39 Tabela</th>
+      <th style="width:10%">40 Código</th>
+      <th style="width:30%">41 Descrição</th>
+      <th style="width:5%">42 Qtde</th>
+      <th style="width:4%">43 Via</th>
+      <th style="width:4%">44 Tec</th>
+      <th style="width:7%">45 Fator</th>
+      <th style="width:8%">46 Valor Unit.</th>
+      <th style="width:9%">47 Valor Total</th>
+      <th style="width:5%">48 Seq</th>
+
+    </tr>
+
+    ${
+      itensPagina.length
+        ? itensPagina.map((item, idx) => `
+          <tr>
+
+            <td class="text-center">
+              ${item.data_execucao || ''}
+            </td>
+
+            <td class="text-center">
+              ${item.hora_inicial || ''} a ${item.hora_final || ''}
+            </td>
+
+            <td class="text-center">
+              ${item.tabela_referencia || '22'}
+            </td>
+
+            <td class="text-center">
+              ${item.codigo || ''}
+            </td>
+
+            <td>
+              ${(item.nome || '').substring(0, 100)}
+            </td>
+
+            <td class="text-center">
+              ${item.quantidade || '1,00'}
+            </td>
+
+            <td class="text-center">
+              ${item.viaAcesso || '1'}
+            </td>
+
+            <td class="text-center">
+              ${item.tecnicaUtilizada || '1'}
+            </td>
+
+            <td class="text-center">
+              1,00
+            </td>
+
+            <td class="text-right">
+              ${moeda(item.valor_unitario)}
+            </td>
+
+            <td class="text-right">
+              ${moeda(item.valor_total)}
+            </td>
+
+            <td class="text-center">
+              ${idx + 1}
+            </td>
+
+          </tr>
+        `).join('')
+        : `
+          <tr>
+            <td colspan="12" style="height:50px;"></td>
+          </tr>
+        `
+    }
+
+  </table>
+
+  <!-- PROFISSIONAIS -->
+
+  <table>
+
+    <tr>
+      <td colspan="8" class="secao">
+        Identificação do(s) Profissional(is) Executante(s)
+      </td>
+    </tr>
+
+    <tr>
+
+      <th style="width:6%">48 Seq</th>
+      <th style="width:10%">49 Grau</th>
+      <th style="width:16%">50 CPF</th>
+      <th style="width:32%">51 Nome</th>
+      <th style="width:8%">52 Conselho</th>
+      <th style="width:12%">53 Nº Conselho</th>
+      <th style="width:6%">54 UF</th>
+      <th style="width:10%">55 CBO</th>
+
+    </tr>
+
+    ${
+      itensPagina.length
+        ? itensPagina.map((item, idx) => `
+          <tr>
+
+            <td class="text-center">
+              ${idx + 1}
+            </td>
+
+            <td class="text-center">
+              ${GRAU_PARTICIPACAO_MAP[item.grau_participacao] || ''}
+            </td>
+
+            <td class="text-center">
+              ${item.prestador_cpf || ''}
+            </td>
+
+            <td>
+              ${(item.prestador_nome || '').substring(0, 100)}
+            </td>
+
+            <td class="text-center">
+              ${CONSELHO_MAP[item.prestador_conselho] || ''}
+            </td>
+
+            <td class="text-center">
+              ${item.prestador_numero_conselho || ''}
+            </td>
+
+            <td class="text-center">
+              ${item.prestador_uf_conselho || ''}
+            </td>
+
+            <td class="text-center">
+              ${item.prestador_cbos || ''}
+            </td>
+
+          </tr>
+        `).join('')
+        : `
+          <tr>
+            <td colspan="8" style="height:40px;"></td>
+          </tr>
+        `
+    }
+
+  </table>
+
+  <!-- TOTAIS -->
+
+  <table>
+
+    <tr>
+      <td colspan="7" class="secao">
+        Valores Totais
+      </td>
+    </tr>
+
+    <tr>
+
+      ${campo('59', 'Total Procedimentos', moeda(total))}
+      ${campo('60', 'Taxas', '0,00')}
+      ${campo('61', 'Materiais', '0,00')}
+      ${campo('62', 'OPME', '0,00')}
+      ${campo('63', 'Medicamentos', '0,00')}
+      ${campo('64', 'Gases', '0,00')}
+      ${campo('65', 'Total Geral', moeda(total))}
+
+    </tr>
+
+  </table>
+
+  <!-- OBS -->
+
+  <table>
+
+    <tr>
+
+      <td style="height:55px;">
+
+        <div class="campo-numero">
+          58 - Observação / Justificativa
+        </div>
+
+      </td>
+
+    </tr>
+
+  </table>
+
+  <!-- ASSINATURAS -->
+
+  <table>
+
+    <tr>
+
+      <td class="linha-assinatura">
+
+        <div>
+          66 - Assinatura do Responsável pela Autorização
+        </div>
+
+      </td>
+
+      <td class="linha-assinatura">
+
+        <div>
+          67 - Assinatura do Beneficiário ou Responsável
+        </div>
+
+      </td>
+
+      <td class="linha-assinatura">
+
+        <div>
+          68 - Assinatura do Contratado
+        </div>
+
+      </td>
+
+    </tr>
+
+  </table>
+
+</div>
+`;
 };
 
 /* =========================================================
@@ -879,48 +869,44 @@ export const gerarHTMLGuiaTISSOficial = (
 
   const paginas = dividirEmPaginas(atendimento.itens || []);
 
-  const paginasHTML = paginas.map((pagina) =>
-    gerarPaginaGuia(
+  const htmlPaginas = paginas.map((pagina) =>
+    gerarPagina(
       atendimento,
       convenio,
       configClinica,
-      pagina.numero_pagina,
-      pagina.total_paginas,
+      pagina.numero,
+      pagina.total,
       pagina.itens
     )
-  );
+  ).join('');
 
   return `
-  <!DOCTYPE html>
+<!DOCTYPE html>
 
-  <html>
+<html>
 
-    <head>
+<head>
 
-      <meta charset="UTF-8" />
+<meta charset="UTF-8" />
 
-      <title>
-        Guia TISS
-      </title>
+<title>
+Guia TISS
+</title>
 
-      <style>
-        ${gerarCSS()}
-      </style>
+<style>
+${gerarCSS()}
+</style>
 
-    </head>
+</head>
 
-    <body>
+<body>
 
-      <div class="print-container">
+${htmlPaginas}
 
-        ${paginasHTML.join('')}
+</body>
 
-      </div>
-
-    </body>
-
-  </html>
-  `;
+</html>
+`;
 };
 
 /* =========================================================
@@ -942,11 +928,11 @@ export const imprimirGuiaTISSOficial = (
   const win = window.open(
     '',
     '_blank',
-    'width=1200,height=900'
+    'width=1400,height=900'
   );
 
   if (!win) {
-    alert('Permita popups para imprimir.');
+    alert('Permita popups.');
     return;
   }
 
@@ -957,13 +943,20 @@ export const imprimirGuiaTISSOficial = (
   win.focus();
 
   win.onload = () => {
+
     win.print();
 
     win.onafterprint = () => {
       win.close();
     };
+
   };
+
 };
+
+/* =========================================================
+   MÚLTIPLAS GUIAS
+========================================================= */
 
 export const imprimirMultiplasGuiasTISS = (
   guias,
@@ -971,87 +964,64 @@ export const imprimirMultiplasGuiasTISS = (
   configClinica = {}
 ) => {
 
-  if (!guias || guias.length === 0) {
-    alert('Nenhuma guia selecionada.');
+  if (!guias?.length) {
+    alert('Nenhuma guia.');
     return;
   }
 
-  const css = gerarCSS();
+  let htmlFinal = `
+<!DOCTYPE html>
 
-  let htmlCompleto = `
-    <!DOCTYPE html>
+<html>
 
-    <html>
+<head>
 
-      <head>
+<meta charset="UTF-8"/>
 
-        <meta charset="UTF-8" />
+<style>
+${gerarCSS()}
+</style>
 
-        <title>
-          Impressão em Lote
-        </title>
+</head>
 
-        <style>
-          ${css}
-        </style>
+<body>
+`;
 
-      </head>
+  guias.forEach((guia) => {
 
-      <body>
-
-        <div class="print-container">
-  `;
-
-  guias.forEach((guia, index) => {
-
-    const htmlGuia = gerarHTMLGuiaTISSOficial(
+    const html = gerarHTMLGuiaTISSOficial(
       guia,
       convenio,
       configClinica
     );
 
-    const bodyMatch = htmlGuia.match(
-      /<body[^>]*>([\s\S]*?)<\/body>/i
+    const match = html.match(
+      /<body[^>]*>([\s\S]*)<\/body>/i
     );
 
-    const bodyContent = bodyMatch
-      ? bodyMatch[1]
-      : '';
-
-    const conteudoLimpo = bodyContent
-      .replace('<div class="print-container">', '')
-      .replace('</div>', '');
-
-    if (index > 0) {
-      htmlCompleto += `
-        <div style="page-break-before:always;"></div>
-      `;
+    if (match?.[1]) {
+      htmlFinal += match[1];
     }
-
-    htmlCompleto += conteudoLimpo;
 
   });
 
-  htmlCompleto += `
-        </div>
-
-      </body>
-
-    </html>
-  `;
+  htmlFinal += `
+</body>
+</html>
+`;
 
   const win = window.open(
     '',
     '_blank',
-    'width=1200,height=900'
+    'width=1400,height=900'
   );
 
   if (!win) {
-    alert('Permita popups para imprimir.');
+    alert('Permita popups.');
     return;
   }
 
-  win.document.write(htmlCompleto);
+  win.document.write(htmlFinal);
 
   win.document.close();
 
