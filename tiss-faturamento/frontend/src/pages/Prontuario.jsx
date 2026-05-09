@@ -43,7 +43,6 @@ import {
   MicroscopeIcon,
   XRayIcon,
   BeakerIcon as LabIcon,
-  HeartBeatIcon,
   ActivityIcon,
   BandAidIcon,
   AmbulanceIcon
@@ -787,7 +786,7 @@ export default function Prontuario() {
             </button>
             <div className="flex items-center gap-3">
               <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl shadow-lg">
-                <HeartBeatIcon className="w-7 h-7 text-white" />
+                <HeartIcon className="w-7 h-7 text-white" />
               </div>
               <div>
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
