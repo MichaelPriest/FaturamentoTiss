@@ -980,8 +980,9 @@ ${gerarCSS()}
       configClinica
     );
 
+    // CORREÇÃO DO REGEX
     const match = html.match(
-      /<body[^>]*>([\\s\\S]*)<\\/body>/i
+      /<body[^>]*>([\s\S]*)<\/body>/i
     );
 
     if (match?.[1]) {
