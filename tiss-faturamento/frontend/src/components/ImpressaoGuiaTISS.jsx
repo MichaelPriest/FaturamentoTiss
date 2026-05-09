@@ -72,19 +72,19 @@ const TECNICA_MAP = {
   '3': 'Robótica'
 };
 
-// Divide os itens em múltiplas páginas/guias
-const dividirEmGuias = (itens, itensAutorizados = []) => {
-  const MAX_PROCEDIMENTOS_POR_GUIA = 8;
+// Divide os itens em múltiplas páginas/guias (mantém mesmo número da guia)
+const dividirEmPaginas = (itens, itensAutorizados = []) => {
+  const MAX_PROCEDIMENTOS_POR_PAGINA = 8;
   
-  const guias = [];
+  const paginas = [];
   let currentIndex = 0;
   
   while (currentIndex < itens.length) {
-    const fimProcedimentos = Math.min(currentIndex + MAX_PROCEDIMENTOS_POR_GUIA, itens.length);
+    const fimProcedimentos = Math.min(currentIndex + MAX_PROCEDIMENTOS_POR_PAGINA, itens.length);
     const procedimentosPagina = itens.slice(currentIndex, fimProcedimentos);
     
-    guias.push({
-      numero_guia: currentIndex + 1,
+    paginas.push({
+      numero_pagina: paginas.length + 1,
       itens: procedimentosPagina,
       itens_autorizados: itensAutorizados,
       continua_proxima_pagina: fimProcedimentos < itens.length
@@ -93,16 +93,16 @@ const dividirEmGuias = (itens, itensAutorizados = []) => {
     currentIndex = fimProcedimentos;
   }
   
-  if (guias.length === 0) {
-    guias.push({
-      numero_guia: 1,
+  if (paginas.length === 0) {
+    paginas.push({
+      numero_pagina: 1,
       itens: [],
       itens_autorizados: itensAutorizados,
       continua_proxima_pagina: false
     });
   }
   
-  return guias;
+  return paginas;
 };
 
 // Gera o CSS para impressão
@@ -241,6 +241,12 @@ const gerarCSS = () => {
       margin-top: 10px;
     }
     
+    .pagina-info {
+      font-size: 7pt;
+      margin-top: 2px;
+      color: #333;
+    }
+    
     @media print {
       body { 
         padding: 0; 
@@ -268,10 +274,10 @@ const gerarCSS = () => {
   `;
 };
 
-// Gera o HTML de uma única guia (página)
+// Gera o HTML de uma única página da guia
 const gerarPaginaGuia = (atendimento, convenio, configClinica, paginaAtual, totalPaginas, itensPagina) => {
-  const totalGeral = itensPagina.reduce((sum, item) => sum + (item.valor_total || 0), 0);
   const totalTodosItens = (atendimento.itens || []).reduce((sum, item) => sum + (item.valor_total || 0), 0);
+  const numeroGuiaOriginal = atendimento.numero_guia_prestador || '1000000';
 
   return `
     <div class="guia-page">
@@ -287,11 +293,11 @@ const gerarPaginaGuia = (atendimento, convenio, configClinica, paginaAtual, tota
             <div class="titulo-principal">GUIA DE SERVIÇO PROFISSIONAL /</div>
             <div class="titulo-principal">SERVIÇO AUXILIAR DE DIAGNÓSTICO E TERAPIA</div>
             <div style="font-size: 9pt; font-weight: bold;">SP/SADT</div>
-            ${totalPaginas > 1 ? `<div style="font-size: 7pt; margin-top: 2px;">Página ${paginaAtual} de ${totalPaginas}</div>` : ''}
+            ${totalPaginas > 1 ? `<div class="pagina-info">Página ${paginaAtual} de ${totalPaginas}</div>` : ''}
           </div>
           <div class="campo text-right">
             <div style="font-size: 7pt;">Nº DA GUIA</div>
-            <div style="font-size: 14pt; font-weight: bold;">${atendimento.numero_guia_prestador || '1000000'}${totalPaginas > 1 ? `-${paginaAtual}` : ''}</div>
+            <div style="font-size: 14pt; font-weight: bold;">${numeroGuiaOriginal}</div>
             <div style="font-size: 6pt;">Versão TISS: ${atendimento.versao_tiss || '4.03.00'}</div>
           </div>
         </div>
@@ -483,7 +489,7 @@ const gerarPaginaGuia = (atendimento, convenio, configClinica, paginaAtual, tota
         ` : `
           <div class="continuacao">
             <div style="margin-top: 15px; padding: 8px; background: #f0f0f0; text-align: center; border: 1px solid #000;">
-              CONTINUA NA PROXIMA PAGINA - Guia ${atendimento.numero_guia_prestador || '1000000'}-${paginaAtual + 1}
+              CONTINUA NA PRÓXIMA PÁGINA
             </div>
           </div>
         `}
@@ -496,15 +502,15 @@ const gerarPaginaGuia = (atendimento, convenio, configClinica, paginaAtual, tota
   `;
 };
 
-// Gera HTML completo com múltiplas guias (páginas)
+// Gera HTML completo com múltiplas páginas
 export const gerarHTMLGuiaTISSOficial = (atendimento, convenio, configClinica = {}) => {
   const itens = atendimento.itens || [];
   const itensAutorizados = atendimento.itens_autorizados || [];
   
-  const guias = dividirEmGuias(itens, itensAutorizados);
+  const paginas = dividirEmPaginas(itens, itensAutorizados);
   
-  const paginasHTML = guias.map((guia, index) => 
-    gerarPaginaGuia(atendimento, convenio, configClinica, index + 1, guias.length, guia.itens)
+  const paginasHTML = paginas.map((pagina, index) => 
+    gerarPaginaGuia(atendimento, convenio, configClinica, index + 1, paginas.length, pagina.itens)
   );
   
   const css = gerarCSS();
