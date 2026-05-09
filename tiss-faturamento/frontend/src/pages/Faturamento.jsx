@@ -1,3 +1,4 @@
+// src/pages/Faturamento.jsx
 import { useState, useEffect, useMemo } from 'react';
 import {
   DocumentArrowDownIcon,
@@ -25,6 +26,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
 import { gerarXMLTISS, converterAtendimentoParaTISS, setVersao } from '../lib/tissGenerator';
+import { imprimirGuiaTISSOficial, imprimirMultiplasGuiasTISS } from '../components/ImpressaoGuiaTISSOficial';
 
 // ============================================
 // MAPA DE CÓDIGOS CBOS (TISS)
@@ -198,9 +200,7 @@ const CBOS_MAP = {
   "322220": "Técnico de enfermagem psiquiátrica",
   "322225": "Instrumentador cirúrgico",
   "322230": "Auxiliar de enfermagem",
-  "516210": "Cuidador de idosos",
-  "999999": "CBO desconhecido ou não informado",
-  "131220": "Gerontólogo",
+  "516210": "Cuidador de idosos"
 };
 
 const MAX_GUIAS_POR_LOTE = 100;
@@ -233,6 +233,7 @@ export default function Faturamento() {
   const [numeroLoteBusca, setNumeroLoteBusca] = useState('');
   const [loteEncontrado, setLoteEncontrado] = useState(null);
   const [numeroLotePreview, setNumeroLotePreview] = useState('');
+  const [configClinica, setConfigClinica] = useState({});
 
   const [dadosFatura, setDadosFatura] = useState({
     competencia: format(new Date(), 'yyyy-MM'),
@@ -261,6 +262,21 @@ export default function Faturamento() {
   // FUNÇÕES DE CARREGAMENTO
   // ============================================
 
+  const carregarConfigClinica = async () => {
+    try {
+      const { data } = await supabase
+        .from('configuracoes')
+        .select('valor')
+        .eq('chave', 'config_sistema')
+        .maybeSingle();
+      if (data?.valor) {
+        setConfigClinica(JSON.parse(data.valor));
+      }
+    } catch (error) {
+      console.error('Erro ao carregar config clínica:', error);
+    }
+  };
+
   const carregarSequencial = async () => {
     try {
       const { data } = await supabase
@@ -268,7 +284,6 @@ export default function Faturamento() {
         .select('valor')
         .eq('chave', 'sequencial_faturamento')
         .maybeSingle();
-
       if (data?.valor) {
         setSequencialGlobal(parseInt(data.valor));
       }
@@ -284,7 +299,6 @@ export default function Faturamento() {
         .select('valor')
         .eq('chave', 'guias_bloqueadas')
         .maybeSingle();
-
       if (data?.valor) {
         const bloqueadosList = JSON.parse(data.valor);
         setBloqueados(Array.isArray(bloqueadosList) ? bloqueadosList : []);
@@ -523,6 +537,36 @@ export default function Faturamento() {
   };
 
   // ============================================
+  // FUNÇÕES DE IMPRESSÃO
+  // ============================================
+
+  const handleImprimirGuia = (atendimento) => {
+    const convenio = convenios.find(c => c.id === atendimento.paciente_convenio_id);
+    imprimirGuiaTISSOficial(atendimento, convenio, configClinica);
+    toast.success('Enviando guia para impressão...');
+  };
+
+  const handleImprimirGuiasSelecionadas = () => {
+    if (selecionados.length === 0) {
+      toast.error('Nenhuma guia selecionada');
+      return;
+    }
+    
+    const guiasSelecionadas = pendentes.filter(a => selecionados.includes(a.id));
+    const convenio = convenios.find(c => c.id === guiasSelecionadas[0]?.paciente_convenio_id);
+    
+    imprimirMultiplasGuiasTISS(guiasSelecionadas, convenio, configClinica);
+    toast.success(`${guiasSelecionadas.length} guia(s) enviada(s) para impressão...`);
+  };
+
+  const handleImprimirLote = (lote) => {
+    const guiasDoLote = atendimentos.filter(a => lote.guias_ids?.includes(a.id));
+    const convenio = convenios.find(c => c.id === lote.convenio_id);
+    imprimirMultiplasGuiasTISS(guiasDoLote, convenio, configClinica);
+    toast.success(`Imprimindo ${guiasDoLote.length} guia(s) do lote...`);
+  };
+
+  // ============================================
   // FUNÇÕES DE FILTRAGEM E SELEÇÃO
   // ============================================
 
@@ -735,7 +779,7 @@ export default function Faturamento() {
       });
       conteudo += `
           </tbody>
-          <tfoot><tr><td colspan="7" class="total">Total:</td><td class="total">R$ ${data.valorTotal.toFixed(2)}</td></tr>
+          <tfoot><tr><td colspan="7" class="total">Total:</td><td class="total">R$ ${data.valorTotal.toFixed(2)}</td></tr></tfoot>
         </table>
       `;
     });
@@ -1113,7 +1157,8 @@ export default function Faturamento() {
           carregarLotes(),
           carregarSequencial(),
           carregarBloqueados(),
-          carregarLogs()
+          carregarLogs(),
+          carregarConfigClinica()
         ]);
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
@@ -1147,7 +1192,7 @@ export default function Faturamento() {
               Geração de lotes e arquivos XML no padrão TISS
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <select
               value={versaoTISS}
               onChange={(e) => { setVersaoTISS(e.target.value); setVersao(e.target.value); }}
@@ -1172,14 +1217,23 @@ export default function Faturamento() {
               {showHistoricoLogs ? 'Ocultar Logs' : 'Ver Logs'}
             </button>
             {totalSelecionados > 0 && (
-              <button
-                onClick={abrirPrevia}
-                disabled={gerando}
-                className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg"
-              >
-                <ReceiptPercentIcon className="w-4 h-4" />
-                Faturar Selecionados ({totalSelecionados}/{MAX_GUIAS_POR_LOTE})
-              </button>
+              <>
+                <button
+                  onClick={handleImprimirGuiasSelecionadas}
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-1 transition-all"
+                >
+                  <PrinterIcon className="w-4 h-4" />
+                  Imprimir ({totalSelecionados})
+                </button>
+                <button
+                  onClick={abrirPrevia}
+                  disabled={gerando}
+                  className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg"
+                >
+                  <ReceiptPercentIcon className="w-4 h-4" />
+                  Faturar Selecionados ({totalSelecionados}/{MAX_GUIAS_POR_LOTE})
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -1203,20 +1257,26 @@ export default function Faturamento() {
             </div>
             {loteEncontrado && (
               <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm mb-3">
                   <div><span className="text-gray-500">Nº Lote:</span> <span className="font-mono font-bold">{loteEncontrado.numero_lote}</span></div>
                   <div><span className="text-gray-500">Convênio:</span> {loteEncontrado.convenio_nome}</div>
                   <div><span className="text-gray-500">Data:</span> {loteEncontrado.data_envio}</div>
                   <div><span className="text-gray-500">Guias:</span> {loteEncontrado.quantidade_guias}</div>
+                  <div><span className="text-gray-500">Valor:</span> R$ {(loteEncontrado.dados_fatura?.base_calculo || 0).toFixed(2)}</div>
                 </div>
-                <button onClick={regenerarPorNumeroLote} disabled={gerando} className="mt-3 bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-yellow-700 w-full">Regenerar XML deste Lote</button>
+                <div className="flex gap-2">
+                  <button onClick={() => handleImprimirLote(loteEncontrado)} className="bg-purple-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-purple-700 flex items-center gap-1">
+                    <PrinterIcon className="w-4 h-4" /> Imprimir Lote
+                  </button>
+                  <button onClick={regenerarPorNumeroLote} disabled={gerando} className="bg-yellow-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-yellow-700 flex-1">Regenerar XML</button>
+                </div>
               </div>
             )}
           </div>
         )}
 
         {/* Cards de resumo */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-xl border p-4 hover:shadow-md transition-shadow">
             <div className="flex justify-between items-center">
               <div><p className="text-xs text-gray-500 dark:text-gray-400">Total Pendentes</p><p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{totalPendentes}</p></div>
@@ -1243,8 +1303,14 @@ export default function Faturamento() {
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl border p-4 hover:shadow-md transition-shadow">
             <div className="flex justify-between items-center">
-              <div><p className="text-xs text-gray-500 dark:text-gray-400">Próx. Lote</p><p className="text-2xl font-bold text-cyan-600 dark:text-cyan-400 font-mono">{gerarNumeroLote(sequencialGlobal)}</p></div>
+              <div><p className="text-xs text-gray-500 dark:text-gray-400">Próx. Lote</p><p className="text-xl font-bold text-cyan-600 dark:text-cyan-400 font-mono">{gerarNumeroLote(sequencialGlobal)}</p></div>
               <ArrowPathIcon className="w-8 h-8 text-cyan-500 opacity-50" />
+            </div>
+          </div>
+          <div className="bg-white dark:bg-gray-800 rounded-xl border p-4 hover:shadow-md transition-shadow">
+            <div className="flex justify-between items-center">
+              <div><p className="text-xs text-gray-500 dark:text-gray-400">Lotes Gerados</p><p className="text-2xl font-bold text-green-600 dark:text-green-400">{guiasGeradas.length}</p></div>
+              <ArchiveBoxIcon className="w-8 h-8 text-green-500 opacity-50" />
             </div>
           </div>
         </div>
@@ -1326,6 +1392,17 @@ export default function Faturamento() {
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Total: R$ {totalConvenio.toFixed(2)}</span>
                     <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-2 py-1 rounded-full">{selecionadosCount}/{convenioAtendimentos.length} selecionados</span>
+                    <button onClick={() => {
+                      const guiasParaImprimir = convenioAtendimentos.filter(a => selecionados.includes(a.id) || (selecionadosCount === 0 && a));
+                      if (guiasParaImprimir.length === 0) {
+                        toast.error('Nenhuma guia para imprimir');
+                        return;
+                      }
+                      imprimirMultiplasGuiasTISS(guiasParaImprimir, convenio, configClinica);
+                      toast.success(`${guiasParaImprimir.length} guia(s) enviada(s) para impressão`);
+                    }} className="text-purple-600 hover:text-purple-800 text-sm flex items-center gap-1">
+                      <PrinterIcon className="w-4 h-4" /> Imprimir
+                    </button>
                   </div>
                 </div>
 
@@ -1359,8 +1436,8 @@ export default function Faturamento() {
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Carteira</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Profissional / Especialidade</th>
                         <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400">Valor</th>
-                        <th className="px-4 py-3 text-center w-24">Ações</th>
-                      </tr>
+                        <th className="px-4 py-3 text-center w-32">Ações</th>
+                      </table>
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                       {convenioAtendimentos.map((a) => (
@@ -1383,9 +1460,14 @@ export default function Faturamento() {
                           <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">{getProfissionalExibicao(a)}</td>
                           <td className="px-4 py-3 text-xs font-semibold text-right text-gray-700 dark:text-gray-300">R$ {(a.valor_total || 0).toFixed(2)}</td>
                           <td className="px-4 py-3 text-center">
-                            <button onClick={() => toggleBloqueio(a.id)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title={bloqueados.includes(a.id) ? 'Desbloquear' : 'Bloquear'}>
-                              {bloqueados.includes(a.id) ? <LockOpenIcon className="w-4 h-4 text-green-500" /> : <LockClosedIcon className="w-4 h-4 text-orange-500" />}
-                            </button>
+                            <div className="flex gap-1 justify-center">
+                              <button onClick={() => handleImprimirGuia(a)} className="p-1 rounded-lg text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors" title="Imprimir Guia TISS">
+                                <PrinterIcon className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => toggleBloqueio(a.id)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title={bloqueados.includes(a.id) ? 'Desbloquear' : 'Bloquear'}>
+                                {bloqueados.includes(a.id) ? <LockOpenIcon className="w-4 h-4 text-green-500" /> : <LockClosedIcon className="w-4 h-4 text-orange-500" />}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1394,8 +1476,8 @@ export default function Faturamento() {
                       <tr className="border-t">
                         <td colSpan="9" className="px-4 py-3 text-right font-semibold text-gray-700 dark:text-gray-300">Total do Convênio:</td>
                         <td className="px-4 py-3 text-right font-bold text-blue-600 dark:text-blue-400">R$ {totalConvenio.toFixed(2)}</td>
-                        <td></td>
-                      </tr>
+                        <td className="px-4 py-3"></td>
+                      </table>
                     </tfoot>
                   </table>
                 </div>
@@ -1428,7 +1510,7 @@ export default function Faturamento() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Guias</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Valor</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 w-48">Ações</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 w-64">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -1444,6 +1526,9 @@ export default function Faturamento() {
                           <button onClick={() => visualizarLote(g)} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Visualizar XML">
                             <EyeIcon className="w-4 h-4" />
                           </button>
+                          <button onClick={() => handleImprimirLote(g)} className="p-1 rounded-lg text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors" title="Imprimir Lote">
+                            <PrinterIcon className="w-4 h-4" />
+                          </button>
                           <button onClick={() => gerarXMLporLote(g)} className="p-1 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" title="Baixar XML">
                             <DocumentArrowDownIcon className="w-4 h-4" />
                           </button>
@@ -1454,7 +1539,7 @@ export default function Faturamento() {
                             <XCircleIcon className="w-4 h-4" />
                           </button>
                         </div>
-                      </td>
+                       </td>
                     </tr>
                   ))}
                   {guiasGeradas.length === 0 && (
@@ -1511,7 +1596,7 @@ export default function Faturamento() {
                     {logsLotes.length === 0 && (
                       <tr key="no-logs-row">
                         <td colSpan="7" className="px-4 py-12 text-center text-gray-500">Nenhum log encontrado</td>
-                      </tr>
+                      </td>
                     )}
                   </tbody>
                 </table>
@@ -1535,7 +1620,7 @@ export default function Faturamento() {
                 {/* Resumo dos Selecionados */}
                 <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4">
                   <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-3">Resumo dos Agendamentos Selecionados</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <div>
                       <p className="text-xs text-gray-500 dark:text-gray-400">Total de Guias</p>
                       <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{previewData.quantidade}</p>
@@ -1551,6 +1636,11 @@ export default function Faturamento() {
                     <div>
                       <p className="text-xs text-gray-500 dark:text-gray-400">Nº do Lote</p>
                       <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 font-mono">{numeroLotePreview}</p>
+                    </div>
+                    <div>
+                      <button onClick={handleImprimirGuiasSelecionadas} className="mt-2 w-full bg-purple-600 text-white px-3 py-2 rounded-lg text-sm flex items-center justify-center gap-2 hover:bg-purple-700 transition-all">
+                        <PrinterIcon className="w-4 h-4" /> Imprimir Guias
+                      </button>
                     </div>
                   </div>
                   <div className="mt-4 flex gap-2">
@@ -1700,11 +1790,16 @@ export default function Faturamento() {
                 </div>
               </div>
               <div className="p-5">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
                   <div><span className="text-xs text-gray-500 dark:text-gray-400">Convênio:</span> <span className="text-sm font-medium">{selectedLote.convenio_nome}</span></div>
                   <div><span className="text-xs text-gray-500 dark:text-gray-400">Nº Lote:</span> <span className="text-sm font-mono">{selectedLote.numero_lote}</span></div>
                   <div><span className="text-xs text-gray-500 dark:text-gray-400">Data:</span> <span className="text-sm">{selectedLote.data_envio}</span></div>
                   <div><span className="text-xs text-gray-500 dark:text-gray-400">Guias:</span> <span className="text-sm font-bold">{selectedLote.quantidade_guias}</span></div>
+                  <div>
+                    <button onClick={() => handleImprimirLote(selectedLote)} className="w-full bg-purple-600 text-white px-2 py-1 rounded-lg text-sm flex items-center justify-center gap-1 hover:bg-purple-700">
+                      <PrinterIcon className="w-4 h-4" /> Imprimir Lote
+                    </button>
+                  </div>
                 </div>
                 {selectedLote.dados_fatura && (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
@@ -1738,6 +1833,7 @@ export default function Faturamento() {
             <li>• Cancelar um lote retorna as guias para o status "faturado"</li>
             <li>• Limite máximo de <strong>{MAX_GUIAS_POR_LOTE} guias por lote</strong></li>
             <li>• O número do lote é um sequencial único de até 12 dígitos</li>
+            <li>• <strong>Imprimir Guias</strong> - Gera o formulário oficial TISS no padrão ANS</li>
           </ul>
         </div>
       </div>
