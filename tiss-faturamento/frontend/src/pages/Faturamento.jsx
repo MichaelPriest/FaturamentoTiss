@@ -1571,6 +1571,10 @@ export default function Faturamento() {
                               <button onClick={() => handleImprimirGuia(a)} className="p-1 rounded-lg text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors" title="Imprimir Guia TISS">
                                 <PrinterIcon className="w-4 h-4" />
                               </button>
+                              {/* IMPRIMIR CONTA FATURADA - NOVO BOTÃO */}
+                              <button onClick={() => handleImprimirConta(g)} className="p-1 rounded-lg text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors" title="Imprimir Conta Faturada">
+                                <ReceiptPercentIcon className="w-4 h-4" />
+                              </button>                              
                               <button onClick={() => toggleBloqueio(a.id)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title={bloqueados.includes(a.id) ? 'Desbloquear' : 'Bloquear'}>
                                 {bloqueados.includes(a.id) ? <LockOpenIcon className="w-4 h-4 text-green-500" /> : <LockClosedIcon className="w-4 h-4 text-orange-500" />}
                               </button>
