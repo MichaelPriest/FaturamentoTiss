@@ -54,14 +54,12 @@ const TIPO_CONSULTA_MAP = {
   '4': '4'
 };
 
-// Mapeamento de via de acesso
 const VIA_ACESSO_MAP = {
   '1': 'Única',
   '2': 'Mesma Via',
   '3': 'Diferentes Vias'
 };
 
-// Mapeamento de técnica utilizada
 const TECNICA_MAP = {
   '1': 'Convencional',
   '2': 'Vídeo',
@@ -95,7 +93,7 @@ const limitar = (txt = '', max = 200) => {
 };
 
 const dividirPaginas = (itens = []) => {
-  const MAX = 12; // Aumentado para 12 itens por página
+  const MAX = 12;
   const paginas = [];
   for (let i = 0; i < itens.length; i += MAX) {
     paginas.push({
@@ -111,7 +109,7 @@ const dividirPaginas = (itens = []) => {
 };
 
 /* =========================================================
-   CSS - COM AUTO AJUSTE DE COLUNAS
+   CSS
 ========================================================= */
 
 const gerarCSS = () => `
@@ -140,11 +138,10 @@ body {
   page-break-after: auto;
 }
 
-/* TABELA PRINCIPAL - LAYOUT ADAPTÁVEL */
 table {
   width: 100%;
   border-collapse: collapse;
-  table-layout: auto; /* AUTO AJUSTE DAS COLUNAS */
+  table-layout: auto;
 }
 
 td, th {
@@ -206,7 +203,13 @@ th {
   text-align: center;
 }
 
-/* TABELA DE PROCEDIMENTOS - COLUNAS COM AJUSTE FLEXÍVEL */
+/* Logo do convênio */
+.logo-convenio {
+  max-width: 100px;
+  max-height: 45px;
+  object-fit: contain;
+}
+
 .proc-table {
   width: 100%;
   table-layout: auto;
@@ -218,7 +221,6 @@ th {
   font-size: 6.5px;
 }
 
-/* COLUNA DE DESCRIÇÃO OCUPA MAIS ESPAÇO */
 .proc-desc {
   min-width: 180px;
   max-width: 250px;
@@ -226,13 +228,11 @@ th {
   word-break: break-word;
 }
 
-/* COLUNAS NUMÉRICAS CENTRALIZADAS */
 .proc-table .num-col {
   text-align: center;
   white-space: nowrap;
 }
 
-/* COLUNAS MONETÁRIAS ALINHADAS À DIREITA */
 .proc-table .money-col {
   text-align: right;
   white-space: nowrap;
@@ -256,7 +256,6 @@ th {
   text-align: center;
 }
 
-/* RODAPÉ DA PÁGINA COM INFORMAÇÕES DE CONTINUAÇÃO */
 .continuacao {
   font-size: 6px;
   text-align: right;
@@ -319,13 +318,23 @@ const gerarPagina = (
 
   const isUltimaPagina = paginaAtual === totalPaginas;
 
+  // Logo do convênio (prioriza logo do convênio, fallback para configClinica.nome_empresa)
+  const logoTemplate = convenio?.logo_base64
+    ? `<img src="${convenio.logo_base64}" alt="Logo do convênio" class="logo-convenio" style="max-width:100px;max-height:45px;" />`
+    : `<div style="font-size:8px;font-weight:bold;">${configClinica.nome_empresa || ''}</div>`;
+
+  // Nome do contratado (prioriza o nome_contratado do convênio)
+  const nomeContratado = convenio?.nome_contratado || configClinica.nome_contratado || configClinica.nome_empresa || '';
+
   return `
 <div class="guia-page">
   <!-- CABEÇALHO -->
   <table>
     <tr>
-      <td style="width:22%;height:45px;">
-        <div style="font-size:8px;font-weight:bold;">${configClinica.logo_convenio || ''}</div>
+      <td style="width:22%;height:45px;text-align:center;vertical-align:middle;">
+        ${logoTemplate}
+        <div style="font-size:7px;">CNPJ: ${convenio?.cnpj || configClinica.cnpj || ''}</div>
+        <div style="font-size:7px;">CNES: ${convenio?.cnes || configClinica.cnes || ''}</div>
       </td>
       <td style="width:56%;vertical-align:middle;">
         <div class="titulo">
@@ -372,7 +381,7 @@ const gerarPagina = (
     </tr>
     <tr>
       ${campo('13', 'Código na Operadora', convenio?.codigo_prestador)}
-      ${campo('14', 'Nome do Contratado', atendimento.nome_contratado || configClinica.nome_contratado, 2)}
+      ${campo('14', 'Nome do Contratado', nomeContratado, 2)}
       ${campo('15', 'Nome do Profissional Solicitante', atendimento.profissional_solicitante, 2)}
       ${campo('16', 'Conselho Profissional', CONSELHO_MAP[atendimento.conselho_solicitante] || '')}
       ${campo('17', 'Número no Conselho', atendimento.numero_conselho_solicitante)}
@@ -427,8 +436,8 @@ const gerarPagina = (
     </tr>
     <tr>
       ${campo('29', 'Código na Operadora', convenio?.codigo_prestador)}
-      ${campo('30', 'Nome do Contratado', atendimento.nome_contratado_executante || configClinica.nome_contratado)}
-      ${campo('31', 'Código CNES', configClinica.cnes)}
+      ${campo('30', 'Nome do Contratado', nomeContratado)}
+      ${campo('31', 'Código CNES', convenio?.cnes || configClinica.cnes)}
     </tr>
   </table>
 
@@ -446,7 +455,7 @@ const gerarPagina = (
     </tr>
   </table>
 
-  <!-- EXECUÇÃO - TABELA DE PROCEDIMENTOS COM AUTO AJUSTE -->
+  <!-- EXECUÇÃO - TABELA DE PROCEDIMENTOS -->
   <table class="proc-table">
     <tr>
       <td colspan="13" class="secao">
