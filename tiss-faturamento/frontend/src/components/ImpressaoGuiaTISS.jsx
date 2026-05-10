@@ -325,9 +325,7 @@ const gerarPagina = (
   <table>
     <tr>
       <td style="width:22%;height:45px;">
-        <div style="font-size:8px;font-weight:bold;">${configClinica.nome_contratado || ''}</div>
-        <div>CNPJ: ${configClinica.cnpj || ''}</div>
-        <div>CNES: ${configClinica.cnes || ''}</div>
+        <div style="font-size:8px;font-weight:bold;">${configClinica.logo_convenio || ''}</div>
       </td>
       <td style="width:56%;vertical-align:middle;">
         <div class="titulo">
