@@ -1,47 +1,543 @@
-// Adicionar import
-import { imprimirContaFaturada } from '../components/ImpressaoContaFaturada';
+// src/components/ImpressaoContaFaturada.jsx
+import { format } from 'date-fns';
 
-// Função para imprimir conta de um lote
-const handleImprimirConta = (lote) => {
-  const dadosConta = {
-    numero_conta: lote.numero_lote,
-    data_emissao: lote.data_envio,
-    data_vencimento: lote.dados_fatura?.data_previsao_pagamento || '',
-    status: 'faturado',
-    paciente: {
-      nome: 'Nome do Paciente',
-      numero_carteira: '000000',
-      cpf: '000.000.000-00'
-    },
-    convenio: {
-      razao_social: lote.convenio_nome,
-      registro_ans: convenio?.registro_ans,
-      codigo_prestador: convenio?.codigo_prestador
-    },
-    clinica: configClinica,
-    itens: atendimentosDoLote.flatMap(a => a.itens || []),
-    subtotal: lote.dados_fatura?.base_calculo || 0,
-    total_geral: lote.dados_fatura?.valor_liquido || 0,
-    impostos: {
-      iss: lote.dados_fatura?.valor_iss || 0,
-      ibs: lote.dados_fatura?.valor_ibs || 0,
-      cbs: lote.dados_fatura?.valor_cbs || 0,
-      ir: lote.dados_fatura?.valor_ir || 0,
-      csll: lote.dados_fatura?.valor_csll || 0,
-      pis: lote.dados_fatura?.valor_pis || 0,
-      cofins: lote.dados_fatura?.valor_cofins || 0
-    },
-    total_impostos: (lote.dados_fatura?.valor_iss || 0) + 
-                    (lote.dados_fatura?.valor_ibs || 0) + 
-                    (lote.dados_fatura?.valor_cbs || 0) +
-                    (lote.dados_fatura?.valor_ir || 0) +
-                    (lote.dados_fatura?.valor_csll || 0) +
-                    (lote.dados_fatura?.valor_pis || 0) +
-                    (lote.dados_fatura?.valor_cofins || 0),
-    logo_base64: convenio?.logo_base64 || configClinica.logo_base64,
-    observacoes: lote.dados_fatura?.observacoes || ''
-  };
+/* =========================================================
+   CONSTANTES
+========================================================= */
+
+const STATUS_MAP = {
+  'pendente': 'Aguardando Pagamento',
+  'parcial': 'Parcialmente Pago',
+  'pago': 'Pago',
+  'cancelado': 'Cancelado',
+  'faturado': 'Faturado',
+  'finalizado': 'Finalizado'
+};
+
+/* =========================================================
+   HELPERS
+========================================================= */
+
+const formatarData = (data) => {
+  if (!data) return '';
+  try {
+    return format(new Date(data), 'dd/MM/yyyy HH:mm');
+  } catch {
+    return data;
+  }
+};
+
+const formatarDataSimples = (data) => {
+  if (!data) return '';
+  try {
+    return format(new Date(data), 'dd/MM/yyyy');
+  } catch {
+    return data;
+  }
+};
+
+const moeda = (v) =>
+  Number(v || 0).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
+/* =========================================================
+   CSS
+========================================================= */
+
+const gerarCSS = () => `
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Arial', 'Helvetica', sans-serif;
+  background: #FFF;
+  color: #000;
+  font-size: 10pt;
+}
+
+.conta-page {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 8mm;
+  margin: 0 auto;
+  background: #FFF;
+  page-break-after: always;
+}
+
+.conta-page:last-child {
+  page-break-after: auto;
+}
+
+/* CABEÇALHO */
+.header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10mm;
+  padding-bottom: 5mm;
+  border-bottom: 2px solid #000;
+}
+
+.logo-area {
+  width: 30%;
+}
+
+.logo {
+  max-width: 100px;
+  max-height: 60px;
+  object-fit: contain;
+  margin-bottom: 5px;
+}
+
+.titulo-area {
+  text-align: center;
+  width: 40%;
+}
+
+.titulo-principal {
+  font-size: 16pt;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.subtitulo {
+  font-size: 10pt;
+  color: #555;
+}
+
+.numero-area {
+  text-align: right;
+  width: 30%;
+}
+
+.numero-conta {
+  font-size: 14pt;
+  font-weight: bold;
+  font-family: monospace;
+}
+
+/* INFORMAÇÕES DA CONTA */
+.info-card {
+  border: 1px solid #000;
+  margin-bottom: 8mm;
+}
+
+.info-header {
+  background: #d9d9d9;
+  padding: 4px 8px;
+  font-weight: bold;
+  font-size: 11pt;
+  border-bottom: 1px solid #000;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+}
+
+.info-item {
+  padding: 6px 8px;
+  border-right: 1px solid #000;
+  border-bottom: 1px solid #000;
+}
+
+.info-item:nth-child(3n) {
+  border-right: none;
+}
+
+.info-label {
+  font-size: 7pt;
+  color: #666;
+  margin-bottom: 2px;
+}
+
+.info-valor {
+  font-size: 10pt;
+  font-weight: bold;
+}
+
+/* TABELA DE ITENS */
+.table-container {
+  margin-bottom: 8mm;
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8pt;
+}
+
+th, td {
+  border: 1px solid #000;
+  padding: 6px 4px;
+  vertical-align: top;
+}
+
+th {
+  background: #d9d9d9;
+  font-weight: bold;
+  text-align: center;
+}
+
+td {
+  text-align: left;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+/* RESUMO FINANCEIRO */
+.resumo-financeiro {
+  margin-bottom: 8mm;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.resumo-table {
+  width: 50%;
+  min-width: 200px;
+}
+
+.resumo-table td {
+  padding: 4px 8px;
+}
+
+.resumo-table tr:last-child td {
+  font-weight: bold;
+  border-top: 2px solid #000;
+}
+
+/* INFORMAÇÕES DO CONTRATADO */
+.contratado-box {
+  border: 1px solid #000;
+  margin-bottom: 8mm;
+}
+
+.contratado-header {
+  background: #d9d9d9;
+  padding: 4px 8px;
+  font-weight: bold;
+  border-bottom: 1px solid #000;
+}
+
+.contratado-content {
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+/* OBSERVAÇÕES */
+.observacao-box {
+  border: 1px solid #000;
+  margin-bottom: 8mm;
+}
+
+.observacao-header {
+  background: #d9d9d9;
+  padding: 4px 8px;
+  font-weight: bold;
+  border-bottom: 1px solid #000;
+}
+
+.observacao-content {
+  padding: 8px;
+  min-height: 40px;
+}
+
+/* RODAPÉ */
+.footer {
+  margin-top: 10mm;
+  padding-top: 5mm;
+  border-top: 1px solid #ccc;
+  text-align: center;
+  font-size: 7pt;
+  color: #666;
+}
+
+@page {
+  size: A4;
+  margin: 5mm;
+}
+
+@media print {
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  th, .info-header, .contratado-header, .observacao-header {
+    background: #d9d9d9 !important;
+  }
+}
+`;
+
+/* =========================================================
+   GERAR HTML DA CONTA FATURADA (SIMPLIFICADA)
+========================================================= */
+
+export const gerarHTMLContaFaturada = (dados) => {
+  const {
+    numero_conta = '',
+    data_emissao = new Date(),
+    status = 'faturado',
+    
+    // Dados do paciente/beneficiário
+    paciente = {},
+    
+    // Dados do convênio
+    convenio = {},
+    
+    // Dados da clínica/prestador
+    clinica = {},
+    
+    // Itens da conta
+    itens = [],
+    
+    // Resumo financeiro
+    subtotal = 0,
+    desconto = 0,
+    acrescimo = 0,
+    total_geral = 0,
+    
+    // Observações
+    observacoes = '',
+    
+    // Logotipo
+    logo_base64 = ''
+  } = dados;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <title>Conta Faturada - ${numero_conta}</title>
+  <style>${gerarCSS()}</style>
+</head>
+<body>
+<div class="conta-page">
+
+  <!-- CABEÇALHO -->
+  <div class="header">
+    <div class="logo-area">
+      ${logo_base64 
+        ? `<img src="${logo_base64}" alt="Logo" class="logo" />` 
+        : `<div style="font-size:10pt; font-weight:bold;">${clinica.nome_empresa || ''}</div>`
+      }
+      <div style="font-size:7pt;">CNPJ: ${clinica.cnpj || ''}</div>
+      <div style="font-size:7pt;">CNES: ${clinica.cnes || ''}</div>
+    </div>
+    <div class="titulo-area">
+      <div class="titulo-principal">CONTA FATURADA / ESPELHO DA CONTA</div>
+      <div class="subtitulo">Demonstrativo de Serviços Prestados</div>
+    </div>
+    <div class="numero-area">
+      <div class="numero-conta">Nº ${numero_conta}</div>
+      <div style="font-size:8pt; margin-top:5px;">Emissão: ${formatarDataSimples(data_emissao)}</div>
+      <div style="font-size:8pt; margin-top:3px;">
+        <span style="font-weight:bold;">Status:</span> 
+        ${STATUS_MAP[status] || status}
+      </div>
+    </div>
+  </div>
+
+  <!-- DADOS DO BENEFICIÁRIO -->
+  <div class="info-card">
+    <div class="info-header">DADOS DO BENEFICIÁRIO</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">Nome do Paciente</div>
+        <div class="info-valor">${paciente.nome || '-'}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Nº Carteira</div>
+        <div class="info-valor">${paciente.numero_carteira || '-'}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">CPF</div>
+        <div class="info-valor">${paciente.cpf || '-'}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Data Nascimento</div>
+        <div class="info-valor">${paciente.data_nascimento ? formatarDataSimples(paciente.data_nascimento) : '-'}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Convênio</div>
+        <div class="info-valor">${convenio.razao_social || 'Particular'}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Registro ANS</div>
+        <div class="info-valor">${convenio.registro_ans || '-'}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DADOS DO CONTRATADO (CLÍNICA) -->
+  <div class="contratado-box">
+    <div class="contratado-header">DADOS DO CONTRATADO</div>
+    <div class="contratado-content">
+      <div><strong>Nome:</strong> ${clinica.nome_contratado || clinica.nome_empresa || '-'}</div>
+      <div><strong>CNPJ:</strong> ${clinica.cnpj || '-'}</div>
+      <div><strong>Código Prestador:</strong> ${convenio.codigo_prestador || '-'}</div>
+      <div><strong>CNES:</strong> ${clinica.cnes || convenio.cnes || '-'}</div>
+    </div>
+  </div>
+
+  <!-- ITENS DA CONTA -->
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th width="5%">Seq</th>
+          <th width="12%">Data Execução</th>
+          <th width="12%">Código</th>
+          <th width="38%">Descrição</th>
+          <th width="8%">Qtd</th>
+          <th width="12%">Valor Unit.</th>
+          <th width="13%">Valor Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${itens.map((item, idx) => `
+          <tr>
+            <td class="text-center">${idx + 1}</td>
+            <td class="text-center">${formatarDataSimples(item.data_execucao) || '-'}</td>
+            <td class="text-center">${item.codigo || '-'}</td>
+            <td>${item.nome || '-'}</td>
+            <td class="text-center">${item.quantidade || 1}</td>
+            <td class="text-right">R$ ${moeda(item.valor_unitario)}</td>
+            <td class="text-right">R$ ${moeda(item.valor_total)}</td>
+          </tr>
+        `).join('')}
+        ${itens.length === 0 ? `
+          <tr>
+            <td colspan="7" style="text-align:center; padding:20px;">Nenhum item encontrado</td>
+          </tr>
+        ` : ''}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- RESUMO FINANCEIRO -->
+  <div class="resumo-financeiro">
+    <table class="resumo-table">
+      <tr>
+        <td>Subtotal:</td>
+        <td class="text-right">R$ ${moeda(subtotal)}</td>
+      </tr>
+      ${desconto > 0 ? `
+      <tr>
+        <td>Desconto(s):</td>
+        <td class="text-right">- R$ ${moeda(desconto)}</td>
+      </tr>
+      ` : ''}
+      ${acrescimo > 0 ? `
+      <tr>
+        <td>Acréscimo(s):</td>
+        <td class="text-right">+ R$ ${moeda(acrescimo)}</td>
+      </tr>
+      ` : ''}
+      <tr style="border-top:2px solid #000;">
+        <td><strong>TOTAL GERAL</strong></td>
+        <td class="text-right"><strong>R$ ${moeda(total_geral)}</strong></td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- OBSERVAÇÕES -->
+  ${observacoes ? `
+  <div class="observacao-box">
+    <div class="observacao-header">OBSERVAÇÕES</div>
+    <div class="observacao-content">
+      ${observacoes}
+    </div>
+  </div>
+  ` : ''}
+
+  <!-- RODAPÉ -->
+  <div class="footer">
+    <div>Documento emitido eletronicamente - Sistema de Faturamento TISS</div>
+    <div>Emissão: ${formatarData(data_emissao)}</div>
+  </div>
+</div>
+</body>
+</html>`;
+};
+
+/* =========================================================
+   IMPRIMIR CONTA FATURADA
+========================================================= */
+
+export const imprimirContaFaturada = (dados) => {
+  const html = gerarHTMLContaFaturada(dados);
   
-  imprimirContaFaturada(dadosConta);
-  toast.success('Conta enviada para impressão!');
+  const win = window.open('', '_blank', 'width=900,height=700');
+  if (!win) {
+    alert('Permita popups para imprimir.');
+    return;
+  }
+  
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  
+  win.onload = () => {
+    win.print();
+    win.onafterprint = () => {
+      win.close();
+    };
+  };
+};
+
+/* =========================================================
+   IMPRIMIR MÚLTIPLAS CONTAS
+========================================================= */
+
+export const imprimirMultiplasContas = (contas) => {
+  if (!contas?.length) {
+    alert('Nenhuma conta para imprimir.');
+    return;
+  }
+  
+  let htmlFinal = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><style>${gerarCSS()}</style></head><body>`;
+  
+  contas.forEach((conta, idx) => {
+    const html = gerarHTMLContaFaturada(conta);
+    const match = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+    if (match?.[1]) {
+      htmlFinal += match[1];
+      if (idx < contas.length - 1) {
+        htmlFinal += '<div style="page-break-before: always;"></div>';
+      }
+    }
+  });
+  
+  htmlFinal += `</body></html>`;
+  
+  const win = window.open('', '_blank', 'width=900,height=700');
+  if (!win) {
+    alert('Permita popups para imprimir.');
+    return;
+  }
+  
+  win.document.write(htmlFinal);
+  win.document.close();
+  win.focus();
+  
+  win.onload = () => {
+    win.print();
+    win.onafterprint = () => {
+      win.close();
+    };
+  };
 };
