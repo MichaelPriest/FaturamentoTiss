@@ -20,7 +20,9 @@ import {
   ExclamationTriangleIcon,
   LockClosedIcon,
   LockOpenIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  PrinterIcon,
+  ReceiptPercentIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
