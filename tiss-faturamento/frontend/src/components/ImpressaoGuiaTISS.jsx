@@ -325,7 +325,7 @@ const gerarPagina = (
   <table>
     <tr>
       <td style="width:22%;height:45px;">
-        <div style="font-size:8px;font-weight:bold;">${configClinica.nome_empresa || ''}</div>
+        <div style="font-size:8px;font-weight:bold;">${configClinica.nome_contratado || ''}</div>
         <div>CNPJ: ${configClinica.cnpj || ''}</div>
         <div>CNES: ${configClinica.cnes || ''}</div>
       </td>
@@ -374,7 +374,7 @@ const gerarPagina = (
     </tr>
     <tr>
       ${campo('13', 'Código na Operadora', convenio?.codigo_prestador)}
-      ${campo('14', 'Nome do Contratado', atendimento.nome_contratado || configClinica.nome_empresa, 2)}
+      ${campo('14', 'Nome do Contratado', atendimento.nome_contratado || configClinica.nome_contratado, 2)}
       ${campo('15', 'Nome do Profissional Solicitante', atendimento.profissional_solicitante, 2)}
       ${campo('16', 'Conselho Profissional', CONSELHO_MAP[atendimento.conselho_solicitante] || '')}
       ${campo('17', 'Número no Conselho', atendimento.numero_conselho_solicitante)}
@@ -429,7 +429,7 @@ const gerarPagina = (
     </tr>
     <tr>
       ${campo('29', 'Código na Operadora', convenio?.codigo_prestador)}
-      ${campo('30', 'Nome do Contratado', atendimento.nome_contratado_executante || configClinica.nome_empresa)}
+      ${campo('30', 'Nome do Contratado', atendimento.nome_contratado_executante || configClinica.nome_contratado)}
       ${campo('31', 'Código CNES', configClinica.cnes)}
     </tr>
   </table>
