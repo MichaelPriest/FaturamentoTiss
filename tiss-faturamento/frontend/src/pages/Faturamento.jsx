@@ -27,6 +27,7 @@ import { format } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
 import { gerarXMLTISS, converterAtendimentoParaTISS, setVersao } from '../lib/tissGenerator';
 import { imprimirGuiaTISSOficial, imprimirMultiplasGuiasTISS } from '../components/ImpressaoGuiaTISS';
+import { imprimirContaFaturada } from '../components/ImpressaoContaFaturada';
 
 // ============================================
 // MAPA DE CÓDIGOS CBOS (TISS)
@@ -607,6 +608,71 @@ export default function Faturamento() {
     }
   };
 
+  const handleImprimirConta = (lote) => {
+    // Buscar os atendimentos do lote para pegar os itens
+    const atendimentosDoLote = atendimentos.filter(a => lote.guias_ids?.includes(a.id));
+    
+    // Coletar todos os itens dos atendimentos
+    const todosItens = [];
+    atendimentosDoLote.forEach(atendimento => {
+      const itens = typeof atendimento.itens === 'string' 
+        ? JSON.parse(atendimento.itens) 
+        : (atendimento.itens || []);
+      todosItens.push(...itens);
+    });
+    
+    // Calcular total geral
+    const totalGeral = todosItens.reduce((sum, item) => sum + (item.valor_total || 0), 0);
+    
+    // Buscar dados do paciente (primeiro atendimento do lote)
+    const primeiroAtendimento = atendimentosDoLote[0];
+    const paciente = {
+      nome: primeiroAtendimento?.paciente_nome || '',
+      numero_carteira: primeiroAtendimento?.numero_carteira || '',
+      cpf: primeiroAtendimento?.cpf || '',
+      data_nascimento: primeiroAtendimento?.data_nascimento || ''
+    };
+    
+    // Buscar dados do convênio
+    const convenio = convenios.find(c => c.id === lote.convenio_id);
+    
+    // Buscar dados da clínica (config)
+    const clinica = {
+      nome_empresa: configClinica.nome_empresa || '',
+      nome_contratado: configClinica.nome_contratado || '',
+      cnpj: configClinica.cnpj || '',
+      cnes: configClinica.cnes || ''
+    };
+    
+    // Preparar dados da conta
+    const dadosConta = {
+      numero_conta: lote.numero_lote,
+      data_emissao: lote.data_envio || new Date().toISOString(),
+      status: 'faturado',
+      paciente,
+      convenio: {
+        razao_social: lote.convenio_nome,
+        registro_ans: convenio?.registro_ans || '',
+        codigo_prestador: convenio?.codigo_prestador || ''
+      },
+      clinica,
+      itens: todosItens.map(item => ({
+        data_execucao: item.data_execucao || '',
+        codigo: item.codigo || '',
+        nome: item.nome || '',
+        quantidade: item.quantidade || 1,
+        valor_unitario: item.valor_unitario || 0,
+        valor_total: item.valor_total || 0
+      })),
+      subtotal: totalGeral,
+      total_geral: totalGeral,
+      observacoes: `Lote referente às guias: ${lote.guias_ids?.join(', ') || ''}`,
+      logo_base64: convenio?.logo_base64 || configClinica.logo_base64
+    };
+    
+    imprimirContaFaturada(dadosConta);
+    toast.success('Conta faturada enviada para impressão!');
+  };  
   // ============================================
   // FUNÇÕES DE FILTRAGEM E SELEÇÃO
   // ============================================
@@ -1564,23 +1630,37 @@ export default function Faturamento() {
                       <td className="px-4 py-3 text-xs font-semibold text-gray-700 dark:text-gray-300">R$ {(g.dados_fatura?.base_calculo || 0).toFixed(2)}</td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex gap-1 justify-center flex-wrap">
+                          {/* Visualizar XML */}
                           <button onClick={() => visualizarLote(g)} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Visualizar XML">
                             <EyeIcon className="w-4 h-4" />
                           </button>
-                          <button onClick={() => handleImprimirLote(g)} className="p-1 rounded-lg text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors" title="Imprimir Lote">
+                          
+                          {/* Imprimir Guias TISS */}
+                          <button onClick={() => handleImprimirLote(g)} className="p-1 rounded-lg text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors" title="Imprimir Guias TISS">
                             <PrinterIcon className="w-4 h-4" />
                           </button>
+                          
+                          {/* IMPRIMIR CONTA FATURADA - NOVO BOTÃO */}
+                          <button onClick={() => handleImprimirConta(g)} className="p-1 rounded-lg text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors" title="Imprimir Conta Faturada">
+                            <ReceiptPercentIcon className="w-4 h-4" />
+                          </button>
+                          
+                          {/* Baixar XML */}
                           <button onClick={() => gerarXMLporLote(g)} className="p-1 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" title="Baixar XML">
                             <DocumentArrowDownIcon className="w-4 h-4" />
                           </button>
+                          
+                          {/* Regenerar XML */}
                           <button onClick={() => regenerarLote(g)} disabled={gerando} className="p-1 rounded-lg text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors" title="Regenerar XML">
                             <ArrowPathIcon className="w-4 h-4" />
                           </button>
+                          
+                          {/* Cancelar Lote */}
                           <button onClick={() => cancelarLote(g)} disabled={gerando} className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Cancelar Lote">
                             <XCircleIcon className="w-4 h-4" />
                           </button>
                         </div>
-                       </td>
+                      </td>
                     </tr>
                   ))}
                   {guiasGeradas.length === 0 && (
