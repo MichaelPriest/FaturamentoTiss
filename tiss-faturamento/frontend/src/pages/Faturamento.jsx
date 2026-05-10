@@ -1,5 +1,5 @@
 // src/pages/Faturamento.jsx
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   DocumentArrowDownIcon,
   PaperAirplaneIcon,
@@ -214,12 +214,17 @@ export default function Faturamento() {
   const [selecionados, setSelecionados] = useState([]);
   const [bloqueados, setBloqueados] = useState([]);
   const [gerando, setGerando] = useState(false);
+  const [imprimindo, setImprimindo] = useState(false);
+  const [cancelando, setCancelando] = useState(false);
+  const [buscandoLote, setBuscandoLote] = useState(false);
   const [loading, setLoading] = useState(true);
   const [guiasGeradas, setGuiasGeradas] = useState([]);
   const [filtroConvenio, setFiltroConvenio] = useState('todos');
   const [filtroEspecialidade, setFiltroEspecialidade] = useState('todos');
   const [filtroPrestador, setFiltroPrestador] = useState('todos');
   const [filtroTipoAtendimento, setFiltroTipoAtendimento] = useState('todos');
+  const [filtroDataInicio, setFiltroDataInicio] = useState('');
+  const [filtroDataFim, setFiltroDataFim] = useState('');
   const [ordem, setOrdem] = useState('guia');
   const [ordemDirecao, setOrdemDirecao] = useState('asc');
   const [versaoTISS, setVersaoTISS] = useState('4.03.00');
@@ -260,46 +265,89 @@ export default function Faturamento() {
   });
 
   // ============================================
+  // FUNÇÕES DE VALIDAÇÃO
+  // ============================================
+
+  const validarDadosImpressao = useCallback((atendimento, convenio) => {
+    if (!atendimento) {
+      toast.error('Dados do atendimento não encontrados');
+      return false;
+    }
+    if (!convenio) {
+      toast.error('Dados do convênio não encontrados');
+      return false;
+    }
+    
+    try {
+      const itens = typeof atendimento.itens === 'string' 
+        ? JSON.parse(atendimento.itens) 
+        : atendimento.itens;
+      
+      if (!itens || itens.length === 0) {
+        toast.error('Atendimento sem itens para faturar');
+        return false;
+      }
+    } catch (e) {
+      console.error('Erro ao validar itens:', e);
+      toast.error('Erro ao validar dados do atendimento');
+      return false;
+    }
+    
+    return true;
+  }, []);
+
+  // ============================================
   // FUNÇÕES DE CARREGAMENTO
   // ============================================
 
   const carregarConfigClinica = async () => {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('configuracoes')
         .select('valor')
         .eq('chave', 'config_sistema')
         .maybeSingle();
+      
+      if (error) throw error;
+      
       if (data?.valor) {
         setConfigClinica(JSON.parse(data.valor));
       }
     } catch (error) {
       console.error('Erro ao carregar config clínica:', error);
+      toast.error('Erro ao carregar configurações da clínica');
     }
   };
 
   const carregarSequencial = async () => {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('configuracoes')
         .select('valor')
         .eq('chave', 'sequencial_faturamento')
         .maybeSingle();
+      
+      if (error) throw error;
+      
       if (data?.valor) {
         setSequencialGlobal(parseInt(data.valor));
       }
     } catch (error) {
       console.error('Erro ao carregar sequencial:', error);
+      toast.error('Erro ao carregar sequencial de faturamento');
     }
   };
 
   const carregarBloqueados = async () => {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('configuracoes')
         .select('valor')
         .eq('chave', 'guias_bloqueadas')
         .maybeSingle();
+      
+      if (error) throw error;
+      
       if (data?.valor) {
         const bloqueadosList = JSON.parse(data.valor);
         setBloqueados(Array.isArray(bloqueadosList) ? bloqueadosList : []);
@@ -314,11 +362,14 @@ export default function Faturamento() {
 
   const carregarLogs = async () => {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('logs_faturamento')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(50);
+      
+      if (error) throw error;
+      
       setLogsLotes(data || []);
     } catch (error) {
       console.error('Erro ao carregar logs:', error);
@@ -356,11 +407,13 @@ export default function Faturamento() {
 
   const carregarVersao = async () => {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('configuracoes')
         .select('valor')
         .eq('chave', 'versao_tiss')
         .maybeSingle();
+      
+      if (error) throw error;
       if (data?.valor) setVersaoTISS(data.valor);
     } catch (error) {
       console.error('Erro ao carregar versão:', error);
@@ -369,10 +422,13 @@ export default function Faturamento() {
 
   const carregarLotes = async () => {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('lotes_faturamento')
         .select('*')
         .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
       setGuiasGeradas(data || []);
     } catch (error) {
       console.error('Erro ao carregar lotes:', error);
@@ -485,7 +541,7 @@ export default function Faturamento() {
 
   const salvarBloqueados = async (bloqueadosList) => {
     try {
-      await supabase
+      const { error } = await supabase
         .from('configuracoes')
         .upsert([
           {
@@ -495,14 +551,17 @@ export default function Faturamento() {
             updated_at: new Date().toISOString()
           }
         ], { onConflict: 'chave' });
+      
+      if (error) throw error;
     } catch (error) {
       console.error('Erro ao salvar bloqueados:', error);
+      toast.error('Erro ao salvar lista de bloqueados');
     }
   };
 
   const atualizarSequencial = async (novoSequencial) => {
     try {
-      await supabase
+      const { error } = await supabase
         .from('configuracoes')
         .upsert([
           {
@@ -512,14 +571,17 @@ export default function Faturamento() {
             updated_at: new Date().toISOString()
           }
         ], { onConflict: 'chave' });
+      
+      if (error) throw error;
     } catch (error) {
       console.error('Erro ao atualizar sequencial:', error);
+      toast.error('Erro ao atualizar sequencial de faturamento');
     }
   };
 
   const registrarLog = async (acao, lote, detalhes) => {
     try {
-      await supabase
+      const { error } = await supabase
         .from('logs_faturamento')
         .insert({
           acao,
@@ -531,6 +593,9 @@ export default function Faturamento() {
           usuario: 'sistema',
           created_at: new Date().toISOString()
         });
+      
+      if (error) throw error;
+      
       await carregarLogs();
     } catch (error) {
       console.error('Erro ao registrar log:', error);
@@ -543,6 +608,9 @@ export default function Faturamento() {
 
   const handleImprimirGuia = (atendimento) => {
     const convenio = convenios.find(c => c.id === atendimento.paciente_convenio_id);
+    
+    if (!validarDadosImpressao(atendimento, convenio)) return;
+    
     imprimirGuiaTISSOficial(atendimento, convenio, configClinica);
     toast.success('Enviando guia para impressão...');
   };
@@ -556,15 +624,16 @@ export default function Faturamento() {
     const guiasSelecionadas = pendentes.filter(a => selecionados.includes(a.id));
     const convenio = convenios.find(c => c.id === guiasSelecionadas[0]?.paciente_convenio_id);
     
+    if (!validarDadosImpressao(guiasSelecionadas[0], convenio)) return;
+    
     imprimirMultiplasGuiasTISS(guiasSelecionadas, convenio, configClinica);
     toast.success(`${guiasSelecionadas.length} guia(s) enviada(s) para impressão...`);
   };
 
   const handleImprimirLote = async (lote) => {
-    setGerando(true);
+    setImprimindo(true);
     
     try {
-      // Buscar as guias do lote diretamente do banco (sem filtro de status)
       const { data: guiasDoLote, error } = await supabase
         .from('atendimentos')
         .select('*')
@@ -579,10 +648,7 @@ export default function Faturamento() {
       
       const convenio = convenios.find(c => c.id === lote.convenio_id);
       
-      if (!convenio) {
-        toast.error('Convênio não encontrado');
-        return;
-      }
+      if (!validarDadosImpressao(guiasDoLote[0], convenio)) return;
       
       // Garantir que a configuração da clínica está carregada
       let configClinicaAtual = configClinica;
@@ -604,7 +670,7 @@ export default function Faturamento() {
       console.error('Erro ao imprimir lote:', error);
       toast.error('Erro ao imprimir lote');
     } finally {
-      setGerando(false);
+      setImprimindo(false);
     }
   };
 
@@ -672,7 +738,58 @@ export default function Faturamento() {
     
     imprimirContaFaturada(dadosConta);
     toast.success('Conta faturada enviada para impressão!');
-  };  
+  };
+
+  const handleImprimirContaIndividual = (atendimento) => {
+    // Criar um objeto lote simulado para este atendimento individual
+    const convenio = convenios.find(c => c.id === atendimento.paciente_convenio_id);
+    const itens = typeof atendimento.itens === 'string' 
+      ? JSON.parse(atendimento.itens) 
+      : (atendimento.itens || []);
+    
+    const paciente = {
+      nome: atendimento.paciente_nome || '',
+      numero_carteira: atendimento.numero_carteira || '',
+      cpf: atendimento.cpf || '',
+      data_nascimento: atendimento.data_nascimento || ''
+    };
+    
+    const clinica = {
+      nome_empresa: configClinica.nome_empresa || '',
+      nome_contratado: configClinica.nome_contratado || '',
+      cnpj: configClinica.cnpj || '',
+      cnes: configClinica.cnes || ''
+    };
+    
+    const dadosConta = {
+      numero_conta: atendimento.numero_guia_prestador || `GUI-${atendimento.id}`,
+      data_emissao: new Date().toISOString(),
+      status: 'faturado',
+      paciente,
+      convenio: {
+        razao_social: convenio?.razao_social || '',
+        registro_ans: convenio?.registro_ans || '',
+        codigo_prestador: convenio?.codigo_prestador || ''
+      },
+      clinica,
+      itens: itens.map(item => ({
+        data_execucao: item.data_execucao || '',
+        codigo: item.codigo || '',
+        nome: item.nome || '',
+        quantidade: item.quantidade || 1,
+        valor_unitario: item.valor_unitario || 0,
+        valor_total: item.valor_total || 0
+      })),
+      subtotal: atendimento.valor_total || 0,
+      total_geral: atendimento.valor_total || 0,
+      observacoes: `Guia: ${atendimento.numero_guia_prestador || 'N/A'}`,
+      logo_base64: convenio?.logo_base64 || configClinica.logo_base64
+    };
+    
+    imprimirContaFaturada(dadosConta);
+    toast.success('Conta faturada enviada para impressão!');
+  };
+
   // ============================================
   // FUNÇÕES DE FILTRAGEM E SELEÇÃO
   // ============================================
@@ -694,6 +811,12 @@ export default function Faturamento() {
     }
     if (filtroTipoAtendimento !== 'todos') {
       filtrados = filtrados.filter(a => a.tipo_atendimento === filtroTipoAtendimento);
+    }
+    if (filtroDataInicio) {
+      filtrados = filtrados.filter(a => a.data_atendimento >= filtroDataInicio);
+    }
+    if (filtroDataFim) {
+      filtrados = filtrados.filter(a => a.data_atendimento <= filtroDataFim);
     }
 
     filtrados.sort((a, b) => {
@@ -727,7 +850,7 @@ export default function Faturamento() {
     });
 
     return filtrados;
-  }, [todosAtendimentos, filtroConvenio, filtroEspecialidade, filtroPrestador, filtroTipoAtendimento, ordem, ordemDirecao]);
+  }, [todosAtendimentos, filtroConvenio, filtroEspecialidade, filtroPrestador, filtroTipoAtendimento, filtroDataInicio, filtroDataFim, ordem, ordemDirecao]);
 
   const pendentesPorConvenio = useMemo(() => {
     return pendentesFiltrados.reduce((acc, a) => {
@@ -972,7 +1095,10 @@ export default function Faturamento() {
           updated_at: new Date().toISOString()
         };
 
-        await supabase.from('lotes_faturamento').insert([novoLote]);
+        const { error: insertError } = await supabase.from('lotes_faturamento').insert([novoLote]);
+        
+        if (insertError) throw insertError;
+        
         lotesGerados.push(novoLote);
 
         await registrarLog('GERACAO_LOTE', novoLote, `Lote gerado com ${data.atendimentos.length} guias`);
@@ -1021,24 +1147,28 @@ export default function Faturamento() {
       }
     } catch (error) {
       console.error('Erro ao gerar lote:', error);
-      toast.error('Erro ao gerar lote');
+      toast.error('Erro ao gerar lote: ' + error.message);
     } finally {
       setGerando(false);
     }
   };
 
   const buscarLoteParaRegenerar = async () => {
-    if (!numeroLoteBusca) {
+    if (!numeroLoteBusca?.trim()) {
       toast.error('Digite o número do lote');
       return;
     }
 
+    setBuscandoLote(true);
+
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('lotes_faturamento')
         .select('*')
-        .eq('numero_lote', numeroLoteBusca)
+        .eq('numero_lote', numeroLoteBusca.trim())
         .maybeSingle();
+
+      if (error) throw error;
 
       if (data) {
         setLoteEncontrado(data);
@@ -1049,27 +1179,31 @@ export default function Faturamento() {
       }
     } catch (error) {
       console.error('Erro ao buscar lote:', error);
-      toast.error('Erro ao buscar lote');
+      toast.error('Erro ao buscar lote: ' + error.message);
+    } finally {
+      setBuscandoLote(false);
     }
   };
 
   const regenerarPorNumeroLote = async () => {
     if (!loteEncontrado) return;
 
-    if (!confirm(`Regenerar o lote ${loteEncontrado.numero_lote}? Isso irá recriar o XML com os dados atuais.`)) return;
+    const confirmacao = window.confirm(`Regenerar o lote ${loteEncontrado.numero_lote}? Isso irá recriar o XML com os dados atuais.`);
+    if (!confirmacao) return;
 
     setGerando(true);
 
     try {
-      const { data: atendimentosOriginais } = await supabase
+      const { data: atendimentosOriginais, error: fetchError } = await supabase
         .from('atendimentos')
         .select('*')
         .in('id', loteEncontrado.guias_ids || []);
+      
+      if (fetchError) throw fetchError;
 
       const convenio = convenios.find(c => c.id === loteEncontrado.convenio_id);
       if (!convenio) {
         toast.error('Convênio não encontrado');
-        setGerando(false);
         return;
       }
 
@@ -1102,7 +1236,9 @@ export default function Faturamento() {
         updated_at: new Date().toISOString()
       };
 
-      await supabase.from('lotes_faturamento').insert([novoLote]);
+      const { error: insertError } = await supabase.from('lotes_faturamento').insert([novoLote]);
+      if (insertError) throw insertError;
+      
       await registrarLog('REGENERACAO_XML', novoLote, `XML regenerado para o lote ${loteEncontrado.numero_lote}`);
       await carregarLotes();
 
@@ -1119,27 +1255,30 @@ export default function Faturamento() {
       setLoteEncontrado(null);
       toast.success(`XML do lote ${loteEncontrado.numero_lote} regenerado!`);
     } catch (error) {
-      console.error('Erro:', error);
-      toast.error('Erro ao regenerar lote');
+      console.error('Erro ao regenerar lote:', error);
+      toast.error('Erro ao regenerar lote: ' + error.message);
     } finally {
       setGerando(false);
     }
   };
 
   const regenerarLote = async (lote) => {
-    if (!confirm(`Regenerar o XML do lote ${lote.numero_lote}?`)) return;
+    const confirmacao = window.confirm(`Regenerar o XML do lote ${lote.numero_lote}?`);
+    if (!confirmacao) return;
+    
     setGerando(true);
 
     try {
-      const { data: atendimentosOriginais } = await supabase
+      const { data: atendimentosOriginais, error: fetchError } = await supabase
         .from('atendimentos')
         .select('*')
         .in('id', lote.guias_ids || []);
+      
+      if (fetchError) throw fetchError;
 
       const convenio = convenios.find(c => c.id === lote.convenio_id);
       if (!convenio) {
         toast.error('Convênio não encontrado');
-        setGerando(false);
         return;
       }
 
@@ -1172,7 +1311,9 @@ export default function Faturamento() {
         updated_at: new Date().toISOString()
       };
 
-      await supabase.from('lotes_faturamento').insert([novoLote]);
+      const { error: insertError } = await supabase.from('lotes_faturamento').insert([novoLote]);
+      if (insertError) throw insertError;
+      
       await registrarLog('REGENERACAO_XML', novoLote, `XML regenerado para o lote ${lote.numero_lote}`);
       await carregarLotes();
 
@@ -1186,17 +1327,25 @@ export default function Faturamento() {
 
       toast.success(`XML do lote ${lote.numero_lote} regenerado!`);
     } catch (error) {
-      console.error('Erro:', error);
-      toast.error('Erro ao regenerar lote');
+      console.error('Erro ao regenerar lote:', error);
+      toast.error('Erro ao regenerar lote: ' + error.message);
     } finally {
       setGerando(false);
     }
   };
 
   const cancelarLote = async (lote) => {
-    if (!confirm(`Cancelar o lote ${lote.numero_lote}? As guias serão reabertas.`)) return;
+    const confirmacao = window.confirm(`Cancelar o lote ${lote.numero_lote}? 
+      Esta ação irá:
+      • Reabrir ${lote.quantidade_guias} guia(s)
+      • Remover o lote do histórico
+      • Permitir refaturamento das guias
+      
+      Deseja continuar?`);
+    
+    if (!confirmacao) return;
 
-    setGerando(true);
+    setCancelando(true);
 
     try {
       const ids = lote.guias_ids || [];
@@ -1218,19 +1367,21 @@ export default function Faturamento() {
 
       await registrarLog('CANCELAMENTO_LOTE', lote, `Lote cancelado. Guias reabertas.`);
 
-      await supabase
+      const { error: deleteError } = await supabase
         .from('lotes_faturamento')
         .delete()
         .eq('id', lote.id);
+
+      if (deleteError) throw deleteError;
 
       await carregarLotes();
       await carregarDados();
       toast.success('Lote cancelado e guias reabertas!');
     } catch (error) {
-      console.error('Erro:', error);
-      toast.error('Erro ao cancelar lote');
+      console.error('Erro ao cancelar lote:', error);
+      toast.error('Erro ao cancelar lote: ' + error.message);
     } finally {
-      setGerando(false);
+      setCancelando(false);
     }
   };
 
@@ -1327,15 +1478,16 @@ export default function Faturamento() {
               <>
                 <button
                   onClick={handleImprimirGuiasSelecionadas}
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-1 transition-all"
+                  disabled={imprimindo}
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-1 transition-all disabled:opacity-50"
                 >
-                  <PrinterIcon className="w-4 h-4" />
+                  {imprimindo ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <PrinterIcon className="w-4 h-4" />}
                   Imprimir ({totalSelecionados})
                 </button>
                 <button
                   onClick={abrirPrevia}
                   disabled={gerando}
-                  className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg"
+                  className="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-lg disabled:opacity-50"
                 >
                   <ReceiptPercentIcon className="w-4 h-4" />
                   Faturar Selecionados ({totalSelecionados}/{MAX_GUIAS_POR_LOTE})
@@ -1360,7 +1512,13 @@ export default function Faturamento() {
                 onChange={(e) => setNumeroLoteBusca(e.target.value)}
                 className="flex-1 border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600"
               />
-              <button onClick={buscarLoteParaRegenerar} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700">Buscar</button>
+              <button 
+                onClick={buscarLoteParaRegenerar} 
+                disabled={buscandoLote}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
+              >
+                {buscandoLote ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : 'Buscar'}
+              </button>
             </div>
             {loteEncontrado && (
               <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
@@ -1372,10 +1530,21 @@ export default function Faturamento() {
                   <div><span className="text-gray-500">Valor:</span> R$ {(loteEncontrado.dados_fatura?.base_calculo || 0).toFixed(2)}</div>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => handleImprimirLote(loteEncontrado)} className="bg-purple-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-purple-700 flex items-center gap-1">
-                    <PrinterIcon className="w-4 h-4" /> Imprimir Lote
+                  <button 
+                    onClick={() => handleImprimirLote(loteEncontrado)} 
+                    disabled={imprimindo}
+                    className="bg-purple-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-purple-700 flex items-center gap-1 disabled:opacity-50"
+                  >
+                    {imprimindo ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <PrinterIcon className="w-4 h-4" />}
+                    Imprimir Lote
                   </button>
-                  <button onClick={regenerarPorNumeroLote} disabled={gerando} className="bg-yellow-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-yellow-700 flex-1">Regenerar XML</button>
+                  <button 
+                    onClick={regenerarPorNumeroLote} 
+                    disabled={gerando} 
+                    className="bg-yellow-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-yellow-700 flex-1 disabled:opacity-50"
+                  >
+                    {gerando ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : 'Regenerar XML'}
+                  </button>
                 </div>
               </div>
             )}
@@ -1473,6 +1642,24 @@ export default function Faturamento() {
                   </button>
                 </div>
               </div>
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Data Início</label>
+                <input 
+                  type="date" 
+                  value={filtroDataInicio} 
+                  onChange={(e) => setFiltroDataInicio(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Data Fim</label>
+                <input 
+                  type="date" 
+                  value={filtroDataFim} 
+                  onChange={(e) => setFiltroDataFim(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                />
+              </div>
             </div>
           </div>
         )}
@@ -1568,14 +1755,26 @@ export default function Faturamento() {
                           <td className="px-4 py-3 text-xs font-semibold text-right text-gray-700 dark:text-gray-300">R$ {(a.valor_total || 0).toFixed(2)}</td>
                           <td className="px-4 py-3 text-center">
                             <div className="flex gap-1 justify-center">
-                              <button onClick={() => handleImprimirGuia(a)} className="p-1 rounded-lg text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors" title="Imprimir Guia TISS">
+                              <button 
+                                onClick={() => handleImprimirGuia(a)} 
+                                disabled={imprimindo}
+                                className="p-1 rounded-lg text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors disabled:opacity-50" 
+                                title="Imprimir Guia TISS"
+                              >
                                 <PrinterIcon className="w-4 h-4" />
                               </button>
-                              {/* IMPRIMIR CONTA FATURADA - NOVO BOTÃO */}
-                              <button onClick={() => handleImprimirConta(g)} className="p-1 rounded-lg text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors" title="Imprimir Conta Faturada">
+                              <button 
+                                onClick={() => handleImprimirContaIndividual(a)} 
+                                className="p-1 rounded-lg text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors" 
+                                title="Imprimir Conta Faturada"
+                              >
                                 <ReceiptPercentIcon className="w-4 h-4" />
                               </button>                              
-                              <button onClick={() => toggleBloqueio(a.id)} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" title={bloqueados.includes(a.id) ? 'Desbloquear' : 'Bloquear'}>
+                              <button 
+                                onClick={() => toggleBloqueio(a.id)} 
+                                className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" 
+                                title={bloqueados.includes(a.id) ? 'Desbloquear' : 'Bloquear'}
+                              >
                                 {bloqueados.includes(a.id) ? <LockOpenIcon className="w-4 h-4 text-green-500" /> : <LockClosedIcon className="w-4 h-4 text-orange-500" />}
                               </button>
                             </div>
@@ -1640,11 +1839,16 @@ export default function Faturamento() {
                           </button>
                           
                           {/* Imprimir Guias TISS */}
-                          <button onClick={() => handleImprimirLote(g)} className="p-1 rounded-lg text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors" title="Imprimir Guias TISS">
-                            <PrinterIcon className="w-4 h-4" />
+                          <button 
+                            onClick={() => handleImprimirLote(g)} 
+                            disabled={imprimindo}
+                            className="p-1 rounded-lg text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors disabled:opacity-50" 
+                            title="Imprimir Guias TISS"
+                          >
+                            {imprimindo ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div> : <PrinterIcon className="w-4 h-4" />}
                           </button>
                           
-                          {/* IMPRIMIR CONTA FATURADA - NOVO BOTÃO */}
+                          {/* Imprimir Conta Faturada */}
                           <button onClick={() => handleImprimirConta(g)} className="p-1 rounded-lg text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors" title="Imprimir Conta Faturada">
                             <ReceiptPercentIcon className="w-4 h-4" />
                           </button>
@@ -1655,20 +1859,30 @@ export default function Faturamento() {
                           </button>
                           
                           {/* Regenerar XML */}
-                          <button onClick={() => regenerarLote(g)} disabled={gerando} className="p-1 rounded-lg text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors" title="Regenerar XML">
-                            <ArrowPathIcon className="w-4 h-4" />
+                          <button 
+                            onClick={() => regenerarLote(g)} 
+                            disabled={gerando} 
+                            className="p-1 rounded-lg text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors disabled:opacity-50" 
+                            title="Regenerar XML"
+                          >
+                            {gerando ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600"></div> : <ArrowPathIcon className="w-4 h-4" />}
                           </button>
                           
                           {/* Cancelar Lote */}
-                          <button onClick={() => cancelarLote(g)} disabled={gerando} className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Cancelar Lote">
-                            <XCircleIcon className="w-4 h-4" />
+                          <button 
+                            onClick={() => cancelarLote(g)} 
+                            disabled={cancelando} 
+                            className="p-1 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50" 
+                            title="Cancelar Lote"
+                          >
+                            {cancelando ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div> : <XCircleIcon className="w-4 h-4" />}
                           </button>
                         </div>
                       </td>
                     </tr>
                   ))}
                   {guiasGeradas.length === 0 && (
-                    <tr key="no-lotes-row">
+                    <tr>
                       <td colSpan="6" className="px-4 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
                         <DocumentPlusIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
                         Nenhum lote gerado ainda
@@ -1719,7 +1933,7 @@ export default function Faturamento() {
                       </tr>
                     ))}
                     {logsLotes.length === 0 && (
-                      <tr key="no-logs-row">
+                      <tr>
                         <td colSpan="7" className="px-4 py-12 text-center text-gray-500">Nenhum log encontrado</td>
                       </tr>
                     )}
@@ -1763,8 +1977,13 @@ export default function Faturamento() {
                       <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 font-mono">{numeroLotePreview}</p>
                     </div>
                     <div>
-                      <button onClick={handleImprimirGuiasSelecionadas} className="mt-2 w-full bg-purple-600 text-white px-3 py-2 rounded-lg text-sm flex items-center justify-center gap-2 hover:bg-purple-700 transition-all">
-                        <PrinterIcon className="w-4 h-4" /> Imprimir Guias
+                      <button 
+                        onClick={handleImprimirGuiasSelecionadas} 
+                        disabled={imprimindo}
+                        className="mt-2 w-full bg-purple-600 text-white px-3 py-2 rounded-lg text-sm flex items-center justify-center gap-2 hover:bg-purple-700 transition-all disabled:opacity-50"
+                      >
+                        {imprimindo ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <PrinterIcon className="w-4 h-4" />}
+                        Imprimir Guias
                       </button>
                     </div>
                   </div>
@@ -1921,8 +2140,13 @@ export default function Faturamento() {
                   <div><span className="text-xs text-gray-500 dark:text-gray-400">Data:</span> <span className="text-sm">{selectedLote.data_envio}</span></div>
                   <div><span className="text-xs text-gray-500 dark:text-gray-400">Guias:</span> <span className="text-sm font-bold">{selectedLote.quantidade_guias}</span></div>
                   <div>
-                    <button onClick={() => handleImprimirLote(selectedLote)} className="w-full bg-purple-600 text-white px-2 py-1 rounded-lg text-sm flex items-center justify-center gap-1 hover:bg-purple-700">
-                      <PrinterIcon className="w-4 h-4" /> Imprimir Lote
+                    <button 
+                      onClick={() => handleImprimirLote(selectedLote)} 
+                      disabled={imprimindo}
+                      className="w-full bg-purple-600 text-white px-2 py-1 rounded-lg text-sm flex items-center justify-center gap-1 hover:bg-purple-700 disabled:opacity-50"
+                    >
+                      {imprimindo ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <PrinterIcon className="w-4 h-4" />}
+                      Imprimir Lote
                     </button>
                   </div>
                 </div>
@@ -1959,6 +2183,7 @@ export default function Faturamento() {
             <li>• Limite máximo de <strong>{MAX_GUIAS_POR_LOTE} guias por lote</strong></li>
             <li>• O número do lote é um sequencial único de até 12 dígitos</li>
             <li>• <strong>Imprimir Guias</strong> - Gera o formulário oficial TISS no padrão ANS</li>
+            <li>• <strong>Imprimir Conta Faturada</strong> - Gera uma conta detalhada em formato padronizado</li>
           </ul>
         </div>
       </div>
