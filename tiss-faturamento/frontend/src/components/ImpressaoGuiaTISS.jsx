@@ -822,32 +822,103 @@ ${
 
 <!-- PROCEDIMENTOS EM SERIE -->
 
+
 <table>
 
 <tr>
-<td colspan="5" class="secao">
-56- Data de Realização de Procedimento em Série
-57- Assinatura do Beneficiário ou Responsável
+<td colspan="10" class="secao">
+56 - Data de Realização de Procedimento em Série / 
+57 - Assinatura do Beneficiário ou Responsável
 </td>
 </tr>
 
-${Array.from({ length: 10 }).map(
-  (_, i) => `
+<tr>
 
-  <tr>
+<td class="serie">
+1-____/____/________
+</td>
 
-  <td class="serie" style="width:50%;">
-  ${i + 1}- ____/____/________
-  </td>
+<td class="serie">
+________________________
+</td>
 
-  <td class="serie">
-  ______________________________
-  </td>
+<td class="serie">
+3-____/____/________
+</td>
 
-  </tr>
+<td class="serie">
+________________________
+</td>
 
-`
-).join('')}
+<td class="serie">
+5-____/____/________
+</td>
+
+<td class="serie">
+________________________
+</td>
+
+<td class="serie">
+7-____/____/________
+</td>
+
+<td class="serie">
+________________________
+</td>
+
+<td class="serie">
+9-____/____/________
+</td>
+
+<td class="serie">
+________________________
+</td>
+
+</tr>
+
+<tr>
+
+<td class="serie">
+2-____/____/________
+</td>
+
+<td class="serie">
+________________________
+</td>
+
+<td class="serie">
+4-____/____/________
+</td>
+
+<td class="serie">
+________________________
+</td>
+
+<td class="serie">
+6-____/____/________
+</td>
+
+<td class="serie">
+________________________
+</td>
+
+<td class="serie">
+8-____/____/________
+</td>
+
+<td class="serie">
+________________________
+</td>
+
+<td class="serie">
+10-____/____/________
+</td>
+
+<td class="serie">
+________________________
+</td>
+
+</tr>
 
 </table>
 
