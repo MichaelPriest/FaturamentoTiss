@@ -25,6 +25,8 @@ import {
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
+import { imprimirGuiaTISSOficial, imprimirMultiplasGuiasTISS } from '../components/ImpressaoGuiaTISS';
+import { imprimirContaFaturada } from '../components/ImpressaoContaFaturada';
 
 // ============================================
 // CONSTANTES E TABELAS
@@ -371,6 +373,8 @@ export default function Atendimentos() {
   });
 
   const [searchPacienteTerm, setSearchPacienteTerm] = useState('');
+  const [imprimindoGuia, setImprimindoGuia] = useState(false);
+  const [configClinica, setConfigClinica] = useState({});  
 
   // ============================================
   // FUNÇÕES DE AUTORIZAÇÃO E VALIDAÇÃO
@@ -635,6 +639,44 @@ export default function Atendimentos() {
     carregarDados();
   }, []);
 
+  const carregarConfigClinica = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('configuracoes')
+        .select('valor')
+        .eq('chave', 'config_sistema')
+        .maybeSingle();
+      
+      if (error) throw error;
+      
+      if (data?.valor) {
+        setConfigClinica(JSON.parse(data.valor));
+      }
+    } catch (error) {
+      console.error('Erro ao carregar config clínica:', error);
+    }
+  };  
+
+  // Adicionar no useEffect existente, dentro do carregarTodosDados
+  useEffect(() => {
+    const carregarTodosDados = async () => {
+      setLoading(true);
+      try {
+        await Promise.all([
+          carregarDados(),
+          carregarConfigClinica()  // ADICIONAR ESTA LINHA
+        ]);
+      } catch (error) {
+        console.error('Erro ao carregar dados:', error);
+        toast.error('Erro ao carregar dados');
+      } finally {
+        setLoading(false);
+      }
+    };
+  
+    carregarTodosDados();
+  }, []);  
+  
   // ============================================
   // FILTROS E MEMOIZAÇÃO
   // ============================================
@@ -1626,6 +1668,124 @@ export default function Atendimentos() {
   const finalizados = atendimentos.filter(a => a.status === 'finalizado').length;
   const valorTotalPendente = atendimentos.filter(a => a.status === 'pendente' || a.status === 'parcial').reduce((sum, a) => sum + (a.valor_total || 0), 0);
 
+  // ============================================
+  // FUNÇÕES DE IMPRESSÃO
+  // ============================================
+  
+  const handleImprimirGuia = async (atendimento) => {
+    setImprimindoGuia(true);
+    
+    try {
+      // Buscar dados atualizados do convênio
+      const convenio = convenios.find(c => c.id === atendimento.paciente_convenio_id);
+      
+      if (!convenio) {
+        toast.error('Convênio não encontrado para esta guia');
+        return;
+      }
+      
+      // Garantir que a configuração da clínica está carregada
+      let configClinicaAtual = configClinica;
+      if (!configClinicaAtual?.cnes) {
+        const { data: configData } = await supabase
+          .from('configuracoes')
+          .select('valor')
+          .eq('chave', 'config_sistema')
+          .maybeSingle();
+        if (configData?.valor) {
+          configClinicaAtual = JSON.parse(configData.valor);
+          setConfigClinica(configClinicaAtual);
+        }
+      }
+      
+      imprimirGuiaTISSOficial(atendimento, convenio, configClinicaAtual);
+      toast.success('Guia enviada para impressão!');
+    } catch (error) {
+      console.error('Erro ao imprimir guia:', error);
+      toast.error('Erro ao imprimir guia');
+    } finally {
+      setImprimindoGuia(false);
+    }
+  };
+  
+  const handleImprimirContaFaturada = async (atendimento) => {
+    setImprimindoGuia(true);
+    
+    try {
+      // Buscar dados do convênio
+      const convenio = convenios.find(c => c.id === atendimento.paciente_convenio_id);
+      
+      // Buscar dados da clínica
+      let configClinicaAtual = configClinica;
+      if (!configClinicaAtual?.cnes) {
+        const { data: configData } = await supabase
+          .from('configuracoes')
+          .select('valor')
+          .eq('chave', 'config_sistema')
+          .maybeSingle();
+        if (configData?.valor) {
+          configClinicaAtual = JSON.parse(configData.valor);
+          setConfigClinica(configClinicaAtual);
+        }
+      }
+      
+      // Coletar itens do atendimento
+      const itens = typeof atendimento.itens === 'string' 
+        ? JSON.parse(atendimento.itens) 
+        : (atendimento.itens || []);
+      
+      // Dados do paciente
+      const paciente = {
+        nome: atendimento.paciente_nome || '',
+        numero_carteira: atendimento.numero_carteira || '',
+        cpf: atendimento.cpf || '',
+        data_nascimento: atendimento.data_nascimento || ''
+      };
+      
+      // Dados da clínica
+      const clinica = {
+        nome_empresa: configClinicaAtual.nome_empresa || '',
+        nome_contratado: configClinicaAtual.nome_contratado || '',
+        cnpj: configClinicaAtual.cnpj || '',
+        cnes: configClinicaAtual.cnes || ''
+      };
+      
+      // Preparar dados da conta
+      const dadosConta = {
+        numero_conta: atendimento.numero_guia_prestador || `GUI-${atendimento.id}`,
+        data_emissao: new Date().toISOString(),
+        status: atendimento.status || 'pendente',
+        paciente,
+        convenio: {
+          razao_social: convenio?.razao_social || '',
+          registro_ans: convenio?.registro_ans || '',
+          codigo_prestador: convenio?.codigo_prestador || ''
+        },
+        clinica,
+        itens: itens.map(item => ({
+          data_execucao: item.data_execucao || '',
+          codigo: item.codigo || '',
+          nome: item.nome || '',
+          quantidade: item.quantidade || 1,
+          valor_unitario: item.valor_unitario || 0,
+          valor_total: item.valor_total || 0
+        })),
+        subtotal: atendimento.valor_total || 0,
+        total_geral: atendimento.valor_total || 0,
+        observacoes: `Guia: ${atendimento.numero_guia_prestador || 'N/A'} - ${atendimento.observacao || ''}`,
+        logo_base64: convenio?.logo_base64 || configClinicaAtual.logo_base64
+      };
+      
+      imprimirContaFaturada(dadosConta);
+      toast.success('Conta faturada enviada para impressão!');
+    } catch (error) {
+      console.error('Erro ao imprimir conta faturada:', error);
+      toast.error('Erro ao imprimir conta faturada');
+    } finally {
+      setImprimindoGuia(false);
+    }
+  };  
+  
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -1897,6 +2057,25 @@ export default function Atendimentos() {
                         >
                           <TrashIcon className="w-4 h-4" />
                         </button>
+                        {/* Botão de Imprimir Guia TISS */}
+                        <button 
+                          onClick={() => handleImprimirGuia(a)} 
+                          disabled={imprimindoGuia}
+                          className="p-1 rounded-lg text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors disabled:opacity-50" 
+                          title="Imprimir Guia TISS"
+                        >
+                          <PrinterIcon className="w-4 h-4" />
+                        </button>
+                        
+                        {/* Botão de Imprimir Conta Faturada */}
+                        <button 
+                          onClick={() => handleImprimirContaFaturada(a)} 
+                          disabled={imprimindoGuia}
+                          className="p-1 rounded-lg text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors disabled:opacity-50" 
+                          title="Imprimir Conta Faturada"
+                        >
+                          <ReceiptPercentIcon className="w-4 h-4" />
+                        </button>                      
                       </div>
                     </td>
                   </tr>
