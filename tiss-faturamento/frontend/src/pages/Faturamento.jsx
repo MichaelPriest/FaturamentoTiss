@@ -559,11 +559,52 @@ export default function Faturamento() {
     toast.success(`${guiasSelecionadas.length} guia(s) enviada(s) para impressão...`);
   };
 
-  const handleImprimirLote = (lote) => {
-    const guiasDoLote = atendimentos.filter(a => lote.guias_ids?.includes(a.id));
-    const convenio = convenios.find(c => c.id === lote.convenio_id);
-    imprimirMultiplasGuiasTISS(guiasDoLote, convenio, configClinica);
-    toast.success(`Imprimindo ${guiasDoLote.length} guia(s) do lote...`);
+  const handleImprimirLote = async (lote) => {
+    setGerando(true);
+    
+    try {
+      // Buscar as guias do lote diretamente do banco (sem filtro de status)
+      const { data: guiasDoLote, error } = await supabase
+        .from('atendimentos')
+        .select('*')
+        .in('id', lote.guias_ids || []);
+      
+      if (error) throw error;
+      
+      if (!guiasDoLote || guiasDoLote.length === 0) {
+        toast.error('Nenhuma guia encontrada para este lote');
+        return;
+      }
+      
+      const convenio = convenios.find(c => c.id === lote.convenio_id);
+      
+      if (!convenio) {
+        toast.error('Convênio não encontrado');
+        return;
+      }
+      
+      // Garantir que a configuração da clínica está carregada
+      let configClinicaAtual = configClinica;
+      if (!configClinicaAtual?.cnes) {
+        const { data: configData } = await supabase
+          .from('configuracoes')
+          .select('valor')
+          .eq('chave', 'config_sistema')
+          .maybeSingle();
+        if (configData?.valor) {
+          configClinicaAtual = JSON.parse(configData.valor);
+          setConfigClinica(configClinicaAtual);
+        }
+      }
+      
+      imprimirMultiplasGuiasTISS(guiasDoLote, convenio, configClinicaAtual);
+      toast.success(`Imprimindo ${guiasDoLote.length} guia(s) do lote...`);
+    } catch (error) {
+      console.error('Erro ao imprimir lote:', error);
+      toast.error('Erro ao imprimir lote');
+    } finally {
+      setGerando(false);
+    }
   };
 
   // ============================================
