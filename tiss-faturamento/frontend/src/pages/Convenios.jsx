@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { PlusIcon, PencilIcon, TrashIcon, BuildingOfficeIcon, Cog6ToothIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilIcon, TrashIcon, BuildingOfficeIcon, Cog6ToothIcon, PhotoIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { conveniosService } from '../services/supabaseService';
@@ -15,11 +15,16 @@ export default function Convenios() {
   const [editing, setEditing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [aba, setAba] = useState('dados');
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [uploading, setUploading] = useState(false);
+
   const [formData, setFormData] = useState({
     registro_ans: '',
     razao_social: '',
     nome_fantasia: '',
+    nome_contratado: '',
     cnpj: '',
+    logo_base64: '',
     tabela_padrao: 'TUSS',
     prazo_envio_dias: 30,
     ativo: true,
@@ -52,6 +57,54 @@ export default function Convenios() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Função para converter arquivo para Base64
+  const converterParaBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  // Função para lidar com upload da logo
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validar tipo de arquivo (apenas imagens)
+    if (!file.type.startsWith('image/')) {
+      toast.error('Por favor, selecione uma imagem válida (PNG, JPG, JPEG, GIF)');
+      return;
+    }
+
+    // Validar tamanho (máximo 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('A imagem deve ter no máximo 2MB');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const base64 = await converterParaBase64(file);
+      setLogoPreview(base64);
+      setFormData({ ...formData, logo_base64: base64 });
+      toast.success('Logo carregada com sucesso!');
+    } catch (error) {
+      console.error('Erro ao converter imagem:', error);
+      toast.error('Erro ao processar a imagem');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Função para remover a logo
+  const handleRemoverLogo = () => {
+    setLogoPreview(null);
+    setFormData({ ...formData, logo_base64: '' });
+    toast.info('Logo removida');
   };
 
   const handleSubmit = async (e) => {
@@ -98,14 +151,45 @@ export default function Convenios() {
 
   const resetForm = () => {
     setFormData({
-      registro_ans: '', razao_social: '', nome_fantasia: '', cnpj: '',
-      tabela_padrao: 'TUSS', prazo_envio_dias: 30, ativo: true,
+      registro_ans: '', razao_social: '', nome_fantasia: '', nome_contratado: '', cnpj: '',
+      logo_base64: '', tabela_padrao: 'TUSS', prazo_envio_dias: 30, ativo: true,
       codigo_prestador: '', senha_prestador: '', cnes: '',
       ambiente: 'homologacao', url_webservice: '',
       tipo_tabela: 'TUSS', multiplicador: 1.00, coparticipacao: false,
       percentual_coparticipacao: 0, proximo_numero_guia: 1000000,
       ultimo_numero_guia: 999999, versao_tiss: '4.03.00'
     });
+    setLogoPreview(null);
+  };
+
+  const handleEdit = (convenio) => {
+    setEditing(convenio);
+    setFormData({
+      registro_ans: convenio.registro_ans || '',
+      razao_social: convenio.razao_social || '',
+      nome_fantasia: convenio.nome_fantasia || '',
+      nome_contratado: convenio.nome_contratado || '',
+      cnpj: convenio.cnpj || '',
+      logo_base64: convenio.logo_base64 || '',
+      tabela_padrao: convenio.tabela_padrao || 'TUSS',
+      prazo_envio_dias: convenio.prazo_envio_dias || 30,
+      ativo: convenio.ativo !== undefined ? convenio.ativo : true,
+      codigo_prestador: convenio.codigo_prestador || '',
+      senha_prestador: convenio.senha_prestador || '',
+      cnes: convenio.cnes || '',
+      ambiente: convenio.ambiente || 'homologacao',
+      url_webservice: convenio.url_webservice || '',
+      tipo_tabela: convenio.tipo_tabela || 'TUSS',
+      multiplicador: convenio.multiplicador || 1.00,
+      coparticipacao: convenio.coparticipacao || false,
+      percentual_coparticipacao: convenio.percentual_coparticipacao || 0,
+      proximo_numero_guia: convenio.proximo_numero_guia || 1000000,
+      ultimo_numero_guia: convenio.ultimo_numero_guia || 999999,
+      versao_tiss: convenio.versao_tiss || '4.03.00'
+    });
+    setLogoPreview(convenio.logo_base64 || null);
+    setAba('dados');
+    setShowModal(true);
   };
 
   if (loading) {
@@ -184,20 +268,33 @@ export default function Convenios() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-700/50">
               <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Logo</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Registro ANS</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Razão Social</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Código Prestador</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Versão TISS</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Ambiente</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-32">Ações</th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-36">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {convenios.map((c) => (
                 <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <td className="px-4 py-3">
+                    {c.logo_base64 ? (
+                      <img src={c.logo_base64} alt={c.razao_social} className="w-10 h-10 object-contain rounded" />
+                    ) : (
+                      <div className="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded flex items-center justify-center">
+                        <BuildingOfficeIcon className="w-5 h-5 text-gray-400" />
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-xs font-mono text-gray-900 dark:text-gray-100">{c.registro_ans}</td>
-                  <td className="px-4 py-3 text-xs text-gray-700 dark:text-gray-300">{c.razao_social}</td>
+                  <td className="px-4 py-3 text-xs text-gray-700 dark:text-gray-300">
+                    <div className="font-medium">{c.razao_social}</div>
+                    <div className="text-xs text-gray-500">{c.nome_contratado && `Contratado: ${c.nome_contratado}`}</div>
+                  </td>
                   <td className="px-4 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">{c.codigo_prestador || '-'}</td>
                   <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">{c.versao_tiss || '4.03.00'}</td>
                   <td className="px-4 py-3">
@@ -213,7 +310,7 @@ export default function Convenios() {
                   <td className="px-4 py-3 text-center">
                     <div className="flex gap-2 justify-center">
                       <button 
-                        onClick={() => { setEditing(c); setFormData({...c, versao_tiss: c.versao_tiss || '4.03.00'}); setAba('dados'); setShowModal(true); }} 
+                        onClick={() => handleEdit(c)} 
                         className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
                         title="Editar"
                       >
@@ -239,7 +336,7 @@ export default function Convenios() {
               ))}
               {convenios.length === 0 && (
                 <tr>
-                  <td colSpan="7" className="px-4 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
+                  <td colSpan="8" className="px-4 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
                     <BuildingOfficeIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
                     Nenhum convênio cadastrado
                   </td>
@@ -270,6 +367,12 @@ export default function Convenios() {
                   Dados
                 </button>
                 <button 
+                  onClick={() => setAba('logo')} 
+                  className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 whitespace-nowrap ${aba === 'logo' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                >
+                  Logo
+                </button>
+                <button 
                   onClick={() => setAba('prestador')} 
                   className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 whitespace-nowrap ${aba === 'prestador' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
                 >
@@ -296,6 +399,7 @@ export default function Convenios() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Registro ANS *</label>
                       <input type="text" value={formData.registro_ans} onChange={e => setFormData({...formData, registro_ans: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" required />
+                      <p className="text-xs text-gray-500 mt-1">Código de registro da operadora na ANS (6 dígitos)</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Razão Social *</label>
@@ -304,6 +408,11 @@ export default function Convenios() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome Fantasia</label>
                       <input type="text" value={formData.nome_fantasia} onChange={e => setFormData({...formData, nome_fantasia: e.target.value.toUpperCase()})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome do Contratado (Clínica)</label>
+                      <input type="text" value={formData.nome_contratado} onChange={e => setFormData({...formData, nome_contratado: e.target.value.toUpperCase()})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" placeholder="Nome da clínica para faturamento TISS" />
+                      <p className="text-xs text-gray-500 mt-1">Nome que aparecerá no campo "Nome do Contratado" nas guias TISS</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CNPJ</label>
@@ -325,6 +434,43 @@ export default function Convenios() {
                     <div className="flex items-center gap-2">
                       <input type="checkbox" checked={formData.ativo} onChange={e => setFormData({...formData, ativo: e.target.checked})} className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600" />
                       <label className="text-sm text-gray-700 dark:text-gray-300">Convênio Ativo</label>
+                    </div>
+                  </div>
+                )}
+
+                {/* Aba Logo */}
+                {aba === 'logo' && (
+                  <div className="space-y-4">
+                    <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+                      <p className="text-xs text-blue-700 dark:text-blue-300">📷 Faça upload da logo do convênio. A imagem será salva em Base64 no banco de dados e aparecerá nas guias TISS.</p>
+                    </div>
+                    
+                    <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+                      {logoPreview ? (
+                        <div className="text-center">
+                          <img src={logoPreview} alt="Logo do convênio" className="w-32 h-32 object-contain mx-auto mb-3" />
+                          <div className="flex gap-2 justify-center">
+                            <label className="cursor-pointer bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-blue-700 transition-colors">
+                              Alterar Logo
+                              <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" disabled={uploading} />
+                            </label>
+                            <button onClick={handleRemoverLogo} className="bg-red-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-red-700 transition-colors">
+                              Remover
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center">
+                          <PhotoIcon className="w-16 h-16 text-gray-400 mx-auto mb-3" />
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Nenhuma logo cadastrada</p>
+                          <label className="cursor-pointer bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors inline-flex items-center gap-2">
+                            <PhotoIcon className="w-4 h-4" />
+                            {uploading ? 'Carregando...' : 'Selecionar Logo'}
+                            <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" disabled={uploading} />
+                          </label>
+                          <p className="text-xs text-gray-400 mt-2">Formatos: PNG, JPG, JPEG, GIF (Max: 2MB)</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -393,6 +539,7 @@ export default function Convenios() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Multiplicador de valores (%)</label>
                       <input type="number" step="0.01" value={formData.multiplicador} onChange={e => setFormData({...formData, multiplicador: parseFloat(e.target.value)})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" />
+                      <p className="text-xs text-gray-500 mt-1">Ex: 1.00 = 100% do valor, 0.90 = 10% de desconto, 1.10 = 10% de acréscimo</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <input type="checkbox" checked={formData.coparticipacao} onChange={e => setFormData({...formData, coparticipacao: e.target.checked})} className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600" />
