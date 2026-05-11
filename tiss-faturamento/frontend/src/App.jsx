@@ -8,7 +8,7 @@ import {
   Bars3Icon, XMarkIcon, ArrowRightOnRectangleIcon,
   ChevronLeftIcon, ChevronRightIcon, SunIcon, MoonIcon,
   CalendarDaysIcon, FolderIcon, ChevronDownIcon, ChevronUpIcon,
-  HomeModernIcon, BanknotesIcon, ClipboardDocumentCheckIcon
+  HomeModernIcon, BanknotesIcon, ClipboardDocumentCheckIcon, BuildingOffice2Icon
 } from '@heroicons/react/24/outline';
 
 import Dashboard from './pages/Dashboard';
@@ -28,6 +28,7 @@ import NotificationBell from './components/NotificationBell';
 import Agendamentos from './pages/Agendamentos';
 import Prontuario from './pages/Prontuario';
 import Salas from './pages/Salas';
+import Unidades from './pages/Unidades';
 import LoginPage from './pages/Login';
 
 import { setConfig } from './lib/tissGenerator';
@@ -137,7 +138,8 @@ function MainApp() {
         { id: 'pacientes', name: 'Pacientes', icon: UsersIcon, color: 'from-green-500 to-green-600' },
         { id: 'prestadores', name: 'Prestadores', icon: UserGroupIcon, color: 'from-teal-500 to-teal-600' },
         { id: 'procedimentos', name: 'Procedimentos', icon: ClipboardDocumentListIcon, color: 'from-orange-500 to-orange-600' },
-        { id: 'salas', name: 'Salas', icon: HomeModernIcon, color: 'from-teal-500 to-teal-600' }
+        { id: 'salas', name: 'Salas', icon: HomeModernIcon, color: 'from-teal-500 to-teal-600' },
+        { id: 'unidades', name: 'Unidades', icon: BuildingOffice2Icon, color: 'from-sky-500 to-sky-600' }
       ]
     },
     {
@@ -189,6 +191,7 @@ function MainApp() {
       case 'prestadores': return <Prestadores />;
       case 'procedimentos': return <Procedimentos />;
       case 'salas': return <Salas />;
+      case 'unidades': return <Unidades />;
       case 'atendimentos': return <Atendimentos />;
       case 'agendamentos': return <Agendamentos />;
       case 'autorizacoes': return <Autorizacoes />;
@@ -225,6 +228,7 @@ function MainApp() {
       glosas: 'Gestão de glosas e recursos',
       relatorios: 'Análise de dados e métricas',
       salas: 'Gerenciamento de salas da clínica',
+      unidades: 'Cadastro de filiais, clínicas e unidades de atendimento',
       configuracoes: 'Configurações do sistema e usuários'
     };
     return subtitles[activeTab] || 'Cadastro e gerenciamento de dados';
