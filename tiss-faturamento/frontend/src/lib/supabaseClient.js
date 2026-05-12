@@ -6,17 +6,92 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Log para debug
-console.log('Supabase URL:', supabaseUrl);
-console.log('Supabase Key:', supabaseAnonKey ? 'Configurada ✓' : 'Não configurada ✗');
+console.log('🔧 Inicializando Supabase Client...');
+console.log('📡 URL:', supabaseUrl);
+console.log('🔑 Key:', supabaseAnonKey ? '✅ Configurada' : '❌ Não configurada');
 
 // Verificar se as variáveis estão configuradas
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('❌ Variáveis de ambiente do Supabase não configuradas!');
 }
 
+// Criar o cliente com configurações explícitas de autenticação
 export const supabase = supabaseUrl && supabaseAnonKey 
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storage: localStorage,
+        storageKey: 'supabase.auth.token'
+      }
+    })
   : null;
+
+// Verificar e logar o estado da autenticação
+export const logAuthState = async () => {
+  if (!supabase) {
+    console.log('❌ Supabase não disponível');
+    return;
+  }
+  
+  const { data: { session }, error } = await supabase.auth.getSession();
+  
+  if (error) {
+    console.error('❌ Erro ao obter sessão:', error.message);
+    return;
+  }
+  
+  if (session) {
+    console.log('✅ Usuário autenticado:', session.user.email);
+    console.log('📅 Expira em:', new Date(session.expires_at * 1000).toLocaleString());
+    console.log('🔑 Token:', session.access_token?.substring(0, 50) + '...');
+  } else {
+    console.log('❌ Usuário NÃO autenticado - Nenhuma sessão encontrada');
+  }
+};
+
+// Função para fazer login manualmente (para teste)
+export const fazerLogin = async (email, password) => {
+  if (!supabase) {
+    throw new Error('Supabase não configurado');
+  }
+  
+  console.log('🔐 Tentando login com:', email);
+  
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
+  
+  if (error) {
+    console.error('❌ Erro no login:', error.message);
+    throw error;
+  }
+  
+  console.log('✅ Login realizado com sucesso!');
+  console.log('👤 Usuário:', data.user.email);
+  console.log('🔑 Token:', data.session?.access_token?.substring(0, 50) + '...');
+  
+  await logAuthState();
+  return data;
+};
+
+// Função para fazer logout
+export const fazerLogout = async () => {
+  if (!supabase) return;
+  
+  console.log('🚪 Fazendo logout...');
+  const { error } = await supabase.auth.signOut();
+  
+  if (error) {
+    console.error('❌ Erro no logout:', error.message);
+    throw error;
+  }
+  
+  console.log('✅ Logout realizado com sucesso!');
+  await logAuthState();
+};
 
 export const TABLES = {
   CONVENIOS: 'convenios',
@@ -43,13 +118,16 @@ export async function checkSupabaseConnection() {
   try {
     const { error } = await supabase.from(TABLES.CONVENIOS).select('count', { count: 'exact', head: true });
     if (error) {
-      console.error('Erro de conexão Supabase:', error);
+      console.error('❌ Erro de conexão Supabase:', error);
       return false;
     }
     console.log('✅ Supabase conectado com sucesso!');
     return true;
   } catch (err) {
-    console.error('Erro ao conectar Supabase:', err);
+    console.error('❌ Erro ao conectar Supabase:', err);
     return false;
   }
 }
+
+// Exportar cliente como default também
+export default supabase;
