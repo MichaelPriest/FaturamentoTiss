@@ -41,6 +41,10 @@ export function UnidadeProvider({ children }) {
       }
 
       return data;
+    } catch (error) {
+      console.error('Erro ao carregar unidades:', error);
+      setUnidades([]);
+      return [];
     } finally {
       setLoadingUnidades(false);
     }
