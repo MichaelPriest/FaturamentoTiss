@@ -3,20 +3,11 @@
   "routes": [
     {
       "src": "/reset-password",
-      "dest": "/frontend/index.html"
+      "dest": "/index.html"
     },
     {
       "src": "/(.*)",
-      "dest": "/frontend/index.html"
-    }
-  ],
-  "builds": [
-    {
-      "src": "frontend/**",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "frontend/dist"
-      }
+      "dest": "/index.html"
     }
   ]
 }
