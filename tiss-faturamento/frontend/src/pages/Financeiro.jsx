@@ -30,8 +30,11 @@ import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '../lib/supabaseClient';
+import { useUnidade } from '../contexts/UnidadeContext';
+import { applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
 
 export default function Financeiro() {
+  const { unidadeAtualId } = useUnidade();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(true);
 
@@ -128,13 +131,13 @@ export default function Financeiro() {
 
   useEffect(() => {
     carregarDados();
-  }, []);
+  }, [unidadeAtualId]);
 
   const carregarDados = async () => {
     setLoading(true);
     try {
       const [
-        receberRes, pagarRes, fluxoRes, notasRes, 
+        receberRes, pagarRes, fluxoRes, notasRes,
         conveniosRes, lotesRes, conciliacoesRes
       ] = await Promise.all([
         supabase.from('contas_receber').select('*').order('data_vencimento', { ascending: true }),
@@ -146,13 +149,13 @@ export default function Financeiro() {
         supabase.from('conciliacao_bancaria').select('*').order('data', { ascending: false })
       ]);
 
-      setContasReceber(receberRes.data || []);
-      setContasPagar(pagarRes.data || []);
-      setFluxoCaixa(fluxoRes.data || []);
-      setNotasFiscais(notasRes.data || []);
-      setConvenios(conveniosRes.data || []);
-      setLotes(lotesRes.data || []);
-      setConciliacoes(conciliacoesRes.data || []);
+      setContasReceber(filterByUnidade(receberRes.data || [], unidadeAtualId));
+      setContasPagar(filterByUnidade(pagarRes.data || [], unidadeAtualId));
+      setFluxoCaixa(filterByUnidade(fluxoRes.data || [], unidadeAtualId));
+      setNotasFiscais(filterByUnidade(notasRes.data || [], unidadeAtualId));
+      setConvenios(filterByUnidade(conveniosRes.data || [], unidadeAtualId));
+      setLotes(filterByUnidade(lotesRes.data || [], unidadeAtualId));
+      setConciliacoes(filterByUnidade(conciliacoesRes.data || [], unidadeAtualId));
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       toast.error('Erro ao carregar dados financeiros');
@@ -205,7 +208,7 @@ export default function Financeiro() {
     try {
       const { data, error } = await supabase
         .from('contas_receber')
-        .insert([{ ...novaContaReceber, created_at: new Date().toISOString() }])
+        .insert([applyUnidadeToPayload({ ...novaContaReceber, created_at: new Date().toISOString() }, unidadeAtualId)])
         .select()
         .single();
 
@@ -254,7 +257,7 @@ export default function Financeiro() {
       }
 
       // Registrar no fluxo de caixa
-      await supabase.from('fluxo_caixa').insert([{
+      await supabase.from('fluxo_caixa').insert([applyUnidadeToPayload({
         tipo: 'entrada',
         descricao: `Recebimento: ${selectedItem.descricao}`,
         valor: valorRecebimento,
@@ -262,7 +265,7 @@ export default function Financeiro() {
         conta_id: selectedItem.id,
         origem: 'conta_receber',
         created_at: new Date().toISOString()
-      }]);
+      }, unidadeAtualId)]);
 
       await carregarDados();
       toast.success('Recebimento registrado!');
@@ -283,7 +286,7 @@ export default function Financeiro() {
     try {
       const { data, error } = await supabase
         .from('contas_pagar')
-        .insert([{ ...novaContaPagar, created_at: new Date().toISOString() }])
+        .insert([applyUnidadeToPayload({ ...novaContaPagar, created_at: new Date().toISOString() }, unidadeAtualId)])
         .select()
         .single();
 
@@ -294,7 +297,7 @@ export default function Financeiro() {
       setShowContaPagarModal(false);
       setNovaContaPagar({
         descricao: '', fornecedor: '', categoria: 'operacional', valor_total: 0,
-        data_emissao: format(new Date(), 'yyyy-MM-dd'), data_vencimento: '', 
+        data_emissao: format(new Date(), 'yyyy-MM-dd'), data_vencimento: '',
         status: 'pendente', observacoes: ''
       });
     } catch (error) {
@@ -322,7 +325,7 @@ export default function Financeiro() {
 
       if (error) throw error;
 
-      await supabase.from('fluxo_caixa').insert([{
+      await supabase.from('fluxo_caixa').insert([applyUnidadeToPayload({
         tipo: 'saida',
         descricao: `Pagamento: ${selectedItem.descricao}`,
         valor: valorPagamento,
@@ -330,7 +333,7 @@ export default function Financeiro() {
         conta_id: selectedItem.id,
         origem: 'conta_pagar',
         created_at: new Date().toISOString()
-      }]);
+      }, unidadeAtualId)]);
 
       await carregarDados();
       toast.success('Pagamento registrado!');
@@ -366,7 +369,7 @@ export default function Financeiro() {
 
       const { error } = editingNota
         ? await supabase.from('notas_fiscais').update(dadosNF).eq('id', editingNota.id)
-        : await supabase.from('notas_fiscais').insert([dadosNF]);
+        : await supabase.from('notas_fiscais').insert([applyUnidadeToPayload(dadosNF, unidadeAtualId)]);
 
       if (error) throw error;
 
@@ -383,7 +386,7 @@ export default function Financeiro() {
    // Função para buscar dados do lote e preencher nota fiscal
   const buscarDadosLote = async (numeroLote) => {
     if (!numeroLote) return;
-    
+
     try {
       // Buscar lote
       const { data: lote } = await supabase
@@ -391,7 +394,7 @@ export default function Financeiro() {
         .select('*')
         .eq('numero_lote', numeroLote)
         .maybeSingle();
-      
+
       if (lote) {
         // Buscar convênio
         const { data: convenio } = await supabase
@@ -399,13 +402,13 @@ export default function Financeiro() {
           .select('razao_social')
           .eq('id', lote.convenio_id)
           .maybeSingle();
-        
+
         // Buscar guias do lote para obter especialidades
         const { data: guias } = await supabase
           .from('atendimentos')
           .select('itens')
           .in('id', lote.guias_ids || []);
-        
+
         // Extrair especialidades dos itens
         const especialidades = new Set();
         if (guias) {
@@ -422,7 +425,7 @@ export default function Financeiro() {
             } catch (e) {}
           });
         }
-        
+
         // Preencher dados da nota fiscal
         setNotaFiscal(prev => ({
           ...prev,
@@ -453,7 +456,7 @@ export default function Financeiro() {
           quantidade_guias: lote.quantidade_guias || lote.guias_ids?.length || 0,
           especialidades: Array.from(especialidades).join(', ')
         }));
-        
+
         toast.success(`Lote ${numeroLote} localizado! Dados preenchidos automaticamente.`);
       } else {
         toast.error('Lote não encontrado');
@@ -462,8 +465,8 @@ export default function Financeiro() {
       console.error('Erro ao buscar lote:', error);
       toast.error('Erro ao buscar dados do lote');
     }
-  }; 
-  
+  };
+
   const editarNotaFiscal = (nf) => {
       setEditingNota(nf);
       setNotaFiscal({
@@ -495,15 +498,15 @@ export default function Financeiro() {
         observacoes: nf.observacoes || '',
         quantidade_guias: nf.quantidade_guias || 0
       });
-      
+
       // Carregar anexos
       setAnexos(typeof nf.anexos === 'string' ? JSON.parse(nf.anexos || '[]') : (nf.anexos || []));
-      
+
       // Se tem número de lote, buscar dados automaticamente
       if (nf.numero_lote) {
         buscarDadosLote(nf.numero_lote);
       }
-      
+
       setShowNotaFiscalModal(true);
     };
 
@@ -522,7 +525,7 @@ export default function Financeiro() {
   // ===== CONCILIAÇÃO BANCÁRIA =====
   const handleAddConciliacao = async () => {
     try {
-      await supabase.from('conciliacao_bancaria').insert([{
+      await supabase.from('conciliacao_bancaria').insert([applyUnidadeToPayload({
         conta_bancaria: contaBancaria,
         data: dataRecebimento,
         descricao: `Conciliação manual`,
@@ -531,7 +534,7 @@ export default function Financeiro() {
         conciliado: true,
         observacoes: 'Lançamento manual',
         created_at: new Date().toISOString()
-      }]);
+      }, unidadeAtualId)]);
       await carregarDados();
       toast.success('Conciliação registrada!');
       setShowConciliacaoModal(false);
@@ -544,17 +547,17 @@ export default function Financeiro() {
   // ===== FILTROS E ESTATÍSTICAS =====
   const receberFiltradas = useMemo(() => {
     let resultado = [...contasReceber];
-    
+
     if (filtroStatus === 'vencidas') {
       resultado = resultado.filter(c => c.status === 'pendente' && new Date(c.data_vencimento) < new Date());
     } else if (filtroStatus !== 'todos') {
       resultado = resultado.filter(c => c.status === filtroStatus);
     }
-    
+
     if (filtroConvenio !== 'todos') {
       resultado = resultado.filter(c => c.convenio_id === parseInt(filtroConvenio));
     }
-    
+
     if (busca.trim()) {
       const termo = busca.toLowerCase();
       resultado = resultado.filter(c =>
@@ -562,19 +565,19 @@ export default function Financeiro() {
         (c.numero_lote && c.numero_lote.toLowerCase().includes(termo))
       );
     }
-    
+
     return resultado;
   }, [contasReceber, filtroStatus, filtroConvenio, busca]);
 
   const pagarFiltradas = useMemo(() => {
     let resultado = [...contasPagar];
-    
+
     if (filtroStatus === 'vencidas') {
       resultado = resultado.filter(c => c.status === 'pendente' && new Date(c.data_vencimento) < new Date());
     } else if (filtroStatus !== 'todos') {
       resultado = resultado.filter(c => c.status === filtroStatus);
     }
-    
+
     if (busca.trim()) {
       const termo = busca.toLowerCase();
       resultado = resultado.filter(c =>
@@ -582,7 +585,7 @@ export default function Financeiro() {
         (c.fornecedor && c.fornecedor.toLowerCase().includes(termo))
       );
     }
-    
+
     return resultado;
   }, [contasPagar, filtroStatus, busca]);
 
@@ -880,14 +883,14 @@ export default function Financeiro() {
                       <td className="px-4 py-3 text-center">
                         <div className="flex gap-1 justify-center">
                           {(c.status === 'pendente' || c.status === 'parcial') && (
-                            <button onClick={() => { 
-                              setSelectedItem(c); 
-                              setValorRecebimento(c.valor_total - (c.valor_recebido || 0)); 
+                            <button onClick={() => {
+                              setSelectedItem(c);
+                              setValorRecebimento(c.valor_total - (c.valor_recebido || 0));
                               setDataRecebimento(format(new Date(), 'yyyy-MM-dd'));
                               setFormaPagamento('PIX');
                               setNumeroDocumento('');
                               setContaBancaria('');
-                              setShowRecebimentoModal(true); 
+                              setShowRecebimentoModal(true);
                             }} className="px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700">
                               Receber
                             </button>
@@ -958,14 +961,14 @@ export default function Financeiro() {
                       </td>
                       <td className="px-4 py-3 text-center">
                         {(c.status === 'pendente' || c.status === 'parcial') && (
-                          <button onClick={() => { 
-                            setSelectedItem(c); 
-                            setValorPagamento(c.valor_total - (c.valor_pago || 0)); 
+                          <button onClick={() => {
+                            setSelectedItem(c);
+                            setValorPagamento(c.valor_total - (c.valor_pago || 0));
                             setDataPagamento(format(new Date(), 'yyyy-MM-dd'));
                             setFormaPagamento('PIX');
                             setNumeroDocumento('');
                             setContaBancaria('');
-                            setShowPagamentoModal(true); 
+                            setShowPagamentoModal(true);
                           }} className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700">
                             Pagar
                           </button>
@@ -1124,8 +1127,8 @@ export default function Financeiro() {
                       </td>
                       <td className="px-4 py-3 text-xs text-right font-semibold">{formatCurrency(c.valor)}</td>
                       <td className="px-4 py-3 text-center">
-                        {c.conciliado ? 
-                          <CheckCircleIcon className="w-5 h-5 text-green-500 mx-auto" /> : 
+                        {c.conciliado ?
+                          <CheckCircleIcon className="w-5 h-5 text-green-500 mx-auto" /> :
                           <ClockIcon className="w-5 h-5 text-yellow-500 mx-auto" />
                         }
                       </td>
@@ -1274,14 +1277,14 @@ export default function Financeiro() {
                   <DocumentTextIcon className="w-5 h-5 text-blue-600" />
                   {editingNota ? 'Editar Nota Fiscal' : 'Nova Nota Fiscal'}
                 </h3>
-                <button 
-                  onClick={() => { setShowNotaFiscalModal(false); setEditingNota(null); }} 
+                <button
+                  onClick={() => { setShowNotaFiscalModal(false); setEditingNota(null); }}
                   className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   <XCircleIcon className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
-              
+
               <div className="p-5 space-y-6">
                 {/* Seção: Localizar Lote */}
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/50 dark:to-indigo-950/50 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
@@ -1315,7 +1318,7 @@ export default function Financeiro() {
                           } catch (e) {
                             console.warn('Data inválida:', l.data_envio);
                           }
-                          
+
                           return (
                             <option key={l.numero_lote} value={l.numero_lote}>
                               📦 {l.numero_lote} | {l.convenio_nome} | {dataFormatada} | {l.quantidade_guias || l.guias_ids?.length || 0} guias
@@ -1350,7 +1353,7 @@ export default function Financeiro() {
                     </div>
                   )}
                 </div>
-        
+
                 {/* Dados da Nota Fiscal */}
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   <div>
@@ -1430,14 +1433,14 @@ export default function Financeiro() {
                     </select>
                   </div>
                 </div>
-        
+
                 {/* Valores e Impostos */}
                 <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4">
                   <h4 className="font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
                     <CalculatorIcon className="w-5 h-5 text-purple-600" />
                     Impostos e Deduções
                   </h4>
-                  
+
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                     <div className="col-span-2 md:col-span-4">
                       <label className="block text-sm font-medium mb-1 dark:text-gray-300">Base de Cálculo</label>
@@ -1449,7 +1452,7 @@ export default function Financeiro() {
                         className="w-full border-2 border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all font-bold text-lg"
                       />
                     </div>
-                    
+
                     <div>
                       <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">ISS (%)</label>
                       <input
@@ -1521,7 +1524,7 @@ export default function Financeiro() {
                       />
                     </div>
                   </div>
-        
+
                   {/* Resultados dos impostos */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div>
@@ -1570,7 +1573,7 @@ export default function Financeiro() {
                     </div>
                   </div>
                 </div>
-        
+
                 {/* Anexos */}
                 <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4">
                   <h4 className="font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
@@ -1601,7 +1604,7 @@ export default function Financeiro() {
                       Adicionar
                     </button>
                   </div>
-                  
+
                   {anexos.length > 0 && (
                     <div className="space-y-2">
                       {anexos.map((anexo, i) => (
@@ -1625,7 +1628,7 @@ export default function Financeiro() {
                     </div>
                   )}
                 </div>
-        
+
                 {/* Observações */}
                 <div>
                   <label className="block text-sm font-medium mb-1 dark:text-gray-300">Observações</label>
@@ -1638,7 +1641,7 @@ export default function Financeiro() {
                   />
                 </div>
               </div>
-              
+
               {/* Footer */}
               <div className="p-5 border-t dark:border-gray-700 flex justify-end gap-3 sticky bottom-0 bg-white dark:bg-gray-800">
                 <button

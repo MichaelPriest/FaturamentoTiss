@@ -28,6 +28,8 @@ import { supabase } from '../lib/supabaseClient';
 import { gerarXMLTISS, converterAtendimentoParaTISS, setVersao } from '../lib/tissGenerator';
 import { imprimirGuiaTISSOficial, imprimirMultiplasGuiasTISS } from '../components/ImpressaoGuiaTISS';
 import { imprimirContaFaturada } from '../components/ImpressaoContaFaturada';
+import { useUnidade } from '../contexts/UnidadeContext';
+import { applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
 
 // ============================================
 // MAPA DE CÓDIGOS CBOS (TISS)
@@ -207,6 +209,7 @@ const CBOS_MAP = {
 const MAX_GUIAS_POR_LOTE = 100;
 
 export default function Faturamento() {
+  const { unidadeAtualId } = useUnidade();
   const [atendimentos, setAtendimentos] = useState([]);
   const [convenios, setConvenios] = useState([]);
   const [prestadores, setPrestadores] = useState([]);
@@ -391,10 +394,10 @@ export default function Faturamento() {
       if (prestadoresRes.error) throw prestadoresRes.error;
       if (procedimentosRes.error) throw procedimentosRes.error;
 
-      setAtendimentos(atendimentosRes.data || []);
-      setConvenios(conveniosRes.data || []);
-      setPrestadores(prestadoresRes.data || []);
-      setProcedimentos(procedimentosRes.data || []);
+      setAtendimentos(filterByUnidade(atendimentosRes.data || [], unidadeAtualId));
+      setConvenios(filterByUnidade(conveniosRes.data || [], unidadeAtualId));
+      setPrestadores(filterByUnidade(prestadoresRes.data || [], unidadeAtualId));
+      setProcedimentos(filterByUnidade(procedimentosRes.data || [], unidadeAtualId));
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       toast.error('Erro ao carregar dados');
@@ -1095,7 +1098,7 @@ export default function Faturamento() {
           updated_at: new Date().toISOString()
         };
 
-        const { error: insertError } = await supabase.from('lotes_faturamento').insert([novoLote]);
+        const { error: insertError } = await supabase.from('lotes_faturamento').insert([applyUnidadeToPayload(novoLote, unidadeAtualId)]);
         
         if (insertError) throw insertError;
         
@@ -1236,7 +1239,7 @@ export default function Faturamento() {
         updated_at: new Date().toISOString()
       };
 
-      const { error: insertError } = await supabase.from('lotes_faturamento').insert([novoLote]);
+      const { error: insertError } = await supabase.from('lotes_faturamento').insert([applyUnidadeToPayload(novoLote, unidadeAtualId)]);
       if (insertError) throw insertError;
       
       await registrarLog('REGENERACAO_XML', novoLote, `XML regenerado para o lote ${loteEncontrado.numero_lote}`);
@@ -1311,7 +1314,7 @@ export default function Faturamento() {
         updated_at: new Date().toISOString()
       };
 
-      const { error: insertError } = await supabase.from('lotes_faturamento').insert([novoLote]);
+      const { error: insertError } = await supabase.from('lotes_faturamento').insert([applyUnidadeToPayload(novoLote, unidadeAtualId)]);
       if (insertError) throw insertError;
       
       await registrarLog('REGENERACAO_XML', novoLote, `XML regenerado para o lote ${lote.numero_lote}`);
@@ -1427,7 +1430,7 @@ export default function Faturamento() {
     };
 
     carregarTodosDados();
-  }, []);
+  }, [unidadeAtualId]);
 
   if (loading) {
     return (
