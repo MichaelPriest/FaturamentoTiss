@@ -1,7 +1,8 @@
+// src/pages/Login.jsx
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { SunIcon, MoonIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
+import { SunIcon, MoonIcon, CurrencyDollarIcon, KeyIcon, EnvelopeIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, logAuthState } from '../lib/supabaseClient';
@@ -11,9 +12,13 @@ export default function LoginPage() {
   const [senha, setSenha] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [debugInfo, setDebugInfo] = useState(null);
+  const [showRecoveryModal, setShowRecoveryModal] = useState(false);
+  const [recoveryEmail, setRecoveryEmail] = useState('');
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [recoveryCooldown, setRecoveryCooldown] = useState(0);
+  const [lastAttemptTime, setLastAttemptTime] = useState(null);
   const { darkMode, toggleDarkMode } = useTheme();
-  const { signIn, isAuthenticated, user } = useAuth();
+  const { signIn, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -30,13 +35,15 @@ export default function LoginPage() {
     checkAuth();
   }, [isAuthenticated, navigate]);
 
-  // Limpar debug info após 10 segundos
+  // Efeito para gerenciar o cooldown do timer
   useEffect(() => {
-    if (debugInfo) {
-      const timer = setTimeout(() => setDebugInfo(null), 10000);
+    if (recoveryCooldown > 0) {
+      const timer = setTimeout(() => {
+        setRecoveryCooldown(prev => prev - 1);
+      }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [debugInfo]);
+  }, [recoveryCooldown]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -52,84 +59,100 @@ export default function LoginPage() {
     }
     
     setLoading(true);
-    setDebugInfo({ stage: 'Iniciando login...', email });
-    
-    console.log('🔐 [LoginPage] Tentando login com:', email);
     
     try {
-      // Tentar login via contexto de autenticação
       const result = await signIn(email, senha);
       
       if (result.success) {
         console.log('✅ [LoginPage] Login bem-sucedido!');
-        setDebugInfo({ stage: 'Login bem-sucedido!', email: result.user?.email });
-        
-        // Aguardar um momento para garantir que o estado seja atualizado
-        setTimeout(() => {
-          navigate('/');
-        }, 500);
+        toast.success('Login realizado com sucesso!');
+        navigate('/');
       } else {
         console.error('❌ [LoginPage] Falha no login:', result.error);
-        setDebugInfo({ stage: 'Falha no login', error: result.error });
-        toast.error(result.error || 'Email ou senha inválidos');
+        
+        if (result.error?.includes('Invalid login credentials')) {
+          toast.error('Email ou senha inválidos');
+        } else if (result.error?.includes('Email not confirmed')) {
+          toast.error('Email não confirmado. Verifique sua caixa de entrada.');
+        } else {
+          toast.error(result.error || 'Erro ao fazer login');
+        }
       }
     } catch (error) {
-      console.error('❌ [LoginPage] Erro durante login:', error);
-      setDebugInfo({ stage: 'Erro', error: error.message });
-      toast.error(error.message || 'Erro ao fazer login. Tente novamente.');
+      console.error('❌ [LoginPage] Erro:', error);
+      toast.error(error.message || 'Erro ao fazer login');
     } finally {
       setLoading(false);
     }
   };
 
-  // Função para tentar login direto com Supabase (debug)
-  const handleDirectLogin = async () => {
-    if (!email || !senha) {
-      toast.error('Preencha email e senha primeiro');
+  const handleRecoveryPassword = async (e) => {
+    e.preventDefault();
+    
+    // Verificar cooldown
+    if (recoveryCooldown > 0) {
+      toast.error(`Aguarde ${recoveryCooldown} segundos antes de tentar novamente`);
       return;
     }
     
-    setLoading(true);
-    console.log('🔐 [LoginPage] Tentando login direto com Supabase...');
+    // Verificar última tentativa (1 minuto mínimo entre tentativas)
+    if (lastAttemptTime && (Date.now() - lastAttemptTime) < 60000) {
+      const segundosRestantes = Math.ceil((60000 - (Date.now() - lastAttemptTime)) / 1000);
+      toast.error(`Aguarde ${segundosRestantes} segundos antes de tentar novamente`);
+      return;
+    }
+    
+    if (!recoveryEmail.trim()) {
+      toast.error('Digite seu email para recuperar a senha');
+      return;
+    }
+    
+    // Validar formato do email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(recoveryEmail)) {
+      toast.error('Digite um email válido');
+      return;
+    }
+    
+    setRecoveryLoading(true);
+    setLastAttemptTime(Date.now());
     
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password: senha
+      console.log('🔐 [LoginPage] Enviando recuperação de senha para:', recoveryEmail);
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(recoveryEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
       });
       
       if (error) {
-        console.error('❌ [LoginPage] Erro no login direto:', error);
-        setDebugInfo({ stage: 'Login direto falhou', error: error.message });
-        toast.error(`Erro: ${error.message}`);
-      } else {
-        console.log('✅ [LoginPage] Login direto bem-sucedido!');
-        console.log('👤 Usuário:', data.user.email);
-        console.log('🔑 Token:', data.session?.access_token?.substring(0, 50) + '...');
+        console.error('❌ [LoginPage] Erro na recuperação:', error);
         
-        setDebugInfo({
-          stage: 'Login direto bem-sucedido!',
-          email: data.user.email,
-          userId: data.user.id,
-          token: data.session?.access_token?.substring(0, 30) + '...'
-        });
-        
-        toast.success('Login direto realizado com sucesso!');
-        
-        // Verificar sessão após login
-        await logAuthState();
-        
-        // Redirecionar
-        setTimeout(() => {
-          window.location.href = '/';
-        }, 1000);
+        if (error.message?.includes('rate limit')) {
+          toast.error('Muitas tentativas. Aguarde 1 hora antes de tentar novamente.');
+          setRecoveryCooldown(3600); // 1 hora de cooldown
+        } else if (error.message?.includes('User not found')) {
+          toast.error('Email não encontrado no sistema');
+        } else {
+          toast.error(error.message || 'Erro ao enviar email de recuperação');
+        }
+        return;
       }
+      
+      console.log('✅ [LoginPage] Email de recuperação enviado com sucesso!');
+      toast.success('Email de recuperação enviado! Verifique sua caixa de entrada.');
+      
+      // Fechar modal e limpar email
+      setShowRecoveryModal(false);
+      setRecoveryEmail('');
+      
+      // Iniciar cooldown de 60 segundos
+      setRecoveryCooldown(60);
+      
     } catch (error) {
       console.error('❌ [LoginPage] Erro:', error);
-      setDebugInfo({ stage: 'Erro', error: error.message });
-      toast.error(error.message);
+      toast.error('Erro ao enviar email de recuperação');
     } finally {
-      setLoading(false);
+      setRecoveryLoading(false);
     }
   };
 
@@ -160,9 +183,7 @@ export default function LoginPage() {
               <label className="block text-sm font-medium text-white dark:text-gray-300 mb-2">Email</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="h-5 w-5 text-blue-300 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-                  </svg>
+                  <EnvelopeIcon className="h-5 w-5 text-blue-300 dark:text-gray-400" />
                 </div>
                 <input 
                   type="email" 
@@ -180,9 +201,7 @@ export default function LoginPage() {
               <label className="block text-sm font-medium text-white dark:text-gray-300 mb-2">Senha</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="h-5 w-5 text-blue-300 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
+                  <KeyIcon className="h-5 w-5 text-blue-300 dark:text-gray-400" />
                 </div>
                 <input 
                   type={showPassword ? 'text' : 'password'} 
@@ -212,6 +231,16 @@ export default function LoginPage() {
               </div>
             </div>
 
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowRecoveryModal(true)}
+                className="text-sm text-blue-200 hover:text-white transition-colors"
+              >
+                Esqueci minha senha
+              </button>
+            </div>
+
             <button 
               type="submit" 
               disabled={loading} 
@@ -231,32 +260,6 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Botão de debug para login direto */}
-          <div className="mt-4">
-            <button
-              type="button"
-              onClick={handleDirectLogin}
-              disabled={loading}
-              className="w-full bg-white/10 hover:bg-white/20 text-white py-2 rounded-xl text-sm transition-all duration-200 disabled:opacity-50"
-            >
-              🔧 Debug: Login Direto
-            </button>
-          </div>
-
-          {/* Painel de debug */}
-          {debugInfo && (
-            <div className="mt-4 p-3 bg-black/50 backdrop-blur-sm rounded-xl">
-              <p className="text-xs text-green-300 font-mono break-all">
-                <strong>Debug:</strong><br />
-                Estágio: {debugInfo.stage}<br />
-                {debugInfo.email && <>Email: {debugInfo.email}<br /></>}
-                {debugInfo.userId && <>User ID: {debugInfo.userId}<br /></>}
-                {debugInfo.token && <>Token: {debugInfo.token}<br /></>}
-                {debugInfo.error && <>Erro: {debugInfo.error}</>}
-              </p>
-            </div>
-          )}
-
           <div className="mt-6 p-3 bg-white/10 dark:bg-gray-700/30 rounded-xl">
             <p className="text-xs text-blue-200 dark:text-gray-400 text-center">
               Sistema de Faturamento TISS - Padrão ANS 4.03.00
@@ -264,6 +267,83 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal de Recuperação de Senha */}
+      {showRecoveryModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex justify-between items-center p-5 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-xl font-semibold text-gray-800 dark:text-white">
+                Recuperar Senha
+              </h3>
+              <button 
+                onClick={() => {
+                  setShowRecoveryModal(false);
+                  setRecoveryEmail('');
+                }} 
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              >
+                <XMarkIcon className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleRecoveryPassword} className="p-5">
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  Digite seu email cadastrado para receber um link de recuperação de senha.
+                </p>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={recoveryEmail}
+                  onChange={(e) => setRecoveryEmail(e.target.value)}
+                  className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                  placeholder="seu@email.com"
+                  required
+                  autoFocus
+                />
+              </div>
+              
+              {recoveryCooldown > 0 && (
+                <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                  <p className="text-sm text-yellow-700 dark:text-yellow-400 text-center">
+                    ⏱️ Aguarde {recoveryCooldown} segundos antes de tentar novamente
+                  </p>
+                </div>
+              )}
+              
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRecoveryModal(false);
+                    setRecoveryEmail('');
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={recoveryLoading || recoveryCooldown > 0}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-medium hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {recoveryLoading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Enviando...
+                    </>
+                  ) : (
+                    'Enviar Link'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
