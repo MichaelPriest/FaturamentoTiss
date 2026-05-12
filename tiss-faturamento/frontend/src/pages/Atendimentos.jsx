@@ -28,6 +28,8 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
 import { imprimirGuiaTISSOficial, imprimirMultiplasGuiasTISS } from '../components/ImpressaoGuiaTISS';
+import { useUnidade } from '../contexts/UnidadeContext';
+import { applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
 import { imprimirContaFaturada } from '../components/ImpressaoContaFaturada';
 
 // ============================================
@@ -276,6 +278,7 @@ function getNomeTabela(codigo) {
 }
 
 export default function Atendimentos() {
+  const { unidadeAtualId } = useUnidade();
   const [atendimentos, setAtendimentos] = useState([]);
   const [pacientes, setPacientes] = useState([]);
   const [prestadores, setPrestadores] = useState([]);
@@ -624,11 +627,11 @@ export default function Atendimentos() {
       if (procedimentosRes.error) throw procedimentosRes.error;
       if (conveniosRes.error) throw conveniosRes.error;
 
-      setAtendimentos(atendimentosRes.data || []);
-      setPacientes(pacientesRes.data || []);
-      setPrestadores(prestadoresRes.data || []);
-      setProcedimentos(procedimentosRes.data || []);
-      setConvenios(conveniosRes.data || []);
+      setAtendimentos(filterByUnidade(atendimentosRes.data || [], unidadeAtualId));
+      setPacientes(filterByUnidade(pacientesRes.data || [], unidadeAtualId));
+      setPrestadores(filterByUnidade(prestadoresRes.data || [], unidadeAtualId));
+      setProcedimentos(filterByUnidade(procedimentosRes.data || [], unidadeAtualId));
+      setConvenios(filterByUnidade(conveniosRes.data || [], unidadeAtualId));
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       toast.error('Erro ao carregar dados do Supabase');
@@ -639,7 +642,7 @@ export default function Atendimentos() {
 
   useEffect(() => {
     carregarDados();
-  }, []);
+  }, [unidadeAtualId]);
 
   const carregarConfigClinica = async () => {
     try {
@@ -677,7 +680,7 @@ export default function Atendimentos() {
     };
   
     carregarTodosDados();
-  }, []);  
+  }, [unidadeAtualId]);
   
   // ============================================
   // FILTROS E MEMOIZAÇÃO
@@ -896,10 +899,10 @@ export default function Atendimentos() {
         
         const { error } = await supabase
           .from('atendimentos')
-          .update({
+          .update(applyUnidadeToPayload({
             ...dadosParaAtualizar,
             updated_at: new Date().toISOString()
-          })
+          }, unidadeAtualId))
           .eq('id', editing.id);
         
         if (error) {
@@ -911,11 +914,11 @@ export default function Atendimentos() {
       } else {
         const { data, error } = await supabase
           .from('atendimentos')
-          .insert([{
+          .insert([applyUnidadeToPayload({
             ...atendimento,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
-          }])
+          }, unidadeAtualId)])
           .select();
         
         if (error) {

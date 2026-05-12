@@ -26,8 +26,12 @@ export const TABLES = {
   ATENDIMENTOS: 'atendimentos',
   GUIAS_GERADAS: 'guias_geradas',
   NOTIFICACOES: 'notificacoes',
+  UNIDADES: 'unidades',
   USUARIOS: 'usuarios',
-  CONFIG_SISTEMA: 'config_sistema'
+  CONFIG_SISTEMA: 'config_sistema',
+  CONFIGURACOES: 'configuracoes',
+  LOGS_FATURAMENTO: 'logs_faturamento',
+  LOTES_FATURAMENTO: 'lotes_faturamento'
 };
 
 export const isSupabaseAvailable = () => {

@@ -1,7 +1,7 @@
 // src/pages/Agendamentos.jsx - VERSÃO COMPLETA
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { 
+import {
   PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, XMarkIcon,
   CalendarIcon, ClockIcon, UserGroupIcon, BuildingOfficeIcon, BeakerIcon,
   VideoCameraIcon, BellIcon, CheckBadgeIcon, XCircleIcon,
@@ -14,6 +14,8 @@ import { toast } from 'sonner';
 import { format, addDays, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, addWeeks, subWeeks, addMonths, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { supabase } from '../lib/supabaseClient';
+import { useUnidade } from '../contexts/UnidadeContext';
+import { applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
 
 const STATUS_AGENDAMENTO = [
   { value: 'agendado', label: 'Agendado', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', bgCard: 'border-l-4 border-l-blue-500' },
@@ -43,6 +45,7 @@ const HORARIOS = [
 ];
 
 export default function Agendamentos() {
+  const { unidadeAtualId } = useUnidade();
   const [agendamentos, setAgendamentos] = useState([]);
   const [pacientes, setPacientes] = useState([]);
   const [prestadores, setPrestadores] = useState([]);
@@ -69,7 +72,7 @@ export default function Agendamentos() {
   const [showPacienteList, setShowPacienteList] = useState(false);
   const [showPrestadorList, setShowPrestadorList] = useState(false);
   const [showSalaList, setShowSalaList] = useState(false);
-  
+
   const [formData, setFormData] = useState({
     paciente_id: '',
     prestador_id: '',
@@ -101,11 +104,11 @@ export default function Agendamentos() {
       if (conveniosRes.error) throw conveniosRes.error;
       if (salasRes.error) throw salasRes.error;
 
-      setAgendamentos(agendamentosRes.data || []);
-      setPacientes(pacientesRes.data || []);
-      setPrestadores(prestadoresRes.data || []);
-      setConvenios(conveniosRes.data || []);
-      setSalas(salasRes.data || []);
+      setAgendamentos(filterByUnidade(agendamentosRes.data || [], unidadeAtualId));
+      setPacientes(filterByUnidade(pacientesRes.data || [], unidadeAtualId));
+      setPrestadores(filterByUnidade(prestadoresRes.data || [], unidadeAtualId));
+      setConvenios(filterByUnidade(conveniosRes.data || [], unidadeAtualId));
+      setSalas(filterByUnidade(salasRes.data || [], unidadeAtualId));
     } catch (error) {
       console.error('Erro:', error);
       toast.error('Erro ao carregar dados');
@@ -116,17 +119,17 @@ export default function Agendamentos() {
 
   useEffect(() => {
     carregarDados();
-  }, []);
+  }, [unidadeAtualId]);
 
   // Filtrar pacientes
-  const pacientesFiltrados = pacientes.filter(p => 
+  const pacientesFiltrados = pacientes.filter(p =>
     p.nome?.toLowerCase().includes(pacienteBusca.toLowerCase()) ||
     p.cpf?.includes(pacienteBusca) ||
     p.numero_carteira?.includes(pacienteBusca)
   ).slice(0, 15);
 
   // Filtrar prestadores
-  const prestadoresFiltrados = prestadores.filter(p => 
+  const prestadoresFiltrados = prestadores.filter(p =>
     p.nome?.toLowerCase().includes(prestadorBusca.toLowerCase()) ||
     p.especialidade?.toLowerCase().includes(prestadorBusca.toLowerCase()) ||
     p.cpf?.includes(prestadorBusca) ||
@@ -134,7 +137,7 @@ export default function Agendamentos() {
   ).slice(0, 15);
 
   // Filtrar salas
-  const salasFiltradas = salas.filter(s => 
+  const salasFiltradas = salas.filter(s =>
     s.nome?.toLowerCase().includes(salaBusca.toLowerCase())
   ).slice(0, 15);
 
@@ -155,7 +158,7 @@ export default function Agendamentos() {
   // Agendamentos filtrados
   const getAgendamentosFiltrados = () => {
     let filtrados = [...agendamentos];
-    
+
     if (filtroStatus !== 'todos') {
       filtrados = filtrados.filter(a => a.status === filtroStatus);
     }
@@ -167,7 +170,7 @@ export default function Agendamentos() {
     }
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      filtrados = filtrados.filter(a => 
+      filtrados = filtrados.filter(a =>
         a.paciente_nome?.toLowerCase().includes(term) ||
         a.prestador_nome?.toLowerCase().includes(term) ||
         a.sala_nome?.toLowerCase().includes(term)
@@ -207,7 +210,7 @@ export default function Agendamentos() {
       .eq('data_agendamento', data)
       .eq('prestador_id', prestadorId)
       .neq('status', 'cancelado');
-    
+
     if (!agendamentosExistentes) return false;
 
     const horarioInicioNum = parseFloat(horaInicio.replace(':', '.'));
@@ -215,17 +218,17 @@ export default function Agendamentos() {
 
     for (const ag of agendamentosExistentes) {
       if (agendamentoId && ag.id === parseInt(agendamentoId)) continue;
-      
+
       const agInicio = parseFloat(ag.hora_inicio.replace(':', '.'));
       const agFim = parseFloat(ag.hora_fim.replace(':', '.'));
-      
+
       if ((horarioInicioNum >= agInicio && horarioInicioNum < agFim) ||
           (horarioFimNum > agInicio && horarioFimNum <= agFim) ||
           (horarioInicioNum <= agInicio && horarioFimNum >= agFim)) {
         return { conflito: true, agendamento: ag };
       }
     }
-    
+
     return { conflito: false };
   };
 
@@ -284,14 +287,14 @@ export default function Agendamentos() {
       if (editing) {
         const { error } = await supabase
           .from('agendamentos')
-          .update(novoAgendamento)
+          .update(applyUnidadeToPayload(novoAgendamento, unidadeAtualId))
           .eq('id', editing.id);
         if (error) throw error;
         toast.success('Atualizado!');
       } else {
         const { error } = await supabase
           .from('agendamentos')
-          .insert([novoAgendamento]);
+          .insert([applyUnidadeToPayload(novoAgendamento, unidadeAtualId)]);
         if (error) throw error;
         toast.success('Agendamento criado!');
       }
@@ -402,7 +405,7 @@ export default function Agendamentos() {
   const imprimirRelatorio = () => {
     let dados = [];
     let titulo = '';
-    
+
     if (relatorioPeriodo === 'hoje') {
       dados = getAgendamentosPorData(new Date());
       titulo = `Relatório de Agendamentos - ${format(new Date(), "dd/MM/yyyy")}`;
@@ -863,8 +866,8 @@ export default function Agendamentos() {
                     const isCurrentMonth = current.getMonth() === currentDate.getMonth();
                     const ags = getAgendamentosPorData(current);
                     cells.push(
-                      <div 
-                        key={i} 
+                      <div
+                        key={i}
                         className={`border dark:border-gray-700 rounded-lg min-h-[100px] p-2 transition-all hover:shadow-md cursor-pointer ${!isCurrentMonth ? 'bg-gray-50 dark:bg-gray-800/50' : 'bg-white dark:bg-gray-800'} ${isSameDay(current, new Date()) ? 'ring-2 ring-blue-500 shadow-lg' : ''}`}
                         onMouseEnter={(e) => handleMouseEnter(e, current, ags)}
                         onMouseLeave={handleMouseLeave}
@@ -920,7 +923,7 @@ export default function Agendamentos() {
 
         {/* TOOLTIP */}
         {tooltipData && (
-          <div 
+          <div
             className="fixed z-50 bg-gray-900 text-white rounded-lg shadow-xl p-3 max-w-sm pointer-events-none"
             style={{
               left: tooltipPosition.x,
@@ -940,8 +943,8 @@ export default function Agendamentos() {
                     <div className="text-gray-400 text-[10px]">{ag.prestador_nome}</div>
                   </div>
                   <span className={`px-1.5 py-0.5 rounded text-[10px] ${
-                    ag.status === 'realizado' ? 'bg-green-600' : 
-                    ag.status === 'cancelado' ? 'bg-red-600' : 
+                    ag.status === 'realizado' ? 'bg-green-600' :
+                    ag.status === 'cancelado' ? 'bg-red-600' :
                     ag.status === 'confirmado' ? 'bg-blue-600' : 'bg-yellow-600'
                   }`}>
                     {STATUS_AGENDAMENTO.find(s => s.value === ag.status)?.label || ag.status}
@@ -1025,7 +1028,7 @@ export default function Agendamentos() {
                 <XMarkIcon className="w-6 h-6 text-gray-600 dark:text-gray-400" />
               </button>
             </div>
-            
+
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="relative paciente-dropdown">

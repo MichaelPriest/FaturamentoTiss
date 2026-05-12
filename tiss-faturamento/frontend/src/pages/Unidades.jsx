@@ -9,7 +9,9 @@ import {
   XMarkIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
-import { supabase } from '../lib/supabaseClient';
+import { unidadesService } from '../services/unidadesService';
+import { useUnidade } from '../contexts/UnidadeContext';
+import { useNotifications } from '../contexts/NotificationsContext';
 
 const UFS = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
@@ -39,6 +41,8 @@ export default function Unidades() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [formData, setFormData] = useState(initialForm);
+  const { recarregarUnidades } = useUnidade();
+  const { createNotification } = useNotifications();
 
   const resumo = useMemo(() => ({
     total: unidades.length,
@@ -50,12 +54,7 @@ export default function Unidades() {
   const carregarUnidades = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('unidades')
-        .select('*')
-        .order('nome');
-
-      if (error) throw error;
+      const data = await unidadesService.listar();
       setUnidades(data || []);
     } catch (error) {
       console.error('Erro ao carregar unidades:', error);
@@ -130,19 +129,24 @@ export default function Unidades() {
     setSaving(true);
     try {
       if (editing) {
-        const { error } = await supabase
-          .from('unidades')
-          .update(unidade)
-          .eq('id', editing.id);
-
-        if (error) throw error;
+        await unidadesService.atualizar(editing.id, unidade);
+        await createNotification({
+          titulo: 'Unidade atualizada',
+          mensagem: `A unidade ${unidade.nome} foi atualizada.`,
+          tipo: 'success',
+          categoria: 'cadastro',
+          unidade_id: editing.id
+        }, { silent: true });
         toast.success('Unidade atualizada com sucesso!');
       } else {
-        const { error } = await supabase
-          .from('unidades')
-          .insert([{ ...unidade, created_at: new Date().toISOString() }]);
-
-        if (error) throw error;
+        const novaUnidade = await unidadesService.criar(unidade);
+        await createNotification({
+          titulo: 'Nova unidade criada',
+          mensagem: `A unidade ${novaUnidade.nome || unidade.nome} foi cadastrada.`,
+          tipo: 'success',
+          categoria: 'cadastro',
+          unidade_id: novaUnidade.id
+        }, { silent: true });
         toast.success('Unidade criada com sucesso!');
       }
 
@@ -158,14 +162,17 @@ export default function Unidades() {
 
   const alternarStatus = async (unidade) => {
     try {
-      const { error } = await supabase
-        .from('unidades')
-        .update({ ativo: unidade.ativo === false, updated_at: new Date().toISOString() })
-        .eq('id', unidade.id);
-
-      if (error) throw error;
+      await unidadesService.alternarStatus(unidade);
+      await createNotification({
+        titulo: `Unidade ${unidade.ativo === false ? 'ativada' : 'desativada'}`,
+        mensagem: `A unidade ${unidade.nome} teve seu status alterado.`,
+        tipo: 'info',
+        categoria: 'cadastro',
+        unidade_id: unidade.id
+      }, { silent: true });
       toast.success(`Unidade ${unidade.ativo === false ? 'ativada' : 'desativada'} com sucesso!`);
       await carregarUnidades();
+      await recarregarUnidades();
     } catch (error) {
       console.error('Erro ao alterar status da unidade:', error);
       toast.error('Erro ao alterar status da unidade');
@@ -176,14 +183,16 @@ export default function Unidades() {
     if (!confirm(`Tem certeza que deseja excluir a unidade ${unidade.nome}?`)) return;
 
     try {
-      const { error } = await supabase
-        .from('unidades')
-        .delete()
-        .eq('id', unidade.id);
-
-      if (error) throw error;
+      await unidadesService.deletar(unidade.id);
+      await createNotification({
+        titulo: 'Unidade excluída',
+        mensagem: `A unidade ${unidade.nome} foi removida.`,
+        tipo: 'warning',
+        categoria: 'cadastro'
+      }, { silent: true });
       toast.success('Unidade excluída com sucesso!');
       await carregarUnidades();
+      await recarregarUnidades();
     } catch (error) {
       console.error('Erro ao excluir unidade:', error);
       toast.error('Erro ao excluir unidade');

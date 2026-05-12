@@ -8,7 +8,7 @@ import {
   Bars3Icon, XMarkIcon, ArrowRightOnRectangleIcon,
   ChevronLeftIcon, ChevronRightIcon, SunIcon, MoonIcon,
   CalendarDaysIcon, FolderIcon, ChevronDownIcon, ChevronUpIcon,
-  HomeModernIcon, BanknotesIcon, ClipboardDocumentCheckIcon, BuildingOffice2Icon
+  HomeModernIcon, BanknotesIcon, ClipboardDocumentCheckIcon, BuildingOffice2Icon, BellAlertIcon
 } from '@heroicons/react/24/outline';
 
 import Dashboard from './pages/Dashboard';
@@ -24,7 +24,9 @@ import Glosas from './pages/Glosas';
 import Financeiro from './pages/Financeiro';
 import Relatorios from './pages/Relatorios';
 import Configuracoes from './pages/Configuracoes';
+import Notificacoes from './pages/Notificacoes';
 import NotificationBell from './components/NotificationBell';
+import UnidadeSelector from './components/UnidadeSelector';
 import Agendamentos from './pages/Agendamentos';
 import Prontuario from './pages/Prontuario';
 import Salas from './pages/Salas';
@@ -34,6 +36,8 @@ import LoginPage from './pages/Login';
 import { setConfig } from './lib/tissGenerator';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { UnidadeProvider } from './contexts/UnidadeContext';
+import { NotificationsProvider } from './contexts/NotificationsContext';
 
 // Componente de Proteção de Rota
 function ProtectedRoute({ children }) {
@@ -70,7 +74,8 @@ function MainApp() {
     autorizacoes: false,
     faturamento: false,
     financeiro: false,
-    relatorios: false
+    relatorios: false,
+    notificacoes: false
   });
   const { darkMode, toggleDarkMode } = useTheme();
   const { user, signOut } = useAuth();
@@ -174,7 +179,8 @@ function MainApp() {
     },
     {
       id: 'configuracoes', name: 'Configurações', icon: Cog6ToothIcon,
-      items: [{ id: 'configuracoes', name: 'Configurações', icon: Cog6ToothIcon, color: 'from-gray-500 to-gray-600' }]
+      items: [{ id: 'notificacoes', name: 'Notificações', icon: BellAlertIcon, color: 'from-rose-500 to-rose-600' },
+        { id: 'configuracoes', name: 'Configurações', icon: Cog6ToothIcon, color: 'from-gray-500 to-gray-600' }]
     }
   ];
 
@@ -199,6 +205,7 @@ function MainApp() {
       case 'glosas': return <Glosas />;
       case 'financeiro': return <Financeiro />;
       case 'relatorios': return <Relatorios />;
+      case 'notificacoes': return <Notificacoes />;
       case 'configuracoes': return <Configuracoes />;
       default: return <Dashboard />;
     }
@@ -229,6 +236,7 @@ function MainApp() {
       relatorios: 'Análise de dados e métricas',
       salas: 'Gerenciamento de salas da clínica',
       unidades: 'Cadastro de filiais, clínicas e unidades de atendimento',
+      notificacoes: 'Central de avisos, alertas e eventos por unidade',
       configuracoes: 'Configurações do sistema e usuários'
     };
     return subtitles[activeTab] || 'Cadastro e gerenciamento de dados';
@@ -359,6 +367,7 @@ function MainApp() {
             </div>
 
             <div className="flex items-center gap-3">
+              <UnidadeSelector />
               <button onClick={toggleDarkMode} className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200">
                 {darkMode ? <SunIcon className="w-5 h-5 text-yellow-500" /> : <MoonIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />}
               </button>
@@ -457,7 +466,9 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <BrowserRouter>
+        <UnidadeProvider>
+          <NotificationsProvider>
+            <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/prontuario/:id" element={
@@ -477,6 +488,8 @@ function App() {
             } />
           </Routes>
         </BrowserRouter>
+          </NotificationsProvider>
+        </UnidadeProvider>
       </AuthProvider>
     </ThemeProvider>
   );

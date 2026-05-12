@@ -1,4 +1,5 @@
 import { supabase, TABLES, isSupabaseAvailable } from '../lib/supabaseClient';
+import { applyUnidadeToPayload, filterByUnidade } from './unidadesService';
 
 // Helper para usar localStorage como fallback
 const localStorageFallback = {
@@ -15,7 +16,7 @@ const localStorageFallback = {
 export const conveniosService = {
   async listar() {
     if (!isSupabaseAvailable()) {
-      return localStorageFallback.get(TABLES.CONVENIOS);
+      return filterByUnidade(localStorageFallback.get(TABLES.CONVENIOS));
     }
     try {
       const { data, error } = await supabase
@@ -23,10 +24,10 @@ export const conveniosService = {
         .select('*')
         .order('razao_social', { ascending: true });
       if (error) throw error;
-      return data || [];
+      return filterByUnidade(data || []);
     } catch (err) {
       console.error('Erro ao listar convênios:', err);
-      return localStorageFallback.get(TABLES.CONVENIOS);
+      return filterByUnidade(localStorageFallback.get(TABLES.CONVENIOS));
     }
   },
 
@@ -34,7 +35,7 @@ export const conveniosService = {
     if (!isSupabaseAvailable()) {
       const data = localStorageFallback.get(TABLES.CONVENIOS);
       const { versao_tiss, ...dadosLimpos } = convenio;
-      const newItem = { ...dadosLimpos, id: Date.now() };
+      const newItem = { ...applyUnidadeToPayload(dadosLimpos), id: Date.now() };
       localStorageFallback.set(TABLES.CONVENIOS, [...data, newItem]);
       return newItem;
     }
@@ -46,7 +47,7 @@ export const conveniosService = {
       
       const { data, error } = await supabase
         .from(TABLES.CONVENIOS)
-        .insert([dadosParaInserir])
+        .insert([applyUnidadeToPayload(dadosParaInserir)])
         .select()
         .single();
       if (error) throw error;
@@ -55,7 +56,7 @@ export const conveniosService = {
       console.error('Erro ao criar convênio:', err);
       const data = localStorageFallback.get(TABLES.CONVENIOS);
       const { versao_tiss, ...dadosLimpos } = convenio;
-      const newItem = { ...dadosLimpos, id: Date.now() };
+      const newItem = { ...applyUnidadeToPayload(dadosLimpos), id: Date.now() };
       localStorageFallback.set(TABLES.CONVENIOS, [...data, newItem]);
       return newItem;
     }
@@ -118,7 +119,7 @@ export const conveniosService = {
 export const pacientesService = {
   async listar() {
     if (!isSupabaseAvailable()) {
-      return localStorageFallback.get(TABLES.PACIENTES);
+      return filterByUnidade(localStorageFallback.get(TABLES.PACIENTES));
     }
     try {
       const { data, error } = await supabase
@@ -126,10 +127,10 @@ export const pacientesService = {
         .select('*')
         .order('nome', { ascending: true });
       if (error) throw error;
-      return data || [];
+      return filterByUnidade(data || []);
     } catch (err) {
       console.error('Erro ao listar pacientes:', err);
-      return localStorageFallback.get(TABLES.PACIENTES);
+      return filterByUnidade(localStorageFallback.get(TABLES.PACIENTES));
     }
   },
 
@@ -156,14 +157,14 @@ export const pacientesService = {
     console.log('Chamando pacientesService.criar:', paciente);
     if (!isSupabaseAvailable()) {
       const data = localStorageFallback.get(TABLES.PACIENTES);
-      const newItem = { ...paciente, id: Date.now(), created_at: new Date().toISOString() };
+      const newItem = { ...applyUnidadeToPayload(paciente), id: Date.now(), created_at: new Date().toISOString() };
       localStorageFallback.set(TABLES.PACIENTES, [...data, newItem]);
       return newItem;
     }
     try {
       const { data, error } = await supabase
         .from(TABLES.PACIENTES)
-        .insert([paciente])
+        .insert([applyUnidadeToPayload(paciente)])
         .select()
         .single();
       if (error) throw error;
@@ -171,7 +172,7 @@ export const pacientesService = {
     } catch (err) {
       console.error('Erro ao criar paciente no Supabase:', err);
       const data = localStorageFallback.get(TABLES.PACIENTES);
-      const newItem = { ...paciente, id: Date.now(), created_at: new Date().toISOString() };
+      const newItem = { ...applyUnidadeToPayload(paciente), id: Date.now(), created_at: new Date().toISOString() };
       localStorageFallback.set(TABLES.PACIENTES, [...data, newItem]);
       return newItem;
     }
@@ -190,7 +191,7 @@ export const pacientesService = {
     try {
       const { data, error } = await supabase
         .from(TABLES.PACIENTES)
-        .update(paciente)
+        .update(applyUnidadeToPayload(paciente))
         .eq('id', id)
         .select()
         .single();
@@ -232,7 +233,7 @@ export const pacientesService = {
 export const prestadoresService = {
   async listar() {
     if (!isSupabaseAvailable()) {
-      return localStorageFallback.get(TABLES.PRESTADORES);
+      return filterByUnidade(localStorageFallback.get(TABLES.PRESTADORES));
     }
     try {
       const { data, error } = await supabase
@@ -240,10 +241,10 @@ export const prestadoresService = {
         .select('*')
         .order('nome', { ascending: true });
       if (error) throw error;
-      return data || [];
+      return filterByUnidade(data || []);
     } catch (err) {
       console.error('Erro ao listar prestadores:', err);
-      return localStorageFallback.get(TABLES.PRESTADORES);
+      return filterByUnidade(localStorageFallback.get(TABLES.PRESTADORES));
     }
   },
 
@@ -373,14 +374,14 @@ export const prestadoresService = {
     console.log('Chamando prestadoresService.criar:', prestador);
     if (!isSupabaseAvailable()) {
       const data = localStorageFallback.get(TABLES.PRESTADORES);
-      const newItem = { ...prestador, id: Date.now(), created_at: new Date().toISOString() };
+      const newItem = { ...applyUnidadeToPayload(prestador), id: Date.now(), created_at: new Date().toISOString() };
       localStorageFallback.set(TABLES.PRESTADORES, [...data, newItem]);
       return newItem;
     }
     try {
       const { data, error } = await supabase
         .from(TABLES.PRESTADORES)
-        .insert([prestador])
+        .insert([applyUnidadeToPayload(prestador)])
         .select()
         .single();
       if (error) throw error;
@@ -388,7 +389,7 @@ export const prestadoresService = {
     } catch (err) {
       console.error('Erro ao criar prestador no Supabase:', err);
       const data = localStorageFallback.get(TABLES.PRESTADORES);
-      const newItem = { ...prestador, id: Date.now(), created_at: new Date().toISOString() };
+      const newItem = { ...applyUnidadeToPayload(prestador), id: Date.now(), created_at: new Date().toISOString() };
       localStorageFallback.set(TABLES.PRESTADORES, [...data, newItem]);
       return newItem;
     }
@@ -399,7 +400,7 @@ export const prestadoresService = {
     
     if (!isSupabaseAvailable()) {
       const prestadores = localStorageFallback.get(TABLES.PRESTADORES);
-      const newPrestador = { ...dadosPrestador, id: Date.now(), created_at: new Date().toISOString() };
+      const newPrestador = { ...applyUnidadeToPayload(dadosPrestador), id: Date.now(), created_at: new Date().toISOString() };
       localStorageFallback.set(TABLES.PRESTADORES, [...prestadores, newPrestador]);
       
       if (especialidades && especialidades.length > 0) {
@@ -418,7 +419,7 @@ export const prestadoresService = {
     try {
       const { data: prestador, error: prestadorError } = await supabase
         .from(TABLES.PRESTADORES)
-        .insert([dadosPrestador])
+        .insert([applyUnidadeToPayload(dadosPrestador)])
         .select()
         .single();
       
@@ -458,7 +459,7 @@ export const prestadoresService = {
     try {
       const { data, error } = await supabase
         .from(TABLES.PRESTADORES)
-        .update(prestador)
+        .update(applyUnidadeToPayload(prestador))
         .eq('id', id)
         .select()
         .single();
@@ -502,7 +503,7 @@ export const prestadoresService = {
     try {
       const { error: prestadorError } = await supabase
         .from(TABLES.PRESTADORES)
-        .update(dadosPrestador)
+        .update(applyUnidadeToPayload(dadosPrestador))
         .eq('id', id);
       
       if (prestadorError) throw prestadorError;
@@ -572,7 +573,7 @@ export const especialidadesService = {
         .select('*')
         .order('nome', { ascending: true });
       if (error) throw error;
-      return data || [];
+      return filterByUnidade(data || []);
     } catch (err) {
       console.error('Erro ao listar especialidades:', err);
       return localStorageFallback.get('especialidades') || [];
@@ -688,7 +689,7 @@ export const especialidadesService = {
 export const procedimentosService = {
   async listar(convenioId = null) {
     if (!isSupabaseAvailable()) {
-      return localStorageFallback.get(TABLES.PROCEDIMENTOS);
+      return filterByUnidade(localStorageFallback.get(TABLES.PROCEDIMENTOS));
     }
     try {
       let query = supabase.from(TABLES.PROCEDIMENTOS).select('*');
@@ -697,17 +698,17 @@ export const procedimentosService = {
       }
       const { data, error } = await query.order('codigo_tuss');
       if (error) throw error;
-      return data || [];
+      return filterByUnidade(data || []);
     } catch (err) {
       console.error('Erro ao listar procedimentos:', err);
-      return localStorageFallback.get(TABLES.PROCEDIMENTOS);
+      return filterByUnidade(localStorageFallback.get(TABLES.PROCEDIMENTOS));
     }
   },
 
   async criar(procedimento) {
     if (!isSupabaseAvailable()) {
       const data = localStorageFallback.get(TABLES.PROCEDIMENTOS);
-      const newItem = { ...procedimento, id: Date.now() };
+      const newItem = { ...applyUnidadeToPayload(procedimento), id: Date.now() };
       localStorageFallback.set(TABLES.PROCEDIMENTOS, [...data, newItem]);
       return newItem;
     }
@@ -733,7 +734,7 @@ export const procedimentosService = {
       
       const { data, error } = await supabase
         .from(TABLES.PROCEDIMENTOS)
-        .insert([dadosParaInserir])
+        .insert([applyUnidadeToPayload(dadosParaInserir)])
         .select()
         .single();
         
@@ -743,7 +744,7 @@ export const procedimentosService = {
       console.error('Erro ao criar procedimento:', err);
       // Fallback para localStorage
       const data = localStorageFallback.get(TABLES.PROCEDIMENTOS);
-      const newItem = { ...procedimento, id: Date.now() };
+      const newItem = { ...applyUnidadeToPayload(procedimento), id: Date.now() };
       localStorageFallback.set(TABLES.PROCEDIMENTOS, [...data, newItem]);
       return newItem;
     }
@@ -833,7 +834,7 @@ export const atendimentosService = {
       
       const { data, error } = await query;
       if (error) throw error;
-      return data || [];
+      return filterByUnidade(data || []);
     } catch (err) {
       console.error('Erro ao listar atendimentos:', err);
       return [];
@@ -843,14 +844,14 @@ export const atendimentosService = {
   async criar(atendimento) {
     if (!isSupabaseAvailable()) {
       const data = localStorageFallback.get(TABLES.ATENDIMENTOS);
-      const newItem = { ...atendimento, id: Date.now() };
+      const newItem = { ...applyUnidadeToPayload(atendimento), id: Date.now() };
       localStorageFallback.set(TABLES.ATENDIMENTOS, [...data, newItem]);
       return newItem;
     }
     try {
       const { data, error } = await supabase
         .from(TABLES.ATENDIMENTOS)
-        .insert([atendimento])
+        .insert([applyUnidadeToPayload(atendimento)])
         .select()
         .single();
       if (error) throw error;
@@ -884,7 +885,7 @@ export const notificacoesService = {
         .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data || [];
+      return filterByUnidade(data || []);
     } catch (err) {
       console.error('Erro ao listar notificações:', err);
       return localStorageFallback.get(TABLES.NOTIFICACOES) || [];
@@ -937,7 +938,7 @@ export const notificacoesService = {
 export const logsFaturamentoService = {
   async listar(limite = 50) {
     if (!isSupabaseAvailable()) {
-      return localStorageFallback.get(TABLES.LOGS_FATURAMENTO) || [];
+      return filterByUnidade(localStorageFallback.get(TABLES.LOGS_FATURAMENTO) || []);
     }
     try {
       const { data, error } = await supabase
@@ -946,24 +947,24 @@ export const logsFaturamentoService = {
         .order('created_at', { ascending: false })
         .limit(limite);
       if (error) throw error;
-      return data || [];
+      return filterByUnidade(data || []);
     } catch (err) {
       console.error('Erro ao listar logs:', err);
-      return localStorageFallback.get(TABLES.LOGS_FATURAMENTO) || [];
+      return filterByUnidade(localStorageFallback.get(TABLES.LOGS_FATURAMENTO) || []);
     }
   },
 
   async criar(log) {
     if (!isSupabaseAvailable()) {
       const data = localStorageFallback.get(TABLES.LOGS_FATURAMENTO) || [];
-      const newItem = { ...log, id: Date.now(), created_at: new Date().toISOString() };
+      const newItem = { ...applyUnidadeToPayload(log), id: Date.now(), created_at: new Date().toISOString() };
       localStorageFallback.set(TABLES.LOGS_FATURAMENTO, [newItem, ...data]);
       return newItem;
     }
     try {
       const { data, error } = await supabase
         .from(TABLES.LOGS_FATURAMENTO)
-        .insert([log])
+        .insert([applyUnidadeToPayload(log)])
         .select()
         .single();
       if (error) throw error;
@@ -979,7 +980,7 @@ export const logsFaturamentoService = {
 export const lotesFaturamentoService = {
   async listar() {
     if (!isSupabaseAvailable()) {
-      return localStorageFallback.get(TABLES.LOTES_FATURAMENTO) || [];
+      return filterByUnidade(localStorageFallback.get(TABLES.LOTES_FATURAMENTO) || []);
     }
     try {
       const { data, error } = await supabase
@@ -987,10 +988,10 @@ export const lotesFaturamentoService = {
         .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
-      return data || [];
+      return filterByUnidade(data || []);
     } catch (err) {
       console.error('Erro ao listar lotes:', err);
-      return localStorageFallback.get(TABLES.LOTES_FATURAMENTO) || [];
+      return filterByUnidade(localStorageFallback.get(TABLES.LOTES_FATURAMENTO) || []);
     }
   },
 
@@ -1016,14 +1017,14 @@ export const lotesFaturamentoService = {
   async criar(lote) {
     if (!isSupabaseAvailable()) {
       const data = localStorageFallback.get(TABLES.LOTES_FATURAMENTO) || [];
-      const newItem = { ...lote, id: Date.now() };
+      const newItem = { ...applyUnidadeToPayload(lote), id: Date.now() };
       localStorageFallback.set(TABLES.LOTES_FATURAMENTO, [...data, newItem]);
       return newItem;
     }
     try {
       const { data, error } = await supabase
         .from(TABLES.LOTES_FATURAMENTO)
-        .insert([lote])
+        .insert([applyUnidadeToPayload(lote)])
         .select()
         .single();
       if (error) throw error;
@@ -1115,7 +1116,7 @@ export const configuracoesService = {
         .select('*')
         .in('chave', chaves);
       if (error) throw error;
-      return data || [];
+      return filterByUnidade(data || []);
     } catch (err) {
       console.error('Erro ao buscar configurações:', err);
       return [];

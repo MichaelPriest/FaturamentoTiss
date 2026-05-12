@@ -3,8 +3,11 @@ import { useState, useEffect } from 'react';
 import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, HomeModernIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabaseClient';
+import { useUnidade } from '../contexts/UnidadeContext';
+import { applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
 
 export default function Salas() {
+  const { unidadeAtualId } = useUnidade();
   const [salas, setSalas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -26,9 +29,9 @@ export default function Salas() {
         .from('salas')
         .select('*')
         .order('nome');
-      
+
       if (error) throw error;
-      setSalas(data || []);
+      setSalas(filterByUnidade(data || [], unidadeAtualId));
     } catch (error) {
       console.error('Erro ao carregar salas:', error);
       toast.error('Erro ao carregar salas');
@@ -39,7 +42,7 @@ export default function Salas() {
 
   useEffect(() => {
     carregarSalas();
-  }, []);
+  }, [unidadeAtualId]);
 
   const salvarSala = async () => {
     if (!formData.nome) {
@@ -57,25 +60,25 @@ export default function Salas() {
       ativo: formData.ativo,
       updated_at: new Date().toISOString()
     };
-    
+
     try {
       if (editing) {
         const { error } = await supabase
           .from('salas')
           .update(sala)
           .eq('id', editing.id);
-        
+
         if (error) throw error;
         toast.success('Sala atualizada com sucesso!');
       } else {
         const { error } = await supabase
           .from('salas')
-          .insert([{ ...sala, created_at: new Date().toISOString() }]);
-        
+          .insert([applyUnidadeToPayload({ ...sala, created_at: new Date().toISOString() }, unidadeAtualId)]);
+
         if (error) throw error;
         toast.success('Sala criada com sucesso!');
       }
-      
+
       setShowModal(false);
       carregarSalas();
     } catch (error) {
@@ -91,7 +94,7 @@ export default function Salas() {
           .from('salas')
           .delete()
           .eq('id', id);
-        
+
         if (error) throw error;
         toast.success('Sala excluída com sucesso!');
         carregarSalas();
@@ -108,7 +111,7 @@ export default function Salas() {
         .from('salas')
         .update({ ativo: !sala.ativo, updated_at: new Date().toISOString() })
         .eq('id', sala.id);
-      
+
       if (error) throw error;
       toast.success(`Sala ${!sala.ativo ? 'ativada' : 'desativada'} com sucesso!`);
       carregarSalas();
@@ -265,7 +268,7 @@ export default function Salas() {
                     </button>
                   </div>
                 </div>
-                
+
                 <div className="mt-3 space-y-1 text-sm">
                   <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                     <span className="text-base">{tiposSala.find(t => t.value === sala.tipo)?.icon || '🏥'}</span>
@@ -284,7 +287,7 @@ export default function Salas() {
                   )}
                 </div>
               </div>
-              
+
               <div className="px-4 py-2 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
                 <button
                   onClick={() => alternarStatus(sala)}
@@ -329,7 +332,7 @@ export default function Salas() {
                 <XMarkIcon className="w-5 h-5 text-gray-500" />
               </button>
             </div>
-            
+
             <div className="p-5 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

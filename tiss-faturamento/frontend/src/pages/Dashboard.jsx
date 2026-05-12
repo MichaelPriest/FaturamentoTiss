@@ -16,8 +16,10 @@ import {
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabaseClient';
+import { useUnidade } from '../contexts/UnidadeContext';
 
 export default function Dashboard() {
+  const { unidadeAtual, unidadeAtualId, filtrarPorUnidade } = useUnidade();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalConvenios: 0,
@@ -46,7 +48,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     carregarStats();
-  }, []);
+  }, [unidadeAtualId]);
 
   const carregarStats = async () => {
     setLoading(true);
@@ -62,22 +64,26 @@ export default function Dashboard() {
         receberRes,
         pagarRes
       ] = await Promise.all([
-        supabase.from('convenios').select('id', { count: 'exact', head: true }).eq('ativo', true),
-        supabase.from('pacientes').select('id', { count: 'exact', head: true }),
-        supabase.from('prestadores').select('id', { count: 'exact', head: true }),
-        supabase.from('procedimentos').select('id', { count: 'exact', head: true }),
-        supabase.from('atendimentos').select('status, valor_total, data_atendimento, created_at'),
+        supabase.from('convenios').select('*').eq('ativo', true),
+        supabase.from('pacientes').select('*'),
+        supabase.from('prestadores').select('*'),
+        supabase.from('procedimentos').select('*'),
+        supabase.from('atendimentos').select('*'),
         supabase.from('lotes_faturamento').select('*').order('created_at', { ascending: false }),
-        supabase.from('glosas').select('valor_glosado, status'),
-        supabase.from('contas_receber').select('valor_total, valor_recebido, status'),
-        supabase.from('contas_pagar').select('valor_total, valor_pago, status')
+        supabase.from('glosas').select('*'),
+        supabase.from('contas_receber').select('*'),
+        supabase.from('contas_pagar').select('*')
       ]);
 
-      const atendimentos = atendimentosRes.data || [];
-      const lotes = lotesRes.data || [];
-      const glosas = glosasRes.data || [];
-      const contasReceber = receberRes.data || [];
-      const contasPagar = pagarRes.data || [];
+      const convenios = filtrarPorUnidade(conveniosRes.data || []);
+      const pacientes = filtrarPorUnidade(pacientesRes.data || []);
+      const prestadores = filtrarPorUnidade(prestadoresRes.data || []);
+      const procedimentos = filtrarPorUnidade(procedimentosRes.data || []);
+      const atendimentos = filtrarPorUnidade(atendimentosRes.data || []);
+      const lotes = filtrarPorUnidade(lotesRes.data || []);
+      const glosas = filtrarPorUnidade(glosasRes.data || []);
+      const contasReceber = filtrarPorUnidade(receberRes.data || []);
+      const contasPagar = filtrarPorUnidade(pagarRes.data || []);
 
       // Contagem por status (CORRIGIDO: 'finalizado' em vez de 'finalizada')
       const faturados = atendimentos.filter(a => a.status === 'faturado');
@@ -124,10 +130,10 @@ export default function Dashboard() {
         .reduce((sum, c) => sum + (c.valor_recebido || 0), 0);
 
       setStats({
-        totalConvenios: conveniosRes.count || 0,
-        totalPacientes: pacientesRes.count || 0,
-        totalPrestadores: prestadoresRes.count || 0,
-        totalProcedimentos: procedimentosRes.count || 0,
+        totalConvenios: convenios.length,
+        totalPacientes: pacientes.length,
+        totalPrestadores: prestadores.length,
+        totalProcedimentos: procedimentos.length,
         totalAtendimentos: atendimentos.length,
         atendimentosFaturados: faturados.length,
         atendimentosFinalizados: finalizados.length,
@@ -195,7 +201,7 @@ export default function Dashboard() {
             Dashboard
           </h2>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Visão geral do sistema de faturamento TISS
+            Visão geral do sistema de faturamento TISS {unidadeAtual ? `- ${unidadeAtual.nome}` : '- todas as unidades'}
           </p>
         </div>
         <button 
