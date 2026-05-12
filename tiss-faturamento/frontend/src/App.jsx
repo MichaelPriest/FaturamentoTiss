@@ -34,6 +34,7 @@ import Salas from './pages/Salas';
 import Unidades from './pages/Unidades';
 import LoginPage from './pages/Login';
 import Perfil from './pages/Perfil';
+import ResetPassword from './pages/ResetPassword'; // Importar a página de reset
 
 import { setConfig } from './lib/tissGenerator';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
@@ -483,6 +484,7 @@ function App() {
             <BrowserRouter>
               <Routes>
                 <Route path="/login" element={<LoginPage />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/perfil" element={
                   <ProtectedRoute>
                     <MainApp />
