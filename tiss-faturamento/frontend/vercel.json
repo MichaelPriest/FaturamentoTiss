@@ -6,6 +6,50 @@
       "dest": "/index.html"
     },
     {
+      "src": "/assets/(.*)",
+      "dest": "/assets/$1"
+    },
+    {
+      "src": "/static/(.*)",
+      "dest": "/static/$1"
+    },
+    {
+      "src": "/manifest.webmanifest",
+      "dest": "/manifest.webmanifest"
+    },
+    {
+      "src": "/favicon.ico",
+      "dest": "/favicon.ico"
+    },
+    {
+      "src": "/vite.svg",
+      "dest": "/vite.svg"
+    },
+    {
+      "src": "/logo.svg",
+      "dest": "/logo.svg"
+    },
+    {
+      "src": "/src/(.*)",
+      "dest": "/src/$1"
+    },
+    {
+      "src": "/(.*).js",
+      "dest": "/$1.js"
+    },
+    {
+      "src": "/(.*).css",
+      "dest": "/$1.css"
+    },
+    {
+      "src": "/(.*).map",
+      "dest": "/$1.map"
+    },
+    {
+      "src": "/(.*).json",
+      "dest": "/$1.json"
+    },
+    {
       "src": "/(.*)",
       "dest": "/index.html"
     }
