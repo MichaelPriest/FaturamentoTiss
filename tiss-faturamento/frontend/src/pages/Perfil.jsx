@@ -1,5 +1,5 @@
 // src/pages/Perfil.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase, logAuthState } from '../lib/supabaseClient';
@@ -14,21 +14,31 @@ import {
   XMarkIcon,
   ShieldCheckIcon,
   CalendarIcon,
-  BuildingOfficeIcon
+  BuildingOfficeIcon,
+  CameraIcon,
+  TrashIcon,
+  PhotoIcon
 } from '@heroicons/react/24/outline';
 
 export default function Perfil() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const fileInputRef = useRef(null);
+  
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingFoto, setUploadingFoto] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [fotoBase64, setFotoBase64] = useState(null);
+  const [fotoPreview, setFotoPreview] = useState(null);
+  
   const [perfil, setPerfil] = useState({
     nome: '',
     email: '',
     role: 'usuario',
     created_at: '',
-    ultimo_acesso: ''
+    ultimo_acesso: '',
+    foto: null
   });
   
   const [passwordForm, setPasswordForm] = useState({
@@ -49,13 +59,162 @@ export default function Perfil() {
     carregarPerfil();
   }, []);
 
+  // Função para converter arquivo para Base64
+  const converterParaBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  // Função para fazer upload da foto (salvar como Base64 no banco)
+  const handleUploadFoto = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validar tipo de arquivo
+    if (!file.type.startsWith('image/')) {
+      toast.error('Por favor, selecione uma imagem válida (JPEG, PNG, GIF)');
+      return;
+    }
+
+    // Validar tamanho (máximo 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('A imagem deve ter no máximo 2MB');
+      return;
+    }
+
+    setUploadingFoto(true);
+    
+    try {
+      // Converter para Base64
+      const base64 = await converterParaBase64(file);
+      
+      // Salvar no estado para preview
+      setFotoPreview(base64);
+      setFotoBase64(base64);
+      
+      // Salvar no banco de dados
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast.error('Sessão expirada');
+        return;
+      }
+
+      // Verificar se o usuário já existe na tabela
+      const { data: existingUser } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (existingUser) {
+        // Atualizar usuário existente
+        const { error } = await supabase
+          .from('usuarios')
+          .update({ 
+            foto: base64,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', session.user.id);
+
+        if (error) throw error;
+      } else {
+        // Criar novo registro de usuário
+        const { error } = await supabase
+          .from('usuarios')
+          .insert({
+            id: session.user.id,
+            email: session.user.email,
+            nome: perfil.nome || session.user.user_metadata?.nome || 'Usuário',
+            foto: base64,
+            role: 'usuario',
+            ativo: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+
+        if (error) throw error;
+      }
+      
+      toast.success('Foto atualizada com sucesso!');
+      
+    } catch (error) {
+      console.error('Erro ao fazer upload da foto:', error);
+      toast.error('Erro ao salvar foto');
+    } finally {
+      setUploadingFoto(false);
+    }
+  };
+
+  // Função para remover foto
+  const handleRemoverFoto = async () => {
+    if (!confirm('Tem certeza que deseja remover sua foto de perfil?')) return;
+    
+    setUploadingFoto(true);
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast.error('Sessão expirada');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('usuarios')
+        .update({ 
+          foto: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', session.user.id);
+
+      if (error) throw error;
+      
+      setFotoPreview(null);
+      setFotoBase64(null);
+      toast.success('Foto removida com sucesso!');
+      
+    } catch (error) {
+      console.error('Erro ao remover foto:', error);
+      toast.error('Erro ao remover foto');
+    } finally {
+      setUploadingFoto(false);
+    }
+  };
+
+  // Função para carregar foto do usuário
+  const carregarFotoUsuario = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('foto')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Erro ao carregar foto:', error);
+        return;
+      }
+
+      if (data?.foto) {
+        setFotoPreview(data.foto);
+        setFotoBase64(data.foto);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar foto:', error);
+    }
+  };
+
   const carregarPerfil = async () => {
     setLoading(true);
     try {
       console.log('🔍 Carregando perfil do usuário...');
       await logAuthState();
       
-      // Verificar sessão atual
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
       if (sessionError) throw sessionError;
@@ -73,8 +232,10 @@ export default function Perfil() {
       console.log('👤 User ID:', userId);
       console.log('📧 Email:', userEmail);
       
-      // Salvar ID da sessão para exibição
       setSessionId(userId.substring(0, 8) + '...');
+      
+      // Carregar foto do usuário
+      await carregarFotoUsuario(userId);
       
       // Buscar dados do usuário na tabela 'usuarios'
       const { data: userData, error: userError } = await supabase
@@ -93,16 +254,17 @@ export default function Perfil() {
           email: userData.email || userEmail,
           role: userData.role || 'usuario',
           created_at: userData.created_at || new Date().toISOString(),
-          ultimo_acesso: session.user.last_sign_in_at || userData.updated_at || new Date().toISOString()
+          ultimo_acesso: session.user.last_sign_in_at || userData.updated_at || new Date().toISOString(),
+          foto: userData.foto
         });
       } else {
-        // Usuário não encontrado na tabela, usar dados da sessão
         setPerfil({
           nome: session.user.user_metadata?.nome || userEmail?.split('@')[0] || 'Usuário',
           email: userEmail || '',
           role: 'usuario',
           created_at: session.user.created_at || new Date().toISOString(),
-          ultimo_acesso: session.user.last_sign_in_at || new Date().toISOString()
+          ultimo_acesso: session.user.last_sign_in_at || new Date().toISOString(),
+          foto: null
         });
       }
       
@@ -147,21 +309,26 @@ export default function Perfil() {
         return;
       }
       
-      // Atualizar na tabela usuarios
-      const { error: updateError } = await supabase
+      // Verificar se o usuário já existe na tabela
+      const { data: existingUser } = await supabase
         .from('usuarios')
-        .update({
-          nome: perfil.nome,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', session.user.id);
-      
-      if (updateError && updateError.code !== 'PGRST116') {
-        throw updateError;
-      }
-      
-      // Se não existe na tabela, inserir
-      if (updateError?.code === 'PGRST116') {
+        .select('id')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (existingUser) {
+        // Atualizar usuário existente
+        const { error: updateError } = await supabase
+          .from('usuarios')
+          .update({
+            nome: perfil.nome,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', session.user.id);
+        
+        if (updateError) throw updateError;
+      } else {
+        // Criar novo registro de usuário
         const { error: insertError } = await supabase
           .from('usuarios')
           .insert({
@@ -212,7 +379,6 @@ export default function Perfil() {
     
     setSaving(true);
     try {
-      // Verificar senha atual (opcional - o Supabase faz isso automaticamente)
       const { error } = await supabase.auth.updateUser({
         password: passwordForm.nova_senha
       });
@@ -249,6 +415,8 @@ export default function Perfil() {
   };
 
   const roleInfo = getRoleLabel(perfil.role);
+  const nomeUsuario = perfil.nome?.split(' ')[0] || 'Usuário';
+  const iniciais = perfil.nome?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'U';
 
   if (loading) {
     return (
@@ -268,7 +436,7 @@ export default function Perfil() {
               Meu Perfil
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              Gerencie suas informações pessoais e senha
+              Gerencie suas informações pessoais, foto e senha
             </p>
           </div>
           <div className="flex gap-2">
@@ -290,21 +458,78 @@ export default function Perfil() {
           </div>
         </div>
 
-        {/* Card do Perfil */}
+        {/* Card do Perfil com Foto */}
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="p-5 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                <UserIcon className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-800 dark:text-white text-lg">{perfil.nome || 'Usuário'}</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{perfil.email || '-'}</p>
+          {/* Header com fundo gradiente */}
+          <div className="relative h-32 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500">
+            <div className="absolute -bottom-12 left-6">
+              <div className="relative">
+                {/* Avatar / Foto do Perfil */}
+                <div className="w-28 h-28 rounded-2xl bg-white dark:bg-gray-800 p-1 shadow-xl">
+                  {fotoPreview ? (
+                    <img 
+                      src={fotoPreview} 
+                      alt={perfil.nome}
+                      className="w-full h-full rounded-xl object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                      <span className="text-white font-bold text-3xl">{iniciais}</span>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Botão de editar foto */}
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingFoto}
+                  className="absolute bottom-0 right-0 bg-blue-600 hover:bg-blue-700 text-white p-1.5 rounded-full shadow-lg transition-all duration-200 disabled:opacity-50"
+                  title="Alterar foto"
+                >
+                  <CameraIcon className="w-4 h-4" />
+                </button>
+                
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleUploadFoto}
+                  className="hidden"
+                />
               </div>
             </div>
           </div>
           
-          <div className="p-5 space-y-6">
+          {/* Informações do usuário */}
+          <div className="pt-16 pb-5 px-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="font-bold text-xl text-gray-800 dark:text-white">{perfil.nome || 'Usuário'}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{perfil.email || '-'}</p>
+              </div>
+              
+              {/* Botões de ação da foto */}
+              {fotoPreview && (
+                <button
+                  onClick={handleRemoverFoto}
+                  disabled={uploadingFoto}
+                  className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 disabled:opacity-50"
+                  title="Remover foto"
+                >
+                  <TrashIcon className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+            
+            {uploadingFoto && (
+              <div className="mt-3 flex items-center gap-2 text-sm text-blue-600">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                <span>Enviando foto...</span>
+              </div>
+            )}
+          </div>
+          
+          <div className="p-6 space-y-6">
             {/* Informações Pessoais */}
             <div>
               <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
