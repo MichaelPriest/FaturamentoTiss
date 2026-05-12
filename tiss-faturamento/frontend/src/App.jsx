@@ -8,7 +8,8 @@ import {
   Bars3Icon, XMarkIcon, ArrowRightOnRectangleIcon,
   ChevronLeftIcon, ChevronRightIcon, SunIcon, MoonIcon,
   CalendarDaysIcon, FolderIcon, ChevronDownIcon, ChevronUpIcon,
-  HomeModernIcon, BanknotesIcon, ClipboardDocumentCheckIcon, BuildingOffice2Icon, BellAlertIcon
+  HomeModernIcon, BanknotesIcon, ClipboardDocumentCheckIcon, BuildingOffice2Icon, BellAlertIcon,
+  UserCircleIcon
 } from '@heroicons/react/24/outline';
 
 import Dashboard from './pages/Dashboard';
@@ -32,6 +33,7 @@ import Prontuario from './pages/Prontuario';
 import Salas from './pages/Salas';
 import Unidades from './pages/Unidades';
 import LoginPage from './pages/Login';
+import Perfil from './pages/Perfil';
 
 import { setConfig } from './lib/tissGenerator';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
@@ -179,8 +181,11 @@ function MainApp() {
     },
     {
       id: 'configuracoes', name: 'Configurações', icon: Cog6ToothIcon,
-      items: [{ id: 'notificacoes', name: 'Notificações', icon: BellAlertIcon, color: 'from-rose-500 to-rose-600' },
-        { id: 'configuracoes', name: 'Configurações', icon: Cog6ToothIcon, color: 'from-gray-500 to-gray-600' }]
+      items: [
+        { id: 'perfil', name: 'Meu Perfil', icon: UserCircleIcon, color: 'from-blue-500 to-blue-600' },
+        { id: 'notificacoes', name: 'Notificações', icon: BellAlertIcon, color: 'from-rose-500 to-rose-600' },
+        { id: 'configuracoes', name: 'Configurações', icon: Cog6ToothIcon, color: 'from-gray-500 to-gray-600' }
+      ]
     }
   ];
 
@@ -205,6 +210,7 @@ function MainApp() {
       case 'glosas': return <Glosas />;
       case 'financeiro': return <Financeiro />;
       case 'relatorios': return <Relatorios />;
+      case 'perfil': return <Perfil />;
       case 'notificacoes': return <Notificacoes />;
       case 'configuracoes': return <Configuracoes />;
       default: return <Dashboard />;
@@ -236,6 +242,7 @@ function MainApp() {
       relatorios: 'Análise de dados e métricas',
       salas: 'Gerenciamento de salas da clínica',
       unidades: 'Cadastro de filiais, clínicas e unidades de atendimento',
+      perfil: 'Gerencie suas informações pessoais e senha',
       notificacoes: 'Central de avisos, alertas e eventos por unidade',
       configuracoes: 'Configurações do sistema e usuários'
     };
@@ -283,21 +290,19 @@ function MainApp() {
           </button>
         </div>
 
-        {sidebarOpen && (
-          <div className="mx-4 mt-6 p-3 bg-gradient-to-r from-gray-800 to-gray-750 rounded-xl">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
-                <span className="text-white font-semibold text-sm">
-                  {nomeUsuario.substring(0, 2).toUpperCase()}
-                </span>
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-white">{user?.nome || nomeUsuario}</p>
-                <p className="text-xs text-gray-400">{user?.perfil || 'Usuário'}</p>
-              </div>
+        <div className="mx-4 mt-6 p-3 bg-gradient-to-r from-gray-800 to-gray-750 rounded-xl">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
+              <span className="text-white font-semibold text-sm">
+                {nomeUsuario.substring(0, 2).toUpperCase()}
+              </span>
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-white">{user?.nome || nomeUsuario}</p>
+              <p className="text-xs text-gray-400">{user?.role === 'admin' ? 'Administrador' : 'Usuário'}</p>
             </div>
           </div>
-        )}
+        </div>
 
         <nav className="p-4 space-y-2 mt-4 overflow-y-auto max-h-[calc(100vh-180px)]">
           {menuGroups.map((group) => (
@@ -372,18 +377,25 @@ function MainApp() {
                 {darkMode ? <SunIcon className="w-5 h-5 text-yellow-500" /> : <MoonIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />}
               </button>
               <NotificationBell />
-              <div className="flex items-center gap-3 pl-3 border-l border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => {
+                  setActiveTab('perfil');
+                  openGroupForItem('perfil');
+                }}
+                className="flex items-center gap-3 pl-3 border-l border-gray-200 dark:border-gray-700 hover:opacity-80 transition-opacity"
+                title="Meu Perfil"
+              >
                 <div className="w-9 h-9 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-md">
                   <span className="text-white font-semibold text-sm">{nomeUsuario.substring(0, 2).toUpperCase()}</span>
                 </div>
                 <div className="hidden sm:block">
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{user?.nome || nomeUsuario}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{user?.perfil || 'Usuário'}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{user?.role === 'admin' ? 'Administrador' : 'Usuário'}</p>
                 </div>
-                <button onClick={handleLogout} className="hidden sm:flex items-center gap-2 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors text-sm">
-                  <ArrowRightOnRectangleIcon className="w-4 h-4" /><span>Sair</span>
-                </button>
-              </div>
+              </button>
+              <button onClick={handleLogout} className="hidden sm:flex items-center gap-2 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400 transition-colors text-sm">
+                <ArrowRightOnRectangleIcon className="w-4 h-4" /><span>Sair</span>
+              </button>
             </div>
           </div>
         </header>
@@ -408,7 +420,7 @@ function MainApp() {
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium text-white">{user?.nome || nomeUsuario}</p>
-              <p className="text-xs text-gray-400">{user?.perfil || 'Usuário'}</p>
+              <p className="text-xs text-gray-400">{user?.role === 'admin' ? 'Administrador' : 'Usuário'}</p>
             </div>
           </div>
         </div>
@@ -469,25 +481,30 @@ function App() {
         <UnidadeProvider>
           <NotificationsProvider>
             <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/prontuario/:id" element={
-              <ProtectedRoute>
-                <MainApp />
-              </ProtectedRoute>
-            } />
-            <Route path="/convenio-config/:id" element={
-              <ProtectedRoute>
-                <MainApp />
-              </ProtectedRoute>
-            } />
-            <Route path="/*" element={
-              <ProtectedRoute>
-                <MainApp />
-              </ProtectedRoute>
-            } />
-          </Routes>
-        </BrowserRouter>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/perfil" element={
+                  <ProtectedRoute>
+                    <MainApp />
+                  </ProtectedRoute>
+                } />
+                <Route path="/prontuario/:id" element={
+                  <ProtectedRoute>
+                    <MainApp />
+                  </ProtectedRoute>
+                } />
+                <Route path="/convenio-config/:id" element={
+                  <ProtectedRoute>
+                    <MainApp />
+                  </ProtectedRoute>
+                } />
+                <Route path="/*" element={
+                  <ProtectedRoute>
+                    <MainApp />
+                  </ProtectedRoute>
+                } />
+              </Routes>
+            </BrowserRouter>
           </NotificationsProvider>
         </UnidadeProvider>
       </AuthProvider>
