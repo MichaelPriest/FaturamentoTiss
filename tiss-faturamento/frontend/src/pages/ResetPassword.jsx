@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { toast } from 'sonner';
-import { KeyIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
+import { KeyIcon, CheckCircleIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
 export default function ResetPassword() {
   const navigate = useNavigate();
@@ -11,15 +11,18 @@ export default function ResetPassword() {
   const [novaSenha, setNovaSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
   const [loading, setLoading] = useState(false);
-  const [hash, setHash] = useState(null);
+  const [tokenHash, setTokenHash] = useState(null);
 
   useEffect(() => {
-    // Extrair hash da URL (token de recuperação)
-    const hashParams = new URLSearchParams(location.hash.substring(1));
-    const accessToken = hashParams.get('access_token');
+    // Extrair token_hash da URL
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token_hash');
+    const type = params.get('type');
     
-    if (accessToken) {
-      setHash(accessToken);
+    console.log('🔍 Parâmetros da URL:', { token, type });
+    
+    if (token && type === 'recovery') {
+      setTokenHash(token);
     } else {
       toast.error('Link de recuperação inválido ou expirado');
       navigate('/login');
@@ -47,6 +50,7 @@ export default function ResetPassword() {
     setLoading(true);
     
     try {
+      // Atualizar senha usando o token_hash
       const { error } = await supabase.auth.updateUser({
         password: novaSenha
       });
@@ -67,7 +71,7 @@ export default function ResetPassword() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="bg-white/10 dark:bg-gray-800/50 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-white/20">
+        <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-white/20">
           <div className="text-center mb-8">
             <div className="w-16 h-16 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
               <KeyIcon className="w-8 h-8 text-white" />
@@ -107,11 +111,16 @@ export default function ResetPassword() {
               className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 rounded-xl font-medium hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {loading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                <>
+                  <ArrowPathIcon className="w-5 h-5 animate-spin" />
+                  Alterando...
+                </>
               ) : (
-                <CheckCircleIcon className="w-5 h-5" />
+                <>
+                  <CheckCircleIcon className="w-5 h-5" />
+                  Alterar Senha
+                </>
               )}
-              Alterar Senha
             </button>
           </form>
         </div>
