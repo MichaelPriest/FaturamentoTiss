@@ -1,3 +1,4 @@
+// services/unidadesService.js
 import { supabase, TABLES, isSupabaseAvailable } from '../lib/supabaseClient';
 
 export const UNIDADE_STORAGE_KEY = 'unidade_atual_id';
@@ -7,6 +8,24 @@ const ensureSupabase = () => {
   if (!isSupabaseAvailable()) {
     throw new Error('Supabase não configurado. Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.');
   }
+};
+
+// NOVA FUNÇÃO: Verificar autenticação
+const ensureAuth = async () => {
+  ensureSupabase();
+  
+  const { data: { session }, error } = await supabase.auth.getSession();
+  
+  if (error) {
+    console.error('Erro ao verificar sessão:', error);
+    throw new Error('Erro de autenticação');
+  }
+  
+  if (!session) {
+    throw new Error('Usuário não autenticado. Faça login novamente.');
+  }
+  
+  return session;
 };
 
 export const getStoredUnidadeId = () => localStorage.getItem(UNIDADE_STORAGE_KEY) || TODAS_UNIDADES_ID;
@@ -30,6 +49,7 @@ export const applyUnidadeToPayload = (payload = {}, unidadeId = getStoredUnidade
 export const unidadesService = {
   async listar({ somenteAtivas = false } = {}) {
     ensureSupabase();
+    await ensureAuth(); // VERIFICAR AUTENTICAÇÃO
 
     let query = supabase.from(TABLES.UNIDADES).select('*').order('nome');
     if (somenteAtivas) query = query.eq('ativo', true);
@@ -41,6 +61,7 @@ export const unidadesService = {
 
   async criar(unidade) {
     ensureSupabase();
+    await ensureAuth(); // VERIFICAR AUTENTICAÇÃO
 
     const payload = {
       ...unidade,
@@ -60,6 +81,7 @@ export const unidadesService = {
 
   async atualizar(id, unidade) {
     ensureSupabase();
+    await ensureAuth(); // VERIFICAR AUTENTICAÇÃO
 
     const payload = { ...unidade, updated_at: new Date().toISOString() };
     const { data, error } = await supabase
@@ -79,6 +101,7 @@ export const unidadesService = {
 
   async deletar(id) {
     ensureSupabase();
+    await ensureAuth(); // VERIFICAR AUTENTICAÇÃO
 
     const { error } = await supabase.from(TABLES.UNIDADES).delete().eq('id', id);
     if (error) throw error;
@@ -88,6 +111,7 @@ export const unidadesService = {
 
 export const insertWithUnidadeFallback = async (table, payload, unidadeId = getStoredUnidadeId()) => {
   ensureSupabase();
+  await ensureAuth(); // VERIFICAR AUTENTICAÇÃO
 
   const scopedPayload = applyUnidadeToPayload(payload, unidadeId);
   return supabase.from(table).insert([scopedPayload]).select().single();
@@ -95,6 +119,7 @@ export const insertWithUnidadeFallback = async (table, payload, unidadeId = getS
 
 export const updateWithUnidadeFallback = async (table, id, payload) => {
   ensureSupabase();
+  await ensureAuth(); // VERIFICAR AUTENTICAÇÃO
 
   return supabase.from(table).update(payload).eq('id', id).select().single();
 };
