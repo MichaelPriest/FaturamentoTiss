@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   BuildingOffice2Icon,
   CheckCircleIcon,
@@ -6,12 +7,14 @@ import {
   PencilIcon,
   PlusIcon,
   TrashIcon,
-  XMarkIcon
+  XMarkIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { unidadesService } from '../services/unidadesService';
 import { useUnidade } from '../contexts/UnidadeContext';
 import { useNotifications } from '../contexts/NotificationsContext';
+import { supabase } from '../lib/supabaseClient';
 
 const UFS = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
@@ -35,12 +38,14 @@ const initialForm = {
 };
 
 export default function Unidades() {
+  const navigate = useNavigate();
   const [unidades, setUnidades] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [formData, setFormData] = useState(initialForm);
+  const [sessionChecked, setSessionChecked] = useState(false);
   const { recarregarUnidades } = useUnidade();
   const { createNotification } = useNotifications();
 
@@ -51,6 +56,35 @@ export default function Unidades() {
     comCnes: unidades.filter((unidade) => unidade.cnes).length
   }), [unidades]);
 
+  // Verificar autenticação ao carregar a página
+  const verificarAutenticacao = async () => {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('Erro ao verificar sessão:', error);
+        toast.error('Erro de autenticação. Faça login novamente.');
+        navigate('/login');
+        return false;
+      }
+      
+      if (!session) {
+        console.log('Usuário não autenticado');
+        toast.error('Você precisa estar logado para acessar esta página.');
+        navigate('/login');
+        return false;
+      }
+      
+      console.log('Usuário autenticado:', session.user.email);
+      return true;
+    } catch (error) {
+      console.error('Erro ao verificar autenticação:', error);
+      toast.error('Erro ao verificar autenticação');
+      navigate('/login');
+      return false;
+    }
+  };
+
   const carregarUnidades = async () => {
     setLoading(true);
     try {
@@ -58,15 +92,57 @@ export default function Unidades() {
       setUnidades(data || []);
     } catch (error) {
       console.error('Erro ao carregar unidades:', error);
-      toast.error('Erro ao carregar unidades');
+      
+      // Tratar diferentes tipos de erro
+      if (error.message?.includes('autenticado') || 
+          error.message?.includes('login') ||
+          error.message?.includes('401') ||
+          error.status === 401) {
+        toast.error('Sessão expirada. Faça login novamente.');
+        navigate('/login');
+      } else if (error.message?.includes('Supabase não configurado')) {
+        toast.error('Erro de configuração do sistema. Contate o administrador.');
+      } else {
+        toast.error('Erro ao carregar unidades: ' + (error.message || 'Erro desconhecido'));
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  // Verificar autenticação e carregar dados
   useEffect(() => {
-    carregarUnidades();
+    const inicializar = async () => {
+      const autenticado = await verificarAutenticacao();
+      if (autenticado) {
+        await carregarUnidades();
+      }
+      setSessionChecked(true);
+    };
+    
+    inicializar();
   }, []);
+
+  // Escutar mudanças na autenticação
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event, session?.user?.email);
+      
+      if (event === 'SIGNED_OUT') {
+        toast.info('Sessão encerrada. Faça login novamente.');
+        navigate('/login');
+      } else if (event === 'SIGNED_IN' && session) {
+        console.log('Usuário logado:', session.user.email);
+        carregarUnidades();
+      } else if (event === 'TOKEN_REFRESHED') {
+        console.log('Token renovado com sucesso');
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [navigate]);
 
   const resetForm = () => {
     setEditing(null);
@@ -152,9 +228,16 @@ export default function Unidades() {
 
       fecharModal();
       await carregarUnidades();
+      await recarregarUnidades();
     } catch (error) {
       console.error('Erro ao salvar unidade:', error);
-      toast.error('Erro ao salvar unidade');
+      
+      if (error.message?.includes('autenticado') || error.status === 401) {
+        toast.error('Sessão expirada. Faça login novamente.');
+        navigate('/login');
+      } else {
+        toast.error('Erro ao salvar unidade: ' + (error.message || 'Erro desconhecido'));
+      }
     } finally {
       setSaving(false);
     }
@@ -175,7 +258,13 @@ export default function Unidades() {
       await recarregarUnidades();
     } catch (error) {
       console.error('Erro ao alterar status da unidade:', error);
-      toast.error('Erro ao alterar status da unidade');
+      
+      if (error.message?.includes('autenticado') || error.status === 401) {
+        toast.error('Sessão expirada. Faça login novamente.');
+        navigate('/login');
+      } else {
+        toast.error('Erro ao alterar status da unidade');
+      }
     }
   };
 
@@ -195,11 +284,17 @@ export default function Unidades() {
       await recarregarUnidades();
     } catch (error) {
       console.error('Erro ao excluir unidade:', error);
-      toast.error('Erro ao excluir unidade');
+      
+      if (error.message?.includes('autenticado') || error.status === 401) {
+        toast.error('Sessão expirada. Faça login novamente.');
+        navigate('/login');
+      } else {
+        toast.error('Erro ao excluir unidade');
+      }
     }
   };
 
-  if (loading) {
+  if (loading || !sessionChecked) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -219,13 +314,23 @@ export default function Unidades() {
               Cadastre filiais, clínicas e unidades de atendimento
             </p>
           </div>
-          <button
-            onClick={abrirNovaUnidade}
-            className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm flex items-center justify-center gap-2 hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg"
-          >
-            <PlusIcon className="w-4 h-4" />
-            Nova Unidade
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={carregarUnidades}
+              className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-xl text-sm flex items-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
+              title="Recarregar"
+            >
+              <ArrowPathIcon className="w-4 h-4" />
+              Recarregar
+            </button>
+            <button
+              onClick={abrirNovaUnidade}
+              className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm flex items-center justify-center gap-2 hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-lg"
+            >
+              <PlusIcon className="w-4 h-4" />
+              Nova Unidade
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -266,8 +371,9 @@ export default function Unidades() {
                 {unidades.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                      <BuildingOffice2Icon className="w-12 h-12 mx-auto mb-3 opacity-50" />
                       Nenhuma unidade cadastrada
-                    </td>
+                     </td>
                   </tr>
                 ) : (
                   unidades.map((unidade) => (
@@ -275,21 +381,21 @@ export default function Unidades() {
                       <td className="px-4 py-3">
                         <p className="font-medium text-gray-800 dark:text-gray-200">{unidade.nome}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">{unidade.codigo || 'Sem código'}</p>
-                      </td>
+                       </td>
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
                         <p>CNES: {unidade.cnes || '-'}</p>
                         <p className="text-xs">CNPJ: {unidade.cnpj || '-'}</p>
-                      </td>
+                       </td>
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
                         <div className="flex items-start gap-2">
                           <MapPinIcon className="w-4 h-4 mt-0.5 text-gray-400" />
                           <span>{[unidade.cidade, unidade.uf].filter(Boolean).join(' / ') || unidade.endereco || '-'}</span>
                         </div>
-                      </td>
+                       </td>
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
                         <p>{unidade.responsavel || '-'}</p>
                         <p className="text-xs">{unidade.telefone || unidade.email || ''}</p>
-                      </td>
+                       </td>
                       <td className="px-4 py-3 text-center">
                         <button
                           onClick={() => alternarStatus(unidade)}
@@ -301,7 +407,7 @@ export default function Unidades() {
                         >
                           {unidade.ativo !== false ? 'Ativa' : 'Inativa'}
                         </button>
-                      </td>
+                       </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex gap-1 justify-center">
                           <button
@@ -319,7 +425,7 @@ export default function Unidades() {
                             <TrashIcon className="w-4 h-4" />
                           </button>
                         </div>
-                      </td>
+                       </td>
                     </tr>
                   ))
                 )}
