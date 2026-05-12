@@ -37,12 +37,13 @@ export default function Perfil() {
     confirmar_senha: ''
   });
 
-  // Dados da clínica do usuário
   const [clinica, setClinica] = useState({
     nome_contratado: '',
     cnpj: '',
     cnes: ''
   });
+
+  const [sessionId, setSessionId] = useState('');
 
   useEffect(() => {
     carregarPerfil();
@@ -72,6 +73,9 @@ export default function Perfil() {
       console.log('👤 User ID:', userId);
       console.log('📧 Email:', userEmail);
       
+      // Salvar ID da sessão para exibição
+      setSessionId(userId.substring(0, 8) + '...');
+      
       // Buscar dados do usuário na tabela 'usuarios'
       const { data: userData, error: userError } = await supabase
         .from('usuarios')
@@ -79,43 +83,26 @@ export default function Perfil() {
         .eq('id', userId)
         .maybeSingle();
       
-      if (userError) {
+      if (userError && userError.code !== 'PGRST116') {
         console.error('Erro ao buscar usuário:', userError);
-        // Se não encontrar, criar registro básico
-        if (userError.code === 'PGRST116') {
-          console.log('Usuário não encontrado na tabela, criando registro...');
-          const { data: newUser, error: createError } = await supabase
-            .from('usuarios')
-            .insert({
-              id: userId,
-              email: userEmail,
-              nome: session.user.user_metadata?.nome || userEmail.split('@')[0],
-              role: 'usuario',
-              ativo: true,
-              created_at: new Date().toISOString()
-            })
-            .select()
-            .single();
-          
-          if (createError) throw createError;
-          
-          setPerfil({
-            nome: newUser.nome,
-            email: newUser.email,
-            role: newUser.role,
-            created_at: newUser.created_at,
-            ultimo_acesso: new Date().toLocaleString()
-          });
-        } else {
-          throw userError;
-        }
-      } else if (userData) {
+      }
+      
+      if (userData) {
         setPerfil({
-          nome: userData.nome,
-          email: userData.email,
-          role: userData.role,
-          created_at: userData.created_at,
-          ultimo_acesso: session.user.last_sign_in_at || userData.updated_at
+          nome: userData.nome || '',
+          email: userData.email || userEmail,
+          role: userData.role || 'usuario',
+          created_at: userData.created_at || new Date().toISOString(),
+          ultimo_acesso: session.user.last_sign_in_at || userData.updated_at || new Date().toISOString()
+        });
+      } else {
+        // Usuário não encontrado na tabela, usar dados da sessão
+        setPerfil({
+          nome: session.user.user_metadata?.nome || userEmail?.split('@')[0] || 'Usuário',
+          email: userEmail || '',
+          role: 'usuario',
+          created_at: session.user.created_at || new Date().toISOString(),
+          ultimo_acesso: session.user.last_sign_in_at || new Date().toISOString()
         });
       }
       
@@ -169,7 +156,26 @@ export default function Perfil() {
         })
         .eq('id', session.user.id);
       
-      if (updateError) throw updateError;
+      if (updateError && updateError.code !== 'PGRST116') {
+        throw updateError;
+      }
+      
+      // Se não existe na tabela, inserir
+      if (updateError?.code === 'PGRST116') {
+        const { error: insertError } = await supabase
+          .from('usuarios')
+          .insert({
+            id: session.user.id,
+            email: session.user.email,
+            nome: perfil.nome,
+            role: 'usuario',
+            ativo: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+        
+        if (insertError) throw insertError;
+      }
       
       // Atualizar metadados no auth
       const { error: authError } = await supabase.auth.updateUser({
@@ -206,16 +212,7 @@ export default function Perfil() {
     
     setSaving(true);
     try {
-      // Verificar senha atual
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        toast.error('Sessão expirada. Faça login novamente.');
-        navigate('/login');
-        return;
-      }
-      
-      // Atualizar senha
+      // Verificar senha atual (opcional - o Supabase faz isso automaticamente)
       const { error } = await supabase.auth.updateUser({
         password: passwordForm.nova_senha
       });
@@ -234,7 +231,7 @@ export default function Perfil() {
   };
 
   const handleLogout = async () => {
-    if (confirm('Tem certeza que deseja sair do sistema?')) {
+    if (window.confirm('Tem certeza que deseja sair do sistema?')) {
       await signOut();
       navigate('/login');
     }
@@ -247,7 +244,7 @@ export default function Perfil() {
       case 'usuario':
         return { label: 'Usuário', color: 'blue' };
       default:
-        return { label: role, color: 'gray' };
+        return { label: role || 'Usuário', color: 'gray' };
     }
   };
 
@@ -301,8 +298,8 @@ export default function Perfil() {
                 <UserIcon className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-800 dark:text-white text-lg">{perfil.nome}</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{perfil.email}</p>
+                <h3 className="font-semibold text-gray-800 dark:text-white text-lg">{perfil.nome || 'Usuário'}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{perfil.email || '-'}</p>
               </div>
             </div>
           </div>
@@ -349,7 +346,7 @@ export default function Perfil() {
                   </label>
                   <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700/50 rounded-lg px-3 py-2 text-sm text-gray-600 dark:text-gray-400">
                     <EnvelopeIcon className="w-4 h-4" />
-                    {perfil.email}
+                    {perfil.email || '-'}
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     O e-mail não pode ser alterado. Entre em contato com o administrador se necessário.
@@ -403,7 +400,7 @@ export default function Perfil() {
                 <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-3">
                   <p className="text-xs text-gray-500 dark:text-gray-400">ID do usuário</p>
                   <p className="text-xs font-mono mt-1 text-gray-500 dark:text-gray-400 truncate">
-                    {supabase.auth.getSession()?.then(s => s.data.session?.user.id) || '-'}
+                    {sessionId || '-'}
                   </p>
                 </div>
               </div>
