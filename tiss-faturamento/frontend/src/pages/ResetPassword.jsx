@@ -12,6 +12,7 @@ export default function ResetPassword() {
   const [confirmarSenha, setConfirmarSenha] = useState('');
   const [loading, setLoading] = useState(false);
   const [tokenHash, setTokenHash] = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     // Extrair token_hash da URL
@@ -21,11 +22,12 @@ export default function ResetPassword() {
     
     console.log('🔍 Parâmetros da URL:', { token, type });
     
-    if (token && type === 'recovery') {
-      setTokenHash(token);
-    } else {
+    if (!token || type !== 'recovery') {
+      setError('Link de recuperação inválido ou expirado');
       toast.error('Link de recuperação inválido ou expirado');
-      navigate('/login');
+      setTimeout(() => navigate('/login'), 3000);
+    } else {
+      setTokenHash(token);
     }
   }, [location, navigate]);
 
@@ -58,15 +60,41 @@ export default function ResetPassword() {
       if (error) throw error;
       
       toast.success('Senha alterada com sucesso! Faça login com sua nova senha.');
-      navigate('/login');
+      
+      // Aguardar um pouco antes de redirecionar
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
       
     } catch (error) {
       console.error('Erro ao resetar senha:', error);
-      toast.error(error.message || 'Erro ao alterar senha');
+      
+      if (error.message?.includes('expired')) {
+        toast.error('Link expirado. Solicite uma nova recuperação de senha.');
+      } else {
+        toast.error(error.message || 'Erro ao alterar senha');
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800 flex items-center justify-center p-4">
+        <div className="bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-white/20 text-center">
+          <div className="w-16 h-16 bg-red-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-white mb-2">Link Inválido</h1>
+          <p className="text-blue-200 mb-4">{error}</p>
+          <p className="text-blue-200 text-sm">Redirecionando para o login...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800 flex items-center justify-center p-4">
@@ -90,6 +118,7 @@ export default function ResetPassword() {
                 className="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/50 text-white placeholder-blue-200"
                 placeholder="********"
                 required
+                autoComplete="new-password"
               />
             </div>
             
@@ -102,6 +131,7 @@ export default function ResetPassword() {
                 className="w-full px-4 py-3 bg-white/20 border border-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/50 text-white placeholder-blue-200"
                 placeholder="********"
                 required
+                autoComplete="new-password"
               />
             </div>
             
@@ -123,6 +153,15 @@ export default function ResetPassword() {
               )}
             </button>
           </form>
+          
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => navigate('/login')}
+              className="text-sm text-blue-200 hover:text-white transition-colors"
+            >
+              ← Voltar para o login
+            </button>
+          </div>
         </div>
       </div>
     </div>
