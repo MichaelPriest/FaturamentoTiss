@@ -877,60 +877,45 @@ export const atendimentosService = {
 export const notificacoesService = {
   async listar() {
     if (!isSupabaseAvailable()) {
-      return localStorageFallback.get(TABLES.NOTIFICACOES) || [];
+      throw new Error('Supabase não configurado. Notificações usam somente o banco real.');
     }
-    try {
-      const { data, error } = await supabase
-        .from(TABLES.NOTIFICACOES)
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return filterByUnidade(data || []);
-    } catch (err) {
-      console.error('Erro ao listar notificações:', err);
-      return localStorageFallback.get(TABLES.NOTIFICACOES) || [];
-    }
+
+    const { data, error } = await supabase
+      .from(TABLES.NOTIFICACOES)
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return filterByUnidade(data || []);
   },
 
   async criar(notificacao) {
     if (!isSupabaseAvailable()) {
-      const data = localStorageFallback.get(TABLES.NOTIFICACOES) || [];
-      const newItem = { ...notificacao, id: Date.now(), created_at: new Date().toISOString(), lido: false };
-      localStorageFallback.set(TABLES.NOTIFICACOES, [newItem, ...data]);
-      return newItem;
+      throw new Error('Supabase não configurado. Notificações usam somente o banco real.');
     }
-    try {
-      const { data, error } = await supabase
-        .from(TABLES.NOTIFICACOES)
-        .insert([notificacao])
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
-    } catch (err) {
-      console.error('Erro ao criar notificação:', err);
-      return null;
-    }
+
+    const { data, error } = await supabase
+      .from(TABLES.NOTIFICACOES)
+      .insert([notificacao])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
   },
 
   async marcarLido(id) {
     if (!isSupabaseAvailable()) {
-      const data = localStorageFallback.get(TABLES.NOTIFICACOES) || [];
-      const updated = data.map(n => n.id === id ? { ...n, lido: true } : n);
-      localStorageFallback.set(TABLES.NOTIFICACOES, updated);
-      return true;
+      throw new Error('Supabase não configurado. Notificações usam somente o banco real.');
     }
-    try {
-      const { error } = await supabase
-        .from(TABLES.NOTIFICACOES)
-        .update({ lido: true })
-        .eq('id', id);
-      if (error) throw error;
-      return true;
-    } catch (err) {
-      console.error('Erro ao marcar notificação como lida:', err);
-      return false;
-    }
+
+    const { error } = await supabase
+      .from(TABLES.NOTIFICACOES)
+      .update({ lido: true })
+      .eq('id', id);
+
+    if (error) throw error;
+    return true;
   }
 };
 

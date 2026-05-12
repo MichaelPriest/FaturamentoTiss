@@ -23,6 +23,16 @@ insert into public.unidades (nome, codigo, uf, observacao)
 select 'Unidade Matriz', 'MATRIZ', 'SP', 'Unidade padrão para registros sem unidade.'
 where not exists (select 1 from public.unidades);
 
+
+create table if not exists public.notificacoes (
+  id uuid primary key default gen_random_uuid(),
+  titulo text not null,
+  mensagem text,
+  tipo text not null default 'info',
+  lido boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
 alter table public.notificacoes
   add column if not exists categoria text not null default 'sistema',
   add column if not exists prioridade text not null default 'normal',
