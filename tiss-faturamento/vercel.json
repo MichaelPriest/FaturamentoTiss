@@ -1,16 +1,13 @@
 {
   "version": 2,
-  "rewrites": [
-    { "source": "/reset-password", "destination": "/frontend/index.html" },
-    { "source": "/(.*)", "destination": "/frontend/index.html" }
-  ],
-  "builds": [
+  "routes": [
     {
-      "src": "frontend/**",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "frontend/dist"
-      }
+      "src": "/reset-password",
+      "dest": "/index.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 }
