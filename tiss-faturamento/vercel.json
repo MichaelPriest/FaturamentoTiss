@@ -1,10 +1,8 @@
 {
   "version": 2,
   "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/frontend/index.html"
-    }
+    { "source": "/reset-password", "destination": "/frontend/index.html" },
+    { "source": "/(.*)", "destination": "/frontend/index.html" }
   ],
   "builds": [
     {
