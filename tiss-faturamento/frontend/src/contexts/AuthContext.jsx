@@ -5,68 +5,103 @@ import { toast } from 'sonner';
 
 const AuthContext = createContext({});
 
+const profileFromAuthUser = (authUser) => ({
+  id: authUser.id,
+  email: authUser.email,
+  nome: authUser.user_metadata?.nome || authUser.email?.split('@')[0] || 'Usuário',
+  role: authUser.user_metadata?.role || 'usuario',
+  foto: authUser.user_metadata?.foto || null,
+});
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const initialized = useRef(false);
+  const profileRequestId = useRef(0);
 
   // Função para carregar perfil do usuário
-  const loadUserProfile = useCallback(async (userId, email, metadata = {}) => {
+  const loadUserProfile = useCallback(async (authUserOrId, email, metadata = {}) => {
+    const authUser = typeof authUserOrId === 'object'
+      ? authUserOrId
+      : { id: authUserOrId, email, user_metadata: metadata };
+    const fallbackProfile = profileFromAuthUser(authUser);
+
     try {
       const { data: userData, error: userError } = await supabase
         .from('usuarios')
         .select('*')
-        .eq('id', userId)
+        .eq('id', authUser.id)
         .maybeSingle();
 
       if (userError && userError.code !== 'PGRST116') {
         console.error('Erro ao buscar perfil:', userError);
+        return fallbackProfile;
       }
 
       if (userData) {
         // Usuário existe na tabela
         return {
           id: userData.id,
-          email: userData.email,
-          nome: userData.nome,
-          role: userData.role || 'usuario',
-          foto: userData.foto,
-        };
-      } else {
-        // Criar perfil automaticamente
-        const nome = metadata?.nome || email?.split('@')[0] || 'Usuário';
-        
-        const { data: newUser, error: createError } = await supabase
-          .from('usuarios')
-          .insert({
-            id: userId,
-            email: email,
-            nome: nome,
-            role: 'usuario',
-            ativo: true,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          })
-          .select()
-          .single();
-
-        if (createError) {
-          console.error('Erro ao criar perfil:', createError);
-          return null;
-        }
-
-        return {
-          id: newUser.id,
-          email: newUser.email,
-          nome: newUser.nome,
-          role: newUser.role || 'usuario',
+          email: userData.email || fallbackProfile.email,
+          nome: userData.nome || fallbackProfile.nome,
+          role: userData.role || fallbackProfile.role,
+          foto: userData.foto || fallbackProfile.foto,
         };
       }
+
+      // Criar perfil automaticamente. Se a criação falhar por RLS/permissão,
+      // ainda mantemos o usuário autenticado com os dados vindos do Supabase Auth.
+      const { data: newUser, error: createError } = await supabase
+        .from('usuarios')
+        .insert({
+          id: authUser.id,
+          email: fallbackProfile.email,
+          nome: fallbackProfile.nome,
+          role: fallbackProfile.role,
+          ativo: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Erro ao criar perfil:', createError);
+        return fallbackProfile;
+      }
+
+      return {
+        id: newUser.id,
+        email: newUser.email || fallbackProfile.email,
+        nome: newUser.nome || fallbackProfile.nome,
+        role: newUser.role || fallbackProfile.role,
+        foto: newUser.foto || fallbackProfile.foto,
+      };
     } catch (error) {
       console.error('Erro ao carregar perfil:', error);
-      return null;
+      return fallbackProfile;
     }
   }, []);
+
+  const applySession = useCallback(async (session, { updateLoading = true } = {}) => {
+    const requestId = ++profileRequestId.current;
+
+    if (!session?.user) {
+      setUser(null);
+      if (updateLoading) setLoading(false);
+      return null;
+    }
+
+    if (updateLoading) setLoading(true);
+    const profile = await loadUserProfile(session.user);
+
+    if (requestId === profileRequestId.current) {
+      setUser(profile);
+      if (updateLoading) setLoading(false);
+    }
+
+    return profile;
+  }, [loadUserProfile]);
 
   // Verificar sessão inicial - executado apenas uma vez
   useEffect(() => {
@@ -76,27 +111,16 @@ export function AuthProvider({ children }) {
     const checkSession = async () => {
       try {
         setLoading(true);
-        
+
         const { data: { session }, error } = await supabase.auth.getSession();
-        
+
         if (error) {
           console.error('Erro ao verificar sessão:', error);
           setUser(null);
-          setLoading(false);
           return;
         }
 
-        if (session) {
-          const profile = await loadUserProfile(
-            session.user.id, 
-            session.user.email,
-            session.user.user_metadata
-          );
-          
-          setUser(profile);
-        } else {
-          setUser(null);
-        }
+        await applySession(session);
       } catch (error) {
         console.error('Erro:', error);
         setUser(null);
@@ -107,47 +131,41 @@ export function AuthProvider({ children }) {
 
     checkSession();
 
-    // Escutar mudanças na autenticação
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // Escutar mudanças na autenticação. O callback do Supabase não deve aguardar
+    // outras chamadas Supabase diretamente; agendamos o carregamento do perfil
+    // fora do callback para evitar travamentos/loops de autenticação.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state changed:', event);
-      
+
       if (event === 'SIGNED_OUT') {
+        profileRequestId.current += 1;
         setUser(null);
         setLoading(false);
-      } else if (event === 'SIGNED_IN' && session) {
-        const profile = await loadUserProfile(
-          session.user.id,
-          session.user.email,
-          session.user.user_metadata
-        );
-        setUser(profile);
-        setLoading(false);
-      } else if (event === 'USER_UPDATED' && session) {
-        // Atualizar dados do usuário
-        const profile = await loadUserProfile(
-          session.user.id,
-          session.user.email,
-          session.user.user_metadata
-        );
-        setUser(profile);
+        return;
+      }
+
+      if ((event === 'SIGNED_IN' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') && session) {
+        setTimeout(() => {
+          applySession(session, { updateLoading: event !== 'TOKEN_REFRESHED' });
+        }, 0);
       }
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [loadUserProfile]);
+  }, [applySession]);
 
   const signIn = async (email, password) => {
     if (!supabase) {
       toast.error('Supabase não disponível');
       return { success: false };
     }
-    
+
     try {
       console.log('🔐 [AuthContext] Tentando login com:', email);
       setLoading(true);
-      
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -156,7 +174,7 @@ export function AuthProvider({ children }) {
       if (error) {
         console.error('❌ [AuthContext] Erro no login:', error);
         setLoading(false);
-        
+
         if (error.message?.includes('Invalid login credentials')) {
           toast.error('Email ou senha inválidos');
         } else if (error.message?.includes('Email not confirmed')) {
@@ -164,22 +182,15 @@ export function AuthProvider({ children }) {
         } else {
           toast.error(error.message || 'Erro ao fazer login');
         }
-        
+
         return { success: false, error: error.message };
       }
 
       console.log('✅ [AuthContext] Login bem-sucedido!');
-      
-      const profile = await loadUserProfile(
-        data.user.id,
-        data.user.email,
-        data.user.user_metadata
-      );
-      
-      setUser(profile);
-      setLoading(false);
+
+      const profile = await applySession(data.session || { user: data.user });
       toast.success(`Bem-vindo, ${profile?.nome || 'Usuário'}!`);
-      
+
       return { success: true, user: profile };
     } catch (error) {
       console.error('❌ [AuthContext] Erro inesperado:', error);
@@ -193,9 +204,10 @@ export function AuthProvider({ children }) {
     try {
       setLoading(true);
       const { error } = await supabase.auth.signOut();
-      
+
       if (error) throw error;
-      
+
+      profileRequestId.current += 1;
       setUser(null);
       toast.success('Logout realizado com sucesso');
       return { success: true };

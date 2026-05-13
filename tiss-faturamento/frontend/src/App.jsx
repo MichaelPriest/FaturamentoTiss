@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
 import { 
   HomeIcon, BuildingOfficeIcon, UsersIcon, UserGroupIcon, 
@@ -45,14 +45,7 @@ import { NotificationsProvider } from './contexts/NotificationsContext';
 // Componente de Proteção de Rota
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
-  const navigate = useNavigate();
   const location = useLocation();
-
-  useEffect(() => {
-    if (!loading && !isAuthenticated) {
-      navigate('/login', { replace: true });
-    }
-  }, [isAuthenticated, loading, navigate]);
 
   if (loading) {
     return (
@@ -62,7 +55,23 @@ function ProtectedRoute({ children }) {
     );
   }
 
-  return isAuthenticated ? children : null;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  return children;
+}
+
+function ProtectedApp() {
+  return (
+    <ProtectedRoute>
+      <UnidadeProvider>
+        <NotificationsProvider>
+          <MainApp />
+        </NotificationsProvider>
+      </UnidadeProvider>
+    </ProtectedRoute>
+  );
 }
 
 // Componente Principal do App (logado)
@@ -479,36 +488,16 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <UnidadeProvider>
-          <NotificationsProvider>
-            <BrowserRouter>
-              <Routes>
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/perfil" element={
-                  <ProtectedRoute>
-                    <MainApp />
-                  </ProtectedRoute>
-                } />
-                <Route path="/prontuario/:id" element={
-                  <ProtectedRoute>
-                    <MainApp />
-                  </ProtectedRoute>
-                } />
-                <Route path="/convenio-config/:id" element={
-                  <ProtectedRoute>
-                    <MainApp />
-                  </ProtectedRoute>
-                } />
-                <Route path="/*" element={
-                  <ProtectedRoute>
-                    <MainApp />
-                  </ProtectedRoute>
-                } />
-              </Routes>
-            </BrowserRouter>
-          </NotificationsProvider>
-        </UnidadeProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/perfil" element={<ProtectedApp />} />
+            <Route path="/prontuario/:id" element={<ProtectedApp />} />
+            <Route path="/convenio-config/:id" element={<ProtectedApp />} />
+            <Route path="/*" element={<ProtectedApp />} />
+          </Routes>
+        </BrowserRouter>
       </AuthProvider>
     </ThemeProvider>
   );
