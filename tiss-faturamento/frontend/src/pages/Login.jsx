@@ -28,7 +28,7 @@ export default function LoginPage() {
       
       if (isAuthenticated) {
         console.log('✅ [LoginPage] Usuário já autenticado, redirecionando...');
-        navigate('/');
+        navigate('/', { replace: true });
       }
     };
     
@@ -66,7 +66,7 @@ export default function LoginPage() {
       if (result.success) {
         console.log('✅ [LoginPage] Login bem-sucedido!');
         toast.success('Login realizado com sucesso!');
-        navigate('/');
+        navigate('/', { replace: true });
       } else {
         console.error('❌ [LoginPage] Falha no login:', result.error);
         
