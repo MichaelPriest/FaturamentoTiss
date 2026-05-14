@@ -31,6 +31,8 @@ import UnidadeSelector from './components/UnidadeSelector';
 import Agendamentos from './pages/Agendamentos';
 import Prontuario from './pages/Prontuario';
 import Salas from './pages/Salas';
+import Ocupacao from './pages/Ocupacao';
+import Chamados from './pages/Chamados';
 import Unidades from './pages/Unidades';
 import LoginPage from './pages/Login';
 import Perfil from './pages/Perfil';
@@ -52,6 +54,7 @@ const TAB_ROUTES = new Set([
   'unidades',
   'atendimentos',
   'agendamentos',
+  'ocupacao',
   'autorizacoes',
   'faturamento',
   'glosas',
@@ -59,6 +62,7 @@ const TAB_ROUTES = new Set([
   'relatorios',
   'perfil',
   'notificacoes',
+  'chamados',
   'configuracoes'
 ]);
 
@@ -104,6 +108,7 @@ function ProtectedApp() {
 // Componente Principal do App (logado)
 function MainApp() {
   const [activeTab, setActiveTab] = useState(() => getTabFromPath(window.location.pathname));
+  const [visitedTabs, setVisitedTabs] = useState(() => new Set([getTabFromPath(window.location.pathname)]));
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState({
@@ -132,6 +137,15 @@ function MainApp() {
       openGroupForItem(nextTab);
     }
   }, [location.pathname, isSpecialRoute]);
+
+  useEffect(() => {
+    setVisitedTabs((prev) => {
+      if (prev.has(activeTab)) return prev;
+      const next = new Set(prev);
+      next.add(activeTab);
+      return next;
+    });
+  }, [activeTab]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentDateTime(new Date()), 1000);
@@ -204,6 +218,7 @@ function MainApp() {
       id: 'agenda', name: 'Agenda', icon: CalendarDaysIcon,
       items: [
         { id: 'agendamentos', name: 'Agendamentos', icon: CalendarIcon, color: 'from-cyan-500 to-cyan-600' },
+        { id: 'ocupacao', name: 'Mapa de Ocupação', icon: HomeModernIcon, color: 'from-violet-500 to-violet-600' },
         { id: 'atendimentos', name: 'Atendimentos', icon: ClipboardDocumentListIcon, color: 'from-pink-500 to-pink-600' }
       ]
     },
@@ -235,18 +250,14 @@ function MainApp() {
       items: [
         { id: 'perfil', name: 'Meu Perfil', icon: UserCircleIcon, color: 'from-blue-500 to-blue-600' },
         { id: 'notificacoes', name: 'Notificações', icon: BellAlertIcon, color: 'from-rose-500 to-rose-600' },
+        { id: 'chamados', name: 'Chamados', icon: ClipboardDocumentCheckIcon, color: 'from-amber-500 to-amber-600' },
         { id: 'configuracoes', name: 'Configurações', icon: Cog6ToothIcon, color: 'from-gray-500 to-gray-600' }
       ]
     }
   ];
 
-  const renderContent = () => {
-    const pathname = location.pathname;
-    
-    if (pathname.includes('/prontuario/')) return <Prontuario />;
-    if (pathname.includes('/convenio-config/')) return <ConvenioConfig />;
-    
-    switch(activeTab) {
+  const renderTabContent = (tabId) => {
+    switch(tabId) {
       case 'dashboard': return <Dashboard />;
       case 'convenios': return <Convenios />;
       case 'pacientes': return <Pacientes />;
@@ -256,6 +267,7 @@ function MainApp() {
       case 'unidades': return <Unidades />;
       case 'atendimentos': return <Atendimentos />;
       case 'agendamentos': return <Agendamentos />;
+      case 'ocupacao': return <Ocupacao />;
       case 'autorizacoes': return <Autorizacoes />;
       case 'faturamento': return <Faturamento />;
       case 'glosas': return <Glosas />;
@@ -263,9 +275,19 @@ function MainApp() {
       case 'relatorios': return <Relatorios />;
       case 'perfil': return <Perfil />;
       case 'notificacoes': return <Notificacoes />;
+      case 'chamados': return <Chamados />;
       case 'configuracoes': return <Configuracoes />;
       default: return <Dashboard />;
     }
+  };
+
+  const renderContent = () => {
+    const pathname = location.pathname;
+
+    if (pathname.includes('/prontuario/')) return <Prontuario />;
+    if (pathname.includes('/convenio-config/')) return <ConvenioConfig />;
+
+    return renderTabContent(activeTab);
   };
 
   const getPageTitle = () => {
@@ -288,6 +310,7 @@ function MainApp() {
       faturamento: 'Geração e envio de lotes TISS',
       atendimentos: 'Registro de atendimentos e guias',
       agendamentos: 'Gerenciamento de agenda e consultas',
+      ocupacao: 'Mapa de salas, horários e disponibilidade',
       financeiro: 'Contas a receber, pagar e fluxo de caixa',
       glosas: 'Gestão de glosas e recursos',
       relatorios: 'Análise de dados e métricas',
@@ -295,6 +318,7 @@ function MainApp() {
       unidades: 'Cadastro de filiais, clínicas e unidades de atendimento',
       perfil: 'Gerencie suas informações pessoais e senha',
       notificacoes: 'Central de avisos, alertas e eventos por unidade',
+      chamados: 'Solicitações internas, suporte e acompanhamento',
       configuracoes: 'Configurações do sistema e usuários'
     };
     return subtitles[activeTab] || 'Cadastro e gerenciamento de dados';
@@ -452,7 +476,13 @@ function MainApp() {
             </div>
           </div>
         </header>
-        <div className="p-6">{renderContent()}</div>
+        <div className="p-6">
+          {Array.from(visitedTabs).map((tabId) => (
+            <div key={tabId} className={tabId === activeTab ? 'block' : 'hidden'}>
+              {renderTabContent(tabId)}
+            </div>
+          ))}
+        </div>
       </main>
 
       {/* Mobile Sidebar */}
@@ -536,7 +566,6 @@ function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/perfil" element={<ProtectedApp />} />
             <Route path="/prontuario/:id" element={<ProtectedApp />} />
             <Route path="/convenio-config/:id" element={<ProtectedApp />} />
             <Route path="/*" element={<ProtectedApp />} />
