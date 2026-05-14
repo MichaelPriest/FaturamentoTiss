@@ -10,6 +10,16 @@ create table if not exists public.chamados (
   solicitante_nome text,
   responsavel_id uuid,
   responsavel_nome text,
+  paciente_id text,
+  paciente_nome text,
+  senha text,
+  origem_nome text,
+  destino_tipo text,
+  destino_nome text,
+  agendamento_id text,
+  chamado_em timestamptz,
+  atendido_em timestamptz,
+  finalizado_em timestamptz,
   unidade_id uuid references public.unidades(id) on delete set null,
   resolvido_em timestamptz,
   metadata jsonb not null default '{}'::jsonb,
@@ -19,6 +29,19 @@ create table if not exists public.chamados (
 
 create index if not exists chamados_unidade_status_idx on public.chamados (unidade_id, status, prioridade, created_at desc);
 create index if not exists chamados_solicitante_idx on public.chamados (solicitante_id, created_at desc);
+create index if not exists chamados_paciente_idx on public.chamados (paciente_id, created_at desc);
+
+alter table public.chamados
+  add column if not exists paciente_id text,
+  add column if not exists paciente_nome text,
+  add column if not exists senha text,
+  add column if not exists origem_nome text,
+  add column if not exists destino_tipo text,
+  add column if not exists destino_nome text,
+  add column if not exists agendamento_id text,
+  add column if not exists chamado_em timestamptz,
+  add column if not exists atendido_em timestamptz,
+  add column if not exists finalizado_em timestamptz;
 
 -- Inclui chamados no sistema automático de notificações quando a migration de notificações já estiver aplicada.
 do $$
