@@ -42,6 +42,33 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { UnidadeProvider } from './contexts/UnidadeContext';
 import { NotificationsProvider } from './contexts/NotificationsContext';
 
+const TAB_ROUTES = new Set([
+  'dashboard',
+  'convenios',
+  'pacientes',
+  'prestadores',
+  'procedimentos',
+  'salas',
+  'unidades',
+  'atendimentos',
+  'agendamentos',
+  'autorizacoes',
+  'faturamento',
+  'glosas',
+  'financeiro',
+  'relatorios',
+  'perfil',
+  'notificacoes',
+  'configuracoes'
+]);
+
+const getTabFromPath = (pathname) => {
+  const firstSegment = pathname.split('/').filter(Boolean)[0];
+  return firstSegment && TAB_ROUTES.has(firstSegment) ? firstSegment : 'dashboard';
+};
+
+const getPathForTab = (tabId) => tabId === 'dashboard' ? '/' : `/${tabId}`;
+
 // Componente de Proteção de Rota
 function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -76,7 +103,7 @@ function ProtectedApp() {
 
 // Componente Principal do App (logado)
 function MainApp() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(() => getTabFromPath(window.location.pathname));
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState({
@@ -96,6 +123,14 @@ function MainApp() {
 
   // Verificar se é rota de prontuário ou convenio-config
   const isSpecialRoute = location.pathname.includes('/prontuario/') || location.pathname.includes('/convenio-config/');
+
+  useEffect(() => {
+    if (!isSpecialRoute) {
+      const nextTab = getTabFromPath(location.pathname);
+      setActiveTab(nextTab);
+      openGroupForItem(nextTab);
+    }
+  }, [location.pathname, isSpecialRoute]);
 
   useEffect(() => {
     const storedConfig = localStorage.getItem('config_sistema');
@@ -340,6 +375,7 @@ function MainApp() {
                         onClick={() => {
                           setActiveTab(item.id);
                           openGroupForItem(item.id);
+                          navigate(getPathForTab(item.id));
                         }}
                         className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 group ${
                           isActive 
@@ -460,6 +496,7 @@ function MainApp() {
                           setActiveTab(item.id); 
                           setMobileSidebarOpen(false);
                           openGroupForItem(item.id);
+                          navigate(getPathForTab(item.id));
                         }}
                         className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 ${isActive ? `bg-gradient-to-r ${item.color} text-white shadow-lg` : 'text-gray-400 hover:text-white hover:bg-gray-800/50'}`}
                       >

@@ -11,7 +11,6 @@ begin
     'configuracoes',
     'convenios_config',
     'especialidades',
-    'prestador_especialidade',
     'contas_receber',
     'contas_pagar',
     'fluxo_caixa',
@@ -32,6 +31,30 @@ begin
       execute format('create index if not exists %I on public.%I (unidade_id)', table_name || '_unidade_id_idx', table_name);
     end if;
   end loop;
+end $$;
+
+-- 1.1) Garante default para lotes_faturamento.id em bases onde a coluna foi criada NOT NULL sem default.
+do $$
+declare
+  id_type text;
+  id_default text;
+begin
+  select data_type, column_default
+    into id_type, id_default
+  from information_schema.columns
+  where table_schema = 'public'
+    and table_name = 'lotes_faturamento'
+    and column_name = 'id';
+
+  if id_type = 'uuid' and id_default is null then
+    execute 'alter table public.lotes_faturamento alter column id set default gen_random_uuid()';
+  elsif id_type in ('integer', 'bigint', 'smallint') and id_default is null then
+    execute 'create sequence if not exists public.lotes_faturamento_id_seq owned by public.lotes_faturamento.id';
+    execute 'select setval(''public.lotes_faturamento_id_seq'', coalesce((select max(id)::bigint from public.lotes_faturamento), 0) + 1, false)';
+    execute 'alter table public.lotes_faturamento alter column id set default nextval(''public.lotes_faturamento_id_seq'')';
+  elsif id_type in ('text', 'character varying') and id_default is null then
+    execute 'alter table public.lotes_faturamento alter column id set default gen_random_uuid()::text';
+  end if;
 end $$;
 
 -- 2) Metadados de origem para rastrear qual registro/ação gerou cada notificação.
