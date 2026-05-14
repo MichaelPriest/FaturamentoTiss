@@ -120,6 +120,7 @@ function MainApp() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [currentDateTime, setCurrentDateTime] = useState(() => new Date());
 
   // Verificar se é rota de prontuário ou convenio-config
   const isSpecialRoute = location.pathname.includes('/prontuario/') || location.pathname.includes('/convenio-config/');
@@ -131,6 +132,11 @@ function MainApp() {
       openGroupForItem(nextTab);
     }
   }, [location.pathname, isSpecialRoute]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentDateTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const storedConfig = localStorage.getItem('config_sistema');
@@ -295,6 +301,18 @@ function MainApp() {
   };
 
   const nomeUsuario = user?.nome?.split(' ')[0] || user?.email?.split('@')[0] || 'Usuário';
+  const userPhoto = user?.foto;
+  const formattedDate = currentDateTime.toLocaleDateString('pt-BR', {
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+  const formattedTime = currentDateTime.toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
 
   // Se for rota especial, não mostra sidebar
   if (isSpecialRoute) {
@@ -335,21 +353,7 @@ function MainApp() {
           </button>
         </div>
 
-        <div className="mx-4 mt-6 p-3 bg-gradient-to-r from-gray-800 to-gray-750 rounded-xl">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
-              <span className="text-white font-semibold text-sm">
-                {nomeUsuario.substring(0, 2).toUpperCase()}
-              </span>
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-white">{user?.nome || nomeUsuario}</p>
-              <p className="text-xs text-gray-400">{user?.role === 'admin' ? 'Administrador' : 'Usuário'}</p>
-            </div>
-          </div>
-        </div>
-
-        <nav className="p-4 space-y-2 mt-4 overflow-y-auto max-h-[calc(100vh-180px)]">
+        <nav className="p-4 space-y-2 mt-4 overflow-y-auto max-h-[calc(100vh-100px)]">
           {menuGroups.map((group) => (
             <div key={group.id} className="space-y-1">
               {sidebarOpen && (
@@ -395,12 +399,6 @@ function MainApp() {
           ))}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-700/50">
-          <button onClick={handleLogout} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 text-gray-400 hover:text-red-400 hover:bg-red-500/10 ${!sidebarOpen ? 'justify-center' : ''}`}>
-            <ArrowRightOnRectangleIcon className="w-5 h-5 flex-shrink-0" />
-            {sidebarOpen && <span className="text-sm">Sair do Sistema</span>}
-          </button>
-        </div>
       </aside>
 
       {/* Main Content */}
@@ -419,6 +417,10 @@ function MainApp() {
 
             <div className="flex items-center gap-3">
               <UnidadeSelector />
+              <div className="hidden md:flex flex-col items-end px-3 py-1.5 rounded-xl bg-gray-100/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 capitalize">{formattedDate}</span>
+                <span className="font-mono text-sm font-semibold text-gray-800 dark:text-gray-100 tabular-nums">{formattedTime}</span>
+              </div>
               <button onClick={toggleDarkMode} className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200">
                 {darkMode ? <SunIcon className="w-5 h-5 text-yellow-500" /> : <MoonIcon className="w-5 h-5 text-gray-600 dark:text-gray-400" />}
               </button>
@@ -427,14 +429,19 @@ function MainApp() {
                 onClick={() => {
                   setActiveTab('perfil');
                   openGroupForItem('perfil');
+                  navigate(getPathForTab('perfil'));
                 }}
                 className="flex items-center gap-3 pl-3 border-l border-gray-200 dark:border-gray-700 hover:opacity-80 transition-opacity"
                 title="Meu Perfil"
               >
-                <div className="w-9 h-9 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-md">
-                  <span className="text-white font-semibold text-sm">{nomeUsuario.substring(0, 2).toUpperCase()}</span>
+                <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center shadow-md ring-2 ring-white dark:ring-gray-800">
+                  {userPhoto ? (
+                    <img src={userPhoto} alt={user?.nome || nomeUsuario} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-white font-semibold text-sm">{nomeUsuario.substring(0, 2).toUpperCase()}</span>
+                  )}
                 </div>
-                <div className="hidden sm:block">
+                <div className="hidden sm:block text-left">
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{user?.nome || nomeUsuario}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">{user?.role === 'admin' ? 'Administrador' : 'Usuário'}</p>
                 </div>
