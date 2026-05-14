@@ -9,7 +9,7 @@ import {
   ChevronLeftIcon, ChevronRightIcon, SunIcon, MoonIcon,
   CalendarDaysIcon, FolderIcon, ChevronDownIcon, ChevronUpIcon,
   HomeModernIcon, BanknotesIcon, ClipboardDocumentCheckIcon, BuildingOffice2Icon, BellAlertIcon,
-  UserCircleIcon
+  UserCircleIcon, MegaphoneIcon, TvIcon
 } from '@heroicons/react/24/outline';
 
 import Dashboard from './pages/Dashboard';
@@ -32,11 +32,12 @@ import Agendamentos from './pages/Agendamentos';
 import Prontuario from './pages/Prontuario';
 import Salas from './pages/Salas';
 import Ocupacao from './pages/Ocupacao';
-import Chamados from './pages/Chamados';
+import ChamadosRegistro from './pages/ChamadosRegistro';
+import ChamadosPainel from './pages/ChamadosPainel';
 import Unidades from './pages/Unidades';
 import LoginPage from './pages/Login';
 import Perfil from './pages/Perfil';
-import ResetPassword from './pages/ResetPassword'; // Importar a página de reset
+import ResetPassword from './pages/ResetPassword';
 
 import { setConfig } from './lib/tissGenerator';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
@@ -63,15 +64,26 @@ const TAB_ROUTES = new Set([
   'perfil',
   'notificacoes',
   'chamados',
+  'chamados-painel',
   'configuracoes'
 ]);
 
 const getTabFromPath = (pathname) => {
   const firstSegment = pathname.split('/').filter(Boolean)[0];
+  
+  // Mapeamento especial para as rotas de chamados
+  if (pathname === '/chamados/painel') return 'chamados-painel';
+  if (pathname === '/chamados/registro') return 'chamados';
+  
   return firstSegment && TAB_ROUTES.has(firstSegment) ? firstSegment : 'dashboard';
 };
 
-const getPathForTab = (tabId) => tabId === 'dashboard' ? '/' : `/${tabId}`;
+const getPathForTab = (tabId) => {
+  if (tabId === 'dashboard') return '/';
+  if (tabId === 'chamados') return '/chamados/registro';
+  if (tabId === 'chamados-painel') return '/chamados/painel';
+  return `/${tabId}`;
+};
 
 // Componente de Proteção de Rota
 function ProtectedRoute({ children }) {
@@ -119,6 +131,7 @@ function MainApp() {
     faturamento: false,
     financeiro: false,
     relatorios: false,
+    chamados: false,
     notificacoes: false
   });
   const { darkMode, toggleDarkMode } = useTheme();
@@ -246,11 +259,17 @@ function MainApp() {
       items: [{ id: 'relatorios', name: 'Relatórios', icon: ChartBarIcon, color: 'from-indigo-500 to-indigo-600' }]
     },
     {
+      id: 'chamados', name: 'Chamadas', icon: MegaphoneIcon,
+      items: [
+        { id: 'chamados', name: 'Recepção / Registro', icon: ClipboardDocumentCheckIcon, color: 'from-green-500 to-green-600' },
+        { id: 'chamados-painel', name: 'Painel de Chamadas', icon: TvIcon, color: 'from-blue-500 to-blue-600' }
+      ]
+    },
+    {
       id: 'configuracoes', name: 'Configurações', icon: Cog6ToothIcon,
       items: [
         { id: 'perfil', name: 'Meu Perfil', icon: UserCircleIcon, color: 'from-blue-500 to-blue-600' },
         { id: 'notificacoes', name: 'Notificações', icon: BellAlertIcon, color: 'from-rose-500 to-rose-600' },
-        { id: 'chamados', name: 'Chamados', icon: ClipboardDocumentCheckIcon, color: 'from-amber-500 to-amber-600' },
         { id: 'configuracoes', name: 'Configurações', icon: Cog6ToothIcon, color: 'from-gray-500 to-gray-600' }
       ]
     }
@@ -275,7 +294,8 @@ function MainApp() {
       case 'relatorios': return <Relatorios />;
       case 'perfil': return <Perfil />;
       case 'notificacoes': return <Notificacoes />;
-      case 'chamados': return <Chamados />;
+      case 'chamados': return <ChamadosRegistro />;
+      case 'chamados-painel': return <ChamadosPainel />;
       case 'configuracoes': return <Configuracoes />;
       default: return <Dashboard />;
     }
@@ -294,6 +314,9 @@ function MainApp() {
     const pathname = location.pathname;
     if (pathname.includes('/prontuario/')) return 'Prontuário Eletrônico';
     if (pathname.includes('/convenio-config/')) return 'Configurações Avançadas do Convênio';
+    
+    if (activeTab === 'chamados') return 'Recepção / Registro';
+    if (activeTab === 'chamados-painel') return 'Painel de Chamadas';
     
     const found = menuGroups.flatMap(g => g.items).find(i => i.id === activeTab);
     return found?.name || 'Dashboard';
@@ -318,7 +341,8 @@ function MainApp() {
       unidades: 'Cadastro de filiais, clínicas e unidades de atendimento',
       perfil: 'Gerencie suas informações pessoais e senha',
       notificacoes: 'Central de avisos, alertas e eventos por unidade',
-      chamados: 'Solicitações internas, suporte e acompanhamento',
+      chamados: 'Adicione pacientes à fila para atendimento',
+      'chamados-painel': 'Painel público de chamadas estilo hospitalar',
       configuracoes: 'Configurações do sistema e usuários'
     };
     return subtitles[activeTab] || 'Cadastro e gerenciamento de dados';
@@ -568,6 +592,8 @@ function App() {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/prontuario/:id" element={<ProtectedApp />} />
             <Route path="/convenio-config/:id" element={<ProtectedApp />} />
+            <Route path="/chamados/registro" element={<ProtectedApp />} />
+            <Route path="/chamados/painel" element={<ProtectedApp />} />
             <Route path="/*" element={<ProtectedApp />} />
           </Routes>
         </BrowserRouter>
