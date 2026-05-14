@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { setConfig as setTissConfig } from '../lib/tissGenerator';
 import { supabase } from '../lib/supabaseClient';
+import { useUnidade } from '../contexts/UnidadeContext';
+import { TODAS_UNIDADES_ID, applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
 import { 
   BuildingOfficeIcon, 
   CheckCircleIcon, 
@@ -20,18 +22,22 @@ const UFS = [
   'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
 ];
 
+const DEFAULT_CONFIG = {
+  nome_empresa: 'Minha Clínica',
+  nome_contratado: 'MINHA CLÍNICA LTDA',
+  cnpj: '',
+  cnes: '',
+  conselho_clinica: '06',
+  uf_clinica: 'SP',
+  cbos_clinica: '225125'
+};
+
 export default function Configuracoes() {
+  const { unidadeAtualId, unidadeAtual } = useUnidade();
+  const configKey = unidadeAtualId && unidadeAtualId !== TODAS_UNIDADES_ID ? `config_clinica_${unidadeAtualId}` : 'config_clinica';
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [config, setConfig] = useState({
-    nome_empresa: 'Minha Clínica',
-    nome_contratado: 'MINHA CLÍNICA LTDA',
-    cnpj: '',
-    cnes: '',
-    conselho_clinica: '06',
-    uf_clinica: 'SP',
-    cbos_clinica: '225125'
-  });
+  const [config, setConfig] = useState(DEFAULT_CONFIG);
   
   const [usuarios, setUsuarios] = useState([]);
   const [showUserModal, setShowUserModal] = useState(false);
@@ -46,7 +52,7 @@ export default function Configuracoes() {
 
   useEffect(() => {
     carregarDados();
-  }, []);
+  }, [unidadeAtualId]);
 
   const carregarDados = async () => {
     setLoading(true);
@@ -55,15 +61,18 @@ export default function Configuracoes() {
       const { data: configData, error: configError } = await supabase
         .from('configuracoes')
         .select('*')
-        .eq('chave', 'config_clinica')
+        .eq('chave', configKey)
         .maybeSingle();
 
       if (configError) throw configError;
       
       if (configData && configData.valor) {
         const parsedConfig = JSON.parse(configData.valor);
-        setConfig(parsedConfig);
+        setConfig({ ...DEFAULT_CONFIG, ...parsedConfig });
         setTissConfig(parsedConfig);
+      } else {
+        setConfig(DEFAULT_CONFIG);
+        setTissConfig(DEFAULT_CONFIG);
       }
 
       // Carregar usuários
@@ -86,7 +95,7 @@ export default function Configuracoes() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setUsuarios(data || []);
+      setUsuarios(filterByUnidade(data || [], unidadeAtualId));
     } catch (error) {
       console.error('Erro ao carregar usuários:', error);
     } finally {
@@ -106,7 +115,7 @@ export default function Configuracoes() {
       const { data: existing, error: checkError } = await supabase
         .from('configuracoes')
         .select('chave')
-        .eq('chave', 'config_clinica')
+        .eq('chave', configKey)
         .maybeSingle();
 
       if (checkError) throw checkError;
@@ -116,27 +125,27 @@ export default function Configuracoes() {
         const { error: updateError } = await supabase
           .from('configuracoes')
           .update({
-            valor: JSON.stringify(config),
+            valor: JSON.stringify({ ...config, unidade_id: unidadeAtualId }),
             updated_at: new Date().toISOString()
           })
-          .eq('chave', 'config_clinica');
+          .eq('chave', configKey);
         error = updateError;
       } else {
         const { error: insertError } = await supabase
           .from('configuracoes')
-          .insert({
-            chave: 'config_clinica',
-            valor: JSON.stringify(config),
-            descricao: 'Configurações da clínica',
+          .insert([applyUnidadeToPayload({
+            chave: configKey,
+            valor: JSON.stringify({ ...config, unidade_id: unidadeAtualId }),
+            descricao: `Configurações da clínica${unidadeAtual?.nome ? ` - ${unidadeAtual.nome}` : ''}`,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
-          });
+          }, unidadeAtualId)]);
         error = insertError;
       }
 
       if (error) throw error;
 
-      localStorage.setItem('config_clinica', JSON.stringify(config));
+      localStorage.setItem(configKey, JSON.stringify(config));
       setTissConfig(config);
       toast.success('Configurações salvas com sucesso!');
     } catch (error) {
@@ -177,7 +186,8 @@ export default function Configuracoes() {
             nome: userForm.nome,
             role: userForm.role,
             ativo: true,
-            created_at: new Date().toISOString()
+            created_at: new Date().toISOString(),
+            unidade_id: unidadeAtualId !== TODAS_UNIDADES_ID ? unidadeAtualId : null
           });
 
         if (dbError) throw dbError;
@@ -208,7 +218,8 @@ export default function Configuracoes() {
         .update({
           nome: userForm.nome,
           role: userForm.role,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          unidade_id: unidadeAtualId !== TODAS_UNIDADES_ID ? unidadeAtualId : null
         })
         .eq('id', editingUser.id);
 
@@ -240,7 +251,7 @@ export default function Configuracoes() {
     try {
       const { error } = await supabase
         .from('usuarios')
-        .update({ ativo: false, updated_at: new Date().toISOString() })
+        .update({ ativo: false, updated_at: new Date().toISOString(), unidade_id: unidadeAtualId !== TODAS_UNIDADES_ID ? unidadeAtualId : null })
         .eq('id', usuario.id);
 
       if (error) throw error;
@@ -297,7 +308,7 @@ export default function Configuracoes() {
               Configurações da Clínica
             </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              Configure os dados da sua clínica/hospital
+              Configure os dados da clínica/hospital para a unidade selecionada
             </p>
           </div>
           <button

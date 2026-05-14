@@ -22,6 +22,7 @@ const applyTheme = (theme) => {
   if (typeof document === 'undefined') return;
   document.documentElement.classList.toggle('dark', theme === 'dark');
   document.documentElement.dataset.theme = theme;
+  document.documentElement.style.colorScheme = theme;
 };
 
 const ThemeContext = createContext({
