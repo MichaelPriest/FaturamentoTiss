@@ -28,17 +28,47 @@ export default function ChamadosRegistro() {
   const [formData, setFormData] = useState(initialForm);
   const [buscando, setBuscando] = useState(false);
   const [error, setError] = useState(null);
+  const [dataAtual, setDataAtual] = useState('');
+  const [horaAtual, setHoraAtual] = useState('');
+
+  // Atualizar data e hora atual do PC
+  useEffect(() => {
+    const agora = new Date();
+    const dataFormatada = agora.toISOString().split('T')[0];
+    const horaFormatada = `${agora.getHours().toString().padStart(2, '0')}:${agora.getMinutes().toString().padStart(2, '0')}`;
+    
+    setDataAtual(dataFormatada);
+    setHoraAtual(horaFormatada);
+    
+    console.log('🕐 Data/Hora atual do PC:', { dataAtual: dataFormatada, horaAtual: horaFormatada });
+    
+    // Atualizar a cada minuto
+    const interval = setInterval(() => {
+      const novaData = new Date();
+      setDataAtual(novaData.toISOString().split('T')[0]);
+      setHoraAtual(`${novaData.getHours().toString().padStart(2, '0')}:${novaData.getMinutes().toString().padStart(2, '0')}`);
+    }, 60000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   const carregarDados = async () => {
     setLoading(true);
     setError(null);
     try {
-      const hoje = new Date().toISOString().split('T')[0];
+      // Usar a data atual do PC
+      const hoje = dataAtual || new Date().toISOString().split('T')[0];
       
-      console.log('📅 Buscando agendamentos para:', hoje);
+      // Calcular data limite (próximos 7 dias)
+      const dataLimite = new Date();
+      dataLimite.setDate(dataLimite.getDate() + 7);
+      const dataLimiteStr = dataLimite.toISOString().split('T')[0];
+      
+      console.log('📅 Buscando agendamentos entre:', hoje, 'e', dataLimiteStr);
+      console.log('🕐 Hora atual:', horaAtual);
       console.log('🏢 Unidade atual:', unidadeAtualId);
       
-      // Buscar TODOS os agendamentos do dia (sem filtro de status inicialmente)
+      // Buscar agendamentos a partir de hoje até próximos 7 dias
       let query = supabase
         .from('agendamentos')
         .select(`
@@ -62,7 +92,10 @@ export default function ChamadosRegistro() {
           observacao,
           unidade_id
         `)
-        .eq('data_agendamento', hoje)
+        .gte('data_agendamento', hoje)
+        .lte('data_agendamento', dataLimiteStr)
+        .in('status', ['agendado', 'confirmado', 'em_andamento'])
+        .order('data_agendamento', { ascending: true })
         .order('hora_inicio', { ascending: true });
 
       // Se tiver unidade específica, filtrar por ela
@@ -78,14 +111,13 @@ export default function ChamadosRegistro() {
       }
 
       console.log('📋 Agendamentos encontrados:', agendamentosData?.length || 0);
-      console.log('📋 Dados brutos:', agendamentosData);
-
-      // Filtrar apenas os que não foram finalizados/cancelados
-      const agendamentosAtivos = (agendamentosData || []).filter(ag => 
-        !['finalizado', 'cancelado', 'atendido'].includes(ag.status?.toLowerCase())
-      );
-
-      console.log('📋 Agendamentos ativos:', agendamentosAtivos.length);
+      
+      // Separar agendamentos por data
+      const agendamentosHoje = (agendamentosData || []).filter(ag => ag.data_agendamento === hoje);
+      const agendamentosFuturos = (agendamentosData || []).filter(ag => ag.data_agendamento > hoje);
+      
+      console.log('📋 Agendamentos hoje:', agendamentosHoje.length);
+      console.log('📋 Agendamentos futuros:', agendamentosFuturos.length);
 
       // Buscar salas ativas da unidade
       let salasQuery = supabase
@@ -107,12 +139,8 @@ export default function ChamadosRegistro() {
 
       console.log('🏢 Salas encontradas:', salasData?.length || 0);
 
-      setAgendamentos(agendamentosAtivos);
+      setAgendamentos(agendamentosData || []);
       setSalas(salasData || []);
-      
-      if (agendamentosAtivos.length === 0 && (agendamentosData || []).length > 0) {
-        console.log('⚠️ Todos os agendamentos foram filtrados por status');
-      }
       
     } catch (error) {
       console.error('❌ Erro ao carregar dados:', error);
@@ -123,9 +151,40 @@ export default function ChamadosRegistro() {
     }
   };
 
+  // Recarregar quando a data mudar ou unidade mudar
   useEffect(() => {
-    carregarDados();
-  }, [unidadeAtualId]);
+    if (dataAtual) {
+      carregarDados();
+    }
+  }, [dataAtual, unidadeAtualId]);
+
+  // Função para formatar data para exibição
+  const formatarData = (dataString) => {
+    const data = new Date(dataString);
+    const hoje = new Date();
+    const amanha = new Date();
+    amanha.setDate(amanha.getDate() + 1);
+    
+    if (data.toDateString() === hoje.toDateString()) {
+      return 'Hoje';
+    } else if (data.toDateString() === amanha.toDateString()) {
+      return 'Amanhã';
+    } else {
+      return data.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    }
+  };
+
+  // Verificar se o agendamento já passou do horário
+  const isAtrasado = (dataAgendamento, horaInicio) => {
+    if (dataAgendamento !== dataAtual) return false;
+    
+    const agora = new Date();
+    const [horas, minutos] = horaInicio.split(':');
+    const horaAgendamento = new Date();
+    horaAgendamento.setHours(parseInt(horas), parseInt(minutos), 0);
+    
+    return agora > horaAgendamento;
+  };
 
   // Função para gerar senha aleatória
   const gerarSenhaAleatoria = () => {
@@ -276,7 +335,11 @@ export default function ChamadosRegistro() {
     return '#3B82F6';
   };
 
-  if (loading) {
+  // Separar agendamentos por data
+  const agendamentosHoje = agendamentos.filter(ag => ag.data_agendamento === dataAtual);
+  const agendamentosFuturos = agendamentos.filter(ag => ag.data_agendamento > dataAtual);
+
+  if (loading && !dataAtual) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
@@ -296,13 +359,19 @@ export default function ChamadosRegistro() {
               Adicione pacientes à fila de chamada por unidade
             </p>
           </div>
-          <button 
-            onClick={() => setShowModal(true)} 
-            className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:from-blue-600 hover:to-indigo-700 shadow-lg"
-          >
-            <UserPlusIcon className="w-4 h-4" /> 
-            Adicionar à Fila
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{dataAtual}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{horaAtual}</p>
+            </div>
+            <button 
+              onClick={() => setShowModal(true)} 
+              className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-4 py-2 rounded-xl text-sm flex items-center gap-2 hover:from-blue-600 hover:to-indigo-700 shadow-lg"
+            >
+              <UserPlusIcon className="w-4 h-4" /> 
+              Adicionar à Fila
+            </button>
+          </div>
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
@@ -383,33 +452,109 @@ export default function ChamadosRegistro() {
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {sala.tipo === 'consultorio' ? 'Consultório' : sala.tipo === 'procedimento' ? 'Procedimento' : 'Sala'}
                   </p>
-                  {sala.capacidade > 1 && (
-                    <p className="text-xs text-gray-400">Capacidade: {sala.capacidade}</p>
-                  )}
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Lista de Agendamentos */}
+        {/* Agendamentos de Hoje */}
         <div className="mt-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
             <h3 className="font-semibold text-gray-800 dark:text-white flex items-center gap-2">
               <CalendarIcon className="w-4 h-4" />
-              Agendamentos de hoje ({new Date().toLocaleDateString('pt-BR')})
-              {agendamentos.length > 0 && <span className="text-sm text-gray-500">({agendamentos.length})</span>}
+              Agendamentos de Hoje ({formatarData(dataAtual)})
+              {agendamentosHoje.length > 0 && <span className="text-sm text-gray-500">({agendamentosHoje.length})</span>}
             </h3>
           </div>
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {agendamentos.length === 0 ? (
+            {agendamentosHoje.length === 0 ? (
               <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                 <CalendarIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
                 <p>Nenhum agendamento para hoje</p>
-                <p className="text-xs mt-1">Os agendamentos aparecerão automaticamente quando houver consultas marcadas</p>
+                <p className="text-xs mt-1">Data atual: {dataAtual} - {horaAtual}</p>
               </div>
             ) : (
-              agendamentos.map((ag) => (
+              agendamentosHoje.map((ag) => {
+                const atrasado = isAtrasado(ag.data_agendamento, ag.hora_inicio);
+                return (
+                  <div key={ag.id} className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${atrasado ? 'bg-red-50 dark:bg-red-900/10' : ''}`}>
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium text-gray-800 dark:text-white">
+                            {ag.paciente_nome || 'Paciente não identificado'}
+                          </p>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
+                            {ag.tipo === 'consulta' ? 'Consulta' : ag.tipo === 'procedimento' ? 'Procedimento' : ag.tipo || 'Atendimento'}
+                          </span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            ag.status === 'agendado' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                            ag.status === 'confirmado' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                            ag.status === 'em_andamento' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                            'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400'
+                          }`}>
+                            {ag.status === 'agendado' ? 'Agendado' : ag.status === 'confirmado' ? 'Confirmado' : ag.status === 'em_andamento' ? 'Em andamento' : ag.status}
+                          </span>
+                          {atrasado && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                              Atrasado
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-gray-500 dark:text-gray-400">
+                          <div className="flex items-center gap-1">
+                            <ClockIcon className="w-3 h-3" />
+                            <span className={atrasado ? 'text-red-600 dark:text-red-400 font-medium' : ''}>
+                              {formatHora(ag.hora_inicio)} - {formatHora(ag.hora_fim)}
+                            </span>
+                          </div>
+                          {ag.prestador_nome && (
+                            <div className="flex items-center gap-1">
+                              <UserIcon className="w-3 h-3" />
+                              <span>{ag.prestador_nome}</span>
+                            </div>
+                          )}
+                          {ag.convenio_nome && (
+                            <div className="flex items-center gap-1">
+                              <BuildingOfficeIcon className="w-3 h-3" />
+                              <span>{ag.convenio_nome}</span>
+                            </div>
+                          )}
+                          {ag.sala_nome && (
+                            <span className="text-xs text-gray-400">Sala: {ag.sala_nome}</span>
+                          )}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          selecionarAgendamento(ag.id);
+                          setShowModal(true);
+                        }}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2 self-start"
+                      >
+                        <UserPlusIcon className="w-4 h-4" />
+                        Chamar Paciente
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* Próximos Agendamentos */}
+        {agendamentosFuturos.length > 0 && (
+          <div className="mt-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+              <h3 className="font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+                <CalendarIcon className="w-4 h-4" />
+                Próximos Agendamentos ({agendamentosFuturos.length})
+              </h3>
+            </div>
+            <div className="divide-y divide-gray-200 dark:divide-gray-700">
+              {agendamentosFuturos.map((ag) => (
                 <div key={ag.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <div className="flex-1">
@@ -420,13 +565,8 @@ export default function ChamadosRegistro() {
                         <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
                           {ag.tipo === 'consulta' ? 'Consulta' : ag.tipo === 'procedimento' ? 'Procedimento' : ag.tipo || 'Atendimento'}
                         </span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          ag.status === 'agendado' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
-                          ag.status === 'confirmado' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
-                          ag.status === 'em_andamento' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
-                          'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400'
-                        }`}>
-                          {ag.status === 'agendado' ? 'Agendado' : ag.status === 'confirmado' ? 'Confirmado' : ag.status === 'em_andamento' ? 'Em andamento' : ag.status}
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400">
+                          {formatarData(ag.data_agendamento)}
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -438,12 +578,6 @@ export default function ChamadosRegistro() {
                           <div className="flex items-center gap-1">
                             <UserIcon className="w-3 h-3" />
                             <span>{ag.prestador_nome}</span>
-                          </div>
-                        )}
-                        {ag.convenio_nome && (
-                          <div className="flex items-center gap-1">
-                            <BuildingOfficeIcon className="w-3 h-3" />
-                            <span>{ag.convenio_nome}</span>
                           </div>
                         )}
                         {ag.sala_nome && (
@@ -463,10 +597,10 @@ export default function ChamadosRegistro() {
                     </button>
                   </div>
                 </div>
-              ))
-            )}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Modal de Criação */}
@@ -490,10 +624,15 @@ export default function ChamadosRegistro() {
                   onChange={(e) => selecionarAgendamento(e.target.value)} 
                   className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm dark:text-white"
                 >
-                  <option value="">Selecionar agendamento de hoje</option>
-                  {agendamentos.map((agendamento) => (
+                  <option value="">Selecionar agendamento</option>
+                  {agendamentosHoje.map((agendamento) => (
                     <option key={agendamento.id} value={agendamento.id}>
-                      {formatHora(agendamento.hora_inicio)} - {agendamento.paciente_nome || 'Paciente'} ({agendamento.tipo === 'consulta' ? 'Consulta' : agendamento.tipo})
+                      {formatHora(agendamento.hora_inicio)} - {agendamento.paciente_nome || 'Paciente'} (Hoje)
+                    </option>
+                  ))}
+                  {agendamentosFuturos.map((agendamento) => (
+                    <option key={agendamento.id} value={agendamento.id}>
+                      {formatarData(agendamento.data_agendamento)} {formatHora(agendamento.hora_inicio)} - {agendamento.paciente_nome || 'Paciente'}
                     </option>
                   ))}
                 </select>
