@@ -19,6 +19,9 @@ const normalizeNotification = (notificacao = {}) => ({
   usuario_id: notificacao.usuario_id || null,
   unidade_id: notificacao.unidade_id ?? null,
   metadata: notificacao.metadata || {},
+  origem_tabela: notificacao.origem_tabela || null,
+  origem_id: notificacao.origem_id || null,
+  acao: notificacao.acao || null,
   created_at: notificacao.created_at || new Date().toISOString(),
   updated_at: new Date().toISOString()
 });
@@ -55,6 +58,22 @@ export const notificacoesService = {
 
     if (error) throw error;
     return data;
+  },
+
+
+  async criarPorAcao({ tabela, registroId, acao, titulo, mensagem, unidadeId, tipo = 'info', prioridade = 'normal', metadata = {} }) {
+    return this.criar({
+      titulo,
+      mensagem,
+      tipo,
+      categoria: 'acao',
+      prioridade,
+      unidade_id: unidadeId ?? getStoredUnidadeId(),
+      origem_tabela: tabela,
+      origem_id: registroId ? String(registroId) : null,
+      acao,
+      metadata: { ...metadata, tabela, registro_id: registroId, acao }
+    });
   },
 
   async atualizar(id, updates) {

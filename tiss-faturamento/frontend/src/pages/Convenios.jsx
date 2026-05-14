@@ -4,12 +4,14 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { conveniosService } from '../services/supabaseService';
 import { useTheme } from '../contexts/ThemeContext';
+import { useUnidade } from '../contexts/UnidadeContext';
 
 const UFS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
 
 export default function Convenios() {
   const navigate = useNavigate();
   const { darkMode } = useTheme();
+  const { unidadeAtualId } = useUnidade();
   const [convenios, setConvenios] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -44,7 +46,7 @@ export default function Convenios() {
 
   useEffect(() => {
     carregarConvenios();
-  }, []);
+  }, [unidadeAtualId]);
 
   const carregarConvenios = async () => {
     setLoading(true);

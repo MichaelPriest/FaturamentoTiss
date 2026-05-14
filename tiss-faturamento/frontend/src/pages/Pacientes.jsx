@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { format, differenceInDays, parseISO } from 'date-fns';
 import { pacientesService, conveniosService } from '../services/supabaseService';
 import SearchableSelect from '../components/SearchableSelect';
+import { useUnidade } from '../contexts/UnidadeContext';
 
 // Funções de máscara
 const aplicarMascaraCPF = (valor) => {
@@ -53,6 +54,7 @@ const SEXO_OPCOES = [
 ];
 
 export default function Pacientes() {
+  const { unidadeAtualId } = useUnidade();
   const [pacientes, setPacientes] = useState([]);
   const [convenios, setConvenios] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -85,7 +87,7 @@ export default function Pacientes() {
 
   useEffect(() => {
     carregarDados();
-  }, []);
+  }, [unidadeAtualId]);
 
   const carregarDados = async () => {
     setLoading(true);

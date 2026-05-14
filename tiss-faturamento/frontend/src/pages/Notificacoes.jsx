@@ -52,7 +52,8 @@ export default function Notificacoes() {
     total: notifications.length,
     naoLidas: unreadCount,
     alta: notifications.filter((notification) => notification.prioridade === 'alta').length,
-    sistema: notifications.filter((notification) => notification.categoria === 'sistema').length
+    sistema: notifications.filter((notification) => notification.categoria === 'sistema').length,
+    acoes: notifications.filter((notification) => notification.categoria === 'acao').length
   }), [notifications, unreadCount]);
 
   const getIcon = (tipo) => {
@@ -127,7 +128,7 @@ export default function Notificacoes() {
             { label: 'Total', value: resumo.total, color: 'text-blue-600 dark:text-blue-400' },
             { label: 'Não lidas', value: resumo.naoLidas, color: 'text-red-600 dark:text-red-400' },
             { label: 'Alta prioridade', value: resumo.alta, color: 'text-yellow-600 dark:text-yellow-400' },
-            { label: 'Sistema', value: resumo.sistema, color: 'text-purple-600 dark:text-purple-400' }
+            { label: 'Ações', value: resumo.acoes, color: 'text-green-600 dark:text-green-400' }
           ].map((card) => (
             <div key={card.label} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
               <p className="text-xs text-gray-500 dark:text-gray-400">{card.label}</p>
@@ -170,11 +171,13 @@ export default function Notificacoes() {
                         {!notification.lido && <span className="w-2 h-2 rounded-full bg-blue-500" />}
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 uppercase">{notification.categoria}</span>
                         {notification.prioridade === 'alta' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">Alta prioridade</span>}
+                        {notification.acao && <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 uppercase">{notification.acao}</span>}
                       </div>
                       <p className="text-sm text-gray-600 dark:text-gray-300">{notification.mensagem}</p>
                       <div className="flex flex-wrap gap-3 mt-3 text-xs text-gray-500 dark:text-gray-400">
                         <span>{notification.created_at ? format(new Date(notification.created_at), 'dd/MM/yyyy HH:mm') : ''}</span>
                         <span>{unidades.find((unidade) => unidade.id === notification.unidade_id)?.nome || (notification.unidade_id ? 'Unidade informada' : 'Todas as unidades')}</span>
+                        {notification.origem_tabela && <span>Origem: {notification.origem_tabela}{notification.origem_id ? ` #${notification.origem_id}` : ''}</span>}
                       </div>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-1">

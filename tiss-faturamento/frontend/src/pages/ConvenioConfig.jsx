@@ -21,6 +21,8 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabaseClient';
 import { useTheme } from '../contexts/ThemeContext';
+import { useUnidade } from '../contexts/UnidadeContext';
+import { applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
 import { useNavigate } from 'react-router-dom';
 
 const ESPECIALIDADES = [
@@ -67,6 +69,7 @@ const TIPOS_DOCUMENTOS = [
 ];
 
 export default function ConvenioConfig() {
+  const { unidadeAtualId } = useUnidade();
   const navigate = useNavigate();
   const { darkMode } = useTheme();
   const [convenios, setConvenios] = useState([]);
@@ -150,7 +153,7 @@ export default function ConvenioConfig() {
 
   useEffect(() => {
     carregarConvenios();
-  }, []);
+  }, [unidadeAtualId]);
 
   const carregarConvenios = async () => {
     setLoading(true);
@@ -161,16 +164,17 @@ export default function ConvenioConfig() {
         .order('razao_social', { ascending: true });
       
       if (error) throw error;
-      setConvenios(data || []);
+      const conveniosFiltrados = filterByUnidade(data || [], unidadeAtualId);
+      setConvenios(conveniosFiltrados);
       
       const id = window.location.pathname.split('/').pop();
-      if (id && data) {
-        const encontrado = data.find(c => c.id === parseInt(id));
+      if (id && conveniosFiltrados) {
+        const encontrado = conveniosFiltrados.find(c => c.id === parseInt(id));
         if (encontrado) {
           selecionarConvenio(encontrado);
         }
-      } else if (data && data.length > 0) {
-        selecionarConvenio(data[0]);
+      } else if (conveniosFiltrados && conveniosFiltrados.length > 0) {
+        selecionarConvenio(conveniosFiltrados[0]);
       }
     } catch (error) {
       console.error('Erro ao carregar convênios:', error);
@@ -237,7 +241,7 @@ export default function ConvenioConfig() {
       // 1. Atualiza os dados básicos na tabela convenios
       const { error: updateError } = await supabase
         .from('convenios')
-        .update({
+        .update(applyUnidadeToPayload({
           registro_ans: convenioData.registro_ans,
           razao_social: convenioData.razao_social,
           cnpj: convenioData.cnpj,
@@ -249,7 +253,7 @@ export default function ConvenioConfig() {
           ambiente: convenioData.ambiente,
           url_webservice: convenioData.url_webservice,
           updated_at: new Date().toISOString()
-        })
+        }, unidadeAtualId))
         .eq('id', convenioSelecionado.id);
       
       if (updateError) throw updateError;
@@ -257,11 +261,11 @@ export default function ConvenioConfig() {
       // 2. Atualiza as configurações avançadas
       const { error: configError } = await supabase
         .from('convenios_config')
-        .upsert({
+        .upsert(applyUnidadeToPayload({
           convenio_id: convenioSelecionado.id,
           configuracoes: JSON.stringify(config),
           updated_at: new Date().toISOString()
-        }, { onConflict: 'convenio_id' });
+        }, unidadeAtualId), { onConflict: 'convenio_id' });
       
       if (configError) throw configError;
       

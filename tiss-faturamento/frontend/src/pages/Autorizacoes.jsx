@@ -15,6 +15,8 @@ import {
 import { toast } from 'sonner';
 import { format, differenceInDays } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
+import { useUnidade } from '../contexts/UnidadeContext';
+import { filterByUnidade } from '../services/unidadesService';
 
 const STATUS_AUTORIZACAO = [
   { value: 'pendente', label: 'Sem Autorização', cor: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400', icone: ClockIcon },
@@ -25,6 +27,7 @@ const STATUS_AUTORIZACAO = [
 ];
 
 export default function Autorizacoes() {
+  const { unidadeAtualId } = useUnidade();
   const [autorizacoes, setAutorizacoes] = useState([]);
   const [pacientes, setPacientes] = useState([]);
   const [convenios, setConvenios] = useState([]);
@@ -62,7 +65,7 @@ export default function Autorizacoes() {
 
   useEffect(() => {
     carregarDados();
-  }, []);
+  }, [unidadeAtualId]);
 
   const carregarDados = async () => {
     setLoading(true);
@@ -74,10 +77,10 @@ export default function Autorizacoes() {
         supabase.from('procedimentos').select('*').order('codigo_tuss')
       ]);
 
-      setAutorizacoes(autorizacoesData);
-      setPacientes(pacientesData.data || []);
-      setConvenios(conveniosData.data || []);
-      setProcedimentos(procedimentosData.data || []);
+      setAutorizacoes(filterByUnidade(autorizacoesData, unidadeAtualId));
+      setPacientes(filterByUnidade(pacientesData.data || [], unidadeAtualId));
+      setConvenios(filterByUnidade(conveniosData.data || [], unidadeAtualId));
+      setProcedimentos(filterByUnidade(procedimentosData.data || [], unidadeAtualId));
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       toast.error('Erro ao carregar dados');
@@ -109,13 +112,14 @@ export default function Autorizacoes() {
         convenio_registro_ans,
         convenio_codigo_prestador,
         created_at,
-        updated_at
+        updated_at,
+        unidade_id
       `)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    return data.map(item => {
+    return filterByUnidade(data || [], unidadeAtualId).map(item => {
       const itensExecutados = item.itens || [];
       const itensAutorizadosList = item.itens_autorizados || [];
       
@@ -170,8 +174,8 @@ export default function Autorizacoes() {
 
       if (error && error.code !== 'PGRST116') throw error;
       
-      if (!data) {
-        toast.error('Guia não encontrada');
+      if (!data || filterByUnidade([data], unidadeAtualId).length === 0) {
+        toast.error('Guia não encontrada nesta unidade');
         setAtendimentoEncontrado(null);
         return;
       }
