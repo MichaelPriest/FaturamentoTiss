@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { 
   MegaphoneIcon, CheckCircleIcon, ClockIcon, BellAlertIcon, 
   UserGroupIcon, SpeakerWaveIcon, ArrowPathIcon, 
-  UserIcon, PhoneIcon, ArrowRightIcon, SpeakerXMarkIcon
+  UserIcon, PhoneIcon, ArrowRightIcon, SpeakerXMarkIcon,
+  TrophyIcon, StarIcon, FireIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabaseClient';
@@ -31,21 +32,27 @@ export default function ChamadosPainel() {
   const [filaEspera, setFilaEspera] = useState([]);
   const [somAtivo, setSomAtivo] = useState(true);
   const [ultimaChamada, setUltimaChamada] = useState(null);
+  const [totalAtendimentosHoje, setTotalAtendimentosHoje] = useState(0);
   const audioRef = useRef(null);
+
+  // Função para obter data atual no formato local
+  const getDataAtual = () => {
+    const hoje = new Date();
+    return hoje.toISOString().split('T')[0];
+  };
 
   // Função para emitir som de chamada
   const emitirSom = useCallback((pacienteNome, destino) => {
     if (!somAtivo) return;
     
     try {
-      // Tentar usar Web Speech API para voz
       const utterance = new SpeechSynthesisUtterance(
         `Chamando ${pacienteNome} para ${destino}`
       );
       utterance.lang = 'pt-BR';
       utterance.rate = 0.9;
       utterance.volume = 1;
-      window.speechSynthesis.cancel(); // Cancela chamadas anteriores
+      window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utterance);
     } catch (e) {
       console.log('Speech não suportado');
@@ -56,7 +63,6 @@ export default function ChamadosPainel() {
   const tocarSomNotificacao = useCallback(() => {
     if (!somAtivo) return;
     
-    // Criar um beep simples via Web Audio API
     try {
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
       const oscillator = audioContext.createOscillator();
@@ -72,7 +78,6 @@ export default function ChamadosPainel() {
       gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.5);
       oscillator.stop(audioContext.currentTime + 0.5);
       
-      // Fechar o contexto após o som
       setTimeout(() => audioContext.close(), 600);
     } catch (e) {
       console.log('Áudio não suportado');
@@ -96,17 +101,26 @@ export default function ChamadosPainel() {
       const atual = dadosFiltrados.find(c => c.status === 'em_atendimento');
       setChamadoAtual(atual || null);
 
-      // Últimos 8 chamados finalizados
+      // Últimos 12 chamados finalizados (com nome completo)
       const ultimos = dadosFiltrados
         .filter(c => c.status === 'finalizado')
-        .slice(0, 8);
+        .slice(0, 12);
       setUltimosChamados(ultimos);
 
       // Fila de espera (aguardando e chamados)
       const espera = dadosFiltrados
         .filter(c => c.status === 'aguardando' || c.status === 'chamado')
-        .slice(0, 8);
+        .slice(0, 10);
       setFilaEspera(espera);
+
+      // Total de atendimentos de hoje
+      const hoje = getDataAtual();
+      const atendimentosHoje = dadosFiltrados.filter(c => 
+        c.status === 'finalizado' && 
+        c.finalizado_em && 
+        c.finalizado_em.split('T')[0] === hoje
+      ).length;
+      setTotalAtendimentosHoje(atendimentosHoje);
 
       // Verificar se houve nova chamada
       const ultimoChamado = dadosFiltrados.find(c => c.status === 'chamado' && c.chamado_em);
@@ -128,7 +142,7 @@ export default function ChamadosPainel() {
     carregarDados();
   }, [carregarDados]);
 
-  // Auto-refresh a cada 3 segundos (mais rápido para TVs)
+  // Auto-refresh a cada 3 segundos
   useEffect(() => {
     const interval = setInterval(carregarDados, 3000);
     return () => clearInterval(interval);
@@ -183,6 +197,22 @@ export default function ChamadosPainel() {
     }
   };
 
+  // Função para formatar nome (primeira letra maiúscula)
+  const formatarNome = (nome) => {
+    if (!nome) return '---';
+    return nome.split(' ').map(palavra => 
+      palavra.charAt(0).toUpperCase() + palavra.slice(1).toLowerCase()
+    ).join(' ');
+  };
+
+  // Função para obter ícone de posição
+  const getPositionIcon = (index) => {
+    if (index === 0) return <TrophyIcon className="w-5 h-5 text-yellow-500" />;
+    if (index === 1) return <StarIcon className="w-5 h-5 text-gray-400" />;
+    if (index === 2) return <FireIcon className="w-5 h-5 text-orange-500" />;
+    return null;
+  };
+
   if (loading) {
     return (
       <div className="h-screen bg-gray-900 flex items-center justify-center">
@@ -193,10 +223,9 @@ export default function ChamadosPainel() {
 
   return (
     <div className="h-screen bg-gradient-to-br from-gray-900 to-gray-800 overflow-hidden">
-      {/* Container principal - ocupando 100% da tela */}
       <div className="h-full flex flex-col p-4 md:p-6">
         
-        {/* Cabeçalho do Painel - Minimalista para TV */}
+        {/* Cabeçalho do Painel */}
         <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-700">
           <div className="flex items-center gap-4">
             <div className="bg-blue-600 p-3 rounded-2xl">
@@ -213,7 +242,12 @@ export default function ChamadosPainel() {
           </div>
           
           <div className="flex items-center gap-3">
-            {/* Controle de som */}
+            {/* Indicador de atendimentos hoje */}
+            <div className="bg-green-600/20 px-3 py-2 rounded-xl text-center border border-green-500/30">
+              <p className="text-xs text-green-400">Atendimentos hoje</p>
+              <p className="text-2xl font-bold text-green-400">{totalAtendimentosHoje}</p>
+            </div>
+            
             <button
               onClick={toggleSom}
               className={`p-3 rounded-xl transition-all ${somAtivo ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-700 hover:bg-gray-600'}`}
@@ -222,7 +256,6 @@ export default function ChamadosPainel() {
               {somAtivo ? <SpeakerWaveIcon className="w-6 h-6 text-white" /> : <SpeakerXMarkIcon className="w-6 h-6 text-gray-400" />}
             </button>
             
-            {/* Botão de recarregar */}
             <button
               onClick={carregarDados}
               className="p-3 bg-gray-700 hover:bg-gray-600 rounded-xl transition-all"
@@ -231,7 +264,6 @@ export default function ChamadosPainel() {
               <ArrowPathIcon className="w-6 h-6 text-white" />
             </button>
             
-            {/* Data/Hora em destaque */}
             <div className="bg-gray-800 px-4 py-2 rounded-xl text-right border border-gray-700">
               <div className="text-2xl font-bold text-white font-mono tabular-nums">
                 {new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
@@ -243,10 +275,10 @@ export default function ChamadosPainel() {
           </div>
         </div>
 
-        {/* Área principal - Grid responsivo para TV */}
+        {/* Área principal */}
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
           
-          {/* COLUNA ESQUERDA - Chamado Atual (Destaque) */}
+          {/* COLUNA ESQUERDA - Chamado Atual */}
           <div className="lg:col-span-1 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-6 flex flex-col items-center justify-center text-center shadow-2xl">
             <div className="mb-4">
               <div className="bg-white/20 rounded-full p-3 inline-flex">
@@ -261,7 +293,7 @@ export default function ChamadosPainel() {
                   {chamadoAtual.senha || chamadoAtual.paciente_nome?.substring(0, 20) || '---'}
                 </div>
                 <div className="text-2xl text-white mb-2 font-semibold">
-                  {chamadoAtual.paciente_nome || chamadoAtual.titulo}
+                  {formatarNome(chamadoAtual.paciente_nome || chamadoAtual.titulo)}
                 </div>
                 <div className="flex items-center gap-2 text-blue-200 text-lg">
                   <UserIcon className="w-5 h-5" />
@@ -290,10 +322,10 @@ export default function ChamadosPainel() {
             )}
           </div>
 
-          {/* COLUNA DIREITA - Fila de Espera e Últimos Chamados */}
+          {/* COLUNA DIREITA */}
           <div className="lg:col-span-2 flex flex-col gap-6 min-h-0">
             
-            {/* Botão Chamar Próximo (destaque) */}
+            {/* Botão Chamar Próximo */}
             <button
               onClick={chamarProximo}
               className="w-full py-4 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 rounded-xl text-2xl font-bold text-white flex items-center justify-center gap-3 transition-all shadow-lg"
@@ -322,18 +354,23 @@ export default function ChamadosPainel() {
                   filaEspera.map((chamado, index) => {
                     const Icon = statusConfig[chamado.status]?.icon || ClockIcon;
                     const statusClass = statusConfig[chamado.status]?.className || 'bg-gray-500';
+                    const positionIcon = getPositionIcon(index);
                     
                     return (
                       <div key={chamado.id} className="bg-gray-700/50 rounded-xl p-4 hover:bg-gray-700 transition-all">
                         <div className="flex items-center justify-between flex-wrap gap-3">
                           <div className="flex items-center gap-4 flex-1 min-w-0">
-                            <div className="text-3xl font-bold text-gray-500 w-12 text-center">
-                              {index + 1}º
+                            <div className="flex items-center justify-center w-12">
+                              {positionIcon || (
+                                <span className="text-2xl font-bold text-gray-500">
+                                  {index + 1}º
+                                </span>
+                              )}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <p className="font-bold text-white text-lg truncate">
-                                  {chamado.paciente_nome || chamado.titulo}
+                                  {formatarNome(chamado.paciente_nome || chamado.titulo)}
                                 </p>
                                 {chamado.senha && (
                                   <span className="px-2 py-0.5 bg-gray-600 rounded-lg text-xs font-mono text-gray-300">
@@ -390,7 +427,7 @@ export default function ChamadosPainel() {
               </div>
             </div>
 
-            {/* Últimos Chamados Finalizados */}
+            {/* Últimos Chamados Finalizados - COM NOME COMPLETO */}
             <div className="bg-gray-800 rounded-xl border border-gray-700">
               <div className="p-4 bg-gray-700/50 rounded-t-xl border-b border-gray-600">
                 <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -400,21 +437,46 @@ export default function ChamadosPainel() {
                 <p className="text-gray-400 text-sm">Histórico de chamadas finalizadas</p>
               </div>
               
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4">
                 {ultimosChamados.length === 0 ? (
                   <div className="col-span-4 text-center text-gray-500 py-8">
                     Nenhum atendimento finalizado ainda
                   </div>
                 ) : (
-                  ultimosChamados.map((chamado) => (
-                    <div key={chamado.id} className="bg-gray-700/50 rounded-xl p-3 text-center hover:bg-gray-700 transition-all">
-                      <p className="text-lg font-bold text-white truncate">
-                        {chamado.paciente_nome?.split(' ')[0] || chamado.titulo?.split(' ')[0]}
+                  ultimosChamados.map((chamado, idx) => (
+                    <div key={chamado.id} className="bg-gray-700/50 rounded-xl p-3 hover:bg-gray-700 transition-all group">
+                      {/* Ícone de posição ou check */}
+                      <div className="flex items-center justify-between mb-2">
+                        {idx === 0 ? (
+                          <TrophyIcon className="w-5 h-5 text-yellow-500" />
+                        ) : idx === 1 ? (
+                          <StarIcon className="w-5 h-5 text-gray-400" />
+                        ) : idx === 2 ? (
+                          <FireIcon className="w-5 h-5 text-orange-500" />
+                        ) : (
+                          <CheckCircleIcon className="w-4 h-4 text-green-500" />
+                        )}
+                        <span className="text-xs text-green-400">
+                          {chamado.finalizado_em ? new Date(chamado.finalizado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '---'}
+                        </span>
+                      </div>
+                      
+                      {/* Nome completo do paciente */}
+                      <p className="text-base font-bold text-white truncate" title={formatarNome(chamado.paciente_nome || chamado.titulo)}>
+                        {formatarNome(chamado.paciente_nome || chamado.titulo)}
                       </p>
-                      <p className="text-xs text-gray-400 mt-1 truncate">{chamado.destino_nome}</p>
-                      <p className="text-xs text-green-400 mt-2">
-                        {chamado.finalizado_em ? new Date(chamado.finalizado_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '---'}
+                      
+                      {/* Destino */}
+                      <p className="text-xs text-gray-400 mt-1 truncate">
+                        {chamado.destino_nome}
                       </p>
+                      
+                      {/* Senha se existir */}
+                      {chamado.senha && (
+                        <p className="text-xs text-gray-500 mt-1 font-mono">
+                          Senha: {chamado.senha}
+                        </p>
+                      )}
                     </div>
                   ))
                 )}
@@ -423,7 +485,7 @@ export default function ChamadosPainel() {
           </div>
         </div>
 
-        {/* Rodapé com informações da unidade */}
+        {/* Rodapé */}
         <div className="mt-4 pt-3 border-t border-gray-700 text-center">
           <p className="text-gray-500 text-sm">
             Sistema de Chamadas • {unidadeAtualId === 'todas' ? 'Todas as Unidades' : `Unidade ${unidadeAtualId}`}
