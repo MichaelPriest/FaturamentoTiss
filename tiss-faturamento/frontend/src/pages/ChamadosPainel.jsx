@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   MegaphoneIcon, CheckCircleIcon, ClockIcon, BellAlertIcon, 
   UserGroupIcon, SpeakerWaveIcon, ArrowPathIcon, 
-  UserIcon, PhoneIcon, ArrowRightIcon, Volume2Icon, VolumeXIcon
+  UserIcon, PhoneIcon, ArrowRightIcon, SpeakerXMarkIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabaseClient';
@@ -219,7 +219,7 @@ export default function ChamadosPainel() {
               className={`p-3 rounded-xl transition-all ${somAtivo ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-700 hover:bg-gray-600'}`}
               title={somAtivo ? 'Desativar som' : 'Ativar som'}
             >
-              {somAtivo ? <Volume2Icon className="w-6 h-6 text-white" /> : <VolumeXIcon className="w-6 h-6 text-gray-400" />}
+              {somAtivo ? <SpeakerWaveIcon className="w-6 h-6 text-white" /> : <SpeakerXMarkIcon className="w-6 h-6 text-gray-400" />}
             </button>
             
             {/* Botão de recarregar */}
