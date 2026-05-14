@@ -1,6 +1,6 @@
 // src/pages/ChamadosRegistro.jsx
 import { useEffect, useState } from 'react';
-import { PlusIcon, XMarkIcon, UserPlusIcon, QrCodeIcon, CalendarIcon, ClockIcon, UserIcon, BuildingOfficeIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, XMarkIcon, UserPlusIcon, QrCodeIcon, CalendarIcon, ClockIcon, UserIcon, BuildingOfficeIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
@@ -27,14 +27,19 @@ export default function ChamadosRegistro() {
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState(initialForm);
   const [buscando, setBuscando] = useState(false);
+  const [error, setError] = useState(null);
 
   const carregarDados = async () => {
     setLoading(true);
+    setError(null);
     try {
       const hoje = new Date().toISOString().split('T')[0];
       
-      // Buscar agendamentos do dia
-      const { data: agendamentosData, error: agendamentosError } = await supabase
+      console.log('📅 Buscando agendamentos para:', hoje);
+      console.log('🏢 Unidade atual:', unidadeAtualId);
+      
+      // Buscar TODOS os agendamentos do dia (sem filtro de status inicialmente)
+      let query = supabase
         .from('agendamentos')
         .select(`
           id,
@@ -58,33 +63,61 @@ export default function ChamadosRegistro() {
           unidade_id
         `)
         .eq('data_agendamento', hoje)
-        .in('status', ['agendado', 'confirmado', 'em_andamento'])
         .order('hora_inicio', { ascending: true });
-
-      if (agendamentosError) throw agendamentosError;
-
-      // Buscar salas ativas da unidade
-      let query = supabase
-        .from('salas')
-        .select('*')
-        .eq('ativo', true)
-        .order('nome');
 
       // Se tiver unidade específica, filtrar por ela
       if (unidadeAtualId && unidadeAtualId !== 'todas') {
         query = query.eq('unidade_id', unidadeAtualId);
       }
 
-      const { data: salasData, error: salasError } = await query;
+      const { data: agendamentosData, error: agendamentosError } = await query;
 
-      if (salasError) throw salasError;
+      if (agendamentosError) {
+        console.error('❌ Erro ao buscar agendamentos:', agendamentosError);
+        throw agendamentosError;
+      }
 
-      setAgendamentos(filterByUnidade(agendamentosData || [], unidadeAtualId));
+      console.log('📋 Agendamentos encontrados:', agendamentosData?.length || 0);
+      console.log('📋 Dados brutos:', agendamentosData);
+
+      // Filtrar apenas os que não foram finalizados/cancelados
+      const agendamentosAtivos = (agendamentosData || []).filter(ag => 
+        !['finalizado', 'cancelado', 'atendido'].includes(ag.status?.toLowerCase())
+      );
+
+      console.log('📋 Agendamentos ativos:', agendamentosAtivos.length);
+
+      // Buscar salas ativas da unidade
+      let salasQuery = supabase
+        .from('salas')
+        .select('*')
+        .eq('ativo', true)
+        .order('nome');
+
+      if (unidadeAtualId && unidadeAtualId !== 'todas') {
+        salasQuery = salasQuery.eq('unidade_id', unidadeAtualId);
+      }
+
+      const { data: salasData, error: salasError } = await salasQuery;
+
+      if (salasError) {
+        console.error('❌ Erro ao buscar salas:', salasError);
+        throw salasError;
+      }
+
+      console.log('🏢 Salas encontradas:', salasData?.length || 0);
+
+      setAgendamentos(agendamentosAtivos);
       setSalas(salasData || []);
       
+      if (agendamentosAtivos.length === 0 && (agendamentosData || []).length > 0) {
+        console.log('⚠️ Todos os agendamentos foram filtrados por status');
+      }
+      
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      toast.error('Erro ao carregar dados');
+      console.error('❌ Erro ao carregar dados:', error);
+      setError(error.message);
+      toast.error('Erro ao carregar dados: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -129,6 +162,8 @@ export default function ChamadosRegistro() {
     const agendamento = agendamentos.find((item) => String(item.id) === String(agendamentoId));
     if (!agendamento) return;
 
+    console.log('📋 Agendamento selecionado:', agendamento);
+
     // Buscar dados completos do paciente se necessário
     let pacienteNome = agendamento.paciente_nome;
     let pacienteId = agendamento.paciente_id;
@@ -140,7 +175,7 @@ export default function ChamadosRegistro() {
       }
     }
     
-    // Definir destino (prioridade: sala_nome > local > "Consultório")
+    // Definir destino
     let destinoNome = 'Consultório';
     let destinoTipo = 'consultorio';
     
@@ -238,7 +273,7 @@ export default function ChamadosRegistro() {
   // Obter cor da sala
   const getSalaCor = (sala) => {
     if (sala.cor) return sala.cor;
-    return '#3B82F6'; // azul padrão
+    return '#3B82F6';
   };
 
   if (loading) {
@@ -302,13 +337,23 @@ export default function ChamadosRegistro() {
           </div>
         </div>
 
+        {/* Exibir erro se houver */}
+        {error && (
+          <div className="mt-6 bg-red-50 dark:bg-red-900/20 rounded-xl p-4 border border-red-200 dark:border-red-800">
+            <div className="flex items-center gap-2">
+              <ExclamationTriangleIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
+              <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+            </div>
+          </div>
+        )}
+
         {/* Lista de Salas Disponíveis */}
         {salas.length > 0 && (
           <div className="mt-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
               <h3 className="font-semibold text-gray-800 dark:text-white flex items-center gap-2">
                 <BuildingOfficeIcon className="w-4 h-4" />
-                Salas Disponíveis
+                Salas Disponíveis ({salas.length})
               </h3>
             </div>
             <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -353,12 +398,15 @@ export default function ChamadosRegistro() {
             <h3 className="font-semibold text-gray-800 dark:text-white flex items-center gap-2">
               <CalendarIcon className="w-4 h-4" />
               Agendamentos de hoje ({new Date().toLocaleDateString('pt-BR')})
+              {agendamentos.length > 0 && <span className="text-sm text-gray-500">({agendamentos.length})</span>}
             </h3>
           </div>
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
             {agendamentos.length === 0 ? (
               <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-                Nenhum agendamento para hoje
+                <CalendarIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>Nenhum agendamento para hoje</p>
+                <p className="text-xs mt-1">Os agendamentos aparecerão automaticamente quando houver consultas marcadas</p>
               </div>
             ) : (
               agendamentos.map((ag) => (
@@ -375,9 +423,10 @@ export default function ChamadosRegistro() {
                         <span className={`text-xs px-2 py-0.5 rounded-full ${
                           ag.status === 'agendado' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
                           ag.status === 'confirmado' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                          ag.status === 'em_andamento' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
                           'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400'
                         }`}>
-                          {ag.status === 'agendado' ? 'Agendado' : ag.status === 'confirmado' ? 'Confirmado' : ag.status}
+                          {ag.status === 'agendado' ? 'Agendado' : ag.status === 'confirmado' ? 'Confirmado' : ag.status === 'em_andamento' ? 'Em andamento' : ag.status}
                         </span>
                       </div>
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-gray-500 dark:text-gray-400">
