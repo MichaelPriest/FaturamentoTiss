@@ -28,44 +28,78 @@ export default function ChamadosRegistro() {
   const [formData, setFormData] = useState(initialForm);
   const [buscando, setBuscando] = useState(false);
   const [error, setError] = useState(null);
-  const [dataAtual, setDataAtual] = useState('');
-  const [horaAtual, setHoraAtual] = useState('');
-
-  // Atualizar data e hora atual do PC
-  useEffect(() => {
+  
+  // ============================================
+  // FUNÇÕES DE DATA/HORA COM FUSO BRASIL (UTC-3)
+  // ============================================
+  
+  const getDataLocalBrasil = () => {
     const agora = new Date();
-    const dataFormatada = agora.toISOString().split('T')[0];
-    const horaFormatada = `${agora.getHours().toString().padStart(2, '0')}:${agora.getMinutes().toString().padStart(2, '0')}`;
-    
-    setDataAtual(dataFormatada);
-    setHoraAtual(horaFormatada);
-    
-    console.log('🕐 Data/Hora atual do PC:', { dataAtual: dataFormatada, horaAtual: horaFormatada });
-    
-    // Atualizar a cada minuto
+    // Ajustar para fuso horário de Brasília (UTC-3)
+    const offsetBrasil = -3;
+    const utc = agora.getTime() + (agora.getTimezoneOffset() * 60000);
+    const dataBrasil = new Date(utc + (offsetBrasil * 3600000));
+    return dataBrasil;
+  };
+
+  const getDataLocalFormatada = () => {
+    const dataBrasil = getDataLocalBrasil();
+    const ano = dataBrasil.getFullYear();
+    const mes = String(dataBrasil.getMonth() + 1).padStart(2, '0');
+    const dia = String(dataBrasil.getDate()).padStart(2, '0');
+    return `${ano}-${mes}-${dia}`;
+  };
+
+  const getHoraLocalFormatada = () => {
+    const dataBrasil = getDataLocalBrasil();
+    const horas = String(dataBrasil.getHours()).padStart(2, '0');
+    const minutos = String(dataBrasil.getMinutes()).padStart(2, '0');
+    return `${horas}:${minutos}`;
+  };
+
+  const getDataExibicao = () => {
+    const dataBrasil = getDataLocalBrasil();
+    return dataBrasil.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  };
+
+  const [dataAtual, setDataAtual] = useState(getDataLocalFormatada);
+  const [horaAtual, setHoraAtual] = useState(getHoraLocalFormatada);
+  const [dataExibicao, setDataExibicao] = useState(getDataExibicao);
+
+  // Atualizar data/hora local a cada minuto
+  useEffect(() => {
     const interval = setInterval(() => {
-      const novaData = new Date();
-      setDataAtual(novaData.toISOString().split('T')[0]);
-      setHoraAtual(`${novaData.getHours().toString().padStart(2, '0')}:${novaData.getMinutes().toString().padStart(2, '0')}`);
+      setDataAtual(getDataLocalFormatada());
+      setHoraAtual(getHoraLocalFormatada());
+      setDataExibicao(getDataExibicao());
     }, 60000);
     
     return () => clearInterval(interval);
   }, []);
 
+  // ============================================
+  // CARREGAR DADOS
+  // ============================================
+
   const carregarDados = async () => {
     setLoading(true);
     setError(null);
     try {
-      // Usar a data atual do PC
-      const hoje = dataAtual || new Date().toISOString().split('T')[0];
+      // Usar a data atual do Brasil
+      const hoje = dataAtual;
       
       // Calcular data limite (próximos 7 dias)
-      const dataLimite = new Date();
+      const dataLimite = getDataLocalBrasil();
       dataLimite.setDate(dataLimite.getDate() + 7);
       const dataLimiteStr = dataLimite.toISOString().split('T')[0];
       
+      console.log('📅 Data atual Brasil:', hoje);
+      console.log('🕐 Hora atual Brasil:', horaAtual);
       console.log('📅 Buscando agendamentos entre:', hoje, 'e', dataLimiteStr);
-      console.log('🕐 Hora atual:', horaAtual);
       console.log('🏢 Unidade atual:', unidadeAtualId);
       
       // Buscar agendamentos a partir de hoje até próximos 7 dias
@@ -111,13 +145,6 @@ export default function ChamadosRegistro() {
       }
 
       console.log('📋 Agendamentos encontrados:', agendamentosData?.length || 0);
-      
-      // Separar agendamentos por data
-      const agendamentosHoje = (agendamentosData || []).filter(ag => ag.data_agendamento === hoje);
-      const agendamentosFuturos = (agendamentosData || []).filter(ag => ag.data_agendamento > hoje);
-      
-      console.log('📋 Agendamentos hoje:', agendamentosHoje.length);
-      console.log('📋 Agendamentos futuros:', agendamentosFuturos.length);
 
       // Buscar salas ativas da unidade
       let salasQuery = supabase
@@ -158,11 +185,15 @@ export default function ChamadosRegistro() {
     }
   }, [dataAtual, unidadeAtualId]);
 
+  // ============================================
+  // FUNÇÕES AUXILIARES
+  // ============================================
+
   // Função para formatar data para exibição
   const formatarData = (dataString) => {
     const data = new Date(dataString);
-    const hoje = new Date();
-    const amanha = new Date();
+    const hoje = getDataLocalBrasil();
+    const amanha = new Date(hoje);
     amanha.setDate(amanha.getDate() + 1);
     
     if (data.toDateString() === hoje.toDateString()) {
@@ -178,9 +209,9 @@ export default function ChamadosRegistro() {
   const isAtrasado = (dataAgendamento, horaInicio) => {
     if (dataAgendamento !== dataAtual) return false;
     
-    const agora = new Date();
+    const agora = getDataLocalBrasil();
     const [horas, minutos] = horaInicio.split(':');
-    const horaAgendamento = new Date();
+    const horaAgendamento = new Date(agora);
     horaAgendamento.setHours(parseInt(horas), parseInt(minutos), 0);
     
     return agora > horaAgendamento;
@@ -319,7 +350,7 @@ export default function ChamadosRegistro() {
       await carregarDados();
     } catch (error) {
       console.error('Erro ao criar chamada:', error);
-      toast.error('Erro ao criar chamada');
+      toast.error('Erro ao criar chamada: ' + error.message);
     }
   };
 
@@ -360,8 +391,8 @@ export default function ChamadosRegistro() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <div className="text-right">
-              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{dataAtual}</p>
+            <div className="text-right bg-gray-100 dark:bg-gray-700 rounded-lg px-3 py-1.5">
+              <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{dataExibicao}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400">{horaAtual}</p>
             </div>
             <button 
@@ -463,7 +494,7 @@ export default function ChamadosRegistro() {
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
             <h3 className="font-semibold text-gray-800 dark:text-white flex items-center gap-2">
               <CalendarIcon className="w-4 h-4" />
-              Agendamentos de Hoje ({formatarData(dataAtual)})
+              Agendamentos de Hoje ({dataExibicao})
               {agendamentosHoje.length > 0 && <span className="text-sm text-gray-500">({agendamentosHoje.length})</span>}
             </h3>
           </div>
@@ -472,7 +503,7 @@ export default function ChamadosRegistro() {
               <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                 <CalendarIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
                 <p>Nenhum agendamento para hoje</p>
-                <p className="text-xs mt-1">Data atual: {dataAtual} - {horaAtual}</p>
+                <p className="text-xs mt-1">Data atual: {dataExibicao} - {horaAtual}</p>
               </div>
             ) : (
               agendamentosHoje.map((ag) => {
