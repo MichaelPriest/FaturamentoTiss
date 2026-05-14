@@ -79,7 +79,7 @@ export const conveniosService = {
       
       const { data, error } = await supabase
         .from(TABLES.CONVENIOS)
-        .update(dadosParaAtualizar)
+        .update(applyUnidadeToPayload(dadosParaAtualizar))
         .eq('id', id)
         .select()
         .single();
@@ -254,7 +254,7 @@ export const prestadoresService = {
       const especialidadesRel = localStorageFallback.get('prestador_especialidade') || [];
       const especialidadesList = localStorageFallback.get('especialidades') || [];
       
-      return prestadores.map(p => ({
+      return filterByUnidade(prestadores).map(p => ({
         ...p,
         especialidades: especialidadesRel
           .filter(rel => rel.prestador_id === p.id)
@@ -314,7 +314,7 @@ export const prestadoresService = {
         }
       });
       
-      const resultado = prestadores.map(prestador => ({
+      const resultado = filterByUnidade(prestadores || []).map(prestador => ({
         ...prestador,
         especialidades: mapaRelacoes.get(prestador.id) || []
       }));
@@ -590,7 +590,7 @@ export const especialidadesService = {
     try {
       const { data, error } = await supabase
         .from('especialidades')
-        .insert([especialidade])
+        .insert([applyUnidadeToPayload(especialidade)])
         .select()
         .single();
       if (error) throw error;
@@ -614,7 +614,7 @@ export const especialidadesService = {
     try {
       const { data, error } = await supabase
         .from('especialidades')
-        .update(especialidade)
+        .update(applyUnidadeToPayload(especialidade))
         .eq('id', id)
         .select()
         .single();
@@ -778,7 +778,7 @@ export const procedimentosService = {
       
       const { data, error } = await supabase
         .from(TABLES.PROCEDIMENTOS)
-        .update(dadosParaAtualizar)
+        .update(applyUnidadeToPayload(dadosParaAtualizar))
         .eq('id', id)
         .select()
         .single();

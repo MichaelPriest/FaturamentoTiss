@@ -11,6 +11,8 @@ import {
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, subDays, subMonths } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
+import { useUnidade } from '../contexts/UnidadeContext';
+import { filterByUnidade } from '../services/unidadesService';
 
 // ============================================
 // FUNÇÕES DE EXPORTAÇÃO
@@ -73,6 +75,7 @@ const exportToHTML = (data, title, filename) => {
 };
 
 export default function Relatorios() {
+  const { unidadeAtualId } = useUnidade();
   const [loading, setLoading] = useState(true);
   const [tipoRelatorio, setTipoRelatorio] = useState('faturamento');
   const [formatoExportacao, setFormatoExportacao] = useState('csv');
@@ -94,7 +97,7 @@ export default function Relatorios() {
 
   useEffect(() => {
     carregarDados();
-  }, []);
+  }, [unidadeAtualId]);
 
   const carregarDados = async () => {
     setLoading(true);
@@ -110,17 +113,17 @@ export default function Relatorios() {
         supabase.from('contas_pagar').select('*').order('data_vencimento', { ascending: true }),
         supabase.from('glosas').select('*').order('created_at', { ascending: false }),
         supabase.from('fluxo_caixa').select('*').order('data', { ascending: false }),
-        supabase.from('convenios').select('id, razao_social').eq('ativo', true).order('razao_social')
+        supabase.from('convenios').select('id, razao_social, unidade_id').eq('ativo', true).order('razao_social')
       ]);
 
-      setAtendimentos(atendimentosRes.data || []);
-      setLotes(lotesRes.data || []);
-      setNotasFiscais(notasRes.data || []);
-      setContasReceber(receberRes.data || []);
-      setContasPagar(pagarRes.data || []);
-      setGlosas(glosasRes.data || []);
-      setFluxoCaixa(fluxoRes.data || []);
-      setConvenios(conveniosRes.data || []);
+      setAtendimentos(filterByUnidade(atendimentosRes.data || [], unidadeAtualId));
+      setLotes(filterByUnidade(lotesRes.data || [], unidadeAtualId));
+      setNotasFiscais(filterByUnidade(notasRes.data || [], unidadeAtualId));
+      setContasReceber(filterByUnidade(receberRes.data || [], unidadeAtualId));
+      setContasPagar(filterByUnidade(pagarRes.data || [], unidadeAtualId));
+      setGlosas(filterByUnidade(glosasRes.data || [], unidadeAtualId));
+      setFluxoCaixa(filterByUnidade(fluxoRes.data || [], unidadeAtualId));
+      setConvenios(filterByUnidade(conveniosRes.data || [], unidadeAtualId));
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       toast.error('Erro ao carregar dados');

@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, XMarkIcon, EyeIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabaseClient';
+import { useUnidade } from '../contexts/UnidadeContext';
+import { applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
 
 // ============================================
 // LISTA DE UFs
@@ -234,6 +236,7 @@ const maskCEP = (value) => {
 // COMPONENTE PRINCIPAL
 // ============================================
 export default function Prestadores() {
+  const { unidadeAtualId } = useUnidade();
   const [prestadores, setPrestadores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -266,7 +269,7 @@ export default function Prestadores() {
 
   useEffect(() => {
     carregarPrestadores();
-  }, []);
+  }, [unidadeAtualId]);
 
   // ============================================
   // CARREGAR PRESTADORES DO BANCO
@@ -310,7 +313,7 @@ export default function Prestadores() {
         }
       });
 
-      const resultado = prestadores.map(prestador => ({
+      const resultado = filterByUnidade(prestadores || [], unidadeAtualId).map(prestador => ({
         ...prestador,
         tipo_pessoa: prestador.tipo_pessoa || 'F',
         especialidades: especialidadesPorPrestador.get(prestador.id) || []
@@ -408,7 +411,7 @@ export default function Prestadores() {
       if (editing) {
         const { error: updateError } = await supabase
           .from('prestadores')
-          .update(prestadorPayload)
+          .update(applyUnidadeToPayload(prestadorPayload, unidadeAtualId))
           .eq('id', editing.id);
         if (updateError) throw updateError;
         prestadorId = editing.id;
@@ -420,18 +423,18 @@ export default function Prestadores() {
         prestadorPayload.created_at = new Date().toISOString();
         const { data: novoPrestador, error: insertError } = await supabase
           .from('prestadores')
-          .insert(prestadorPayload)
+          .insert(applyUnidadeToPayload(prestadorPayload, unidadeAtualId))
           .select()
           .single();
         if (insertError) throw insertError;
         prestadorId = novoPrestador.id;
       }
 
-      const especialidadesInsert = especialidadesSelecionadas.map(esp => ({
+      const especialidadesInsert = especialidadesSelecionadas.map(esp => applyUnidadeToPayload({
         prestador_id: prestadorId,
         especialidade_id: esp.id,
         principal: esp.id === especialidadePrincipal?.id
-      }));
+      }, unidadeAtualId));
 
       if (especialidadesInsert.length > 0) {
         const { error: espError } = await supabase

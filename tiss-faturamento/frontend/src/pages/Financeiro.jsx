@@ -144,8 +144,8 @@ export default function Financeiro() {
         supabase.from('contas_pagar').select('*').order('data_vencimento', { ascending: true }),
         supabase.from('fluxo_caixa').select('*').order('data', { ascending: false }),
         supabase.from('notas_fiscais').select('*').order('created_at', { ascending: false }),
-        supabase.from('convenios').select('id, razao_social').eq('ativo', true),
-        supabase.from('lotes_faturamento').select('numero_lote, convenio_nome, dados_fatura, guias_ids').order('created_at', { ascending: false }),
+        supabase.from('convenios').select('id, razao_social, unidade_id').eq('ativo', true),
+        supabase.from('lotes_faturamento').select('numero_lote, convenio_nome, dados_fatura, guias_ids, unidade_id').order('created_at', { ascending: false }),
         supabase.from('conciliacao_bancaria').select('*').order('data', { ascending: false })
       ]);
 
@@ -368,7 +368,7 @@ export default function Financeiro() {
       };
 
       const { error } = editingNota
-        ? await supabase.from('notas_fiscais').update(dadosNF).eq('id', editingNota.id)
+        ? await supabase.from('notas_fiscais').update(applyUnidadeToPayload(dadosNF, unidadeAtualId)).eq('id', editingNota.id)
         : await supabase.from('notas_fiscais').insert([applyUnidadeToPayload(dadosNF, unidadeAtualId)]);
 
       if (error) throw error;

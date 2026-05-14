@@ -373,7 +373,7 @@ export default function Faturamento() {
       
       if (error) throw error;
       
-      setLogsLotes(data || []);
+      setLogsLotes(filterByUnidade(data || [], unidadeAtualId));
     } catch (error) {
       console.error('Erro ao carregar logs:', error);
       setLogsLotes([]);
@@ -432,7 +432,7 @@ export default function Faturamento() {
       
       if (error) throw error;
       
-      setGuiasGeradas(data || []);
+      setGuiasGeradas(filterByUnidade(data || [], unidadeAtualId));
     } catch (error) {
       console.error('Erro ao carregar lotes:', error);
       setGuiasGeradas([]);

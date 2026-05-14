@@ -97,6 +97,14 @@ export const filterByUnidade = (items = [], unidadeId = getStoredUnidadeId()) =>
   return items.filter((item) => !Object.prototype.hasOwnProperty.call(item, 'unidade_id') || item.unidade_id === unidadeId);
 };
 
+
+export const scopeQueryByUnidade = (query, unidadeId = getStoredUnidadeId(), { includeNull = true } = {}) => {
+  if (isTodasUnidades(unidadeId)) return query;
+  return includeNull
+    ? query.or(`unidade_id.eq.${unidadeId},unidade_id.is.null`)
+    : query.eq('unidade_id', unidadeId);
+};
+
 export const applyUnidadeToPayload = (payload = {}, unidadeId = getStoredUnidadeId()) => {
   if (isTodasUnidades(unidadeId) || payload.unidade_id) return payload;
   return { ...payload, unidade_id: unidadeId };

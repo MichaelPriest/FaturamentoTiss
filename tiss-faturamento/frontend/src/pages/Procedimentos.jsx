@@ -10,6 +10,7 @@ import {
 import { toast } from 'sonner';
 import { procedimentosService, conveniosService } from '../services/supabaseService';
 import { useTheme } from '../contexts/ThemeContext';
+import { useUnidade } from '../contexts/UnidadeContext';
 
 // ============================================
 // CONFIGURAÇÕES DAS TABELAS
@@ -115,6 +116,7 @@ const CONFIG_AJUSTES_PADRAO = {
 
 export default function Procedimentos() {
   const { darkMode } = useTheme();
+  const { unidadeAtualId } = useUnidade();
   const [procedimentos, setProcedimentos] = useState([]);
   const [convenios, setConvenios] = useState([]);
   const [convenioSelecionado, setConvenioSelecionado] = useState(null);
@@ -157,7 +159,7 @@ export default function Procedimentos() {
   useEffect(() => {
     carregarConfiguracoes();
     carregarDados();
-  }, []);
+  }, [unidadeAtualId]);
 
   const carregarConfiguracoes = async () => {
     try {

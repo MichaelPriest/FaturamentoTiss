@@ -60,6 +60,8 @@ import {
 import { toast } from 'sonner';
 import { format, addDays } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
+import { useUnidade } from '../contexts/UnidadeContext';
+import { applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
 
 // Constantes com ícones
 const CARATER_ATENDIMENTO = [
@@ -160,6 +162,7 @@ const sugestoesIA = {
 };
 
 export default function Prontuario() {
+  const { unidadeAtualId } = useUnidade();
   const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -250,7 +253,7 @@ export default function Prontuario() {
 
   useEffect(() => {
     carregarDados();
-  }, [id]);
+  }, [id, unidadeAtualId]);
 
   const carregarDados = async () => {
     setLoading(true);
@@ -262,6 +265,13 @@ export default function Prontuario() {
         .single();
 
       if (agendamentoError) throw agendamentoError;
+
+      if (filterByUnidade([agendamentoData], unidadeAtualId).length === 0) {
+        toast.error('Agendamento não pertence à unidade selecionada');
+        navigate('/');
+        return;
+      }
+
       setAgendamento(agendamentoData);
 
       if (agendamentoData.paciente_id) {
@@ -328,9 +338,9 @@ export default function Prontuario() {
         supabase.from('prestadores').select('*').order('nome')
       ]);
 
-      setProcedimentos(procedimentosRes.data || []);
-      setConvenios(conveniosRes.data || []);
-      setPrestadores(prestadoresRes.data || []);
+      setProcedimentos(filterByUnidade(procedimentosRes.data || [], unidadeAtualId));
+      setConvenios(filterByUnidade(conveniosRes.data || [], unidadeAtualId));
+      setPrestadores(filterByUnidade(prestadoresRes.data || [], unidadeAtualId));
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       toast.error('Erro ao carregar dados');
@@ -371,13 +381,13 @@ export default function Prontuario() {
       if (prontuario) {
         const { error } = await supabase
           .from('prontuario')
-          .update({ ...formData, updated_at: new Date().toISOString() })
+          .update(applyUnidadeToPayload({ ...formData, updated_at: new Date().toISOString() }, unidadeAtualId))
           .eq('id', prontuario.id);
         if (error) throw error;
       } else {
         const { data, error } = await supabase
           .from('prontuario')
-          .insert({
+          .insert(applyUnidadeToPayload({
             paciente_id: agendamento.paciente_id,
             agendamento_id: parseInt(id),
             data_atendimento: agendamento.data_agendamento,
@@ -386,7 +396,7 @@ export default function Prontuario() {
             ...formData,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
-          })
+          }, unidadeAtualId))
           .select();
         if (error) throw error;
         setProntuario(data[0]);
@@ -416,11 +426,11 @@ export default function Prontuario() {
 
       const { data, error } = await supabase
         .from('prescricoes')
-        .insert({
+        .insert(applyUnidadeToPayload({
           prontuario_id: prontuarioId,
           ...prescricaoForm,
           created_at: new Date().toISOString()
-        })
+        }, unidadeAtualId))
         .select();
 
       if (error) throw error;
@@ -463,7 +473,7 @@ export default function Prontuario() {
 
       const { data, error } = await supabase
         .from('receitas')
-        .insert({
+        .insert(applyUnidadeToPayload({
           prontuario_id: prontuarioId,
           numero_receita: numeroReceita,
           tipo: receitaForm.tipo,
@@ -471,7 +481,7 @@ export default function Prontuario() {
           validade: receitaForm.validade,
           observacoes: receitaForm.observacoes,
           created_at: new Date().toISOString()
-        })
+        }, unidadeAtualId))
         .select();
 
       if (error) throw error;
@@ -511,7 +521,7 @@ export default function Prontuario() {
 
       const { data, error } = await supabase
         .from('atestados')
-        .insert({
+        .insert(applyUnidadeToPayload({
           prontuario_id: prontuarioId,
           numero_atestado: numeroAtestado,
           tipo: atestadoForm.tipo,
@@ -521,7 +531,7 @@ export default function Prontuario() {
           cid: atestadoForm.cid,
           recomendacoes: atestadoForm.recomendacoes,
           created_at: new Date().toISOString()
-        })
+        }, unidadeAtualId))
         .select();
 
       if (error) throw error;
@@ -644,7 +654,7 @@ export default function Prontuario() {
   
       const { error } = await supabase
         .from('atendimentos')
-        .insert([atendimento]);
+        .insert([applyUnidadeToPayload(atendimento, unidadeAtualId)]);
   
       if (error) throw error;
   

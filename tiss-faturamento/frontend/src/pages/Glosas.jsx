@@ -17,6 +17,8 @@ import {
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
+import { useUnidade } from '../contexts/UnidadeContext';
+import { applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
 
 // Mapa CBOS (mesmo do faturamento)
 const CBOS_MAP = {
@@ -34,6 +36,7 @@ const CBOS_MAP = {
 };
 
 export default function Glosas() {
+  const { unidadeAtualId } = useUnidade();
   const [glosas, setGlosas] = useState([]);
   const [lotes, setLotes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -68,21 +71,21 @@ export default function Glosas() {
 
   useEffect(() => {
     carregarDados();
-  }, []);
+  }, [unidadeAtualId]);
 
   const carregarDados = async () => {
     setLoading(true);
     try {
       const [glosasRes, lotesRes] = await Promise.all([
         supabase.from('glosas').select('*').order('created_at', { ascending: false }),
-        supabase.from('lotes_faturamento').select('numero_lote, convenio_nome, data_envio, guias_ids').order('created_at', { ascending: false })
+        supabase.from('lotes_faturamento').select('numero_lote, convenio_nome, data_envio, guias_ids, unidade_id').order('created_at', { ascending: false })
       ]);
 
       if (glosasRes.error) throw glosasRes.error;
       if (lotesRes.error) throw lotesRes.error;
 
-      setGlosas(glosasRes.data || []);
-      setLotes(lotesRes.data || []);
+      setGlosas(filterByUnidade(glosasRes.data || [], unidadeAtualId));
+      setLotes(filterByUnidade(lotesRes.data || [], unidadeAtualId));
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       toast.error('Erro ao carregar dados');
@@ -165,7 +168,7 @@ export default function Glosas() {
       const { data, error } = await supabase
         .from('glosas')
         .insert([{
-          ...novaGlosa,
+          ...applyUnidadeToPayload(novaGlosa, unidadeAtualId),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }])
@@ -293,7 +296,7 @@ export default function Glosas() {
               const valorGlosa = parseFloat(relacaoGlosa[0].getElementsByTagName('valorGlosa')[0]?.textContent || '0');
               const tipoGlosa = relacaoGlosa[0].getElementsByTagName('tipoGlosa')[0]?.textContent || '';
 
-              await supabase.from('glosas').insert([{
+              await supabase.from('glosas').insert([applyUnidadeToPayload({
                 numero_lote: '',
                 numero_guia_prestador: numeroGuiaPrestador,
                 numero_guia_operadora: numeroGuiaOperadora,
@@ -312,7 +315,7 @@ export default function Glosas() {
                 status: 'aberta',
                 data_glosa: format(new Date(), 'yyyy-MM-dd'),
                 origem: 'xml_importado'
-              }]);
+              }, unidadeAtualId)]);
 
               importadas++;
             }
