@@ -1,6 +1,6 @@
 // src/pages/ChamadosRegistro.jsx
 import { useEffect, useState } from 'react';
-import { PlusIcon, XMarkIcon, UserPlusIcon, QrCodeIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, XMarkIcon, UserPlusIcon, QrCodeIcon, CalendarIcon, ClockIcon, UserIcon, BuildingOfficeIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
@@ -26,21 +26,55 @@ export default function ChamadosRegistro() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState(initialForm);
+  const [buscando, setBuscando] = useState(false);
 
   const carregarDados = async () => {
     setLoading(true);
     try {
       const hoje = new Date().toISOString().split('T')[0];
-      const [agendamentosRes, salasRes] = await Promise.all([
-        supabase.from('agendamentos').select('*').eq('data_agendamento', hoje).order('hora_inicio', { ascending: true }),
-        supabase.from('salas').select('*').eq('ativo', true).order('nome')
-      ]);
+      
+      // Buscar agendamentos do dia
+      const { data: agendamentosData, error: agendamentosError } = await supabase
+        .from('agendamentos')
+        .select(`
+          id,
+          paciente_id,
+          paciente_nome,
+          prestador_id,
+          prestador_nome,
+          prestador_especialidade,
+          convenio_id,
+          convenio_nome,
+          data_agendamento,
+          hora_inicio,
+          hora_fim,
+          status,
+          tipo,
+          modalidade,
+          local,
+          sala_id,
+          sala_nome,
+          observacao,
+          unidade_id
+        `)
+        .eq('data_agendamento', hoje)
+        .in('status', ['agendado', 'confirmado', 'em_andamento'])
+        .order('hora_inicio', { ascending: true });
 
-      if (agendamentosRes.error) throw agendamentosRes.error;
-      if (salasRes.error) throw salasRes.error;
+      if (agendamentosError) throw agendamentosError;
 
-      setAgendamentos(filterByUnidade(agendamentosRes.data || [], unidadeAtualId));
-      setSalas(filterByUnidade(salasRes.data || [], unidadeAtualId));
+      // Buscar salas ativas
+      const { data: salasData, error: salasError } = await supabase
+        .from('salas')
+        .select('*')
+        .eq('ativo', true)
+        .order('nome');
+
+      if (salasError) throw salasError;
+
+      setAgendamentos(filterByUnidade(agendamentosData || [], unidadeAtualId));
+      setSalas(filterByUnidade(salasData || [], unidadeAtualId));
+      
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       toast.error('Erro ao carregar dados');
@@ -60,17 +94,55 @@ export default function ChamadosRegistro() {
     return `${letra}${numeros}`;
   };
 
-  const selecionarAgendamento = (agendamentoId) => {
-    const agendamento = agendamentos.find((item) => String(item.id) === String(agendamentoId));
-    const sala = salas.find((item) => String(item.id) === String(agendamento?.sala_id));
+  const buscarPacientePorId = async (pacienteId) => {
+    if (!pacienteId) return null;
+    
+    setBuscando(true);
+    try {
+      const { data, error } = await supabase
+        .from('pacientes')
+        .select('id, nome, numero_carteira, convenio_id')
+        .eq('id', pacienteId)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Erro ao buscar paciente:', error);
+      return null;
+    } finally {
+      setBuscando(false);
+    }
+  };
 
+  const selecionarAgendamento = async (agendamentoId) => {
+    const agendamento = agendamentos.find((item) => String(item.id) === String(agendamentoId));
+    if (!agendamento) return;
+
+    // Buscar dados completos do paciente se necessário
+    let pacienteNome = agendamento.paciente_nome;
+    let pacienteId = agendamento.paciente_id;
+    
+    if (agendamento.paciente_id && !pacienteNome) {
+      const paciente = await buscarPacientePorId(agendamento.paciente_id);
+      if (paciente) {
+        pacienteNome = paciente.nome;
+      }
+    }
+    
+    // Definir destino (prioridade: sala_nome > local > "Consultório")
+    const destinoNome = agendamento.sala_nome || agendamento.local || 'Consultório';
+    const destinoTipo = agendamento.tipo === 'consulta' ? 'consultorio' : 'procedimento';
+    
     setFormData((prev) => ({
       ...prev,
-      agendamento_id: agendamentoId,
-      paciente_id: agendamento?.paciente_id || '',
-      paciente_nome: agendamento?.paciente_nome || prev.paciente_nome,
-      destino_nome: sala?.nome || agendamento?.local || prev.destino_nome,
-      senha: prev.senha || gerarSenhaAleatoria()
+      agendamento_id: String(agendamento.id),
+      paciente_id: pacienteId || '',
+      paciente_nome: pacienteNome || '',
+      destino_tipo: destinoTipo,
+      destino_nome: destinoNome,
+      senha: prev.senha || gerarSenhaAleatoria(),
+      observacao: agendamento.observacao || prev.observacao
     }));
   };
 
@@ -88,14 +160,17 @@ export default function ChamadosRegistro() {
     }
 
     const senhaFinal = formData.senha.trim() || gerarSenhaAleatoria();
-    const agendamento = agendamentos.find((item) => String(item.id) === String(formData.agendamento_id));
+    const agendamentoSelecionado = agendamentos.find(
+      (item) => String(item.id) === String(formData.agendamento_id)
+    );
     
     const payload = applyUnidadeToPayload({
       titulo: `Chamar ${formData.paciente_nome.trim()}`,
+      descricao: formData.observacao.trim(),
       categoria: 'chamada_paciente',
       prioridade: 'normal',
       status: 'aguardando',
-      paciente_id: formData.paciente_id || (agendamento?.paciente_id ? String(agendamento.paciente_id) : null),
+      paciente_id: formData.paciente_id || (agendamentoSelecionado?.paciente_id ? String(agendamentoSelecionado.paciente_id) : null),
       paciente_nome: formData.paciente_nome.trim(),
       senha: senhaFinal,
       destino_tipo: formData.destino_tipo,
@@ -106,7 +181,9 @@ export default function ChamadosRegistro() {
       solicitante_nome: user?.nome || user?.email?.split('@')[0] || 'Usuário',
       metadata: { 
         agendamento_id: formData.agendamento_id ? String(formData.agendamento_id) : null,
-        senha_gerada: senhaFinal
+        senha_gerada: senhaFinal,
+        destino_tipo: formData.destino_tipo,
+        origem: formData.origem_nome
       },
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -124,6 +201,11 @@ export default function ChamadosRegistro() {
       console.error('Erro ao criar chamada:', error);
       toast.error('Erro ao criar chamada');
     }
+  };
+
+  const formatHora = (hora) => {
+    if (!hora) return '';
+    return typeof hora === 'string' ? hora.substring(0, 5) : hora;
   };
 
   if (loading) {
@@ -189,7 +271,10 @@ export default function ChamadosRegistro() {
 
         <div className="mt-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-            <h3 className="font-semibold text-gray-800 dark:text-white">Agendamentos de hoje</h3>
+            <h3 className="font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+              <CalendarIcon className="w-4 h-4" />
+              Agendamentos de hoje ({new Date().toLocaleDateString('pt-BR')})
+            </h3>
           </div>
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
             {agendamentos.length === 0 ? (
@@ -198,22 +283,57 @@ export default function ChamadosRegistro() {
               </div>
             ) : (
               agendamentos.map((ag) => (
-                <div key={ag.id} className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                  <div>
-                    <p className="font-medium text-gray-800 dark:text-white">{ag.paciente_nome}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {ag.hora_inicio?.substring(0, 5)} - {ag.hora_fim?.substring(0, 5)} • {ag.status}
-                    </p>
+                <div key={ag.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium text-gray-800 dark:text-white">
+                          {ag.paciente_nome || 'Paciente não identificado'}
+                        </p>
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
+                          {ag.tipo === 'consulta' ? 'Consulta' : ag.tipo || 'Atendimento'}
+                        </span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${
+                          ag.status === 'agendado' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                          ag.status === 'confirmado' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                          'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-400'
+                        }`}>
+                          {ag.status === 'agendado' ? 'Agendado' : ag.status === 'confirmado' ? 'Confirmado' : ag.status}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        <div className="flex items-center gap-1">
+                          <ClockIcon className="w-3 h-3" />
+                          <span>{formatHora(ag.hora_inicio)} - {formatHora(ag.hora_fim)}</span>
+                        </div>
+                        {ag.prestador_nome && (
+                          <div className="flex items-center gap-1">
+                            <UserIcon className="w-3 h-3" />
+                            <span>{ag.prestador_nome}</span>
+                          </div>
+                        )}
+                        {ag.convenio_nome && (
+                          <div className="flex items-center gap-1">
+                            <BuildingOfficeIcon className="w-3 h-3" />
+                            <span>{ag.convenio_nome}</span>
+                          </div>
+                        )}
+                        {ag.sala_nome && (
+                          <span className="text-xs text-gray-400">Sala: {ag.sala_nome}</span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        selecionarAgendamento(ag.id);
+                        setShowModal(true);
+                      }}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2 self-start"
+                    >
+                      <UserPlusIcon className="w-4 h-4" />
+                      Chamar Paciente
+                    </button>
                   </div>
-                  <button
-                    onClick={() => {
-                      selecionarAgendamento(ag.id);
-                      setShowModal(true);
-                    }}
-                    className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
-                  >
-                    Atender
-                  </button>
                 </div>
               ))
             )}
@@ -245,7 +365,7 @@ export default function ChamadosRegistro() {
                   <option value="">Selecionar agendamento de hoje</option>
                   {agendamentos.map((agendamento) => (
                     <option key={agendamento.id} value={agendamento.id}>
-                      {agendamento.hora_inicio?.substring(0, 5)} - {agendamento.paciente_nome || 'Paciente'} ({agendamento.status})
+                      {formatHora(agendamento.hora_inicio)} - {agendamento.paciente_nome || 'Paciente'} ({agendamento.tipo === 'consulta' ? 'Consulta' : agendamento.tipo})
                     </option>
                   ))}
                 </select>
@@ -301,7 +421,6 @@ export default function ChamadosRegistro() {
                     <option value="exame">Sala de exame</option>
                     <option value="recepcao">Recepção</option>
                     <option value="triagem">Triagem</option>
-                    <option value="medicina">Medicina do Trabalho</option>
                   </select>
                 </div>
                 <div>
