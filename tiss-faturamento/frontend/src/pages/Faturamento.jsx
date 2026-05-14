@@ -210,6 +210,11 @@ const MAX_GUIAS_POR_LOTE = 100;
 
 export default function Faturamento() {
   const { unidadeAtualId } = useUnidade();
+
+  const prepararLoteParaInsert = (lote) => applyUnidadeToPayload({
+    ...lote,
+    id: lote?.id || crypto.randomUUID()
+  }, unidadeAtualId);
   const [atendimentos, setAtendimentos] = useState([]);
   const [convenios, setConvenios] = useState([]);
   const [prestadores, setPrestadores] = useState([]);
@@ -1098,7 +1103,7 @@ export default function Faturamento() {
           updated_at: new Date().toISOString()
         };
 
-        const { error: insertError } = await supabase.from('lotes_faturamento').insert([applyUnidadeToPayload(novoLote, unidadeAtualId)]);
+        const { error: insertError } = await supabase.from('lotes_faturamento').insert([prepararLoteParaInsert(novoLote)]);
         
         if (insertError) throw insertError;
         
@@ -1239,7 +1244,7 @@ export default function Faturamento() {
         updated_at: new Date().toISOString()
       };
 
-      const { error: insertError } = await supabase.from('lotes_faturamento').insert([applyUnidadeToPayload(novoLote, unidadeAtualId)]);
+      const { error: insertError } = await supabase.from('lotes_faturamento').insert([prepararLoteParaInsert(novoLote)]);
       if (insertError) throw insertError;
       
       await registrarLog('REGENERACAO_XML', novoLote, `XML regenerado para o lote ${loteEncontrado.numero_lote}`);
@@ -1314,7 +1319,7 @@ export default function Faturamento() {
         updated_at: new Date().toISOString()
       };
 
-      const { error: insertError } = await supabase.from('lotes_faturamento').insert([applyUnidadeToPayload(novoLote, unidadeAtualId)]);
+      const { error: insertError } = await supabase.from('lotes_faturamento').insert([prepararLoteParaInsert(novoLote)]);
       if (insertError) throw insertError;
       
       await registrarLog('REGENERACAO_XML', novoLote, `XML regenerado para o lote ${lote.numero_lote}`);

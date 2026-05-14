@@ -430,11 +430,11 @@ export default function Prestadores() {
         prestadorId = novoPrestador.id;
       }
 
-      const especialidadesInsert = especialidadesSelecionadas.map(esp => applyUnidadeToPayload({
+      const especialidadesInsert = especialidadesSelecionadas.map(esp => ({
         prestador_id: prestadorId,
         especialidade_id: esp.id,
         principal: esp.id === especialidadePrincipal?.id
-      }, unidadeAtualId));
+      }));
 
       if (especialidadesInsert.length > 0) {
         const { error: espError } = await supabase
