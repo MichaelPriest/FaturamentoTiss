@@ -143,13 +143,16 @@ function MainApp() {
   // Verificar se é rota de prontuário ou convenio-config
   const isSpecialRoute = location.pathname.includes('/prontuario/') || location.pathname.includes('/convenio-config/');
 
+  // Verificar se é rota fullscreen (Painel de Chamadas)
+  const isFullscreenRoute = location.pathname === '/chamados/painel';
+
   useEffect(() => {
-    if (!isSpecialRoute) {
+    if (!isSpecialRoute && !isFullscreenRoute) {
       const nextTab = getTabFromPath(location.pathname);
       setActiveTab(nextTab);
       openGroupForItem(nextTab);
     }
-  }, [location.pathname, isSpecialRoute]);
+  }, [location.pathname, isSpecialRoute, isFullscreenRoute]);
 
   useEffect(() => {
     setVisitedTabs((prev) => {
@@ -362,7 +365,19 @@ function MainApp() {
     second: '2-digit'
   });
 
-  // Se for rota especial, não mostra sidebar
+  // Se for rota fullscreen (Painel de Chamadas), renderiza sem sidebar e header
+  if (isFullscreenRoute) {
+    return (
+      <div className="min-h-screen bg-gray-900">
+        <Toaster position="top-right" richColors />
+        <div className="p-0">
+          <ChamadosPainel />
+        </div>
+      </div>
+    );
+  }
+
+  // Se for rota especial (prontuario ou convenio-config), não mostra sidebar
   if (isSpecialRoute) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
