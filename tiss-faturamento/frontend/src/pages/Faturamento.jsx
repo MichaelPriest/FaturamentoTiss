@@ -213,7 +213,7 @@ export default function Faturamento() {
 
   const prepararLoteParaInsert = (lote) => applyUnidadeToPayload({
     ...lote,
-    id: lote?.id || crypto.randomUUID()
+    id: lote?.id || (Date.now() * 1000 + Math.floor(Math.random() * 1000))
   }, unidadeAtualId);
   const [atendimentos, setAtendimentos] = useState([]);
   const [convenios, setConvenios] = useState([]);
