@@ -63,17 +63,24 @@ export default function ChamadosRegistro() {
 
       if (agendamentosError) throw agendamentosError;
 
-      // Buscar salas ativas
-      const { data: salasData, error: salasError } = await supabase
+      // Buscar salas ativas da unidade
+      let query = supabase
         .from('salas')
         .select('*')
         .eq('ativo', true)
         .order('nome');
 
+      // Se tiver unidade específica, filtrar por ela
+      if (unidadeAtualId && unidadeAtualId !== 'todas') {
+        query = query.eq('unidade_id', unidadeAtualId);
+      }
+
+      const { data: salasData, error: salasError } = await query;
+
       if (salasError) throw salasError;
 
       setAgendamentos(filterByUnidade(agendamentosData || [], unidadeAtualId));
-      setSalas(filterByUnidade(salasData || [], unidadeAtualId));
+      setSalas(salasData || []);
       
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
@@ -87,6 +94,7 @@ export default function ChamadosRegistro() {
     carregarDados();
   }, [unidadeAtualId]);
 
+  // Função para gerar senha aleatória
   const gerarSenhaAleatoria = () => {
     const letras = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     const numeros = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
@@ -94,6 +102,7 @@ export default function ChamadosRegistro() {
     return `${letra}${numeros}`;
   };
 
+  // Buscar paciente por ID
   const buscarPacientePorId = async (pacienteId) => {
     if (!pacienteId) return null;
     
@@ -115,6 +124,7 @@ export default function ChamadosRegistro() {
     }
   };
 
+  // Selecionar agendamento
   const selecionarAgendamento = async (agendamentoId) => {
     const agendamento = agendamentos.find((item) => String(item.id) === String(agendamentoId));
     if (!agendamento) return;
@@ -131,8 +141,23 @@ export default function ChamadosRegistro() {
     }
     
     // Definir destino (prioridade: sala_nome > local > "Consultório")
-    const destinoNome = agendamento.sala_nome || agendamento.local || 'Consultório';
-    const destinoTipo = agendamento.tipo === 'consulta' ? 'consultorio' : 'procedimento';
+    let destinoNome = 'Consultório';
+    let destinoTipo = 'consultorio';
+    
+    if (agendamento.sala_nome) {
+      destinoNome = agendamento.sala_nome;
+    } else if (agendamento.local) {
+      destinoNome = agendamento.local;
+    }
+    
+    // Definir tipo de destino baseado no tipo do agendamento
+    if (agendamento.tipo === 'consulta') {
+      destinoTipo = 'consultorio';
+    } else if (agendamento.tipo === 'procedimento') {
+      destinoTipo = 'procedimento';
+    } else if (agendamento.tipo === 'exame') {
+      destinoTipo = 'exame';
+    }
     
     setFormData((prev) => ({
       ...prev,
@@ -146,6 +171,7 @@ export default function ChamadosRegistro() {
     }));
   };
 
+  // Criar chamado
   const criarChamado = async (event) => {
     event.preventDefault();
     
@@ -203,9 +229,16 @@ export default function ChamadosRegistro() {
     }
   };
 
+  // Formatar hora
   const formatHora = (hora) => {
     if (!hora) return '';
     return typeof hora === 'string' ? hora.substring(0, 5) : hora;
+  };
+
+  // Obter cor da sala
+  const getSalaCor = (sala) => {
+    if (sala.cor) return sala.cor;
+    return '#3B82F6'; // azul padrão
   };
 
   if (loading) {
@@ -269,6 +302,52 @@ export default function ChamadosRegistro() {
           </div>
         </div>
 
+        {/* Lista de Salas Disponíveis */}
+        {salas.length > 0 && (
+          <div className="mt-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+              <h3 className="font-semibold text-gray-800 dark:text-white flex items-center gap-2">
+                <BuildingOfficeIcon className="w-4 h-4" />
+                Salas Disponíveis
+              </h3>
+            </div>
+            <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+              {salas.map((sala) => (
+                <div 
+                  key={sala.id}
+                  className="p-3 rounded-lg border text-center cursor-pointer hover:shadow-md transition-all"
+                  style={{ borderColor: getSalaCor(sala), backgroundColor: `${getSalaCor(sala)}10` }}
+                  onClick={() => {
+                    setFormData({
+                      ...formData,
+                      destino_nome: sala.nome,
+                      destino_tipo: sala.tipo || 'consultorio'
+                    });
+                    setShowModal(true);
+                  }}
+                >
+                  <div 
+                    className="w-8 h-8 rounded-full mx-auto mb-2 flex items-center justify-center"
+                    style={{ backgroundColor: getSalaCor(sala) }}
+                  >
+                    <span className="text-white text-xs font-bold">
+                      {sala.nome.substring(0, 2).toUpperCase()}
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium text-gray-800 dark:text-white">{sala.nome}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {sala.tipo === 'consultorio' ? 'Consultório' : sala.tipo === 'procedimento' ? 'Procedimento' : 'Sala'}
+                  </p>
+                  {sala.capacidade > 1 && (
+                    <p className="text-xs text-gray-400">Capacidade: {sala.capacidade}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Lista de Agendamentos */}
         <div className="mt-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
             <h3 className="font-semibold text-gray-800 dark:text-white flex items-center gap-2">
@@ -291,7 +370,7 @@ export default function ChamadosRegistro() {
                           {ag.paciente_nome || 'Paciente não identificado'}
                         </p>
                         <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
-                          {ag.tipo === 'consulta' ? 'Consulta' : ag.tipo || 'Atendimento'}
+                          {ag.tipo === 'consulta' ? 'Consulta' : ag.tipo === 'procedimento' ? 'Procedimento' : ag.tipo || 'Atendimento'}
                         </span>
                         <span className={`text-xs px-2 py-0.5 rounded-full ${
                           ag.status === 'agendado' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
