@@ -8,28 +8,57 @@ import { useUnidade } from '../contexts/UnidadeContext';
 import { filterByUnidade } from '../services/unidadesService';
 import { WEBSERVICE_DEFAULT_CONFIG, aplicarEndpointsPadraoOrizon } from '../components/WebserviceConfigForm';
 import { consultarStatusProtocoloOrizon, enviarLoteGuiasOrizon } from '../services/orizonWebservice';
+import { gerarXMLTISS } from '../lib/tissGenerator';
 
-const XML_EXEMPLO = `<?xml version="1.0" encoding="UTF-8"?>
-<ans:mensagemTISS xmlns:ans="http://www.ans.gov.br/padroes/tiss/schemas">
-  <ans:cabecalho>
-    <ans:identificacaoTransacao>
-      <ans:tipoTransacao>ENVIO_LOTE_GUIAS</ans:tipoTransacao>
-      <ans:sequencialTransacao>1</ans:sequencialTransacao>
-      <ans:dataRegistroTransacao>2026-05-28</ans:dataRegistroTransacao>
-      <ans:horaRegistroTransacao>10:00:00</ans:horaRegistroTransacao>
-    </ans:identificacaoTransacao>
-    <ans:origem><ans:identificacaoPrestador><ans:codigoPrestadorNaOperadora>CODIGO_PRESTADOR</ans:codigoPrestadorNaOperadora></ans:identificacaoPrestador></ans:origem>
-    <ans:destino><ans:registroANS>REGISTRO_ANS</ans:registroANS></ans:destino>
-    <ans:Padrao>4.03.00</ans:Padrao>
-  </ans:cabecalho>
-  <ans:prestadorParaOperadora>
-    <ans:loteGuias>
-      <ans:numeroLote>1</ans:numeroLote>
-      <ans:guiasTISS></ans:guiasTISS>
-    </ans:loteGuias>
-  </ans:prestadorParaOperadora>
-  <ans:epilogo><ans:hash></ans:hash></ans:epilogo>
-</ans:mensagemTISS>`;
+function gerarXMLHomologacao(convenio) {
+  const dataAtual = new Date().toISOString().split('T')[0];
+  const configClinica = {
+    cnpj: convenio?.cnpj || '00000000000000',
+    cnes: convenio?.cnes || '9999999',
+    nome_contratado: convenio?.nome_contratado || convenio?.razao_social || 'PRESTADOR HOMOLOGACAO',
+    conselho_clinica: '06',
+    uf_clinica: 'SP',
+    cbos_clinica: '225125'
+  };
+
+  const guia = {
+    codigoPrestadorExecutante: convenio?.codigo_prestador || '9999',
+    numeroCarteira: '11111111',
+    numero_guia_prestador: `HOM${Date.now()}`,
+    dataSolicitacao: dataAtual,
+    nomeProfissionalSolicitante: 'PROFISSIONAL HOMOLOGACAO',
+    numeroConselhoProfissionalSolicitante: '99999',
+    carater_atendimento: '1',
+    tipo_atendimento: '04',
+    indicacao_acidente: '9',
+    tipo_consulta: '1',
+    regime_atendimento: '01',
+    itens: [
+      {
+        codigo: '10101012',
+        nome: 'CONSULTA HOMOLOGACAO',
+        quantidade: 1,
+        valor_unitario: 100,
+        data_execucao: dataAtual,
+        tabela_referencia: '22',
+        prestador_nome: 'PROFISSIONAL HOMOLOGACAO',
+        prestador_conselho: 'CRM',
+        prestador_numero_conselho: '99999',
+        prestador_uf_conselho: 'SP',
+        prestador_cbos: '225125'
+      }
+    ]
+  };
+
+  return gerarXMLTISS({
+    versao: '4.03.00',
+    codigoPrestadorNaOperadora: convenio?.codigo_prestador || '9999',
+    registroANS: convenio?.registro_ans || '999999',
+    numeroLote: `HOM${Date.now()}`,
+    guias: [guia],
+    convenio
+  }, configClinica);
+}
 
 function mascarar(valor) {
   if (!valor) return '-';
@@ -47,7 +76,7 @@ export default function HomologacaoWebservice() {
   const [convenioSelecionado, setConvenioSelecionado] = useState(null);
   const [config, setConfig] = useState(WEBSERVICE_DEFAULT_CONFIG);
   const [numeroProtocolo, setNumeroProtocolo] = useState('99999999');
-  const [xmlTeste, setXmlTeste] = useState(XML_EXEMPLO);
+  const [xmlTeste, setXmlTeste] = useState('');
   const [resultado, setResultado] = useState(null);
 
   const configHomologacao = useMemo(() => {
@@ -99,9 +128,7 @@ export default function HomologacaoWebservice() {
         usuario_webservice: parsed.usuario_webservice || '',
         senha_webservice: parsed.senha_webservice || parsed.chave_transmissao_orizon || convenio.senha_prestador || ''
       });
-      setXmlTeste(XML_EXEMPLO
-        .replace('CODIGO_PRESTADOR', convenio.codigo_prestador || 'CODIGO_PRESTADOR')
-        .replace('REGISTRO_ANS', convenio.registro_ans || 'REGISTRO_ANS'));
+      setXmlTeste(gerarXMLHomologacao(convenio));
     } catch (error) {
       console.error('Erro ao carregar configuração do convênio:', error);
       toast.error('Erro ao carregar configuração do convênio');
@@ -291,7 +318,16 @@ export default function HomologacaoWebservice() {
 
           <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 space-y-3">
             <h3 className="font-semibold text-gray-800 dark:text-white">2. Envio XML de homologação</h3>
-            <p className="text-xs text-amber-700 dark:text-amber-300">Cole um XML TISS válido de homologação. Não use dados reais de pacientes nesta tela.</p>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+              <p className="text-xs text-amber-700 dark:text-amber-300">Cole um XML TISS válido de homologação. Não use dados reais de pacientes nesta tela.</p>
+              <button
+                type="button"
+                onClick={() => convenioSelecionado && setXmlTeste(gerarXMLHomologacao(convenioSelecionado))}
+                className="text-xs px-3 py-1.5 rounded-lg border border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20"
+              >
+                Gerar XML exemplo TISS 4.03.00
+              </button>
+            </div>
             <textarea
               rows="12"
               value={xmlTeste}
