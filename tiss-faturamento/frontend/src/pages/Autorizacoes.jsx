@@ -30,6 +30,42 @@ const STATUS_AUTORIZACAO = [
   { value: 'finalizado', label: 'Finalizado', cor: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400', icone: ShieldCheckIcon }
 ];
 
+const SELECT_ATENDIMENTOS_BASE = `
+  id,
+  numero_guia_prestador,
+  numero_guia_operadora,
+  data_autorizacao,
+  data_validade_senha,
+  senha_autorizacao,
+  observacao,
+  status,
+  valor_total,
+  itens,
+  itens_autorizados,
+  paciente_id,
+  paciente_nome,
+  numero_carteira,
+  paciente_convenio_id,
+  paciente_convenio_nome,
+  convenio_registro_ans,
+  convenio_codigo_prestador,
+  created_at,
+  updated_at,
+  unidade_id
+`;
+
+const SELECT_ATENDIMENTOS_WS = `
+  ${SELECT_ATENDIMENTOS_BASE},
+  protocolo_autorizacao,
+  status_autorizacao_ws,
+  integracao_autorizacao
+`;
+
+function erroColunaIntegracaoAusente(error) {
+  const texto = `${error?.code || ''} ${error?.message || ''} ${error?.details || ''}`;
+  return /protocolo_autorizacao|status_autorizacao_ws|integracao_autorizacao|schema cache|Could not find|column/i.test(texto);
+}
+
 export default function Autorizacoes() {
   const { unidadeAtualId } = useUnidade();
   const [autorizacoes, setAutorizacoes] = useState([]);
@@ -96,35 +132,20 @@ export default function Autorizacoes() {
   };
 
   const listarAtendimentosComPendentes = async () => {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('atendimentos')
-      .select(`
-        id,
-        numero_guia_prestador,
-        numero_guia_operadora,
-        data_autorizacao,
-        data_validade_senha,
-        senha_autorizacao,
-        observacao,
-        status,
-        valor_total,
-        itens,
-        itens_autorizados,
-        paciente_id,
-        paciente_nome,
-        numero_carteira,
-        paciente_convenio_id,
-        paciente_convenio_nome,
-        convenio_registro_ans,
-        convenio_codigo_prestador,
-        protocolo_autorizacao,
-        status_autorizacao_ws,
-        integracao_autorizacao,
-        created_at,
-        updated_at,
-        unidade_id
-      `)
+      .select(SELECT_ATENDIMENTOS_WS)
       .order('created_at', { ascending: false });
+
+    if (error && erroColunaIntegracaoAusente(error)) {
+      console.warn('Colunas de integração de autorização ainda não aplicadas; carregando autorizações sem metadados WS.', error);
+      const fallback = await supabase
+        .from('atendimentos')
+        .select(SELECT_ATENDIMENTOS_BASE)
+        .order('created_at', { ascending: false });
+      data = fallback.data;
+      error = fallback.error;
+    }
 
     if (error) throw error;
 
@@ -535,6 +556,28 @@ export default function Autorizacoes() {
       .from('atendimentos')
       .update(payload)
       .eq('id', atendimento.id);
+
+    if (error && erroColunaIntegracaoAusente(error)) {
+      const { protocolo_autorizacao, status_autorizacao_ws, integracao_autorizacao, ...camposLegados } = patchCampos;
+      const fallbackPayload = {
+        ...camposLegados,
+        updated_at: new Date().toISOString()
+      };
+
+      if (Object.keys(camposLegados).length === 0) {
+        console.warn('Migration de autorizações WebService pendente; metadados WS não foram persistidos.', error);
+        return;
+      }
+
+      const fallback = await supabase
+        .from('atendimentos')
+        .update(fallbackPayload)
+        .eq('id', atendimento.id);
+
+      if (fallback.error) throw fallback.error;
+      console.warn('Migration de autorizações WebService pendente; salvando apenas campos legados de autorização.', error);
+      return;
+    }
 
     if (error) throw error;
   };
