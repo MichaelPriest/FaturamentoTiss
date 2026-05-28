@@ -131,6 +131,9 @@ export default function WebserviceConfigForm({ config, setConfig, convenioData, 
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             Use quando o endpoint do convênio exigir IP fixo/liberado ou certificado A1 instalado em um servidor próprio. Se vazio, será usado o proxy padrão /api/orizon-soap desta aplicação.
           </p>
+          <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+            Se aparecer ECONNRESET, a Orizon encerrou a conexão antes de aceitar o lote; normalmente é necessário proxy próprio com IP liberado e/ou certificado A1 configurado.
+          </p>
         </div>
 
         <div>

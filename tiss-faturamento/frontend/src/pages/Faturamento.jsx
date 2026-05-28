@@ -1464,6 +1464,22 @@ export default function Faturamento() {
     if (error) throw error;
   };
 
+  const isErroConexaoOrizon = (error) => {
+    const texto = `${error?.message || ''} ${error?.codigo || ''}`;
+    return /ECONNRESET|NETWORK_ERROR|fetch failed|certificado|mTLS|IP|liberação|proxy/i.test(texto);
+  };
+
+  const formatarErroConexaoOrizon = (error) => {
+    if (!isErroConexaoOrizon(error)) return error.message;
+
+    return [
+      'A Orizon encerrou a conexão antes de aceitar o lote.',
+      'Isso geralmente não é erro do XML: exige IP fixo/liberado e/ou certificado A1/mTLS no servidor de transmissão.',
+      'Configure o campo "Proxy de transmissão autorizado" do convênio com um servidor que tenha IP/certificado liberados pela Orizon.',
+      `Detalhe técnico: ${error.message}`
+    ].join(' ');
+  };
+
   const enviarLoteOrizon = async (lote) => {
     const convenio = convenios.find(c => c.id === lote.convenio_id);
     if (!lote.xml_content) {
@@ -1504,7 +1520,25 @@ export default function Faturamento() {
       toast.success(`Lote enviado à Orizon${retorno.numeroProtocolo ? ` com protocolo ${retorno.numeroProtocolo}` : ''}.`);
     } catch (error) {
       console.error('Erro ao enviar lote Orizon:', error);
-      toast.error(`Erro no envio Orizon: ${error.message}`);
+      const mensagem = formatarErroConexaoOrizon(error);
+
+      try {
+        const credenciais = convenio ? await carregarCredenciaisOrizon(convenio) : {};
+        await atualizarLoteIntegracaoOrizon(lote, {
+          erro_envio: mensagem,
+          codigo_erro: error?.codigo || error?.payload?.code || null,
+          endpoint_lote: credenciais.endpointLote,
+          proxy_url: credenciais.proxyUrl || '/api/orizon-soap',
+          falha_em: new Date().toISOString()
+        }, {
+          status_integracao: isErroConexaoOrizon(error) ? 'falha_conexao_orizon' : 'falha_envio_orizon'
+        });
+        await carregarLotes();
+      } catch (logError) {
+        console.warn('Não foi possível registrar falha de integração Orizon:', logError);
+      }
+
+      toast.error(`Erro no envio Orizon: ${mensagem}`, { duration: 14000 });
     } finally {
       setEnviandoOrizonId(null);
     }
