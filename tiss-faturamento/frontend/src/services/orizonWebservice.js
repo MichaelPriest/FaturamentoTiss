@@ -136,7 +136,12 @@ async function compactarGzip(texto) {
   return { body: buffer, gzip: true };
 }
 
-async function enviarSOAP(endpoint, envelope, opcoes = {}) {
+function deveUsarProxy(opcoes = {}) {
+  if (opcoes.proxy === false) return false;
+  return import.meta.env?.VITE_ORIZON_DIRECT_FETCH !== 'true';
+}
+
+async function enviarSOAPDireto(endpoint, envelope, opcoes = {}) {
   const { body, gzip } = opcoes.gzip === false ? { body: envelope, gzip: false } : await compactarGzip(envelope);
   const headers = {
     'Content-Type': 'text/xml; charset=utf-8',
@@ -154,6 +159,35 @@ async function enviarSOAP(endpoint, envelope, opcoes = {}) {
     throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
   }
   return text;
+}
+
+async function enviarSOAPPorProxy(endpoint, envelope, opcoes = {}) {
+  const response = await fetch(opcoes.proxyUrl || '/api/orizon-soap', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      endpoint,
+      envelope,
+      gzip: opcoes.gzip !== false,
+      soapAction: opcoes.soapAction || ''
+    })
+  });
+
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || payload?.ok === false) {
+    const detalhe = payload?.detail || payload?.text || payload?.statusText || response.statusText;
+    throw new Error(`${payload?.error || 'Falha ao comunicar com o WebService do convênio.'}${detalhe ? ` Detalhe: ${detalhe}` : ''}`);
+  }
+
+  return payload?.text || '';
+}
+
+async function enviarSOAP(endpoint, envelope, opcoes = {}) {
+  if (deveUsarProxy(opcoes)) {
+    return enviarSOAPPorProxy(endpoint, envelope, opcoes);
+  }
+
+  return enviarSOAPDireto(endpoint, envelope, opcoes);
 }
 
 function parseSoapFault(xml) {

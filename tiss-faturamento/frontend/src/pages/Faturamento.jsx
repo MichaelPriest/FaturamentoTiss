@@ -1420,10 +1420,10 @@ export default function Faturamento() {
 
     const ambiente = configIntegracao.ambiente_orizon || convenio.ambiente || 'homologacao';
     const login = configIntegracao.usuario_webservice || configIntegracao.login_prestador_orizon || '';
-    const senha = configIntegracao.senha_webservice || configIntegracao.chave_transmissao_orizon || '';
+    const senha = configIntegracao.senha_webservice || configIntegracao.chave_transmissao_orizon || convenio.senha_prestador || '';
 
     if (!login || !senha) {
-      throw new Error('Informe usuário e chave/senha do WebService na aba Integrações do convênio.');
+      throw new Error('Informe usuário e chave/senha do WebService na página WebService do convênio. Se a Orizon exigir certificado digital, o envio deve ocorrer pelo proxy/servidor configurado.');
     }
 
     const endpointLote = configIntegracao.url_webservice || convenio.url_webservice || '';
