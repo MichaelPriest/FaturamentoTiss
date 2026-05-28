@@ -10,13 +10,17 @@ import {
   KeyIcon, ShieldCheckIcon, UserCircleIcon,
   IdentificationIcon, CreditCardIcon,
   CalendarDaysIcon, CubeIcon, ListBulletIcon,
-  CheckBadgeIcon, XCircleIcon
+  CheckBadgeIcon, XCircleIcon, CloudArrowUpIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format, differenceInDays } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
 import { useUnidade } from '../contexts/UnidadeContext';
 import { filterByUnidade } from '../services/unidadesService';
+import {
+  consultarStatusAutorizacaoOrizon,
+  solicitarAutorizacaoProcedimentoOrizon
+} from '../services/orizonWebservice';
 
 const STATUS_AUTORIZACAO = [
   { value: 'pendente', label: 'Sem Autorização', cor: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400', icone: ClockIcon },
@@ -44,6 +48,8 @@ export default function Autorizacoes() {
   const [buscaNumeroGuia, setBuscaNumeroGuia] = useState('');
   const [atendimentoEncontrado, setAtendimentoEncontrado] = useState(null);
   const [buscandoAtendimento, setBuscandoAtendimento] = useState(false);
+  const [enviandoWebserviceId, setEnviandoWebserviceId] = useState(null);
+  const [consultandoWebserviceId, setConsultandoWebserviceId] = useState(null);
   const [quantidadesAutorizar, setQuantidadesAutorizar] = useState({});
   
   const [dadosAutorizacao, setDadosAutorizacao] = useState({
@@ -111,6 +117,9 @@ export default function Autorizacoes() {
         paciente_convenio_nome,
         convenio_registro_ans,
         convenio_codigo_prestador,
+        protocolo_autorizacao,
+        status_autorizacao_ws,
+        integracao_autorizacao,
         created_at,
         updated_at,
         unidade_id
@@ -470,6 +479,183 @@ export default function Autorizacoes() {
     }
   };
 
+
+  const carregarCredenciaisAutorizacao = async (atendimento) => {
+    const convenio = convenios.find(c => c.id === atendimento.paciente_convenio_id);
+    if (!convenio) throw new Error('Convênio não encontrado para esta guia.');
+
+    let configIntegracao = {};
+    try {
+      const { data, error } = await supabase
+        .from('convenios_config')
+        .select('configuracoes')
+        .eq('convenio_id', convenio.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      configIntegracao = data?.configuracoes ? JSON.parse(data.configuracoes) : {};
+    } catch (error) {
+      console.warn('Não foi possível carregar configuração de WebService do convênio:', error);
+    }
+
+    const login = configIntegracao.usuario_webservice || configIntegracao.login_prestador_orizon || '';
+    const senha = configIntegracao.senha_webservice || configIntegracao.chave_transmissao_orizon || convenio.senha_prestador || '';
+    const endpointAutorizacao = configIntegracao.url_autorizacao_orizon || '';
+    const endpointStatusAutorizacao = configIntegracao.url_status_autorizacao_orizon || '';
+
+    if (!login || !senha) {
+      throw new Error('Informe login e chave/senha do WebService na configuração do convênio.');
+    }
+
+    return {
+      convenio,
+      login,
+      senha,
+      endpointAutorizacao,
+      endpointStatusAutorizacao,
+      proxyUrl: configIntegracao.proxy_url_webservice || '',
+      cnes: configIntegracao.cnes || convenio.cnes || '',
+      ambiente: configIntegracao.ambiente_orizon || convenio.ambiente || 'homologacao'
+    };
+  };
+
+  const atualizarIntegracaoAutorizacao = async (atendimento, patchIntegracao, patchCampos = {}) => {
+    const integracaoAtual = atendimento.integracao_autorizacao || {};
+    const payload = {
+      ...patchCampos,
+      integracao_autorizacao: {
+        ...integracaoAtual,
+        ...patchIntegracao,
+        atualizado_em: new Date().toISOString()
+      },
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = await supabase
+      .from('atendimentos')
+      .update(payload)
+      .eq('id', atendimento.id);
+
+    if (error) throw error;
+  };
+
+  const montarCamposRetornoAutorizacao = (retorno, atendimento) => {
+    const campos = {
+      status_autorizacao_ws: retorno.statusSolicitacao || 'retorno_recebido'
+    };
+
+    if (retorno.numeroGuiaOperadora) campos.numero_guia_operadora = retorno.numeroGuiaOperadora;
+    if (retorno.senha) campos.senha_autorizacao = retorno.senha;
+    if (retorno.dataAutorizacao) campos.data_autorizacao = retorno.dataAutorizacao;
+    if (retorno.dataValidadeSenha) campos.data_validade_senha = retorno.dataValidadeSenha;
+    if (retorno.numeroGuiaOperadora || retorno.numeroGuiaPrestador) {
+      campos.protocolo_autorizacao = retorno.numeroGuiaOperadora || retorno.numeroGuiaPrestador;
+    }
+    if ((retorno.numeroGuiaOperadora || atendimento.numero_guia_operadora) && (retorno.senha || atendimento.senha_autorizacao)) {
+      campos.status = 'autorizado';
+    }
+
+    return campos;
+  };
+
+  const enviarAutorizacaoWebservice = async (atendimento) => {
+    const id = atendimento.id;
+    setEnviandoWebserviceId(id);
+    try {
+      const credenciais = await carregarCredenciaisAutorizacao(atendimento);
+      if (!credenciais.endpointAutorizacao) {
+        throw new Error('Informe o endpoint de Solicitação de Autorização na configuração WebService do convênio.');
+      }
+
+      const retorno = await solicitarAutorizacaoProcedimentoOrizon({
+        endpoint: credenciais.endpointAutorizacao,
+        atendimento,
+        convenio: credenciais.convenio,
+        login: credenciais.login,
+        senha: credenciais.senha,
+        cnes: credenciais.cnes,
+        proxyUrl: credenciais.proxyUrl
+      });
+
+      if (!retorno.sucesso) {
+        throw new Error(retorno.erro || 'A operadora retornou erro na solicitação de autorização.');
+      }
+
+      await atualizarIntegracaoAutorizacao(atendimento, {
+        ambiente: credenciais.ambiente,
+        endpoint_autorizacao: credenciais.endpointAutorizacao,
+        numero_guia_prestador: retorno.numeroGuiaPrestador || atendimento.numero_guia_prestador,
+        numero_guia_operadora: retorno.numeroGuiaOperadora,
+        senha: retorno.senha,
+        status_solicitacao: retorno.statusSolicitacao,
+        motivo_negativa: retorno.motivoNegativa,
+        xml_resposta_autorizacao: retorno.xmlResposta,
+        enviado_em: new Date().toISOString()
+      }, montarCamposRetornoAutorizacao(retorno, atendimento));
+
+      toast.success(`Solicitação de autorização enviada${retorno.numeroGuiaOperadora ? ` - Guia operadora ${retorno.numeroGuiaOperadora}` : ''}.`);
+      await carregarDados();
+    } catch (error) {
+      console.error('Erro ao enviar autorização WebService:', error);
+      try {
+        await atualizarIntegracaoAutorizacao(atendimento, {
+          erro_envio: error.message,
+          falha_em: new Date().toISOString()
+        }, { status_autorizacao_ws: 'falha_envio' });
+        await carregarDados();
+      } catch (logError) {
+        console.warn('Não foi possível registrar falha de autorização:', logError);
+      }
+      toast.error(`Erro no WebService de autorização: ${error.message}`, { duration: 12000 });
+    } finally {
+      setEnviandoWebserviceId(null);
+    }
+  };
+
+  const consultarAutorizacaoWebservice = async (atendimento) => {
+    const id = atendimento.id;
+    setConsultandoWebserviceId(id);
+    try {
+      const credenciais = await carregarCredenciaisAutorizacao(atendimento);
+      if (!credenciais.endpointStatusAutorizacao) {
+        throw new Error('Informe o endpoint de Status Autorização na configuração WebService do convênio.');
+      }
+
+      const retorno = await consultarStatusAutorizacaoOrizon({
+        endpoint: credenciais.endpointStatusAutorizacao,
+        codigoPrestador: credenciais.convenio.codigo_prestador || atendimento.convenio_codigo_prestador,
+        registroANS: credenciais.convenio.registro_ans || atendimento.convenio_registro_ans,
+        numeroGuiaPrestador: atendimento.numero_guia_prestador,
+        numeroGuiaOperadora: atendimento.numero_guia_operadora || atendimento.protocolo_autorizacao,
+        login: credenciais.login,
+        senha: credenciais.senha,
+        proxyUrl: credenciais.proxyUrl
+      });
+
+      if (!retorno.sucesso) {
+        throw new Error(retorno.erro || 'A operadora retornou erro na consulta de autorização.');
+      }
+
+      await atualizarIntegracaoAutorizacao(atendimento, {
+        endpoint_status_autorizacao: credenciais.endpointStatusAutorizacao,
+        status_solicitacao: retorno.statusSolicitacao,
+        numero_guia_operadora: retorno.numeroGuiaOperadora,
+        senha: retorno.senha,
+        motivo_negativa: retorno.motivoNegativa,
+        xml_resposta_status_autorizacao: retorno.xmlResposta,
+        consultado_em: new Date().toISOString()
+      }, montarCamposRetornoAutorizacao(retorno, atendimento));
+
+      toast.success(`Status de autorização consultado${retorno.statusSolicitacao ? `: ${retorno.statusSolicitacao}` : ''}.`);
+      await carregarDados();
+    } catch (error) {
+      console.error('Erro ao consultar autorização WebService:', error);
+      toast.error(`Erro na consulta de autorização: ${error.message}`, { duration: 12000 });
+    } finally {
+      setConsultandoWebserviceId(null);
+    }
+  };
+
   const handleEditarAutorizacao = async (atendimento) => {
     setEditing(atendimento);
     setAtendimentoEncontrado(atendimento);
@@ -675,7 +861,7 @@ export default function Autorizacoes() {
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"><ListBulletIcon className="w-3 h-3 inline mr-1" />Itens</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"><CurrencyDollarIcon className="w-3 h-3 inline mr-1" />Valor</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><ShieldCheckIcon className="w-3 h-3 inline mr-1" />Status</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Ações</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-44">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -718,9 +904,15 @@ export default function Autorizacoes() {
                             {STATUS_AUTORIZACAO.find(s => s.value === a.status)?.icone && React.createElement(STATUS_AUTORIZACAO.find(s => s.value === a.status).icone, { className: "w-3 h-3" })}
                             {getStatusLabel(a.status)}
                           </span>
+                          {a.status_autorizacao_ws && (
+                            <p className="text-[10px] text-cyan-700 dark:text-cyan-300 mt-1">WS: {a.status_autorizacao_ws}</p>
+                          )}
+                          {a.integracao_autorizacao?.motivo_negativa && (
+                            <p className="text-[10px] text-red-600 mt-1">{a.integracao_autorizacao.motivo_negativa}</p>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <div className="flex gap-1 justify-center">
+                          <div className="flex gap-1 justify-center flex-wrap">
                             <button onClick={() => { setSelectedAutorizacao(a); setShowItensModal(true); }} className="p-1.5 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors" title="Ver Itens">
                               <EyeIcon className="w-4 h-4" />
                             </button>
@@ -729,6 +921,24 @@ export default function Autorizacoes() {
                                 <PencilIcon className="w-4 h-4" />
                               </button>
                             )}
+                            {a.status !== 'faturado' && a.status !== 'finalizado' && (
+                              <button
+                                onClick={() => enviarAutorizacaoWebservice(a)}
+                                disabled={enviandoWebserviceId === a.id}
+                                className="p-1.5 rounded-lg text-cyan-600 hover:bg-cyan-50 transition-colors disabled:opacity-50"
+                                title="Enviar solicitação de autorização via WebService"
+                              >
+                                {enviandoWebserviceId === a.id ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-600"></div> : <CloudArrowUpIcon className="w-4 h-4" />}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => consultarAutorizacaoWebservice(a)}
+                              disabled={consultandoWebserviceId === a.id}
+                              className="p-1.5 rounded-lg text-teal-600 hover:bg-teal-50 transition-colors disabled:opacity-50"
+                              title="Consultar status da autorização via WebService"
+                            >
+                              {consultandoWebserviceId === a.id ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-teal-600"></div> : <ArrowPathIcon className="w-4 h-4" />}
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1190,6 +1400,14 @@ export default function Autorizacoes() {
                     <div><span className="text-xs text-gray-500">Status</span><p className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${getStatusCor(selectedAutorizacao.status)}`}>{getStatusLabel(selectedAutorizacao.status)}</p></div>
                   </div>
                 </div>
+
+                {(selectedAutorizacao.protocolo_autorizacao || selectedAutorizacao.status_autorizacao_ws) && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5 p-4 bg-cyan-50 dark:bg-cyan-900/20 rounded-xl">
+                    <div><span className="text-xs text-gray-500">Protocolo/guia WS</span><p className="text-sm font-mono">{selectedAutorizacao.protocolo_autorizacao || '-'}</p></div>
+                    <div><span className="text-xs text-gray-500">Status WS</span><p className="text-sm">{selectedAutorizacao.status_autorizacao_ws || '-'}</p></div>
+                    <div><span className="text-xs text-gray-500">Última consulta</span><p className="text-sm">{selectedAutorizacao.integracao_autorizacao?.consultado_em ? format(new Date(selectedAutorizacao.integracao_autorizacao.consultado_em), 'dd/MM/yyyy HH:mm') : '-'}</p></div>
+                  </div>
+                )}
 
                 <div className="overflow-x-auto border rounded-xl">
                   <table className="w-full text-sm">
