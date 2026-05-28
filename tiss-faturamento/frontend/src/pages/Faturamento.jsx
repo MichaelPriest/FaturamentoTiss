@@ -34,7 +34,9 @@ import { applyUnidadeToPayload, filterByUnidade } from '../services/unidadesServ
 import {
   STATUS_PROTOCOLO_ORIZON,
   consultarStatusProtocoloOrizon,
-  enviarLoteGuiasOrizon
+  enviarLoteGuiasOrizon,
+  hashSenhaOrizon,
+  montarEnvelopeLoteGuias
 } from '../services/orizonWebservice';
 
 // ============================================
@@ -232,6 +234,7 @@ export default function Faturamento() {
   const [cancelando, setCancelando] = useState(false);
   const [enviandoOrizonId, setEnviandoOrizonId] = useState(null);
   const [consultandoOrizonId, setConsultandoOrizonId] = useState(null);
+  const [gerandoWebserviceId, setGerandoWebserviceId] = useState(null);
   const [buscandoLote, setBuscandoLote] = useState(false);
   const [loading, setLoading] = useState(true);
   const [guiasGeradas, setGuiasGeradas] = useState([]);
@@ -1401,7 +1404,7 @@ export default function Faturamento() {
     }
   };
 
-  const carregarCredenciaisOrizon = async (convenio) => {
+  const carregarCredenciaisOrizon = async (convenio, opcoes = {}) => {
     if (!convenio) throw new Error('Convênio não encontrado para o lote.');
 
     let configIntegracao = {};
@@ -1430,7 +1433,7 @@ export default function Faturamento() {
     const endpointStatus = configIntegracao.url_status_protocolo_orizon || '';
     const proxyUrl = configIntegracao.proxy_url_webservice || '';
 
-    if (!endpointLote) {
+    if (opcoes.exigirEndpointLote !== false && !endpointLote) {
       throw new Error('Informe o endpoint de envio de lote específico deste convênio na configuração do WebService.');
     }
 
@@ -1598,15 +1601,53 @@ export default function Faturamento() {
     }
   };
 
-  const gerarXMLporLote = (lote) => {
-    const blob = new Blob([lote.xml_content], { type: 'application/xml' });
+  const baixarArquivoXML = (conteudo, nomeArquivo, mensagem = 'XML baixado!') => {
+    const blob = new Blob([conteudo], { type: 'application/xml' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${lote.numero_lote}.xml`;
+    a.download = nomeArquivo;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success('XML baixado!');
+    toast.success(mensagem);
+  };
+
+  const gerarXMLporLote = (lote) => {
+    if (!lote.xml_content) {
+      toast.error('Lote sem XML TISS armazenado. Regere o XML antes de baixar.');
+      return;
+    }
+
+    baixarArquivoXML(lote.xml_content, `${lote.numero_lote}.xml`);
+  };
+
+  const gerarXMLWebservicePorLote = async (lote) => {
+    const loteKey = lote.id || lote.numero_lote;
+    const convenio = convenios.find(c => c.id === lote.convenio_id);
+
+    if (!lote.xml_content) {
+      toast.error('Lote sem XML TISS armazenado. Regere o XML antes de gerar o formato WebService.');
+      return;
+    }
+
+    setGerandoWebserviceId(loteKey);
+    try {
+      const credenciais = await carregarCredenciaisOrizon(convenio, { exigirEndpointLote: false });
+      const xmlWebservice = montarEnvelopeLoteGuias(lote.xml_content, {
+        login: credenciais.login,
+        senhaMD5: hashSenhaOrizon(credenciais.senha)
+      });
+      const ambiente = credenciais.ambiente === 'producao' ? 'producao' : 'homologacao';
+      const nomeArquivo = `${lote.numero_lote}_webservice_orizon_${ambiente}.xml`;
+
+      baixarArquivoXML(xmlWebservice, nomeArquivo, 'XML WebService gerado no padrão SOAP Orizon!');
+      await registrarLog('GERACAO_XML_WEBSERVICE', lote, `XML WebService SOAP Orizon (${ambiente}) gerado para o lote ${lote.numero_lote}`);
+    } catch (error) {
+      console.error('Erro ao gerar XML WebService do lote:', error);
+      toast.error(`Erro ao gerar XML WebService: ${error.message}`, { duration: 12000 });
+    } finally {
+      setGerandoWebserviceId(null);
+    }
   };
 
   const visualizarLote = (lote) => {
@@ -2075,8 +2116,18 @@ export default function Faturamento() {
                           </button>
                           
                           {/* Baixar XML */}
-                          <button onClick={() => gerarXMLporLote(g)} className="p-1 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" title="Baixar XML">
+                          <button onClick={() => gerarXMLporLote(g)} className="p-1 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" title="Baixar XML TISS padrão">
                             <DocumentArrowDownIcon className="w-4 h-4" />
+                          </button>
+
+                          {/* Baixar XML WebService */}
+                          <button
+                            onClick={() => gerarXMLWebservicePorLote(g)}
+                            disabled={gerandoWebserviceId === loteKey}
+                            className="p-1 rounded-lg text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors disabled:opacity-50"
+                            title="Baixar XML formato WebService SOAP Orizon"
+                          >
+                            {gerandoWebserviceId === loteKey ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-600"></div> : <DocumentPlusIcon className="w-4 h-4" />}
                           </button>
 
                           {/* Enviar Orizon */}
@@ -2410,8 +2461,15 @@ export default function Faturamento() {
                 <div className="bg-gray-900 rounded-xl p-4 overflow-auto max-h-96">
                   <pre className="text-xs text-green-400 font-mono whitespace-pre-wrap">{selectedLote.xml_content}</pre>
                 </div>
-                <div className="flex justify-end gap-3 mt-5 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <button onClick={() => { const blob = new Blob([selectedLote.xml_content], { type: 'application/xml' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${selectedLote.numero_lote}.xml`; a.click(); URL.revokeObjectURL(url); toast.success('XML baixado!'); }} className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg">Baixar XML</button>
+                <div className="flex flex-wrap justify-end gap-3 mt-5 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <button onClick={() => gerarXMLporLote(selectedLote)} className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg">Baixar XML TISS</button>
+                  <button
+                    onClick={() => gerarXMLWebservicePorLote(selectedLote)}
+                    disabled={gerandoWebserviceId === (selectedLote.id || selectedLote.numero_lote)}
+                    className="px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-600 text-white rounded-lg disabled:opacity-50"
+                  >
+                    {gerandoWebserviceId === (selectedLote.id || selectedLote.numero_lote) ? 'Gerando...' : 'Baixar XML WebService'}
+                  </button>
                   <button onClick={() => setShowLoteModal(false)} className="px-4 py-2 border rounded-lg">Fechar</button>
                 </div>
               </div>
@@ -2428,6 +2486,7 @@ export default function Faturamento() {
             <li>• Após faturar, as guias são finalizadas e não podem ser alteradas no módulo de atendimentos</li>
             <li>• Para reabrir as guias, cancele o lote no histórico</li>
             <li>• Use "Gerar por Nº Lote" para regenerar o XML de um lote específico</li>
+            <li>• Use "Baixar XML WebService" nos lotes para gerar o envelope SOAP TISS com login/senha do convênio</li>
             <li>• Cancelar um lote retorna as guias para o status "faturado"</li>
             <li>• Limite máximo de <strong>{MAX_GUIAS_POR_LOTE} guias por lote</strong></li>
             <li>• O número do lote é um sequencial único de até 12 dígitos</li>
