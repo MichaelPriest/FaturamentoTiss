@@ -594,8 +594,18 @@ export default function Autorizacoes() {
     if (retorno.numeroGuiaOperadora || retorno.numeroGuiaPrestador) {
       campos.protocolo_autorizacao = retorno.numeroGuiaOperadora || retorno.numeroGuiaPrestador;
     }
-    if ((retorno.numeroGuiaOperadora || atendimento.numero_guia_operadora) && (retorno.senha || atendimento.senha_autorizacao)) {
+    const statusRetorno = (retorno.statusSolicitacao || '').toString().toLowerCase();
+    if (/parcial/.test(statusRetorno)) {
+      campos.status = 'parcial';
+    }
+    if (
+      (retorno.numeroGuiaOperadora || atendimento.numero_guia_operadora) &&
+      (retorno.senha || atendimento.senha_autorizacao || /autoriz|aprov|liberad/.test(statusRetorno))
+    ) {
       campos.status = 'autorizado';
+    }
+    if (/negad|rejeitad|cancelad/.test(statusRetorno)) {
+      campos.status = 'pendente';
     }
 
     return campos;
