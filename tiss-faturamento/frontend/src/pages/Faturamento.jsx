@@ -32,7 +32,7 @@ import { gerarXMLTISS, converterAtendimentoParaTISS, setVersao } from '../lib/ti
 import { imprimirGuiaTISSOficial, imprimirMultiplasGuiasTISS } from '../components/ImpressaoGuiaTISS';
 import { imprimirContaFaturada, imprimirMultiplasContas as imprimirMultiplasContasFaturadas } from '../components/ImpressaoContaFaturada';
 import { useUnidade } from '../contexts/UnidadeContext';
-import { applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
+import { TODAS_UNIDADES_ID, applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
 import {
   STATUS_PROTOCOLO_ORIZON,
   consultarStatusProtocoloOrizon,
@@ -257,6 +257,7 @@ export default function Faturamento() {
   const [selectedLote, setSelectedLote] = useState(null);
   const [showFaturaModal, setShowFaturaModal] = useState(false);
   const [selectedFaturaLote, setSelectedFaturaLote] = useState(null);
+  const [modoVisualizacaoXml, setModoVisualizacaoXml] = useState('xml');
   const [sequencialGlobal, setSequencialGlobal] = useState(1);
   const [logsLotes, setLogsLotes] = useState([]);
   const [numeroLoteBusca, setNumeroLoteBusca] = useState('');
@@ -329,16 +330,26 @@ export default function Faturamento() {
 
   const carregarConfigClinica = async () => {
     try {
+      const chaves = [
+        unidadeAtualId && unidadeAtualId !== TODAS_UNIDADES_ID ? `config_clinica_${unidadeAtualId}` : null,
+        'config_clinica',
+        'config_sistema'
+      ].filter(Boolean);
+
       const { data, error } = await supabase
         .from('configuracoes')
-        .select('valor')
-        .eq('chave', 'config_sistema')
-        .maybeSingle();
-      
+        .select('chave, valor')
+        .in('chave', chaves);
+
       if (error) throw error;
-      
-      if (data?.valor) {
-        setConfigClinica(JSON.parse(data.valor));
+
+      const configsPorChave = (data || []).reduce((acc, item) => ({ ...acc, [item.chave]: item.valor }), {});
+      const chavePreferida = chaves.find(chave => configsPorChave[chave]);
+
+      if (chavePreferida) {
+        setConfigClinica(JSON.parse(configsPorChave[chavePreferida]));
+      } else {
+        setConfigClinica({});
       }
     } catch (error) {
       console.error('Erro ao carregar config clínica:', error);
@@ -418,10 +429,10 @@ export default function Faturamento() {
       if (prestadoresRes.error) throw prestadoresRes.error;
       if (procedimentosRes.error) throw procedimentosRes.error;
 
-      setAtendimentos(filterByUnidade(atendimentosRes.data || [], unidadeAtualId));
-      setConvenios(filterByUnidade(conveniosRes.data || [], unidadeAtualId));
-      setPrestadores(filterByUnidade(prestadoresRes.data || [], unidadeAtualId));
-      setProcedimentos(filterByUnidade(procedimentosRes.data || [], unidadeAtualId));
+      setAtendimentos(filtrarPorUnidadeIncluindoGlobais(atendimentosRes.data || []));
+      setConvenios(filtrarPorUnidadeIncluindoGlobais(conveniosRes.data || []));
+      setPrestadores(filtrarPorUnidadeIncluindoGlobais(prestadoresRes.data || []));
+      setProcedimentos(filtrarPorUnidadeIncluindoGlobais(procedimentosRes.data || []));
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       toast.error('Erro ao carregar dados');
@@ -497,6 +508,11 @@ export default function Faturamento() {
     return cbosDescricao ? `${nome} / ${cbosDescricao}` : nome;
   };
 
+  const filtrarPorUnidadeIncluindoGlobais = (items = []) => {
+    if (!unidadeAtualId || unidadeAtualId === TODAS_UNIDADES_ID) return items;
+    return items.filter(item => !Object.prototype.hasOwnProperty.call(item, 'unidade_id') || !item.unidade_id || item.unidade_id === unidadeAtualId);
+  };
+
   const calcularImpostos = (baseCalculo, aliquotaISS, aliquotaIBS, aliquotaCBS, aliquotaIR, aliquotaCSLL, aliquotaPIS, aliquotaCOFINS) => {
     const iss = (baseCalculo * aliquotaISS) / 100;
     const ibs = (baseCalculo * aliquotaIBS) / 100;
@@ -542,6 +558,26 @@ export default function Faturamento() {
   const abrirDadosFaturaLote = (lote) => {
     setSelectedFaturaLote(lote);
     setShowFaturaModal(true);
+  };
+
+  const valorMoeda = (valor) => `R$ ${(Number(valor) || 0).toFixed(2)}`;
+
+  const resumoFormularioXml = (lote) => {
+    const xml = lote?.xml_content || '';
+    const extrair = (tag) => xml.match(new RegExp(`<[^:>]*:?${tag}[^>]*>([^<]*)<\\/[^:>]*:?${tag}>`, 'i'))?.[1] || '-';
+    const guiasNoXml = (xml.match(/<[^:>]*:?numeroGuiaPrestador[^>]*>/gi) || []).length;
+
+    return {
+      tipoTransacao: extrair('tipoTransacao'),
+      padrao: extrair('Padrao'),
+      sequencialTransacao: extrair('sequencialTransacao'),
+      numeroLote: extrair('numeroLote'),
+      dataRegistro: extrair('dataRegistroTransacao'),
+      horaRegistro: extrair('horaRegistroTransacao'),
+      registroANS: extrair('registroANS'),
+      codigoPrestador: extrair('codigoPrestadorNaOperadora'),
+      guiasNoXml
+    };
   };
 
   const atualizarTodosImpostos = (baseCalculo) => {
@@ -1725,6 +1761,7 @@ export default function Faturamento() {
 
   const visualizarLote = (lote) => {
     setSelectedLote(lote);
+    setModoVisualizacaoXml('xml');
     setShowLoteModal(true);
   };
 
@@ -2558,9 +2595,58 @@ export default function Faturamento() {
                     <div><span className="text-xs text-gray-500">Última consulta:</span> <span className="text-sm">{selectedLote.integracao_orizon?.consultado_em ? format(new Date(selectedLote.integracao_orizon.consultado_em), 'dd/MM/yyyy HH:mm') : '-'}</span></div>
                   </div>
                 )}
-                <div className="bg-gray-900 rounded-xl p-4 overflow-auto max-h-96">
-                  <pre className="text-xs text-green-400 font-mono whitespace-pre-wrap">{selectedLote.xml_content}</pre>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-800 dark:text-white">Visualização do XML</h4>
+                    <p className="text-xs text-gray-500">Alterne entre o arquivo XML bruto e um resumo em formato de formulário.</p>
+                  </div>
+                  <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setModoVisualizacaoXml('xml')}
+                      className={`px-3 py-1.5 text-xs font-medium ${modoVisualizacaoXml === 'xml' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300'}`}
+                    >
+                      XML
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModoVisualizacaoXml('formulario')}
+                      className={`px-3 py-1.5 text-xs font-medium ${modoVisualizacaoXml === 'formulario' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300'}`}
+                    >
+                      Formulário
+                    </button>
+                  </div>
                 </div>
+                {modoVisualizacaoXml === 'formulario' ? (() => {
+                  const resumoXml = resumoFormularioXml(selectedLote);
+                  return (
+                    <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <div><span className="text-xs text-gray-500">Tipo transação</span><p className="text-sm font-semibold">{resumoXml.tipoTransacao}</p></div>
+                        <div><span className="text-xs text-gray-500">Padrão TISS</span><p className="text-sm font-semibold">{resumoXml.padrao}</p></div>
+                        <div><span className="text-xs text-gray-500">Sequencial</span><p className="text-sm font-mono">{resumoXml.sequencialTransacao}</p></div>
+                        <div><span className="text-xs text-gray-500">Nº lote XML</span><p className="text-sm font-mono">{resumoXml.numeroLote}</p></div>
+                        <div><span className="text-xs text-gray-500">Data registro</span><p className="text-sm">{resumoXml.dataRegistro}</p></div>
+                        <div><span className="text-xs text-gray-500">Hora registro</span><p className="text-sm">{resumoXml.horaRegistro}</p></div>
+                        <div><span className="text-xs text-gray-500">Registro ANS</span><p className="text-sm font-mono">{resumoXml.registroANS}</p></div>
+                        <div><span className="text-xs text-gray-500">Prestador operadora</span><p className="text-sm font-mono">{resumoXml.codigoPrestador}</p></div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                        <div><span className="text-xs text-gray-500">Convênio</span><p className="text-sm font-medium">{selectedLote.convenio_nome || '-'}</p></div>
+                        <div><span className="text-xs text-gray-500">Guias no cadastro</span><p className="text-sm font-semibold">{selectedLote.quantidade_guias || selectedLote.guias_ids?.length || 0}</p></div>
+                        <div><span className="text-xs text-gray-500">Guias no XML</span><p className="text-sm font-semibold">{resumoXml.guiasNoXml}</p></div>
+                        <div><span className="text-xs text-gray-500">Valor total</span><p className="text-sm font-bold text-green-600">{valorMoeda(selectedLote.valor_total)}</p></div>
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        Esta visualização ajuda a conferir rapidamente o cabeçalho SOAP/TISS antes do envio. Para auditoria técnica, use a aba XML.
+                      </div>
+                    </div>
+                  );
+                })() : (
+                  <div className="bg-gray-900 rounded-xl p-4 overflow-auto max-h-96">
+                    <pre className="text-xs text-green-400 font-mono whitespace-pre-wrap">{selectedLote.xml_content}</pre>
+                  </div>
+                )}
                 <div className="flex flex-wrap justify-end gap-3 mt-5 pt-4 border-t border-gray-200 dark:border-gray-700">
                   <button onClick={() => gerarXMLporLote(selectedLote)} className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg">Baixar XML TISS</button>
                   <button
@@ -2602,9 +2688,25 @@ export default function Faturamento() {
                     <div><span className="text-xs text-gray-500">Competência</span><p className="text-sm">{selectedFaturaLote.dados_fatura?.competencia || '-'}</p></div>
                     <div><span className="text-xs text-gray-500">Fechamento</span><p className="text-sm">{selectedFaturaLote.dados_fatura?.data_fechamento || '-'}</p></div>
                     <div><span className="text-xs text-gray-500">Previsão pagamento</span><p className="text-sm">{selectedFaturaLote.dados_fatura?.data_previsao_pagamento || '-'}</p></div>
-                    <div><span className="text-xs text-gray-500">Base cálculo</span><p className="text-sm font-semibold">R$ {(selectedFaturaLote.dados_fatura?.base_calculo || 0).toFixed(2)}</p></div>
-                    <div><span className="text-xs text-gray-500">Valor ISS</span><p className="text-sm">R$ {(selectedFaturaLote.dados_fatura?.valor_iss || 0).toFixed(2)}</p></div>
-                    <div><span className="text-xs text-gray-500">Valor líquido</span><p className="text-sm font-bold text-green-600">R$ {(selectedFaturaLote.dados_fatura?.valor_liquido || 0).toFixed(2)}</p></div>
+                    <div><span className="text-xs text-gray-500">Base cálculo</span><p className="text-sm font-semibold">{valorMoeda(selectedFaturaLote.dados_fatura?.base_calculo)}</p></div>
+                    <div><span className="text-xs text-gray-500">Valor bruto do lote</span><p className="text-sm font-semibold">{valorMoeda(selectedFaturaLote.valor_total)}</p></div>
+                    <div><span className="text-xs text-gray-500">Valor líquido</span><p className="text-sm font-bold text-green-600">{valorMoeda(selectedFaturaLote.dados_fatura?.valor_liquido)}</p></div>
+                  </div>
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {[
+                      ['ISS', 'aliquota_iss', 'valor_iss'],
+                      ['IBS', 'aliquota_ibs', 'valor_ibs'],
+                      ['CBS', 'aliquota_cbs', 'valor_cbs'],
+                      ['IR', 'aliquota_ir', 'valor_ir'],
+                      ['CSLL', 'aliquota_csll', 'valor_csll'],
+                      ['PIS', 'aliquota_pis', 'valor_pis'],
+                      ['COFINS', 'aliquota_cofins', 'valor_cofins']
+                    ].map(([label, aliquotaKey, valorKey]) => (
+                      <div key={label} className="rounded-lg bg-gray-50 dark:bg-gray-700/50 p-3">
+                        <span className="text-xs text-gray-500">{label}</span>
+                        <p className="text-sm font-medium">{Number(selectedFaturaLote.dados_fatura?.[aliquotaKey] || 0).toFixed(2)}% • {valorMoeda(selectedFaturaLote.dados_fatura?.[valorKey])}</p>
+                      </div>
+                    ))}
                   </div>
                   {selectedFaturaLote.dados_fatura?.observacoes && (
                     <div className="mt-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm text-gray-700 dark:text-gray-300">{selectedFaturaLote.dados_fatura.observacoes}</div>

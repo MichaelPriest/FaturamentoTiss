@@ -419,6 +419,29 @@ export default function Atendimentos() {
     return 'pendente';
   }, []);
 
+  const obterStatusAutorizacaoItem = useCallback((item, itensAutorizadosList = itensAutorizados, statusGuia = formData.status) => {
+    const itemAutorizado = itensAutorizadosList.find(aut => aut.codigo === item.codigo);
+    const quantidade = item.quantidade || 0;
+
+    if (['autorizado', 'faturado', 'finalizado'].includes(statusGuia) && itemAutorizado) {
+      return { status: 'autorizado', label: 'Autorizado', classe: 'bg-green-100 text-green-700', pendente: false };
+    }
+
+    if (!itemAutorizado) {
+      return { status: 'pendente', label: 'Pendente', classe: 'bg-orange-100 text-orange-700', pendente: true };
+    }
+
+    if (quantidade > (itemAutorizado.quantidade_autorizada || 0)) {
+      return { status: 'parcial', label: 'Parcial', classe: 'bg-yellow-100 text-yellow-700', pendente: true };
+    }
+
+    if (item.pendente_autorizacao && statusGuia !== 'autorizado') {
+      return { status: 'pendente', label: 'Pendente', classe: 'bg-orange-100 text-orange-700', pendente: true };
+    }
+
+    return { status: 'autorizado', label: 'Autorizado', classe: 'bg-green-100 text-green-700', pendente: false };
+  }, [formData.status, itensAutorizados]);
+
   const podeAdicionarItem = useCallback((itemCodigo, quantidade) => {
     const itemAutorizado = itensAutorizados.find(aut => aut.codigo === itemCodigo);
     
@@ -982,6 +1005,7 @@ export default function Atendimentos() {
       
       if (error) throw error;
       
+      setSelectedGuia(prev => prev?.id === id ? { ...prev, status } : prev);
       toast.success(`Atendimento ${status === 'faturado' ? 'enviado para faturamento!' : 'atualizado para ' + STATUS_ATENDIMENTO.find(s => s.value === status)?.label || status}`);
       await carregarDados();
     } catch (error) {
@@ -996,10 +1020,10 @@ export default function Atendimentos() {
   }, [itensGuia, itensAutorizados, calcularStatusGuia]);
 
   useEffect(() => {
-    if (!editing && (itensGuia.length > 0 || itensAutorizados.length > 0)) {
+    if (itensGuia.length > 0 || itensAutorizados.length > 0) {
       recalcularStatus();
     }
-  }, [itensGuia, itensAutorizados, recalcularStatus, editing]);
+  }, [itensGuia, itensAutorizados, recalcularStatus]);
 
   const alterarStatusManual = async (id, novoStatus) => {
     const atendimento = atendimentos.find(a => a.id === id);
@@ -1031,6 +1055,7 @@ export default function Atendimentos() {
       
       if (error) throw error;
       
+      setSelectedGuia(prev => prev?.id === id ? { ...prev, status: novoStatus } : prev);
       toast.success(`Status alterado para ${STATUS_ATENDIMENTO.find(s => s.value === novoStatus)?.label || novoStatus}`);
       await carregarDados();
     } catch (error) {
@@ -1771,11 +1796,18 @@ export default function Atendimentos() {
 
       if (!retorno.sucesso) throw new Error(retorno.erro || 'A operadora retornou erro na solicitação de autorização.');
 
+      const statusRetorno = (retorno.statusSolicitacao || '').toString().toLowerCase();
+      const statusAutorizacaoRetorno = retorno.numeroGuiaOperadora || retorno.senha || /autoriz|aprov|liberad/.test(statusRetorno)
+        ? 'autorizado'
+        : /parcial/.test(statusRetorno)
+          ? 'parcial'
+          : formData.status;
       const novosCamposAutorizacao = {
         numero_guia_operadora: retorno.numeroGuiaOperadora || formData.numero_guia_operadora,
         senha_autorizacao: retorno.senha || formData.senha_autorizacao,
         data_autorizacao: retorno.dataAutorizacao || formData.data_autorizacao || new Date().toISOString().split('T')[0],
-        data_validade_senha: retorno.dataValidadeSenha || formData.data_validade_senha
+        data_validade_senha: retorno.dataValidadeSenha || formData.data_validade_senha,
+        status: statusAutorizacaoRetorno
       };
       setFormData(prev => ({ ...prev, ...novosCamposAutorizacao }));
 
@@ -1797,7 +1829,7 @@ export default function Atendimentos() {
         const payloadBase = {
           ...novosCamposAutorizacao,
           itens_autorizados: autorizadosGerados,
-          status: retorno.numeroGuiaOperadora || retorno.senha ? 'autorizado' : formData.status,
+          status: statusAutorizacaoRetorno,
           updated_at: new Date().toISOString()
         };
         const { error } = await supabase
@@ -2351,8 +2383,10 @@ export default function Atendimentos() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                      {(selectedGuia.itens || []).map((item, idx) => (
-                        <tr key={idx} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${item.pendente_autorizacao ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}>
+                      {(selectedGuia.itens || []).map((item, idx) => {
+                        const statusItem = obterStatusAutorizacaoItem(item, selectedGuia.itens_autorizados || [], selectedGuia.status);
+                        return (
+                        <tr key={idx} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${statusItem.pendente ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}>
                           <td className="px-3 py-2 text-xs text-center font-medium">{idx + 1}</td>
                           <td className="px-3 py-2 text-xs">{item.data_execucao || '-'}</td>
                           <td className="px-3 py-2 text-xs">{item.hora_inicial || '-'}</td>
@@ -2372,10 +2406,11 @@ export default function Atendimentos() {
                             {item.prestador_numero_conselho && <div className="text-xs text-gray-400">{item.prestador_conselho === '06' ? 'CRM' : item.prestador_conselho === '08' ? 'CRO' : item.prestador_conselho === '03' ? 'CRF' : item.prestador_conselho === '02' ? 'COREN' : item.prestador_conselho === '05' ? 'CREFITO' : item.prestador_conselho === '09' ? 'CRP' : item.prestador_conselho === '07' ? 'CRN' : ''} {item.prestador_numero_conselho} - {item.prestador_uf_conselho}</div>}
                           </td>
                           <td className="px-3 py-2 text-center">
-                            {item.pendente_autorizacao ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700"><ExclamationTriangleIcon className="w-3 h-3" />Pendente</span> : <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Autorizado</span>}
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusItem.classe}`}>{statusItem.pendente && <ExclamationTriangleIcon className="w-3 h-3" />}{statusItem.label}</span>
                            </td>
                          </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                     <tfoot className="bg-gray-50 dark:bg-gray-700/50">
                       <tr className="border-t">
@@ -2559,14 +2594,16 @@ export default function Atendimentos() {
                                 <tr><th className="px-2 py-2 text-left text-xs font-medium">Seq</th><th className="px-2 py-2 text-left text-xs font-medium">Data</th><th className="px-2 py-2 text-left text-xs font-medium">H.Início</th><th className="px-2 py-2 text-left text-xs font-medium">H.Fim</th><th className="px-2 py-2 text-left text-xs font-medium">Código</th><th className="px-2 py-2 text-left text-xs font-medium">Descrição</th><th className="px-2 py-2 text-left text-xs font-medium">Tabela</th><th className="px-2 py-2 text-center text-xs font-medium">Qtd</th><th className="px-2 py-2 text-right text-xs font-medium">Valor Unit.</th><th className="px-2 py-2 text-right text-xs font-medium">Valor Total</th><th className="px-2 py-2 text-left text-xs font-medium">Profissional</th><th className="px-2 py-2 text-center w-20 text-xs font-medium">Ações</th></tr>
                               </thead>
                               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                                {itensGuia.map((item, idx) => (
-                                  <tr key={item.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${item.pendente_autorizacao ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}>
+                                {itensGuia.map((item, idx) => {
+                                  const statusItem = obterStatusAutorizacaoItem(item, itensAutorizados, formData.status);
+                                  return (
+                                  <tr key={item.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${statusItem.pendente ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}>
                                     <td className="px-2 py-2 text-xs text-center">{idx + 1}</td>
                                     <td className="px-2 py-2 text-xs">{item.data_execucao}</td>
                                     <td className="px-2 py-2 text-xs">{item.hora_inicial || '-'}</td>
                                     <td className="px-2 py-2 text-xs">{item.hora_final || '-'}</td>
                                     <td className="px-2 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
-                                    <td className="px-2 py-2 text-xs">{item.nome}{item.pendente_autorizacao && <span className="ml-2 text-xs text-orange-600">(Sem autorização)</span>}</td>
+                                    <td className="px-2 py-2 text-xs">{item.nome}{statusItem.pendente && <span className="ml-2 text-xs text-orange-600">({statusItem.label})</span>}</td>
                                     <td className="px-2 py-2 text-xs">
                                       <span className="inline-flex px-1.5 py-0.5 rounded text-xs font-mono bg-gray-100 dark:bg-gray-700">
                                         {item.tabela_referencia || '-'}
@@ -2578,7 +2615,8 @@ export default function Atendimentos() {
                                     <td className="px-2 py-2 text-xs"><div className="text-gray-700 dark:text-gray-300">{item.prestador_nome || '-'}</div>{item.prestador_numero_conselho && <div className="text-xs text-gray-400">{item.prestador_conselho === '06' ? 'CRM' : item.prestador_conselho === '08' ? 'CRO' : item.prestador_conselho === '03' ? 'CRF' : item.prestador_conselho === '02' ? 'COREN' : item.prestador_conselho === '05' ? 'CREFITO' : item.prestador_conselho === '09' ? 'CRP' : item.prestador_conselho === '07' ? 'CRN' : ''} {item.prestador_numero_conselho} - {item.prestador_uf_conselho}</div>}</td>
                                     <td className="px-2 py-2 text-center"><div className="flex gap-1 justify-center"><button type="button" onClick={() => handleEditItem(item)} className="text-blue-600 hover:text-blue-800"><PencilIcon className="w-3 h-3" /></button><button type="button" onClick={() => removerItem(item.id)} className="text-red-600 hover:text-red-800"><TrashIcon className="w-3 h-3" /></button></div></td>
                                   </tr>
-                                ))}
+                                  );
+                                })}
                               </tbody>
                               <tfoot className="bg-gray-50 dark:bg-gray-700/50"><tr className="border-t"><td colSpan="9" className="px-2 py-2 text-right font-semibold">Total da Guia:</td><td className="px-2 py-2 text-right font-bold text-blue-600">R$ {itensGuia.reduce((sum, i) => sum + (i.valor_total || 0), 0).toFixed(2)}</td><td colSpan="2"></td></tr></tfoot>
                             </table>
