@@ -21,7 +21,9 @@ import {
   XCircleIcon,
   PrinterIcon,
   ArchiveBoxIcon,
-  CloudArrowUpIcon
+  CloudArrowUpIcon,
+  InformationCircleIcon,
+  PaperClipIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -217,7 +219,7 @@ const CBOS_MAP = {
 const MAX_GUIAS_POR_LOTE = 100;
 
 export default function Faturamento() {
-  const { unidadeAtualId } = useUnidade();
+  const { unidadeAtualId, unidadeAtual } = useUnidade();
 
   const prepararLoteParaInsert = (lote) => applyUnidadeToPayload({
     ...lote,
@@ -253,6 +255,8 @@ export default function Faturamento() {
   const [showHistoricoLogs, setShowHistoricoLogs] = useState(false);
   const [showGerarPorLote, setShowGerarPorLote] = useState(false);
   const [selectedLote, setSelectedLote] = useState(null);
+  const [showFaturaModal, setShowFaturaModal] = useState(false);
+  const [selectedFaturaLote, setSelectedFaturaLote] = useState(null);
   const [sequencialGlobal, setSequencialGlobal] = useState(1);
   const [logsLotes, setLogsLotes] = useState([]);
   const [numeroLoteBusca, setNumeroLoteBusca] = useState('');
@@ -280,7 +284,11 @@ export default function Faturamento() {
     aliquotaCOFINS: 3,
     valorCOFINS: 0,
     valorLiquido: 0,
-    observacoes: ''
+    observacoes: '',
+    numeroNota: '',
+    protocoloNota: '',
+    anexoNome: '',
+    anexoUrl: ''
   });
 
   // ============================================
@@ -500,6 +508,40 @@ export default function Faturamento() {
     const totalImpostos = iss + ibs + cbs + ir + csll + pis + cofins;
     const valorLiquido = baseCalculo - totalImpostos;
     return { iss, ibs, cbs, ir, csll, pis, cofins, totalImpostos, valorLiquido };
+  };
+
+  const getLogoUnidadeOuClinica = (convenio) => unidadeAtual?.logo_base64 || unidadeAtual?.logo || configClinica.logo_base64 || convenio?.logo_base64 || '';
+
+  const getAnexosFatura = (lote) => {
+    const dados = lote?.dados_fatura || {};
+    let anexos = [];
+    if (Array.isArray(dados.anexos)) {
+      anexos = [...dados.anexos];
+    } else if (typeof dados.anexos === 'string') {
+      try {
+        anexos = JSON.parse(dados.anexos || '[]');
+      } catch {
+        anexos = [];
+      }
+    }
+    if (dados.anexo_nota_url) {
+      anexos.push({
+        nome: dados.anexo_nota_nome || dados.numero_nota || 'Anexo da nota fiscal',
+        url: dados.anexo_nota_url,
+        data: dados.data_fechamento || lote?.data_envio
+      });
+    }
+    return anexos.filter(anexo => anexo?.url);
+  };
+
+  const loteTemAnexosOuProtocolos = (lote) => {
+    const dados = lote?.dados_fatura || {};
+    return getAnexosFatura(lote).length > 0 || Boolean(dados.protocolo_nota || lote?.protocolo_orizon || lote?.integracao_orizon?.protocolo_recebimento);
+  };
+
+  const abrirDadosFaturaLote = (lote) => {
+    setSelectedFaturaLote(lote);
+    setShowFaturaModal(true);
   };
 
   const atualizarTodosImpostos = (baseCalculo) => {
@@ -757,7 +799,15 @@ export default function Faturamento() {
           subtotal: totalConta,
           total_geral: totalConta,
           observacoes: `Lote ${lote.numero_lote} - Guia ${atendimento.numero_guia_prestador || atendimento.id}`,
-          logo_base64: convenio?.logo_base64 || configClinica.logo_base64
+          autorizacao: {
+            numero_guia_prestador: atendimento.numero_guia_prestador,
+            numero_guia_operadora: atendimento.numero_guia_operadora,
+            senha_autorizacao: atendimento.senha_autorizacao,
+            data_autorizacao: atendimento.data_autorizacao,
+            data_validade_senha: atendimento.data_validade_senha,
+            status_autorizacao: atendimento.status_autorizacao_ws || atendimento.status
+          },
+          logo_base64: getLogoUnidadeOuClinica(convenio)
         };
       });
 
@@ -812,7 +862,15 @@ export default function Faturamento() {
       subtotal: atendimento.valor_total || 0,
       total_geral: atendimento.valor_total || 0,
       observacoes: `Guia: ${atendimento.numero_guia_prestador || 'N/A'}`,
-      logo_base64: convenio?.logo_base64 || configClinica.logo_base64
+      autorizacao: {
+        numero_guia_prestador: atendimento.numero_guia_prestador,
+        numero_guia_operadora: atendimento.numero_guia_operadora,
+        senha_autorizacao: atendimento.senha_autorizacao,
+        data_autorizacao: atendimento.data_autorizacao,
+        data_validade_senha: atendimento.data_validade_senha,
+        status_autorizacao: atendimento.status_autorizacao_ws || atendimento.status
+      },
+      logo_base64: getLogoUnidadeOuClinica(convenio)
     };
     
     imprimirContaFaturada(dadosConta);
@@ -1118,7 +1176,12 @@ export default function Faturamento() {
             aliquota_cofins: dadosFatura.aliquotaCOFINS,
             valor_cofins: dadosFatura.valorCOFINS,
             valor_liquido: dadosFatura.valorLiquido,
-            observacoes: dadosFatura.observacoes
+            observacoes: dadosFatura.observacoes,
+            numero_nota: dadosFatura.numeroNota,
+            protocolo_nota: dadosFatura.protocoloNota,
+            anexo_nota_nome: dadosFatura.anexoNome,
+            anexo_nota_url: dadosFatura.anexoUrl,
+            anexos: dadosFatura.anexoUrl ? [{ nome: dadosFatura.anexoNome || dadosFatura.numeroNota || 'Anexo da nota fiscal', url: dadosFatura.anexoUrl, data: new Date().toISOString() }] : []
           },
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -2094,6 +2157,7 @@ export default function Faturamento() {
                     const statusOrizon = g.integracao_orizon?.status_descricao || STATUS_PROTOCOLO_ORIZON[g.integracao_orizon?.status_protocolo] || g.status_integracao || '-';
                     const protocoloOrizon = g.protocolo_orizon || g.integracao_orizon?.protocolo_recebimento || '-';
                     const loteKey = g.id || g.numero_lote;
+                    const possuiAnexosOuProtocolos = loteTemAnexosOuProtocolos(g);
                     return (
                     <tr key={g.id || `lote-${g.numero_lote}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                       <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">{g.convenio_nome}</td>
@@ -2108,6 +2172,13 @@ export default function Faturamento() {
                           {/* Visualizar XML */}
                           <button onClick={() => visualizarLote(g)} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Visualizar XML">
                             <EyeIcon className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => abrirDadosFaturaLote(g)} className="p-1 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors" title="Visualizar dados da nota fiscal/faturamento">
+                            <InformationCircleIcon className="w-4 h-4" />
+                          </button>
+
+                          <button onClick={() => abrirDadosFaturaLote(g)} disabled={!possuiAnexosOuProtocolos} className="p-1 rounded-lg text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-900/20 transition-colors disabled:opacity-40" title="Ver anexos, nota fiscal e protocolos vinculados">
+                            <PaperClipIcon className="w-4 h-4" />
                           </button>
                           
                           {/* Imprimir Guias TISS */}
@@ -2358,6 +2429,25 @@ export default function Faturamento() {
                     </div>
                   </div>
 
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nº Nota Fiscal</label>
+                      <input type="text" value={dadosFatura.numeroNota} onChange={e => setDadosFatura({...dadosFatura, numeroNota: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" placeholder="NF-e/NFS-e" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Protocolo / RPS</label>
+                      <input type="text" value={dadosFatura.protocoloNota} onChange={e => setDadosFatura({...dadosFatura, protocoloNota: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" placeholder="Protocolo, RPS ou recibo" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome do Anexo</label>
+                      <input type="text" value={dadosFatura.anexoNome} onChange={e => setDadosFatura({...dadosFatura, anexoNome: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" placeholder="PDF da nota, protocolo..." />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL do Anexo</label>
+                      <input type="url" value={dadosFatura.anexoUrl} onChange={e => setDadosFatura({...dadosFatura, anexoUrl: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" placeholder="https://..." />
+                    </div>
+                  </div>
+
                   <div className="mt-4">
                     <h5 className="font-medium text-sm text-gray-700 dark:text-gray-300 mb-2">Impostos e Deduções</h5>
                     <div className="grid grid-cols-2 md:grid-cols-8 gap-2">
@@ -2481,6 +2571,64 @@ export default function Faturamento() {
                     {gerandoWebserviceId === (selectedLote.id || selectedLote.numero_lote) ? 'Gerando...' : 'Baixar XML WebService'}
                   </button>
                   <button onClick={() => setShowLoteModal(false)} className="px-4 py-2 border rounded-lg">Fechar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Dados da Nota Fiscal / Faturamento */}
+        {showFaturaModal && selectedFaturaLote && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5 rounded-t-2xl">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Dados da Nota Fiscal / Faturamento</h3>
+                  <button onClick={() => setShowFaturaModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"><XMarkIcon className="w-5 h-5" /></button>
+                </div>
+              </div>
+              <div className="p-5 space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                  <div><span className="text-xs text-gray-500">Convênio</span><p className="text-sm font-medium text-gray-800 dark:text-white">{selectedFaturaLote.convenio_nome || '-'}</p></div>
+                  <div><span className="text-xs text-gray-500">Nº Lote</span><p className="text-sm font-mono text-blue-600">{selectedFaturaLote.numero_lote || '-'}</p></div>
+                  <div><span className="text-xs text-gray-500">Guias</span><p className="text-sm font-semibold">{selectedFaturaLote.quantidade_guias || selectedFaturaLote.guias_ids?.length || 0}</p></div>
+                </div>
+
+                <div className="border rounded-xl p-4">
+                  <h4 className="font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2"><BanknotesIcon className="w-5 h-5 text-green-600" /> Nota fiscal e faturamento</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div><span className="text-xs text-gray-500">Nº Nota Fiscal</span><p className="text-sm font-mono">{selectedFaturaLote.dados_fatura?.numero_nota || '-'}</p></div>
+                    <div><span className="text-xs text-gray-500">Protocolo / RPS</span><p className="text-sm font-mono">{selectedFaturaLote.dados_fatura?.protocolo_nota || '-'}</p></div>
+                    <div><span className="text-xs text-gray-500">Competência</span><p className="text-sm">{selectedFaturaLote.dados_fatura?.competencia || '-'}</p></div>
+                    <div><span className="text-xs text-gray-500">Fechamento</span><p className="text-sm">{selectedFaturaLote.dados_fatura?.data_fechamento || '-'}</p></div>
+                    <div><span className="text-xs text-gray-500">Previsão pagamento</span><p className="text-sm">{selectedFaturaLote.dados_fatura?.data_previsao_pagamento || '-'}</p></div>
+                    <div><span className="text-xs text-gray-500">Base cálculo</span><p className="text-sm font-semibold">R$ {(selectedFaturaLote.dados_fatura?.base_calculo || 0).toFixed(2)}</p></div>
+                    <div><span className="text-xs text-gray-500">Valor ISS</span><p className="text-sm">R$ {(selectedFaturaLote.dados_fatura?.valor_iss || 0).toFixed(2)}</p></div>
+                    <div><span className="text-xs text-gray-500">Valor líquido</span><p className="text-sm font-bold text-green-600">R$ {(selectedFaturaLote.dados_fatura?.valor_liquido || 0).toFixed(2)}</p></div>
+                  </div>
+                  {selectedFaturaLote.dados_fatura?.observacoes && (
+                    <div className="mt-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm text-gray-700 dark:text-gray-300">{selectedFaturaLote.dados_fatura.observacoes}</div>
+                  )}
+                </div>
+
+                <div className="border rounded-xl p-4">
+                  <h4 className="font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2"><PaperClipIcon className="w-5 h-5 text-slate-600" /> Anexos e protocolos</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                    <div><span className="text-xs text-gray-500">Protocolo Orizon</span><p className="text-sm font-mono">{selectedFaturaLote.protocolo_orizon || selectedFaturaLote.integracao_orizon?.protocolo_recebimento || '-'}</p></div>
+                    <div><span className="text-xs text-gray-500">Status Orizon</span><p className="text-sm">{selectedFaturaLote.integracao_orizon?.status_descricao || STATUS_PROTOCOLO_ORIZON[selectedFaturaLote.integracao_orizon?.status_protocolo] || selectedFaturaLote.status_integracao || '-'}</p></div>
+                  </div>
+                  {getAnexosFatura(selectedFaturaLote).length > 0 ? (
+                    <div className="space-y-2">
+                      {getAnexosFatura(selectedFaturaLote).map((anexo, idx) => (
+                        <a key={`${anexo.url}-${idx}`} href={anexo.url} target="_blank" rel="noreferrer" className="flex items-center justify-between gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                          <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{anexo.nome || `Anexo ${idx + 1}`}</span>
+                          <span className="text-xs text-gray-500">Abrir</span>
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">Nenhum anexo de nota fiscal/protocolo informado para este lote.</p>
+                  )}
                 </div>
               </div>
             </div>
