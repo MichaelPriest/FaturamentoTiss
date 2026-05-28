@@ -5,6 +5,8 @@ export const WEBSERVICE_DEFAULT_CONFIG = {
   ambiente_orizon: 'homologacao',
   url_webservice: '',
   url_status_protocolo_orizon: '',
+  url_autorizacao_orizon: '',
+  url_status_autorizacao_orizon: '',
   usuario_webservice: '',
   senha_webservice: '',
   chave_transmissao_orizon: '',
@@ -21,7 +23,9 @@ export function aplicarEndpointsPadraoOrizon(config, ambiente = 'homologacao') {
     webservice_provider: 'orizon',
     ambiente_orizon: ambiente,
     url_webservice: obterEndpointOrizon(ambiente, 'loteGuias'),
-    url_status_protocolo_orizon: obterEndpointOrizon(ambiente, 'statusProtocolo')
+    url_status_protocolo_orizon: obterEndpointOrizon(ambiente, 'statusProtocolo'),
+    url_autorizacao_orizon: obterEndpointOrizon(ambiente, 'autorizacao'),
+    url_status_autorizacao_orizon: obterEndpointOrizon(ambiente, 'statusAutorizacao')
   };
 }
 
@@ -116,6 +120,28 @@ export default function WebserviceConfigForm({ config, setConfig, convenioData, 
             onChange={e => atualizarCampo('url_status_protocolo_orizon', e.target.value)}
             className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600"
             placeholder="Cole a URL de status fornecida para este convênio"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Endpoint deste convênio - Solicitação de Autorização</label>
+          <input
+            type="text"
+            value={form.url_autorizacao_orizon}
+            onChange={e => atualizarCampo('url_autorizacao_orizon', e.target.value)}
+            className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600"
+            placeholder="Cole a URL de solicitação de autorização"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Endpoint deste convênio - Status Autorização</label>
+          <input
+            type="text"
+            value={form.url_status_autorizacao_orizon}
+            onChange={e => atualizarCampo('url_status_autorizacao_orizon', e.target.value)}
+            className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600"
+            placeholder="Cole a URL de consulta de autorização"
           />
         </div>
 
