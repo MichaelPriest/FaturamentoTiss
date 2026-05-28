@@ -1428,6 +1428,7 @@ export default function Faturamento() {
 
     const endpointLote = configIntegracao.url_webservice || convenio.url_webservice || '';
     const endpointStatus = configIntegracao.url_status_protocolo_orizon || '';
+    const proxyUrl = configIntegracao.proxy_url_webservice || '';
 
     if (!endpointLote) {
       throw new Error('Informe o endpoint de envio de lote específico deste convênio na configuração do WebService.');
@@ -1438,7 +1439,8 @@ export default function Faturamento() {
       login,
       senha,
       endpointLote,
-      endpointStatus
+      endpointStatus,
+      proxyUrl
     };
   };
 
@@ -1476,7 +1478,8 @@ export default function Faturamento() {
         endpoint: credenciais.endpointLote,
         xmlTiss: lote.xml_content,
         login: credenciais.login,
-        senha: credenciais.senha
+        senha: credenciais.senha,
+        proxyUrl: credenciais.proxyUrl
       });
 
       if (!retorno.sucesso) {
@@ -1527,7 +1530,8 @@ export default function Faturamento() {
         registroANS: convenio.registro_ans,
         numeroProtocolo,
         login: credenciais.login,
-        senha: credenciais.senha
+        senha: credenciais.senha,
+        proxyUrl: credenciais.proxyUrl
       });
 
       if (!retorno.sucesso) {

@@ -11,6 +11,7 @@ export const WEBSERVICE_DEFAULT_CONFIG = {
   certificado_serial_orizon: '',
   certificado_obrigatorio: false,
   retorno_automatico: false,
+  proxy_url_webservice: '',
   observacoes_webservice: ''
 };
 
@@ -116,6 +117,20 @@ export default function WebserviceConfigForm({ config, setConfig, convenioData, 
             className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600"
             placeholder="Cole a URL de status fornecida para este convênio"
           />
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Proxy de transmissão autorizado (opcional)</label>
+          <input
+            type="text"
+            value={form.proxy_url_webservice}
+            onChange={e => atualizarCampo('proxy_url_webservice', e.target.value)}
+            className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600"
+            placeholder="Ex: https://seu-servidor-autorizado.com/api/orizon-soap"
+          />
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Use quando o endpoint do convênio exigir IP fixo/liberado ou certificado A1 instalado em um servidor próprio. Se vazio, será usado o proxy padrão /api/orizon-soap desta aplicação.
+          </p>
         </div>
 
         <div>
