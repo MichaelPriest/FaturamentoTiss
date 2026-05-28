@@ -15,6 +15,7 @@ import {
 import Dashboard from './pages/Dashboard';
 import Convenios from './pages/Convenios';
 import ConvenioConfig from './pages/ConvenioConfig';
+import WebserviceConfig from './pages/WebserviceConfig';
 import Pacientes from './pages/Pacientes';
 import Prestadores from './pages/Prestadores';
 import Procedimentos from './pages/Procedimentos';
@@ -141,7 +142,7 @@ function MainApp() {
   const [currentDateTime, setCurrentDateTime] = useState(() => new Date());
 
   // Verificar se é rota de prontuário ou convenio-config
-  const isSpecialRoute = location.pathname.includes('/prontuario/') || location.pathname.includes('/convenio-config/');
+  const isSpecialRoute = location.pathname.includes('/prontuario/') || location.pathname.includes('/convenio-config/') || location.pathname.includes('/convenio-webservice');
 
   // Verificar se é rota fullscreen (Painel de Chamadas)
   const isFullscreenRoute = location.pathname === '/chamados/painel';
@@ -309,6 +310,7 @@ function MainApp() {
 
     if (pathname.includes('/prontuario/')) return <Prontuario />;
     if (pathname.includes('/convenio-config/')) return <ConvenioConfig />;
+    if (pathname.includes('/convenio-webservice')) return <WebserviceConfig />;
 
     return renderTabContent(activeTab);
   };
@@ -317,6 +319,7 @@ function MainApp() {
     const pathname = location.pathname;
     if (pathname.includes('/prontuario/')) return 'Prontuário Eletrônico';
     if (pathname.includes('/convenio-config/')) return 'Configurações Avançadas do Convênio';
+    if (pathname.includes('/convenio-webservice')) return 'Configuração de WebService';
     
     if (activeTab === 'chamados') return 'Recepção / Registro';
     if (activeTab === 'chamados-painel') return 'Painel de Chamadas';
@@ -329,6 +332,7 @@ function MainApp() {
     const pathname = location.pathname;
     if (pathname.includes('/prontuario/')) return 'Atendimento médico e registro clínico';
     if (pathname.includes('/convenio-config/')) return 'Regras de faturamento, prazos, glosas e integrações';
+    if (pathname.includes('/convenio-webservice')) return 'Endpoints, credenciais e certificado por convênio';
     
     const subtitles = {
       dashboard: 'Visão geral do sistema',
@@ -607,6 +611,8 @@ function App() {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/prontuario/:id" element={<ProtectedApp />} />
             <Route path="/convenio-config/:id" element={<ProtectedApp />} />
+            <Route path="/convenio-webservice" element={<ProtectedApp />} />
+            <Route path="/convenio-webservice/:id" element={<ProtectedApp />} />
             <Route path="/chamados/registro" element={<ProtectedApp />} />
             <Route path="/chamados/painel" element={<ProtectedApp />} />
             <Route path="/*" element={<ProtectedApp />} />

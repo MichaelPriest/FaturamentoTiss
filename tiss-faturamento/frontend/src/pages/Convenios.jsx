@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { PlusIcon, PencilIcon, TrashIcon, BuildingOfficeIcon, Cog6ToothIcon, PhotoIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilIcon, TrashIcon, BuildingOfficeIcon, Cog6ToothIcon, PhotoIcon, XMarkIcon, LinkIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { conveniosService } from '../services/supabaseService';
@@ -324,6 +324,13 @@ export default function Convenios() {
                         title="Configurações Avançadas"
                       >
                         <Cog6ToothIcon className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => navigate(`/convenio-webservice/${c.id}`)} 
+                        className="p-1 rounded-lg text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors"
+                        title="Configurar WebService"
+                      >
+                        <LinkIcon className="w-4 h-4" />
                       </button>
                       <button 
                         onClick={() => handleDelete(c.id)} 
