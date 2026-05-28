@@ -22,7 +22,8 @@ import {
   LockOpenIcon,
   ArrowPathIcon,
   PrinterIcon,
-  ReceiptPercentIcon
+  ReceiptPercentIcon,
+  CloudArrowUpIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -31,6 +32,7 @@ import { imprimirGuiaTISSOficial, imprimirMultiplasGuiasTISS } from '../componen
 import { useUnidade } from '../contexts/UnidadeContext';
 import { applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
 import { imprimirContaFaturada } from '../components/ImpressaoContaFaturada';
+import { solicitarAutorizacaoProcedimentoOrizon } from '../services/orizonWebservice';
 
 // ============================================
 // CONSTANTES E TABELAS
@@ -380,6 +382,7 @@ export default function Atendimentos() {
   const [searchPacienteTerm, setSearchPacienteTerm] = useState('');
   const [imprimindoGuia, setImprimindoGuia] = useState(false);
   const [configClinica, setConfigClinica] = useState({});  
+  const [enviandoAutorizacaoGuia, setEnviandoAutorizacaoGuia] = useState(false);
 
   // ============================================
   // FUNÇÕES DE AUTORIZAÇÃO E VALIDAÇÃO
@@ -1677,6 +1680,158 @@ export default function Atendimentos() {
   // FUNÇÕES DE IMPRESSÃO
   // ============================================
   
+  const carregarCredenciaisWebserviceAutorizacao = async () => {
+    const convenio = convenios.find(c => c.id === formData.convenio_id);
+    if (!convenio) throw new Error('Selecione um paciente com convênio antes de solicitar autorização.');
+
+    let configIntegracao = {};
+    try {
+      const { data, error } = await supabase
+        .from('convenios_config')
+        .select('configuracoes')
+        .eq('convenio_id', convenio.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      configIntegracao = data?.configuracoes ? JSON.parse(data.configuracoes) : {};
+    } catch (error) {
+      console.warn('Não foi possível carregar configuração de WebService do convênio:', error);
+    }
+
+    const login = configIntegracao.usuario_webservice || configIntegracao.login_prestador_orizon || '';
+    const senha = configIntegracao.senha_webservice || configIntegracao.chave_transmissao_orizon || convenio.senha_prestador || '';
+    const endpointAutorizacao = configIntegracao.url_autorizacao_orizon || '';
+
+    if (!endpointAutorizacao) throw new Error('Informe o endpoint de Solicitação de Autorização na configuração WebService do convênio.');
+    if (!login || !senha) throw new Error('Informe login e chave/senha do WebService na configuração do convênio.');
+
+    return {
+      convenio,
+      login,
+      senha,
+      endpointAutorizacao,
+      proxyUrl: configIntegracao.proxy_url_webservice || '',
+      cnes: configIntegracao.cnes || convenio.cnes || configClinica.cnes || ''
+    };
+  };
+
+  const montarAtendimentoAutorizacaoWebservice = () => ({
+    id: editing?.id,
+    numero_guia_prestador: editing?.numero_guia_prestador || formData.numero_guia_prestador || `AUT${Date.now()}`,
+    numero_guia_operadora: formData.numero_guia_operadora,
+    paciente_nome: formData.paciente_nome,
+    numero_carteira: formData.paciente_carteira,
+    paciente_convenio_id: formData.convenio_id,
+    paciente_convenio_nome: formData.convenio_nome,
+    convenio_registro_ans: formData.convenio_registro_ans,
+    convenio_codigo_prestador: formData.convenio_codigo_prestador || formData.codigo_operadora,
+    profissional_solicitante: formData.profissional_solicitante || formData.nome_contratado || configClinica.nome_contratado,
+    conselho_profissional: formData.conselho_solicitante,
+    numero_conselho_profissional: formData.numero_conselho_solicitante,
+    uf_conselho: formData.uf_solicitante,
+    cbos: formData.cbos_solicitante,
+    carater_atendimento: formData.carater_atendimento,
+    data_solicitacao: formData.data_solicitacao,
+    atendimento_rn: formData.atendimento_rn,
+    indicacao_clinica: formData.indicacao_clinica,
+    itens: itensGuia.map(item => ({
+      codigo: item.codigo,
+      nome: item.nome,
+      tabela_referencia: item.tabela_referencia || '22',
+      quantidade: item.quantidade || 1,
+      quantidade_autorizar: item.quantidade || item.quantidade_autorizada || 1,
+      valor_unitario: item.valor_unitario || 0,
+      valor_total: item.valor_total || 0
+    }))
+  });
+
+  const solicitarAutorizacaoGuiaWebservice = async () => {
+    if (!formData.convenio_id) {
+      toast.error('Selecione um paciente com convênio antes de solicitar autorização.');
+      return;
+    }
+    if (itensGuia.length === 0) {
+      toast.error('Inclua ao menos um procedimento na aba Procedimentos antes de solicitar autorização.');
+      return;
+    }
+
+    setEnviandoAutorizacaoGuia(true);
+    try {
+      const credenciais = await carregarCredenciaisWebserviceAutorizacao();
+      const atendimentoWS = montarAtendimentoAutorizacaoWebservice();
+      const retorno = await solicitarAutorizacaoProcedimentoOrizon({
+        endpoint: credenciais.endpointAutorizacao,
+        atendimento: atendimentoWS,
+        convenio: credenciais.convenio,
+        login: credenciais.login,
+        senha: credenciais.senha,
+        cnes: credenciais.cnes,
+        proxyUrl: credenciais.proxyUrl
+      });
+
+      if (!retorno.sucesso) throw new Error(retorno.erro || 'A operadora retornou erro na solicitação de autorização.');
+
+      const novosCamposAutorizacao = {
+        numero_guia_operadora: retorno.numeroGuiaOperadora || formData.numero_guia_operadora,
+        senha_autorizacao: retorno.senha || formData.senha_autorizacao,
+        data_autorizacao: retorno.dataAutorizacao || formData.data_autorizacao || new Date().toISOString().split('T')[0],
+        data_validade_senha: retorno.dataValidadeSenha || formData.data_validade_senha
+      };
+      setFormData(prev => ({ ...prev, ...novosCamposAutorizacao }));
+
+      const autorizadosGerados = itensGuia.map(item => ({
+        id: `${Date.now()}-${item.id || item.codigo}`,
+        tipo: item.tipo || 'procedimento',
+        codigo: item.codigo,
+        nome: item.nome,
+        tabela_referencia: item.tabela_referencia || '22',
+        quantidade_autorizada: item.quantidade || 1,
+        quantidade_utilizada: 0,
+        valor_unitario: item.valor_unitario || 0,
+        valor_total: (item.valor_unitario || 0) * (item.quantidade || 1),
+        status_ws: retorno.statusSolicitacao || 'retorno_recebido'
+      }));
+      setItensAutorizados(autorizadosGerados);
+
+      if (editing?.id) {
+        const payloadBase = {
+          ...novosCamposAutorizacao,
+          itens_autorizados: autorizadosGerados,
+          status: retorno.numeroGuiaOperadora || retorno.senha ? 'autorizado' : formData.status,
+          updated_at: new Date().toISOString()
+        };
+        const { error } = await supabase
+          .from('atendimentos')
+          .update({
+            ...payloadBase,
+            integracao_autorizacao: {
+              ...(editing.integracao_autorizacao || {}),
+              endpoint_autorizacao: credenciais.endpointAutorizacao,
+              numero_guia_operadora: retorno.numeroGuiaOperadora,
+              senha: retorno.senha,
+              status_solicitacao: retorno.statusSolicitacao,
+              motivo_negativa: retorno.motivoNegativa,
+              xml_resposta_autorizacao: retorno.xmlResposta,
+              enviado_em: new Date().toISOString()
+            }
+          })
+          .eq('id', editing.id);
+
+        if (error) {
+          const fallback = await supabase.from('atendimentos').update(payloadBase).eq('id', editing.id);
+          if (fallback.error) throw fallback.error;
+        }
+      }
+
+      toast.success(`Autorização solicitada${retorno.numeroGuiaOperadora ? ` - Guia operadora ${retorno.numeroGuiaOperadora}` : ''}.`);
+    } catch (error) {
+      console.error('Erro ao solicitar autorização da guia:', error);
+      toast.error(`Erro no WebService de autorização: ${error.message}`, { duration: 12000 });
+    } finally {
+      setEnviandoAutorizacaoGuia(false);
+    }
+  };
+
   const handleImprimirGuia = async (atendimento) => {
     setImprimindoGuia(true);
     
@@ -2326,6 +2481,16 @@ export default function Atendimentos() {
                   {aba === 'autorizacao' && (
                     <div className="space-y-4">
                       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-4"><p className="text-xs text-blue-700 dark:text-blue-300"><strong>📋 Autorização da Guia:</strong> Registre aqui os procedimentos autorizados PELO CONVÊNIO/OPERADORA.</p></div>
+                      <div className="bg-white dark:bg-gray-800 border border-blue-100 dark:border-blue-900/40 rounded-xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800 dark:text-white flex items-center gap-2"><CloudArrowUpIcon className="w-4 h-4 text-blue-600" /> Solicitação via WebService TISS</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Envia os procedimentos já incluídos na guia para o endpoint de autorização configurado no convênio.</p>
+                        </div>
+                        <button type="button" onClick={solicitarAutorizacaoGuiaWebservice} disabled={enviandoAutorizacaoGuia || !formData.convenio_id || itensGuia.length === 0} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                          {enviandoAutorizacaoGuia ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : <CloudArrowUpIcon className="w-4 h-4" />}
+                          {enviandoAutorizacaoGuia ? 'Solicitando...' : 'Solicitar autorização'}
+                        </button>
+                      </div>
                       {!formData.convenio_id && (<div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg mb-4"><p className="text-sm text-yellow-800 dark:text-yellow-200">⚠️ Selecione um paciente com convênio associado para visualizar os procedimentos autorizados.</p></div>)}
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número da Guia (Operadora)</label><input type="text" value={formData.numero_guia_operadora} onChange={e => setFormData({...formData, numero_guia_operadora: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono" /></div>

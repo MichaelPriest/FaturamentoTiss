@@ -12,7 +12,8 @@ import {
   TrashIcon,
   PencilIcon,
   XMarkIcon,
-  UserIcon
+  UserIcon,
+  PhotoIcon
 } from '@heroicons/react/24/outline';
 
 // Lista de UFs com siglas
@@ -29,7 +30,8 @@ const DEFAULT_CONFIG = {
   cnes: '',
   conselho_clinica: '06',
   uf_clinica: 'SP',
-  cbos_clinica: '225125'
+  cbos_clinica: '225125',
+  logo_base64: ''
 };
 
 export default function Configuracoes() {
@@ -83,6 +85,37 @@ export default function Configuracoes() {
       toast.error('Erro ao carregar configurações');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const converterLogoParaBase64 = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const handleLogoClinicaChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Selecione uma imagem válida para o logo da clínica.');
+      return;
+    }
+
+    if (file.size > 1024 * 1024) {
+      toast.error('O logo da clínica deve ter no máximo 1MB.');
+      return;
+    }
+
+    try {
+      const base64 = await converterLogoParaBase64(file);
+      setConfig(prev => ({ ...prev, logo_base64: base64 }));
+      toast.success('Logo carregado. Clique em Salvar para gravar nas configurações.');
+    } catch (error) {
+      console.error('Erro ao carregar logo da clínica:', error);
+      toast.error('Erro ao carregar logo da clínica.');
     }
   };
 
@@ -343,7 +376,29 @@ export default function Configuracoes() {
                   required 
                 />
               </div>
-              
+
+              <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-4 bg-gray-50 dark:bg-gray-700/30">
+                <div className="flex flex-col md:flex-row md:items-center gap-4">
+                  <div className="w-28 h-20 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg flex items-center justify-center overflow-hidden">
+                    {config.logo_base64 ? (
+                      <img src={config.logo_base64} alt="Logo da clínica" className="max-w-full max-h-full object-contain" />
+                    ) : (
+                      <PhotoIcon className="w-8 h-8 text-gray-400" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Logo da Clínica</label>
+                    <input type="file" accept="image/*" onChange={handleLogoClinicaChange} className="block w-full text-sm text-gray-600 dark:text-gray-300 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900/30 dark:file:text-blue-300" />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">PNG/JPG até 1MB. O logo será usado nas impressões da clínica e contas faturadas.</p>
+                  </div>
+                  {config.logo_base64 && (
+                    <button type="button" onClick={() => setConfig({...config, logo_base64: ''})} className="px-3 py-2 rounded-lg text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
+                      Remover logo
+                    </button>
+                  )}
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CNPJ</label>
