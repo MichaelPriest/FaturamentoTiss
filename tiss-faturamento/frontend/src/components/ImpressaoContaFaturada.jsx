@@ -297,6 +297,9 @@ export const gerarHTMLContaFaturada = (dados) => {
     
     // Dados do convênio
     convenio = {},
+
+    // Dados de autorização da guia
+    autorizacao = {},
     
     // Dados da clínica/prestador
     clinica = {},
@@ -378,6 +381,37 @@ export const gerarHTMLContaFaturada = (dados) => {
       <div class="info-item">
         <div class="info-label">Registro ANS</div>
         <div class="info-valor">${convenio.registro_ans || '-'}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DADOS DA AUTORIZAÇÃO -->
+  <div class="info-card">
+    <div class="info-header">DADOS DA AUTORIZAÇÃO</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="info-label">Nº Guia Prestador</div>
+        <div class="info-valor">${autorizacao.numero_guia_prestador || numero_conta || '-'}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Nº Guia Operadora</div>
+        <div class="info-valor">${autorizacao.numero_guia_operadora || '-'}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Senha Autorização</div>
+        <div class="info-valor">${autorizacao.senha_autorizacao || '-'}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Data Autorização</div>
+        <div class="info-valor">${autorizacao.data_autorizacao ? formatarDataSimples(autorizacao.data_autorizacao) : '-'}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Validade da Senha</div>
+        <div class="info-valor">${autorizacao.data_validade_senha ? formatarDataSimples(autorizacao.data_validade_senha) : '-'}</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Status Autorização</div>
+        <div class="info-valor">${autorizacao.status_autorizacao || '-'}</div>
       </div>
     </div>
   </div>
