@@ -20,7 +20,8 @@ import {
   LockOpenIcon,
   XCircleIcon,
   PrinterIcon,
-  ArchiveBoxIcon
+  ArchiveBoxIcon,
+  CloudArrowUpIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -30,6 +31,12 @@ import { imprimirGuiaTISSOficial, imprimirMultiplasGuiasTISS } from '../componen
 import { imprimirContaFaturada } from '../components/ImpressaoContaFaturada';
 import { useUnidade } from '../contexts/UnidadeContext';
 import { applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
+import {
+  STATUS_PROTOCOLO_ORIZON,
+  consultarStatusProtocoloOrizon,
+  enviarLoteGuiasOrizon,
+  obterEndpointOrizon
+} from '../services/orizonWebservice';
 
 // ============================================
 // MAPA DE CÓDIGOS CBOS (TISS)
@@ -224,6 +231,8 @@ export default function Faturamento() {
   const [gerando, setGerando] = useState(false);
   const [imprimindo, setImprimindo] = useState(false);
   const [cancelando, setCancelando] = useState(false);
+  const [enviandoOrizonId, setEnviandoOrizonId] = useState(null);
+  const [consultandoOrizonId, setConsultandoOrizonId] = useState(null);
   const [buscandoLote, setBuscandoLote] = useState(false);
   const [loading, setLoading] = useState(true);
   const [guiasGeradas, setGuiasGeradas] = useState([]);
@@ -1393,6 +1402,155 @@ export default function Faturamento() {
     }
   };
 
+  const carregarCredenciaisOrizon = async (convenio) => {
+    if (!convenio) throw new Error('Convênio não encontrado para o lote.');
+
+    let configIntegracao = {};
+    try {
+      const { data, error } = await supabase
+        .from('convenios_config')
+        .select('configuracoes')
+        .eq('convenio_id', convenio.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      configIntegracao = data?.configuracoes ? JSON.parse(data.configuracoes) : {};
+    } catch (error) {
+      console.warn('Não foi possível carregar configurações avançadas do convênio:', error);
+    }
+
+    const ambiente = configIntegracao.ambiente_orizon || convenio.ambiente || 'homologacao';
+    const login = configIntegracao.usuario_webservice || configIntegracao.login_prestador_orizon || '';
+    const senha = configIntegracao.senha_webservice || configIntegracao.chave_transmissao_orizon || '';
+
+    if (!login || !senha) {
+      throw new Error('Informe usuário e chave/senha do WebService na aba Integrações do convênio.');
+    }
+
+    return {
+      ambiente,
+      login,
+      senha,
+      endpointLote: configIntegracao.url_webservice || convenio.url_webservice || obterEndpointOrizon(ambiente, 'loteGuias'),
+      endpointStatus: configIntegracao.url_status_protocolo_orizon || obterEndpointOrizon(ambiente, 'statusProtocolo')
+    };
+  };
+
+  const atualizarLoteIntegracaoOrizon = async (lote, patchIntegracao, patchCampos = {}) => {
+    const integracaoAtual = lote.integracao_orizon || {};
+    const payload = {
+      ...patchCampos,
+      integracao_orizon: {
+        ...integracaoAtual,
+        ...patchIntegracao,
+        atualizado_em: new Date().toISOString()
+      },
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = await supabase
+      .from('lotes_faturamento')
+      .update(payload)
+      .eq('id', lote.id);
+
+    if (error) throw error;
+  };
+
+  const enviarLoteOrizon = async (lote) => {
+    const convenio = convenios.find(c => c.id === lote.convenio_id);
+    if (!lote.xml_content) {
+      toast.error('Lote sem XML para envio. Regere o XML antes de transmitir.');
+      return;
+    }
+
+    setEnviandoOrizonId(lote.id || lote.numero_lote);
+    try {
+      const credenciais = await carregarCredenciaisOrizon(convenio);
+      const retorno = await enviarLoteGuiasOrizon({
+        endpoint: credenciais.endpointLote,
+        xmlTiss: lote.xml_content,
+        login: credenciais.login,
+        senha: credenciais.senha
+      });
+
+      if (!retorno.sucesso) {
+        throw new Error(retorno.erro || 'A Orizon retornou erro no envio do lote.');
+      }
+
+      await atualizarLoteIntegracaoOrizon(lote, {
+        ambiente: credenciais.ambiente,
+        endpoint_lote: credenciais.endpointLote,
+        protocolo_recebimento: retorno.numeroProtocolo,
+        numero_lote_retorno: retorno.numeroLote,
+        valor_total_protocolo: retorno.valorTotalProtocolo,
+        xml_protocolo_recebimento: retorno.xmlResposta,
+        enviado_em: new Date().toISOString()
+      }, {
+        protocolo_orizon: retorno.numeroProtocolo || null,
+        status_integracao: retorno.numeroProtocolo ? 'protocolo_recebido' : 'enviado_sem_protocolo'
+      });
+
+      await registrarLog('ENVIO_ORIZON', lote, `Lote enviado ao WebService Orizon. Protocolo: ${retorno.numeroProtocolo || 'não informado'}`);
+      await carregarLotes();
+      toast.success(`Lote enviado à Orizon${retorno.numeroProtocolo ? ` com protocolo ${retorno.numeroProtocolo}` : ''}.`);
+    } catch (error) {
+      console.error('Erro ao enviar lote Orizon:', error);
+      toast.error(`Erro no envio Orizon: ${error.message}`);
+    } finally {
+      setEnviandoOrizonId(null);
+    }
+  };
+
+  const consultarStatusOrizon = async (lote) => {
+    const convenio = convenios.find(c => c.id === lote.convenio_id);
+    const numeroProtocolo = lote.protocolo_orizon || lote.integracao_orizon?.protocolo_recebimento;
+    if (!numeroProtocolo) {
+      toast.error('Este lote ainda não possui protocolo Orizon para consulta.');
+      return;
+    }
+
+    setConsultandoOrizonId(lote.id || lote.numero_lote);
+    try {
+      const credenciais = await carregarCredenciaisOrizon(convenio);
+      const retorno = await consultarStatusProtocoloOrizon({
+        endpoint: credenciais.endpointStatus,
+        codigoPrestador: convenio.codigo_prestador,
+        registroANS: convenio.registro_ans,
+        numeroProtocolo,
+        login: credenciais.login,
+        senha: credenciais.senha
+      });
+
+      if (!retorno.sucesso) {
+        throw new Error(retorno.erro || 'A Orizon retornou erro na consulta de status.');
+      }
+
+      const statusDescricao = STATUS_PROTOCOLO_ORIZON[retorno.statusProtocolo] || retorno.statusProtocolo || 'Status não informado';
+      await atualizarLoteIntegracaoOrizon(lote, {
+        endpoint_status: credenciais.endpointStatus,
+        status_protocolo: retorno.statusProtocolo,
+        status_descricao: statusDescricao,
+        numero_lote_status: retorno.numeroLote,
+        valor_processado: retorno.valorProcessado,
+        valor_glosa: retorno.valorGlosa,
+        valor_liberado: retorno.valorLiberado,
+        xml_situacao_protocolo: retorno.xmlResposta,
+        consultado_em: new Date().toISOString()
+      }, {
+        status_integracao: retorno.statusProtocolo ? `status_${retorno.statusProtocolo}` : 'status_consultado'
+      });
+
+      await registrarLog('STATUS_ORIZON', lote, `Status Orizon consultado: ${statusDescricao}`);
+      await carregarLotes();
+      toast.success(`Status Orizon: ${statusDescricao}`);
+    } catch (error) {
+      console.error('Erro ao consultar status Orizon:', error);
+      toast.error(`Erro na consulta Orizon: ${error.message}`);
+    } finally {
+      setConsultandoOrizonId(null);
+    }
+  };
+
   const gerarXMLporLote = (lote) => {
     const blob = new Blob([lote.xml_content], { type: 'application/xml' });
     const url = URL.createObjectURL(blob);
@@ -1828,17 +1986,25 @@ export default function Faturamento() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Guias</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Valor</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 w-64">Ações</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Protocolo Orizon</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Status Orizon</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 w-72">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {guiasGeradas.map((g) => (
+                  {guiasGeradas.map((g) => {
+                    const statusOrizon = g.integracao_orizon?.status_descricao || STATUS_PROTOCOLO_ORIZON[g.integracao_orizon?.status_protocolo] || g.status_integracao || '-';
+                    const protocoloOrizon = g.protocolo_orizon || g.integracao_orizon?.protocolo_recebimento || '-';
+                    const loteKey = g.id || g.numero_lote;
+                    return (
                     <tr key={g.id || `lote-${g.numero_lote}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                       <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">{g.convenio_nome}</td>
                       <td className="px-4 py-3 text-xs font-mono text-blue-600 dark:text-blue-400 font-medium">{g.numero_lote}</td>
                       <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{g.data_envio}</td>
                       <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{g.quantidade_guias}</td>
                       <td className="px-4 py-3 text-xs font-semibold text-gray-700 dark:text-gray-300">R$ {(g.dados_fatura?.base_calculo || 0).toFixed(2)}</td>
+                      <td className="px-4 py-3 text-xs font-mono text-blue-700 dark:text-blue-300">{protocoloOrizon}</td>
+                      <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{statusOrizon}</td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex gap-1 justify-center flex-wrap">
                           {/* Visualizar XML */}
@@ -1865,6 +2031,26 @@ export default function Faturamento() {
                           <button onClick={() => gerarXMLporLote(g)} className="p-1 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" title="Baixar XML">
                             <DocumentArrowDownIcon className="w-4 h-4" />
                           </button>
+
+                          {/* Enviar Orizon */}
+                          <button
+                            onClick={() => enviarLoteOrizon(g)}
+                            disabled={enviandoOrizonId === loteKey}
+                            className="p-1 rounded-lg text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors disabled:opacity-50"
+                            title="Enviar lote para Orizon"
+                          >
+                            {enviandoOrizonId === loteKey ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-600"></div> : <CloudArrowUpIcon className="w-4 h-4" />}
+                          </button>
+
+                          {/* Consultar Status Orizon */}
+                          <button
+                            onClick={() => consultarStatusOrizon(g)}
+                            disabled={consultandoOrizonId === loteKey || !protocoloOrizon || protocoloOrizon === '-'}
+                            className="p-1 rounded-lg text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors disabled:opacity-40"
+                            title="Consultar status do protocolo Orizon"
+                          >
+                            {consultandoOrizonId === loteKey ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-teal-600"></div> : <ArrowPathIcon className="w-4 h-4" />}
+                          </button>
                           
                           {/* Regenerar XML */}
                           <button 
@@ -1888,10 +2074,10 @@ export default function Faturamento() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  );})}
                   {guiasGeradas.length === 0 && (
                     <tr>
-                      <td colSpan="6" className="px-4 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
+                      <td colSpan="8" className="px-4 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
                         <DocumentPlusIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
                         Nenhum lote gerado ainda
                       </td>
@@ -2164,6 +2350,14 @@ export default function Faturamento() {
                     <div><span className="text-xs text-gray-500">Fechamento:</span> <span className="text-sm">{selectedLote.dados_fatura.data_fechamento}</span></div>
                     <div><span className="text-xs text-gray-500">Valor Líquido:</span> <span className="text-sm font-bold text-green-600">R$ {(selectedLote.dados_fatura.valor_liquido || 0).toFixed(2)}</span></div>
                     <div><span className="text-xs text-gray-500">Previsão Pagto:</span> <span className="text-sm">{selectedLote.dados_fatura.data_previsao_pagamento || '-'}</span></div>
+                  </div>
+                )}
+                {(selectedLote.protocolo_orizon || selectedLote.integracao_orizon?.protocolo_recebimento || selectedLote.status_integracao) && (
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-5 p-4 bg-cyan-50 dark:bg-cyan-900/20 rounded-xl">
+                    <div><span className="text-xs text-gray-500">Protocolo Orizon:</span> <span className="text-sm font-mono">{selectedLote.protocolo_orizon || selectedLote.integracao_orizon?.protocolo_recebimento || '-'}</span></div>
+                    <div><span className="text-xs text-gray-500">Status:</span> <span className="text-sm">{selectedLote.integracao_orizon?.status_descricao || STATUS_PROTOCOLO_ORIZON[selectedLote.integracao_orizon?.status_protocolo] || selectedLote.status_integracao || '-'}</span></div>
+                    <div><span className="text-xs text-gray-500">Enviado em:</span> <span className="text-sm">{selectedLote.integracao_orizon?.enviado_em ? format(new Date(selectedLote.integracao_orizon.enviado_em), 'dd/MM/yyyy HH:mm') : '-'}</span></div>
+                    <div><span className="text-xs text-gray-500">Última consulta:</span> <span className="text-sm">{selectedLote.integracao_orizon?.consultado_em ? format(new Date(selectedLote.integracao_orizon.consultado_em), 'dd/MM/yyyy HH:mm') : '-'}</span></div>
                   </div>
                 )}
                 <div className="bg-gray-900 rounded-xl p-4 overflow-auto max-h-96">
