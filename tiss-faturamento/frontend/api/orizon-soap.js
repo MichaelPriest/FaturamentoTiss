@@ -22,6 +22,14 @@ function isEndpointPermitido(endpoint) {
   }
 }
 
+function decodificarResposta(buffer, encoding = '') {
+  const normalized = String(encoding || '').toLowerCase();
+  if (normalized.includes('gzip')) return zlib.gunzipSync(buffer).toString('utf8');
+  if (normalized.includes('deflate')) return zlib.inflateSync(buffer).toString('utf8');
+  if (normalized.includes('br') && zlib.brotliDecompressSync) return zlib.brotliDecompressSync(buffer).toString('utf8');
+  return buffer.toString('utf8');
+}
+
 function montarOpcoes(endpoint, headers) {
   const url = new URL(endpoint);
   const isHttps = url.protocol === 'https:';
@@ -53,11 +61,21 @@ function enviarSoap(endpoint, body, headers) {
       const chunks = [];
       response.on('data', (chunk) => chunks.push(chunk));
       response.on('end', () => {
+        const buffer = Buffer.concat(chunks);
+        let text;
+        try {
+          text = decodificarResposta(buffer, response.headers['content-encoding']);
+        } catch (decodeError) {
+          reject(decodeError);
+          return;
+        }
+
         resolve({
           ok: response.statusCode >= 200 && response.statusCode < 300,
           status: response.statusCode,
           statusText: response.statusMessage,
-          text: Buffer.concat(chunks).toString('utf8')
+          contentEncoding: response.headers['content-encoding'] || '',
+          text
         });
       });
     });
