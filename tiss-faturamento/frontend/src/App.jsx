@@ -9,13 +9,14 @@ import {
   ChevronLeftIcon, ChevronRightIcon, SunIcon, MoonIcon,
   CalendarDaysIcon, FolderIcon, ChevronDownIcon, ChevronUpIcon,
   HomeModernIcon, BanknotesIcon, ClipboardDocumentCheckIcon, BuildingOffice2Icon, BellAlertIcon,
-  UserCircleIcon, MegaphoneIcon, TvIcon
+  UserCircleIcon, MegaphoneIcon, TvIcon, BeakerIcon
 } from '@heroicons/react/24/outline';
 
 import Dashboard from './pages/Dashboard';
 import Convenios from './pages/Convenios';
 import ConvenioConfig from './pages/ConvenioConfig';
 import WebserviceConfig from './pages/WebserviceConfig';
+import HomologacaoWebservice from './pages/HomologacaoWebservice';
 import Pacientes from './pages/Pacientes';
 import Prestadores from './pages/Prestadores';
 import Procedimentos from './pages/Procedimentos';
@@ -59,6 +60,7 @@ const TAB_ROUTES = new Set([
   'ocupacao',
   'autorizacoes',
   'faturamento',
+  'homologacao-webservice',
   'glosas',
   'financeiro',
   'relatorios',
@@ -249,6 +251,7 @@ function MainApp() {
       id: 'faturamento', name: 'Faturamento', icon: CurrencyDollarIcon,
       items: [
         { id: 'faturamento', name: 'Lotes TISS', icon: CurrencyDollarIcon, color: 'from-emerald-500 to-emerald-600' },
+        { id: 'homologacao-webservice', name: 'Homologação WS', icon: BeakerIcon, color: 'from-blue-500 to-indigo-600' },
         { id: 'glosas', name: 'Glosas', icon: ExclamationTriangleIcon, color: 'from-red-500 to-red-600' }
       ]
     },
@@ -293,6 +296,7 @@ function MainApp() {
       case 'ocupacao': return <Ocupacao />;
       case 'autorizacoes': return <Autorizacoes />;
       case 'faturamento': return <Faturamento />;
+      case 'homologacao-webservice': return <HomologacaoWebservice />;
       case 'glosas': return <Glosas />;
       case 'financeiro': return <Financeiro />;
       case 'relatorios': return <Relatorios />;
@@ -338,6 +342,7 @@ function MainApp() {
       dashboard: 'Visão geral do sistema',
       autorizacoes: 'Gerenciamento de autorizações de procedimentos pelos convênios',
       faturamento: 'Geração e envio de lotes TISS',
+      'homologacao-webservice': 'Testes de homologação dos endpoints TISS/Orizon',
       atendimentos: 'Registro de atendimentos e guias',
       agendamentos: 'Gerenciamento de agenda e consultas',
       ocupacao: 'Mapa de salas, horários e disponibilidade',
