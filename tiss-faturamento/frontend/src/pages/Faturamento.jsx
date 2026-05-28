@@ -34,8 +34,7 @@ import { applyUnidadeToPayload, filterByUnidade } from '../services/unidadesServ
 import {
   STATUS_PROTOCOLO_ORIZON,
   consultarStatusProtocoloOrizon,
-  enviarLoteGuiasOrizon,
-  obterEndpointOrizon
+  enviarLoteGuiasOrizon
 } from '../services/orizonWebservice';
 
 // ============================================
@@ -1427,12 +1426,19 @@ export default function Faturamento() {
       throw new Error('Informe usuário e chave/senha do WebService na aba Integrações do convênio.');
     }
 
+    const endpointLote = configIntegracao.url_webservice || convenio.url_webservice || '';
+    const endpointStatus = configIntegracao.url_status_protocolo_orizon || '';
+
+    if (!endpointLote) {
+      throw new Error('Informe o endpoint de envio de lote específico deste convênio na configuração do WebService.');
+    }
+
     return {
       ambiente,
       login,
       senha,
-      endpointLote: configIntegracao.url_webservice || convenio.url_webservice || obterEndpointOrizon(ambiente, 'loteGuias'),
-      endpointStatus: configIntegracao.url_status_protocolo_orizon || obterEndpointOrizon(ambiente, 'statusProtocolo')
+      endpointLote,
+      endpointStatus
     };
   };
 
@@ -1512,6 +1518,9 @@ export default function Faturamento() {
     setConsultandoOrizonId(lote.id || lote.numero_lote);
     try {
       const credenciais = await carregarCredenciaisOrizon(convenio);
+      if (!credenciais.endpointStatus) {
+        throw new Error('Informe o endpoint de status específico deste convênio na configuração do WebService.');
+      }
       const retorno = await consultarStatusProtocoloOrizon({
         endpoint: credenciais.endpointStatus,
         codigoPrestador: convenio.codigo_prestador,

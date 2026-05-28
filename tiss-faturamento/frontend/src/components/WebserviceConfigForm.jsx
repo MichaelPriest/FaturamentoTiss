@@ -26,6 +26,7 @@ export function aplicarEndpointsPadraoOrizon(config, ambiente = 'homologacao') {
 
 export default function WebserviceConfigForm({ config, setConfig, convenioData, setConvenioData }) {
   const form = { ...WEBSERVICE_DEFAULT_CONFIG, ...(config || {}) };
+  const isOrizon = form.webservice_provider === 'orizon';
 
   const atualizarCampo = (campo, valor) => {
     setConfig(prev => ({ ...prev, [campo]: valor }));
@@ -42,11 +43,6 @@ export default function WebserviceConfigForm({ config, setConfig, convenioData, 
   };
 
   const alterarAmbiente = (ambiente) => {
-    if (form.webservice_provider === 'orizon') {
-      aplicarEndpoints(ambiente);
-      return;
-    }
-
     atualizarCampo('ambiente_orizon', ambiente);
     setConvenioData?.(prev => ({ ...prev, ambiente }));
   };
@@ -55,7 +51,7 @@ export default function WebserviceConfigForm({ config, setConfig, convenioData, 
     <div className="space-y-4">
       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
         <p className="text-xs text-blue-700 dark:text-blue-300">
-          Configure aqui o WebService do convênio selecionado. Para Orizon TISS 4.03.00, informe login e chave de transmissão; o envio converte a chave para MD5 automaticamente quando necessário.
+          Configure os endpoints exatamente como fornecidos para este convênio. Cada convênio pode ter URLs próprias para envio, status e demais métodos; para Orizon, a chave é enviada em MD5 automaticamente quando necessário.
         </p>
       </div>
 
@@ -86,16 +82,19 @@ export default function WebserviceConfigForm({ config, setConfig, convenioData, 
           </select>
         </div>
 
-        {form.webservice_provider === 'orizon' && (
-          <div className="md:col-span-2 flex justify-end">
-            <button type="button" onClick={() => aplicarEndpoints()} className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-700">
-              Aplicar endpoints padrão Orizon
+        {isOrizon && (
+          <div className="md:col-span-2 bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <p className="text-xs text-yellow-700 dark:text-yellow-300">
+              Use os endpoints específicos informados pela operadora/Orizon para este convênio. O botão ao lado é apenas um modelo inicial e pode precisar ser alterado.
+            </p>
+            <button type="button" onClick={() => aplicarEndpoints()} className="bg-yellow-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-yellow-700 whitespace-nowrap">
+              Preencher modelo Orizon
             </button>
           </div>
         )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL Envio Lote Guias</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Endpoint deste convênio - Envio Lote Guias</label>
           <input
             type="text"
             value={form.url_webservice}
@@ -104,18 +103,18 @@ export default function WebserviceConfigForm({ config, setConfig, convenioData, 
               setConvenioData?.(prev => ({ ...prev, url_webservice: e.target.value }));
             }}
             className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600"
-            placeholder="https://.../tissLoteGuias"
+            placeholder="Cole a URL fornecida para este convênio"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL Status Protocolo</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Endpoint deste convênio - Status Protocolo</label>
           <input
             type="text"
             value={form.url_status_protocolo_orizon}
             onChange={e => atualizarCampo('url_status_protocolo_orizon', e.target.value)}
             className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600"
-            placeholder="https://.../tissSolicitacaoStatusProtocolo"
+            placeholder="Cole a URL de status fornecida para este convênio"
           />
         </div>
 
