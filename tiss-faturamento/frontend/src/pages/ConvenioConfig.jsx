@@ -24,7 +24,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useUnidade } from '../contexts/UnidadeContext';
 import { applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
 import { useNavigate } from 'react-router-dom';
-import { obterEndpointOrizon } from '../services/orizonWebservice';
+import WebserviceConfigForm from '../components/WebserviceConfigForm';
 
 const ESPECIALIDADES = [
   { id: 14, nome: 'Psicologia' },
@@ -155,20 +155,6 @@ export default function ConvenioConfig() {
     cobertura: '',
     regras_especificas: ''
   });
-
-  const aplicarEndpointsOrizon = (ambiente = config.ambiente_orizon || convenioData.ambiente || 'homologacao') => {
-    setConfig(prev => ({
-      ...prev,
-      ambiente_orizon: ambiente,
-      url_webservice: obterEndpointOrizon(ambiente, 'loteGuias'),
-      url_status_protocolo_orizon: obterEndpointOrizon(ambiente, 'statusProtocolo')
-    }));
-    setConvenioData(prev => ({
-      ...prev,
-      ambiente,
-      url_webservice: obterEndpointOrizon(ambiente, 'loteGuias')
-    }));
-  };
 
   useEffect(() => {
     carregarConvenios();
@@ -749,50 +735,22 @@ export default function ConvenioConfig() {
               {/* 7. Integrações */}
               {aba === 'integracoes' && (
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-gray-800 dark:text-white mb-4">🔄 Integrações</h3>
-                  <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-4">
-                    <p className="text-xs text-blue-700 dark:text-blue-300">
-                      Orizon TISS 4.03.00 usa login do prestador e chave de transmissão em MD5. O sistema calcula o MD5 automaticamente se a chave for salva sem hash.
-                    </p>
+                  <div className="flex items-center justify-between gap-3 mb-4">
+                    <h3 className="font-semibold text-gray-800 dark:text-white">🔄 Integrações</h3>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/convenio-webservice/${convenioSelecionado.id}`)}
+                      className="text-blue-600 dark:text-blue-400 text-sm hover:underline"
+                    >
+                      Abrir página completa
+                    </button>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Ambiente Orizon</label>
-                      <select value={config.ambiente_orizon || 'homologacao'} onChange={e => aplicarEndpointsOrizon(e.target.value)} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700">
-                        <option value="homologacao">Homologação</option>
-                        <option value="producao">Produção</option>
-                      </select>
-                    </div>
-                    <div className="flex items-end">
-                      <button type="button" onClick={() => aplicarEndpointsOrizon()} className="w-full bg-blue-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-700">
-                        Aplicar endpoints padrão Orizon
-                      </button>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL Envio Lote Guias</label>
-                      <input type="text" value={config.url_webservice} onChange={e => setConfig({...config, url_webservice: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" placeholder="https://.../tissLoteGuias" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL Status Protocolo</label>
-                      <input type="text" value={config.url_status_protocolo_orizon} onChange={e => setConfig({...config, url_status_protocolo_orizon: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" placeholder="https://.../tissSolicitacaoStatusProtocolo" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Login Prestador Orizon</label>
-                      <input type="text" value={config.usuario_webservice} onChange={e => setConfig({...config, usuario_webservice: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Chave/Senha de transmissão</label>
-                      <input type="password" value={config.senha_webservice} onChange={e => setConfig({...config, senha_webservice: e.target.value, chave_transmissao_orizon: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" placeholder="Será enviada como MD5" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nº de série do certificado (opcional)</label>
-                      <input type="text" value={config.certificado_serial_orizon} onChange={e => setConfig({...config, certificado_serial_orizon: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" placeholder="Quando usar certificado ICP-Brasil" />
-                    </div>
-                    <div className="flex items-center gap-2 h-full pt-6">
-                      <input type="checkbox" checked={config.retorno_automatico} onChange={e => setConfig({...config, retorno_automatico: e.target.checked})} className="w-4 h-4 rounded border-gray-300 text-blue-600" />
-                      <label className="text-sm text-gray-700 dark:text-gray-300">Retorno automático de status</label>
-                    </div>
-                  </div>
+                  <WebserviceConfigForm
+                    config={config}
+                    setConfig={setConfig}
+                    convenioData={convenioData}
+                    setConvenioData={setConvenioData}
+                  />
                 </div>
               )}
 
