@@ -28,7 +28,7 @@ import { format } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
 import { gerarXMLTISS, converterAtendimentoParaTISS, setVersao } from '../lib/tissGenerator';
 import { imprimirGuiaTISSOficial, imprimirMultiplasGuiasTISS } from '../components/ImpressaoGuiaTISS';
-import { imprimirContaFaturada } from '../components/ImpressaoContaFaturada';
+import { imprimirContaFaturada, imprimirMultiplasContas as imprimirMultiplasContasFaturadas } from '../components/ImpressaoContaFaturada';
 import { useUnidade } from '../contexts/UnidadeContext';
 import { applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
 import {
@@ -693,70 +693,80 @@ export default function Faturamento() {
     }
   };
 
-  const handleImprimirConta = (lote) => {
-    // Buscar os atendimentos do lote para pegar os itens
-    const atendimentosDoLote = atendimentos.filter(a => lote.guias_ids?.includes(a.id));
-    
-    // Coletar todos os itens dos atendimentos
-    const todosItens = [];
-    atendimentosDoLote.forEach(atendimento => {
-      const itens = typeof atendimento.itens === 'string' 
-        ? JSON.parse(atendimento.itens) 
-        : (atendimento.itens || []);
-      todosItens.push(...itens);
-    });
-    
-    // Calcular total geral
-    const totalGeral = todosItens.reduce((sum, item) => sum + (item.valor_total || 0), 0);
-    
-    // Buscar dados do paciente (primeiro atendimento do lote)
-    const primeiroAtendimento = atendimentosDoLote[0];
-    const paciente = {
-      nome: primeiroAtendimento?.paciente_nome || '',
-      numero_carteira: primeiroAtendimento?.numero_carteira || '',
-      cpf: primeiroAtendimento?.cpf || '',
-      data_nascimento: primeiroAtendimento?.data_nascimento || ''
-    };
-    
-    // Buscar dados do convênio
-    const convenio = convenios.find(c => c.id === lote.convenio_id);
-    
-    // Buscar dados da clínica (config)
-    const clinica = {
-      nome_empresa: configClinica.nome_empresa || '',
-      nome_contratado: configClinica.nome_contratado || '',
-      cnpj: configClinica.cnpj || '',
-      cnes: configClinica.cnes || ''
-    };
-    
-    // Preparar dados da conta
-    const dadosConta = {
-      numero_conta: lote.numero_lote,
-      data_emissao: lote.data_envio || new Date().toISOString(),
-      status: 'faturado',
-      paciente,
-      convenio: {
-        razao_social: lote.convenio_nome,
-        registro_ans: convenio?.registro_ans || '',
-        codigo_prestador: convenio?.codigo_prestador || ''
-      },
-      clinica,
-      itens: todosItens.map(item => ({
-        data_execucao: item.data_execucao || '',
-        codigo: item.codigo || '',
-        nome: item.nome || '',
-        quantidade: item.quantidade || 1,
-        valor_unitario: item.valor_unitario || 0,
-        valor_total: item.valor_total || 0
-      })),
-      subtotal: totalGeral,
-      total_geral: totalGeral,
-      observacoes: `Lote referente às guias: ${lote.guias_ids?.join(', ') || ''}`,
-      logo_base64: convenio?.logo_base64 || configClinica.logo_base64
-    };
-    
-    imprimirContaFaturada(dadosConta);
-    toast.success('Conta faturada enviada para impressão!');
+  const handleImprimirConta = async (lote) => {
+    try {
+      const guiaIds = lote.guias_ids || [];
+      if (guiaIds.length === 0) {
+        toast.error('Este lote não possui guias vinculadas para imprimir.');
+        return;
+      }
+
+      let atendimentosDoLote = atendimentos.filter(a => guiaIds.includes(a.id));
+      if (atendimentosDoLote.length !== guiaIds.length) {
+        const { data, error } = await supabase
+          .from('atendimentos')
+          .select('*')
+          .in('id', guiaIds);
+        if (error) throw error;
+        atendimentosDoLote = data || atendimentosDoLote;
+      }
+
+      if (atendimentosDoLote.length === 0) {
+        toast.error('Nenhuma conta encontrada para este lote.');
+        return;
+      }
+
+      const convenio = convenios.find(c => c.id === lote.convenio_id);
+      const clinica = {
+        nome_empresa: configClinica.nome_empresa || '',
+        nome_contratado: configClinica.nome_contratado || '',
+        cnpj: configClinica.cnpj || '',
+        cnes: configClinica.cnes || ''
+      };
+
+      const contas = atendimentosDoLote.map((atendimento) => {
+        const itens = typeof atendimento.itens === 'string'
+          ? JSON.parse(atendimento.itens || '[]')
+          : (atendimento.itens || []);
+        const totalConta = itens.reduce((sum, item) => sum + Number(item.valor_total || 0), 0);
+
+        return {
+          numero_conta: atendimento.numero_guia_prestador || `${lote.numero_lote}-${atendimento.id}`,
+          data_emissao: lote.data_envio || new Date().toISOString(),
+          status: 'faturado',
+          paciente: {
+            nome: atendimento.paciente_nome || '',
+            numero_carteira: atendimento.numero_carteira || atendimento.paciente_carteira || '',
+            cpf: atendimento.cpf || '',
+            data_nascimento: atendimento.data_nascimento || ''
+          },
+          convenio: {
+            razao_social: atendimento.paciente_convenio_nome || lote.convenio_nome || convenio?.razao_social || '',
+            registro_ans: atendimento.convenio_registro_ans || convenio?.registro_ans || '',
+            codigo_prestador: atendimento.convenio_codigo_prestador || convenio?.codigo_prestador || ''
+          },
+          clinica,
+          itens: itens.map(item => ({
+            data_execucao: item.data_execucao || atendimento.data_atendimento || '',
+            codigo: item.codigo || item.codigo_procedimento || '',
+            nome: item.nome || item.descricao || '',
+            quantidade: item.quantidade || 1,
+            valor_unitario: item.valor_unitario || 0,
+            valor_total: item.valor_total || 0
+          })),
+          subtotal: totalConta,
+          total_geral: totalConta,
+          observacoes: `Lote ${lote.numero_lote} - Guia ${atendimento.numero_guia_prestador || atendimento.id}`,
+          logo_base64: convenio?.logo_base64 || configClinica.logo_base64
+        };
+      });
+
+      imprimirMultiplasContasFaturadas(contas);
+      toast.success(`Imprimindo ${contas.length} conta(s) faturada(s) do lote...`);
+    } catch (error) {
+      console.error('Erro ao imprimir contas faturadas do lote:', error);
+      toast.error('Erro ao imprimir contas faturadas do lote.');
+    }
   };
 
   const handleImprimirContaIndividual = (atendimento) => {
