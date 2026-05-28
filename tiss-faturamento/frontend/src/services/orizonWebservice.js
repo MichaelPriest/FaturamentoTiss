@@ -224,17 +224,17 @@ export function interpretarSituacaoProtocolo(xmlResposta) {
   };
 }
 
-export async function enviarLoteGuiasOrizon({ endpoint, xmlTiss, login, senha, gzip = true }) {
+export async function enviarLoteGuiasOrizon({ endpoint, xmlTiss, login, senha, gzip = true, proxyUrl }) {
   const senhaMD5 = hashSenhaOrizon(senha);
   const envelope = montarEnvelopeLoteGuias(xmlTiss, { login, senhaMD5 });
-  const xmlResposta = await enviarSOAP(endpoint, envelope, { gzip });
+  const xmlResposta = await enviarSOAP(endpoint, envelope, { gzip, proxyUrl });
   return interpretarProtocoloRecebimento(xmlResposta);
 }
 
-export async function consultarStatusProtocoloOrizon({ endpoint, codigoPrestador, registroANS, numeroProtocolo, login, senha, gzip = true }) {
+export async function consultarStatusProtocoloOrizon({ endpoint, codigoPrestador, registroANS, numeroProtocolo, login, senha, gzip = true, proxyUrl }) {
   const senhaMD5 = hashSenhaOrizon(senha);
   const envelope = montarEnvelopeStatusProtocolo({ codigoPrestador, registroANS, numeroProtocolo, login, senhaMD5 });
-  const xmlResposta = await enviarSOAP(endpoint, envelope, { gzip });
+  const xmlResposta = await enviarSOAP(endpoint, envelope, { gzip, proxyUrl });
   return interpretarSituacaoProtocolo(xmlResposta);
 }
 
