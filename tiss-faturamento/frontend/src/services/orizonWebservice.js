@@ -176,7 +176,10 @@ async function enviarSOAPPorProxy(endpoint, envelope, opcoes = {}) {
   const payload = await response.json().catch(() => null);
   if (!response.ok || payload?.ok === false) {
     const detalhe = payload?.detail || payload?.text || payload?.statusText || response.statusText;
-    throw new Error(`${payload?.error || 'Falha ao comunicar com o WebService do convênio.'}${detalhe ? ` Detalhe: ${detalhe}` : ''}`);
+    const erro = new Error(`${payload?.error || 'Falha ao comunicar com o WebService do convênio.'}${detalhe ? ` Detalhe: ${detalhe}` : ''}`);
+    erro.codigo = payload?.code || payload?.statusText || response.status;
+    erro.payload = payload;
+    throw erro;
   }
 
   return payload?.text || '';
