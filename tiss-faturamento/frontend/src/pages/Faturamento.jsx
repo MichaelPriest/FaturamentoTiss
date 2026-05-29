@@ -227,6 +227,7 @@ export default function Faturamento() {
   }, unidadeAtualId);
   const [atendimentos, setAtendimentos] = useState([]);
   const [convenios, setConvenios] = useState([]);
+  const [pacientes, setPacientes] = useState([]);
   const [prestadores, setPrestadores] = useState([]);
   const [procedimentos, setProcedimentos] = useState([]);
   const [selecionados, setSelecionados] = useState([]);
@@ -417,22 +418,25 @@ export default function Faturamento() {
 
   const carregarDados = async () => {
     try {
-      const [atendimentosRes, conveniosRes, prestadoresRes, procedimentosRes] = await Promise.all([
+      const [atendimentosRes, conveniosRes, prestadoresRes, procedimentosRes, pacientesRes] = await Promise.all([
         supabase.from('atendimentos').select('*').eq('status', 'faturado').order('created_at', { ascending: false }),
         supabase.from('convenios').select('*').eq('ativo', true).order('razao_social'),
         supabase.from('prestadores').select('*').order('nome'),
-        supabase.from('procedimentos').select('*').order('nome')
+        supabase.from('procedimentos').select('*').order('nome'),
+        supabase.from('pacientes').select('id, nome, cpf, data_nascimento, numero_carteira')
       ]);
 
       if (atendimentosRes.error) throw atendimentosRes.error;
       if (conveniosRes.error) throw conveniosRes.error;
       if (prestadoresRes.error) throw prestadoresRes.error;
       if (procedimentosRes.error) throw procedimentosRes.error;
+      if (pacientesRes.error) throw pacientesRes.error;
 
       setAtendimentos(filtrarPorUnidadeIncluindoGlobais(atendimentosRes.data || []));
       setConvenios(filtrarPorUnidadeIncluindoGlobais(conveniosRes.data || []));
       setPrestadores(filtrarPorUnidadeIncluindoGlobais(prestadoresRes.data || []));
       setProcedimentos(filtrarPorUnidadeIncluindoGlobais(procedimentosRes.data || []));
+      setPacientes(filtrarPorUnidadeIncluindoGlobais(pacientesRes.data || []));
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       toast.error('Erro ao carregar dados');
@@ -527,6 +531,18 @@ export default function Faturamento() {
   };
 
   const getLogoUnidadeOuClinica = (convenio) => unidadeAtual?.logo_base64 || unidadeAtual?.logo || configClinica.logo_base64 || convenio?.logo_base64 || '';
+
+  const getPacienteCadastro = (atendimento) => pacientes.find(p => p.id === atendimento?.paciente_id) || {};
+
+  const montarDadosPacienteConta = (atendimento) => {
+    const pacienteCadastro = getPacienteCadastro(atendimento);
+    return {
+      nome: atendimento?.paciente_nome || pacienteCadastro.nome || '',
+      numero_carteira: atendimento?.numero_carteira || atendimento?.paciente_carteira || pacienteCadastro.numero_carteira || '',
+      cpf: atendimento?.cpf || pacienteCadastro.cpf || '',
+      data_nascimento: atendimento?.data_nascimento || pacienteCadastro.data_nascimento || ''
+    };
+  };
 
   const getAnexosFatura = (lote) => {
     const dados = lote?.dados_fatura || {};
@@ -812,12 +828,7 @@ export default function Faturamento() {
           numero_conta: atendimento.numero_guia_prestador || `${lote.numero_lote}-${atendimento.id}`,
           data_emissao: lote.data_envio || new Date().toISOString(),
           status: 'faturado',
-          paciente: {
-            nome: atendimento.paciente_nome || '',
-            numero_carteira: atendimento.numero_carteira || atendimento.paciente_carteira || '',
-            cpf: atendimento.cpf || '',
-            data_nascimento: atendimento.data_nascimento || ''
-          },
+          paciente: montarDadosPacienteConta(atendimento),
           convenio: {
             razao_social: atendimento.paciente_convenio_nome || lote.convenio_nome || convenio?.razao_social || '',
             registro_ans: atendimento.convenio_registro_ans || convenio?.registro_ans || '',
@@ -862,12 +873,7 @@ export default function Faturamento() {
       ? JSON.parse(atendimento.itens) 
       : (atendimento.itens || []);
     
-    const paciente = {
-      nome: atendimento.paciente_nome || '',
-      numero_carteira: atendimento.numero_carteira || '',
-      cpf: atendimento.cpf || '',
-      data_nascimento: atendimento.data_nascimento || ''
-    };
+    const paciente = montarDadosPacienteConta(atendimento);
     
     const clinica = {
       nome_empresa: configClinica.nome_empresa || '',

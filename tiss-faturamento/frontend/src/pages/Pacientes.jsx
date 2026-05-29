@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, 
-  CheckCircleIcon, XCircleIcon, ClockIcon, UsersIcon, BuildingOfficeIcon 
+  CheckCircleIcon, XCircleIcon, ClockIcon, UsersIcon, BuildingOfficeIcon, DocumentTextIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format, differenceInDays, parseISO } from 'date-fns';
@@ -147,15 +148,15 @@ export default function Pacientes() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.nome || !formData.numero_carteira || !formData.convenio_id) {
-      toast.error('Nome, número da carteira e convênio são obrigatórios');
+    if (!formData.nome) {
+      toast.error('Nome é obrigatório');
       return;
     }
 
     const pacienteData = {
       nome: formData.nome.toUpperCase(),
-      numero_carteira: formData.numero_carteira,
-      convenio_id: parseInt(formData.convenio_id),
+      numero_carteira: formData.numero_carteira || null,
+      convenio_id: formData.convenio_id ? parseInt(formData.convenio_id) : null,
       cpf: formData.cpf.replace(/\D/g, ''),
       rg: formData.rg.replace(/\D/g, ''),
       data_nascimento: formData.data_nascimento || null,
@@ -357,49 +358,29 @@ export default function Pacientes() {
             <thead className="bg-gray-50 dark:bg-gray-700/50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nome</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Carteira</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Convênio</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">CPF</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Validade</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nascimento</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Telefone</th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-24">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {filteredPacientes.map((p) => {
-                const convenio = convenios.find(c => c.id === p.convenio_id);
-                const status = getStatusCarteira(p.data_validade_carteira);
                 return (
                   <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <td className="px-4 py-3 text-sm text-gray-800 dark:text-gray-200">{p.nome}</td>
-                    <td className="px-4 py-3 text-sm font-mono text-gray-600 dark:text-gray-400">{p.numero_carteira}</td>
-                    <td className="px-4 py-3">
-                      {convenio ? (
-                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
-                          {convenio.razao_social}
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
-                          Sem convênio
-                        </span>
-                      )}
-                    </td>
                     <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{p.cpf ? aplicarMascaraCPF(p.cpf) : '-'}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        {status.color === 'green' && <CheckCircleIcon className="w-3 h-3 text-green-500" />}
-                        {status.color === 'yellow' && <ClockIcon className="w-3 h-3 text-yellow-500" />}
-                        {status.color === 'red' && <XCircleIcon className="w-3 h-3 text-red-500" />}
-                        <span className={`text-xs ${
-                          status.color === 'green' ? 'text-green-600 dark:text-green-400' : 
-                          status.color === 'yellow' ? 'text-yellow-600 dark:text-yellow-400' : 
-                          status.color === 'red' ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'
-                        }`}>{status.text}</span>
-                      </div>
-                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{p.data_nascimento ? format(parseISO(p.data_nascimento), 'dd/MM/yyyy') : '-'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{p.telefone ? aplicarMascaraTelefone(p.telefone) : (p.celular ? aplicarMascaraTelefone(p.celular) : '-')}</td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex gap-1 justify-center">
+                        <Link
+                          to={`/pacientes/${p.id}/historico`}
+                          className="p-1 rounded-lg text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+                          title="Histórico de atendimentos"
+                        >
+                          <DocumentTextIcon className="w-4 h-4" />
+                        </Link>
                         <button 
                           onClick={() => { 
                             setEditing(p); 
@@ -432,7 +413,7 @@ export default function Pacientes() {
               })}
               {filteredPacientes.length === 0 && (
                 <tr>
-                  <td colSpan="7" className="px-4 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
+                  <td colSpan="5" className="px-4 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
                     <UsersIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
                     Nenhum paciente encontrado
                   </td>
@@ -506,40 +487,8 @@ export default function Pacientes() {
                     placeholder="Selecione o sexo"
                   />
 
-                  {/* Convênio - SearchableSelect */}
-                  <SearchableSelect
-                    label="Convênio"
-                    options={convenios.filter(c => c.ativo !== false).map(c => ({
-                      value: c.id,
-                      label: `${c.razao_social} ${c.codigo_prestador ? `(Cód: ${c.codigo_prestador})` : ''}`
-                    }))}
-                    value={formData.convenio_id}
-                    onChange={e => setFormData({...formData, convenio_id: e.target.value})}
-                    placeholder="Selecione o convênio"
-                    required={true}
-                  />
-                  <p className="text-xs text-green-600 dark:text-green-400 mt-1 -mt-2">
-                    ✓ O convênio será usado no faturamento
-                  </p>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número da Carteira *</label>
-                    <input 
-                      type="text" 
-                      value={formData.numero_carteira} 
-                      onChange={e => setFormData({...formData, numero_carteira: e.target.value})} 
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
-                      required 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data Validade da Carteira</label>
-                    <input 
-                      type="date" 
-                      value={formData.data_validade_carteira} 
-                      onChange={e => setFormData({...formData, data_validade_carteira: e.target.value})} 
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
-                    />
+                  <div className="md:col-span-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-xs text-blue-700 dark:text-blue-300">
+                    Convênio, número da carteira e validade agora são informados no agendamento ou na guia de atendimento, preservando o histórico quando o paciente trocar de convênio.
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Telefone Fixo</label>
