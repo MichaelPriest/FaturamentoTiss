@@ -21,7 +21,7 @@ import {
   LockClosedIcon,
   LockOpenIcon,
   ArrowPathIcon,
-  PrinterIcon,
+  ClipboardDocumentCheckIcon,
   ReceiptPercentIcon,
   CloudArrowUpIcon
 } from '@heroicons/react/24/outline';
@@ -2288,7 +2288,7 @@ export default function Atendimentos() {
                           className="p-1 rounded-lg text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors disabled:opacity-50" 
                           title="Imprimir Guia TISS"
                         >
-                          <PrinterIcon className="w-4 h-4" />
+                          <ClipboardDocumentCheckIcon className="w-4 h-4" />
                         </button>
                         
                         {/* Botão de Imprimir Conta Faturada */}

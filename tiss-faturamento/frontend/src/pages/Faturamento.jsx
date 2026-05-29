@@ -2,7 +2,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   DocumentArrowDownIcon,
-  PaperAirplaneIcon,
+  DocumentTextIcon,
+  ClipboardDocumentCheckIcon,
   BuildingOfficeIcon,
   ArrowPathIcon,
   EyeIcon,
@@ -19,7 +20,6 @@ import {
   LockClosedIcon,
   LockOpenIcon,
   XCircleIcon,
-  PrinterIcon,
   ArchiveBoxIcon,
   CloudArrowUpIcon,
   InformationCircleIcon,
@@ -1851,7 +1851,7 @@ export default function Faturamento() {
                   disabled={imprimindo}
                   className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-1 transition-all disabled:opacity-50"
                 >
-                  {imprimindo ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <PrinterIcon className="w-4 h-4" />}
+                  {imprimindo ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <ClipboardDocumentCheckIcon className="w-4 h-4" />}
                   Imprimir ({totalSelecionados})
                 </button>
                 <button
@@ -1905,7 +1905,7 @@ export default function Faturamento() {
                     disabled={imprimindo}
                     className="bg-purple-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-purple-700 flex items-center gap-1 disabled:opacity-50"
                   >
-                    {imprimindo ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <PrinterIcon className="w-4 h-4" />}
+                    {imprimindo ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <ClipboardDocumentCheckIcon className="w-4 h-4" />}
                     Imprimir Lote
                   </button>
                   <button 
@@ -2065,7 +2065,7 @@ export default function Faturamento() {
                       imprimirMultiplasGuiasTISS(guiasParaImprimir, convenio, configClinica);
                       toast.success(`${guiasParaImprimir.length} guia(s) enviada(s) para impressão`);
                     }} className="text-purple-600 hover:text-purple-800 text-sm flex items-center gap-1">
-                      <PrinterIcon className="w-4 h-4" /> Imprimir
+                      <ClipboardDocumentCheckIcon className="w-4 h-4" /> Imprimir
                     </button>
                   </div>
                 </div>
@@ -2131,7 +2131,7 @@ export default function Faturamento() {
                                 className="p-1 rounded-lg text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors disabled:opacity-50" 
                                 title="Imprimir Guia TISS"
                               >
-                                <PrinterIcon className="w-4 h-4" />
+                                <ClipboardDocumentCheckIcon className="w-4 h-4" />
                               </button>
                               <button 
                                 onClick={() => handleImprimirContaIndividual(a)} 
@@ -2231,7 +2231,7 @@ export default function Faturamento() {
                             className="p-1 rounded-lg text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors disabled:opacity-50" 
                             title="Imprimir Guias TISS"
                           >
-                            {imprimindo ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div> : <PrinterIcon className="w-4 h-4" />}
+                            {imprimindo ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div> : <ClipboardDocumentCheckIcon className="w-4 h-4" />}
                           </button>
                           
                           {/* Imprimir Conta Faturada */}
@@ -2398,14 +2398,14 @@ export default function Faturamento() {
                         disabled={imprimindo}
                         className="mt-2 w-full bg-purple-600 text-white px-3 py-2 rounded-lg text-sm flex items-center justify-center gap-2 hover:bg-purple-700 transition-all disabled:opacity-50"
                       >
-                        {imprimindo ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <PrinterIcon className="w-4 h-4" />}
+                        {imprimindo ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <ClipboardDocumentCheckIcon className="w-4 h-4" />}
                         Imprimir Guias
                       </button>
                     </div>
                   </div>
                   <div className="mt-4 flex gap-2">
                     <button onClick={imprimirRelacao} className="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-sm flex items-center gap-1 hover:bg-gray-300 dark:hover:bg-gray-600 transition-all">
-                      <PrinterIcon className="w-4 h-4" /> Imprimir Relação
+                      <DocumentTextIcon className="w-4 h-4" /> Imprimir Relação
                     </button>
                   </div>
                 </div>
@@ -2550,7 +2550,7 @@ export default function Faturamento() {
               <div className="p-5 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
                 <button onClick={() => setShowPreviaModal(false)} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">Cancelar</button>
                 <button onClick={confirmarGeracaoLote} disabled={gerando} className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-medium shadow-md flex items-center gap-2 hover:from-green-600 hover:to-emerald-700 transition-all duration-200 disabled:opacity-50">
-                  {gerando ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <PaperAirplaneIcon className="w-4 h-4" />}
+                  {gerando ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <DocumentPlusIcon className="w-4 h-4" />}
                   Confirmar e Gerar Lote
                 </button>
               </div>
@@ -2580,7 +2580,7 @@ export default function Faturamento() {
                       disabled={imprimindo}
                       className="w-full bg-purple-600 text-white px-2 py-1 rounded-lg text-sm flex items-center justify-center gap-1 hover:bg-purple-700 disabled:opacity-50"
                     >
-                      {imprimindo ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <PrinterIcon className="w-4 h-4" />}
+                      {imprimindo ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> : <ClipboardDocumentCheckIcon className="w-4 h-4" />}
                       Imprimir Lote
                     </button>
                   </div>
