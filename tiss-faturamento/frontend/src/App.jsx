@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster, toast } from 'sonner';
-import { 
-  HomeIcon, BuildingOfficeIcon, UsersIcon, UserGroupIcon, 
-  ClipboardDocumentListIcon, CalendarIcon, CurrencyDollarIcon,
-  ChartBarIcon, ExclamationTriangleIcon, Cog6ToothIcon, 
+import {
+  HomeIcon, BuildingOfficeIcon, UserGroupIcon,
+  CurrencyDollarIcon,
+  ChartBarIcon, Cog6ToothIcon,
   Bars3Icon, XMarkIcon, ArrowRightOnRectangleIcon,
   ChevronLeftIcon, ChevronRightIcon, SunIcon, MoonIcon,
   CalendarDaysIcon, FolderIcon, ChevronDownIcon, ChevronUpIcon,
   HomeModernIcon, BanknotesIcon, ClipboardDocumentCheckIcon, BuildingOffice2Icon, BellAlertIcon,
-  UserCircleIcon, MegaphoneIcon, TvIcon, BeakerIcon
+  UserCircleIcon, MegaphoneIcon, TvIcon, IdentificationIcon,
+  DocumentTextIcon, ClipboardDocumentIcon, ShieldCheckIcon,
+  ReceiptPercentIcon, PresentationChartLineIcon, WrenchScrewdriverIcon, ServerStackIcon
 } from '@heroicons/react/24/outline';
 
 import Dashboard from './pages/Dashboard';
@@ -227,9 +229,9 @@ function MainApp() {
       id: 'cadastros', name: 'Cadastros', icon: FolderIcon,
       items: [
         { id: 'convenios', name: 'Convênios', icon: BuildingOfficeIcon, color: 'from-purple-500 to-purple-600' },
-        { id: 'pacientes', name: 'Pacientes', icon: UsersIcon, color: 'from-green-500 to-green-600' },
+        { id: 'pacientes', name: 'Pacientes', icon: IdentificationIcon, color: 'from-green-500 to-green-600' },
         { id: 'prestadores', name: 'Prestadores', icon: UserGroupIcon, color: 'from-teal-500 to-teal-600' },
-        { id: 'procedimentos', name: 'Procedimentos', icon: ClipboardDocumentListIcon, color: 'from-orange-500 to-orange-600' },
+        { id: 'procedimentos', name: 'Procedimentos', icon: DocumentTextIcon, color: 'from-orange-500 to-orange-600' },
         { id: 'salas', name: 'Salas', icon: HomeModernIcon, color: 'from-teal-500 to-teal-600' },
         { id: 'unidades', name: 'Unidades', icon: BuildingOffice2Icon, color: 'from-sky-500 to-sky-600' }
       ]
@@ -237,23 +239,23 @@ function MainApp() {
     {
       id: 'agenda', name: 'Agenda', icon: CalendarDaysIcon,
       items: [
-        { id: 'agendamentos', name: 'Agendamentos', icon: CalendarIcon, color: 'from-cyan-500 to-cyan-600' },
+        { id: 'agendamentos', name: 'Agendamentos', icon: CalendarDaysIcon, color: 'from-cyan-500 to-cyan-600' },
         { id: 'ocupacao', name: 'Mapa de Ocupação', icon: HomeModernIcon, color: 'from-violet-500 to-violet-600' },
-        { id: 'atendimentos', name: 'Atendimentos', icon: ClipboardDocumentListIcon, color: 'from-pink-500 to-pink-600' }
+        { id: 'atendimentos', name: 'Atendimentos', icon: ClipboardDocumentCheckIcon, color: 'from-pink-500 to-pink-600' }
       ]
     },
     {
-      id: 'autorizacoes', name: 'Autorizações', icon: ClipboardDocumentCheckIcon,
+      id: 'autorizacoes', name: 'Autorizações', icon: ShieldCheckIcon,
       items: [
-        { id: 'autorizacoes', name: 'Autorizações TISS', icon: ClipboardDocumentCheckIcon, color: 'from-indigo-500 to-indigo-600' }
+        { id: 'autorizacoes', name: 'Autorizações TISS', icon: ShieldCheckIcon, color: 'from-indigo-500 to-indigo-600' }
       ]
     },
     {
       id: 'faturamento', name: 'Faturamento', icon: CurrencyDollarIcon,
       items: [
-        { id: 'faturamento', name: 'Lotes TISS', icon: CurrencyDollarIcon, color: 'from-emerald-500 to-emerald-600' },
-        { id: 'homologacao-webservice', name: 'Homologação WS', icon: BeakerIcon, color: 'from-blue-500 to-indigo-600' },
-        { id: 'glosas', name: 'Glosas', icon: ExclamationTriangleIcon, color: 'from-red-500 to-red-600' }
+        { id: 'faturamento', name: 'Lotes TISS', icon: ClipboardDocumentIcon, color: 'from-emerald-500 to-emerald-600' },
+        { id: 'homologacao-webservice', name: 'Homologação WS', icon: ServerStackIcon, color: 'from-blue-500 to-indigo-600' },
+        { id: 'glosas', name: 'Glosas', icon: ReceiptPercentIcon, color: 'from-red-500 to-red-600' }
       ]
     },
     {
@@ -264,12 +266,12 @@ function MainApp() {
     },
     {
       id: 'relatorios', name: 'Relatórios', icon: ChartBarIcon,
-      items: [{ id: 'relatorios', name: 'Relatórios', icon: ChartBarIcon, color: 'from-indigo-500 to-indigo-600' }]
+      items: [{ id: 'relatorios', name: 'Relatórios', icon: PresentationChartLineIcon, color: 'from-indigo-500 to-indigo-600' }]
     },
     {
       id: 'chamados', name: 'Chamadas', icon: MegaphoneIcon,
       items: [
-        { id: 'chamados', name: 'Recepção / Registro', icon: ClipboardDocumentCheckIcon, color: 'from-green-500 to-green-600' },
+        { id: 'chamados', name: 'Recepção / Registro', icon: MegaphoneIcon, color: 'from-green-500 to-green-600' },
         { id: 'chamados-painel', name: 'Painel de Chamadas', icon: TvIcon, color: 'from-blue-500 to-blue-600' }
       ]
     },
@@ -278,7 +280,7 @@ function MainApp() {
       items: [
         { id: 'perfil', name: 'Meu Perfil', icon: UserCircleIcon, color: 'from-blue-500 to-blue-600' },
         { id: 'notificacoes', name: 'Notificações', icon: BellAlertIcon, color: 'from-rose-500 to-rose-600' },
-        { id: 'configuracoes', name: 'Configurações', icon: Cog6ToothIcon, color: 'from-gray-500 to-gray-600' }
+        { id: 'configuracoes', name: 'Configurações', icon: WrenchScrewdriverIcon, color: 'from-gray-500 to-gray-600' }
       ]
     }
   ];

@@ -4,10 +4,10 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
   HomeIcon,
-  ClipboardDocumentListIcon,
-  CurrencyDollarIcon,
-  ChartBarIcon,
-  Cog6ToothIcon,
+  ClipboardDocumentCheckIcon,
+  ClipboardDocumentIcon,
+  PresentationChartLineIcon,
+  WrenchScrewdriverIcon,
   ArrowRightOnRectangleIcon,
   UserCircleIcon,
   Bars3Icon,
@@ -16,10 +16,10 @@ import {
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
-  { name: 'Atendimentos', href: '/atendimentos', icon: ClipboardDocumentListIcon },
-  { name: 'Faturamento', href: '/faturamento', icon: CurrencyDollarIcon },
-  { name: 'Relatórios', href: '/relatorios', icon: ChartBarIcon },
-  { name: 'Configurações', href: '/configuracoes', icon: Cog6ToothIcon },
+  { name: 'Atendimentos', href: '/atendimentos', icon: ClipboardDocumentCheckIcon },
+  { name: 'Faturamento', href: '/faturamento', icon: ClipboardDocumentIcon },
+  { name: 'Relatórios', href: '/relatorios', icon: PresentationChartLineIcon },
+  { name: 'Configurações', href: '/configuracoes', icon: WrenchScrewdriverIcon },
 ];
 
 export default function Layout({ children }) {
