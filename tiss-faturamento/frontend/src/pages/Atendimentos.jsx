@@ -280,7 +280,7 @@ function getNomeTabela(codigo) {
 }
 
 export default function Atendimentos() {
-  const { unidadeAtualId } = useUnidade();
+  const { unidadeAtualId, unidadeAtual } = useUnidade();
   const [atendimentos, setAtendimentos] = useState([]);
   const [pacientes, setPacientes] = useState([]);
   const [prestadores, setPrestadores] = useState([]);
@@ -1918,14 +1918,75 @@ export default function Atendimentos() {
     }
   };
   
+  const getLogoUnidadeOuClinica = (configClinicaAtual = {}, convenio = {}) => (
+    unidadeAtual?.logo_base64 ||
+    unidadeAtual?.logo ||
+    configClinicaAtual.logo_base64 ||
+    convenio?.logo_base64 ||
+    ''
+  );
+
+  const montarDadosPacienteConta = (atendimento) => {
+    const pacienteCadastro = pacientes.find(p => p.id === atendimento?.paciente_id) || {};
+    return {
+      nome: atendimento?.paciente_nome || pacienteCadastro.nome || '',
+      numero_carteira: atendimento?.numero_carteira || atendimento?.paciente_carteira || pacienteCadastro.numero_carteira || '',
+      cpf: atendimento?.cpf || pacienteCadastro.cpf || '',
+      data_nascimento: atendimento?.data_nascimento || pacienteCadastro.data_nascimento || ''
+    };
+  };
+
+  const montarDadosContaFaturadaAtendimento = (atendimento, convenio = {}, configClinicaAtual = {}) => {
+    const itens = typeof atendimento.itens === 'string'
+      ? JSON.parse(atendimento.itens || '[]')
+      : (atendimento.itens || []);
+    const totalConta = itens.reduce((sum, item) => sum + Number(item.valor_total || 0), 0);
+
+    return {
+      numero_conta: atendimento.numero_guia_prestador || `GUI-${atendimento.id}`,
+      data_emissao: new Date().toISOString(),
+      status: atendimento.status || 'faturado',
+      paciente: montarDadosPacienteConta(atendimento),
+      convenio: {
+        razao_social: atendimento.paciente_convenio_nome || convenio?.razao_social || '',
+        registro_ans: atendimento.convenio_registro_ans || convenio?.registro_ans || '',
+        codigo_prestador: atendimento.convenio_codigo_prestador || convenio?.codigo_prestador || ''
+      },
+      clinica: {
+        nome_empresa: configClinicaAtual.nome_empresa || '',
+        nome_contratado: configClinicaAtual.nome_contratado || '',
+        cnpj: configClinicaAtual.cnpj || '',
+        cnes: configClinicaAtual.cnes || ''
+      },
+      itens: itens.map(item => ({
+        data_execucao: item.data_execucao || atendimento.data_atendimento || '',
+        codigo: item.codigo || item.codigo_procedimento || '',
+        nome: item.nome || item.descricao || '',
+        quantidade: item.quantidade || 1,
+        valor_unitario: item.valor_unitario || 0,
+        valor_total: item.valor_total || 0
+      })),
+      subtotal: totalConta || atendimento.valor_total || 0,
+      total_geral: totalConta || atendimento.valor_total || 0,
+      observacoes: `Guia ${atendimento.numero_guia_prestador || atendimento.id}${atendimento.observacao ? ` - ${atendimento.observacao}` : ''}`,
+      autorizacao: {
+        numero_guia_prestador: atendimento.numero_guia_prestador,
+        numero_guia_operadora: atendimento.numero_guia_operadora,
+        senha_autorizacao: atendimento.senha_autorizacao,
+        data_autorizacao: atendimento.data_autorizacao,
+        data_validade_senha: atendimento.data_validade_senha,
+        status_autorizacao: atendimento.status_autorizacao_ws || atendimento.status_autorizacao || atendimento.status
+      },
+      logo_base64: getLogoUnidadeOuClinica(configClinicaAtual, convenio)
+    };
+  };
+
   const handleImprimirContaFaturada = async (atendimento) => {
     setImprimindoGuia(true);
-    
+
     try {
-      // Buscar dados do convênio
       const convenio = convenios.find(c => c.id === atendimento.paciente_convenio_id);
-      
-      // Buscar dados da clínica
+
       let configClinicaAtual = configClinica;
       if (!configClinicaAtual?.cnes) {
         const { data: configData } = await supabase
@@ -1938,55 +1999,8 @@ export default function Atendimentos() {
           setConfigClinica(configClinicaAtual);
         }
       }
-      
-      // Coletar itens do atendimento
-      const itens = typeof atendimento.itens === 'string' 
-        ? JSON.parse(atendimento.itens) 
-        : (atendimento.itens || []);
-      
-      // Dados do paciente
-      const paciente = {
-        nome: atendimento.paciente_nome || '',
-        numero_carteira: atendimento.numero_carteira || '',
-        cpf: atendimento.cpf || '',
-        data_nascimento: atendimento.data_nascimento || ''
-      };
-      
-      // Dados da clínica
-      const clinica = {
-        nome_empresa: configClinicaAtual.nome_empresa || '',
-        nome_contratado: configClinicaAtual.nome_contratado || '',
-        cnpj: configClinicaAtual.cnpj || '',
-        cnes: configClinicaAtual.cnes || ''
-      };
-      
-      // Preparar dados da conta
-      const dadosConta = {
-        numero_conta: atendimento.numero_guia_prestador || `GUI-${atendimento.id}`,
-        data_emissao: new Date().toISOString(),
-        status: atendimento.status || 'pendente',
-        paciente,
-        convenio: {
-          razao_social: convenio?.razao_social || '',
-          registro_ans: convenio?.registro_ans || '',
-          codigo_prestador: convenio?.codigo_prestador || ''
-        },
-        clinica,
-        itens: itens.map(item => ({
-          data_execucao: item.data_execucao || '',
-          codigo: item.codigo || '',
-          nome: item.nome || '',
-          quantidade: item.quantidade || 1,
-          valor_unitario: item.valor_unitario || 0,
-          valor_total: item.valor_total || 0
-        })),
-        subtotal: atendimento.valor_total || 0,
-        total_geral: atendimento.valor_total || 0,
-        observacoes: `Guia: ${atendimento.numero_guia_prestador || 'N/A'} - ${atendimento.observacao || ''}`,
-        logo_base64: convenio?.logo_base64 || configClinicaAtual.logo_base64
-      };
-      
-      imprimirContaFaturada(dadosConta);
+
+      imprimirContaFaturada(montarDadosContaFaturadaAtendimento(atendimento, convenio, configClinicaAtual));
       toast.success('Conta faturada enviada para impressão!');
     } catch (error) {
       console.error('Erro ao imprimir conta faturada:', error);
