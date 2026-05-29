@@ -18,6 +18,7 @@ import ConvenioConfig from './pages/ConvenioConfig';
 import WebserviceConfig from './pages/WebserviceConfig';
 import HomologacaoWebservice from './pages/HomologacaoWebservice';
 import Pacientes from './pages/Pacientes';
+import PacienteHistorico from './pages/PacienteHistorico';
 import Prestadores from './pages/Prestadores';
 import Procedimentos from './pages/Procedimentos';
 import Atendimentos from './pages/Atendimentos';
@@ -144,7 +145,7 @@ function MainApp() {
   const [currentDateTime, setCurrentDateTime] = useState(() => new Date());
 
   // Verificar se é rota de prontuário ou convenio-config
-  const isSpecialRoute = location.pathname.includes('/prontuario/') || location.pathname.includes('/convenio-config/') || location.pathname.includes('/convenio-webservice');
+  const isSpecialRoute = location.pathname.includes('/prontuario/') || location.pathname.includes('/pacientes/') || location.pathname.includes('/convenio-config/') || location.pathname.includes('/convenio-webservice');
 
   // Verificar se é rota fullscreen (Painel de Chamadas)
   const isFullscreenRoute = location.pathname === '/chamados/painel';
@@ -313,6 +314,7 @@ function MainApp() {
     const pathname = location.pathname;
 
     if (pathname.includes('/prontuario/')) return <Prontuario />;
+    if (pathname.includes('/pacientes/') && pathname.includes('/historico')) return <PacienteHistorico />;
     if (pathname.includes('/convenio-config/')) return <ConvenioConfig />;
     if (pathname.includes('/convenio-webservice')) return <WebserviceConfig />;
 
@@ -322,6 +324,7 @@ function MainApp() {
   const getPageTitle = () => {
     const pathname = location.pathname;
     if (pathname.includes('/prontuario/')) return 'Prontuário Eletrônico';
+    if (pathname.includes('/pacientes/') && pathname.includes('/historico')) return 'Histórico do Paciente';
     if (pathname.includes('/convenio-config/')) return 'Configurações Avançadas do Convênio';
     if (pathname.includes('/convenio-webservice')) return 'Configuração de WebService';
     
@@ -615,6 +618,7 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/prontuario/:id" element={<ProtectedApp />} />
+            <Route path="/pacientes/:id/historico" element={<ProtectedApp />} />
             <Route path="/convenio-config/:id" element={<ProtectedApp />} />
             <Route path="/convenio-webservice" element={<ProtectedApp />} />
             <Route path="/convenio-webservice/:id" element={<ProtectedApp />} />

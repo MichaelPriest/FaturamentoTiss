@@ -1118,24 +1118,36 @@ export default function Atendimentos() {
     
     const paciente = pacientes.find(p => p.id === id);
     if (paciente) {
-      const convenio = convenios.find(c => c.id === paciente.convenio_id);
       setFormData({
         ...formData,
         paciente_id: id,
         paciente_nome: paciente.nome || '',
-        paciente_carteira: paciente.numero_carteira || '',
-        convenio_id: paciente.convenio_id || null,
-        convenio_nome: convenio?.razao_social || 'Sem convênio',
-        convenio_registro_ans: convenio?.registro_ans || '',
-        convenio_codigo_prestador: convenio?.codigo_prestador || '',
-        convenio_proximo_numero_guia: convenio?.proximo_numero_guia || null,
-        codigo_operadora: convenio?.codigo_prestador || '',
-        nome_contratado: convenio?.nome_fantasia || ''
+        paciente_carteira: '',
+        convenio_id: '',
+        convenio_nome: '',
+        convenio_registro_ans: '',
+        convenio_codigo_prestador: '',
+        convenio_proximo_numero_guia: null,
+        codigo_operadora: '',
+        nome_contratado: ''
       });
-      if (!paciente.convenio_id) {
-        toast.warning('Este paciente não possui convênio associado!');
-      }
+      toast.info('Informe o convênio e a carteira desta guia no próprio atendimento.');
     }
+  };
+
+  const handleConvenioGuiaChange = (convenioId) => {
+    const id = convenioId ? parseInt(convenioId) : null;
+    const convenio = convenios.find(c => c.id === id);
+    setFormData(prev => ({
+      ...prev,
+      convenio_id: id || '',
+      convenio_nome: convenio?.razao_social || '',
+      convenio_registro_ans: convenio?.registro_ans || '',
+      convenio_codigo_prestador: convenio?.codigo_prestador || '',
+      convenio_proximo_numero_guia: convenio?.proximo_numero_guia || null,
+      codigo_operadora: convenio?.codigo_prestador || '',
+      nome_contratado: convenio?.nome_fantasia || convenio?.razao_social || ''
+    }));
   };
 
   const calcularValor = (item, convenio) => {
@@ -1421,10 +1433,14 @@ export default function Atendimentos() {
     }
 
     const paciente = pacientes.find(p => p.id === parseInt(formData.paciente_id));
-    const convenio = convenios.find(c => c.id === paciente?.convenio_id);
+    const convenio = convenios.find(c => c.id === parseInt(formData.convenio_id));
     
     if (!convenio) {
-      toast.error('Convênio não encontrado. Verifique se o paciente possui convênio associado.');
+      toast.error('Selecione o convênio da guia antes de salvar.');
+      return;
+    }
+    if (!formData.paciente_carteira?.trim()) {
+      toast.error('Informe o número da carteira desta guia.');
       return;
     }
     
@@ -1473,8 +1489,10 @@ export default function Atendimentos() {
       data_atendimento: itensGuia[0]?.data_execucao || new Date().toISOString().split('T')[0],
       paciente_id: paciente.id,
       paciente_nome: paciente.nome,
-      numero_carteira: paciente.numero_carteira,
-      paciente_convenio_id: paciente.convenio_id,
+      cpf: paciente.cpf || null,
+      data_nascimento: paciente.data_nascimento || null,
+      numero_carteira: formData.paciente_carteira,
+      paciente_convenio_id: parseInt(formData.convenio_id),
       paciente_convenio_nome: convenio?.razao_social || 'Sem convênio',
       convenio_registro_ans: convenio?.registro_ans,
       convenio_codigo_prestador: convenio?.codigo_prestador,
@@ -2506,7 +2524,12 @@ export default function Atendimentos() {
                   {aba === 'paciente' && (
                     <div className="space-y-4">
                       <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Paciente</label><div className="relative"><MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" /><input type="text" placeholder="Digite nome, CPF ou data de nascimento..." value={searchPacienteTerm} onChange={(e) => setSearchPacienteTerm(e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" /></div></div>
-                      <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paciente *</label><select value={formData.paciente_id} onChange={e => handlePacienteChange(e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" required><option value="">Selecione um paciente</option>{pacientesFiltrados.map(p => { const convenioPaciente = convenios.find(c => c.id === p.convenio_id); return (<option key={p.id} value={p.id}>{p.nome} - {p.cpf || 'SEM CPF'} - Nasc: {p.data_nascimento ? format(new Date(p.data_nascimento), 'dd/MM/yyyy') : '---'} - Carteira: {p.numero_carteira} - Convênio: {convenioPaciente?.razao_social || 'SEM CONVÊNIO'}</option>);})}</select></div>
+                      <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paciente *</label><select value={formData.paciente_id} onChange={e => handlePacienteChange(e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" required><option value="">Selecione um paciente</option>{pacientesFiltrados.map(p => (<option key={p.id} value={p.id}>{p.nome} - {p.cpf || 'SEM CPF'} - Nasc: {p.data_nascimento ? format(new Date(p.data_nascimento), 'dd/MM/yyyy') : '---'}</option>))}</select></div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Convênio da Guia *</label><select value={formData.convenio_id || ''} onChange={e => handleConvenioGuiaChange(e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" required><option value="">Selecione o convênio desta guia</option>{convenios.filter(c => c.ativo !== false).map(c => (<option key={c.id} value={c.id}>{c.razao_social}</option>))}</select></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Carteira da Guia *</label><input type="text" value={formData.paciente_carteira || ''} onChange={e => setFormData({...formData, paciente_carteira: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" placeholder="Número da carteira neste atendimento" required /></div>
+                      </div>
+                      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-xs text-blue-700 dark:text-blue-300">O convênio e a carteira são salvos na guia, não no cadastro do paciente, preservando o histórico quando o paciente trocar de convênio.</div>
                       <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações</label><textarea rows="3" value={formData.observacao} onChange={e => setFormData({...formData, observacao: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" /></div>
                       {editing && (<div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label><select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">{STATUS_ATENDIMENTO.map(s => (<option key={s.value} value={s.value}>{s.label}</option>))}</select></div>)}
                     </div>

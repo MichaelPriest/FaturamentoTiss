@@ -572,7 +572,7 @@ export default function Prontuario() {
           .eq('id', prontuario.id);
       }
   
-      const convenio = convenios.find(c => c.id === paciente?.convenio_id);
+      const convenio = convenios.find(c => c.id === agendamento?.convenio_id);
       
       let numeroGuiaPrestador;
       if (convenio && convenio.proximo_numero_guia) {
@@ -602,9 +602,11 @@ export default function Prontuario() {
         valor_total: valorTotal,
         paciente_id: agendamento?.paciente_id,
         paciente_nome: paciente?.nome || '',
-        numero_carteira: paciente?.numero_carteira || '',
-        paciente_convenio_id: paciente?.convenio_id || null,
-        paciente_convenio_nome: convenio?.razao_social || 'Sem convênio',
+        cpf: paciente?.cpf || null,
+        data_nascimento: paciente?.data_nascimento || null,
+        numero_carteira: agendamento?.paciente_carteira || '',
+        paciente_convenio_id: agendamento?.convenio_id || null,
+        paciente_convenio_nome: agendamento?.convenio_nome || convenio?.razao_social || 'Sem convênio',
         prestador_id: agendamento?.prestador_id,
         prestador_nome: agendamento?.prestador_nome,
         itens: procedimentosSelecionados.map(p => ({
