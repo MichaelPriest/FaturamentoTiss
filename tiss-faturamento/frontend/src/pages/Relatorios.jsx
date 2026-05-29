@@ -5,8 +5,9 @@ import {
   PrinterIcon, CalendarIcon,
   BuildingOfficeIcon, CurrencyDollarIcon,
   UserGroupIcon, ClipboardDocumentListIcon,
+  ClipboardDocumentCheckIcon, ClipboardDocumentIcon,
   CheckCircleIcon, ClockIcon, BanknotesIcon,
-  ExclamationTriangleIcon, ArrowPathIcon
+  ReceiptPercentIcon, PresentationChartLineIcon, ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, subDays, subMonths } from 'date-fns';
@@ -468,11 +469,11 @@ export default function Relatorios() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {[
             { label: 'Total Faturado', value: moeda(stats.totalFaturado), color: 'text-green-600', icon: CurrencyDollarIcon },
-            { label: 'Atendimentos', value: stats.totalAtendimentos, color: 'text-blue-600', icon: ClipboardDocumentListIcon },
-            { label: 'Ticket Médio', value: moeda(stats.ticketMedio), color: 'text-purple-600', icon: ChartBarIcon },
-            { label: 'Lotes Gerados', value: stats.totalLotes, color: 'text-orange-600', icon: DocumentTextIcon },
+            { label: 'Atendimentos', value: stats.totalAtendimentos, color: 'text-blue-600', icon: ClipboardDocumentCheckIcon },
+            { label: 'Ticket Médio', value: moeda(stats.ticketMedio), color: 'text-purple-600', icon: PresentationChartLineIcon },
+            { label: 'Lotes Gerados', value: stats.totalLotes, color: 'text-orange-600', icon: ClipboardDocumentIcon },
             { label: 'Notas Fiscais', value: stats.totalNotas, color: 'text-indigo-600', icon: BanknotesIcon },
-            { label: 'Valor Glosado', value: `${moeda(stats.totalGlosas)} (${percentual(stats.taxaGlosa)})`, color: 'text-red-600', icon: ExclamationTriangleIcon },
+            { label: 'Valor Glosado', value: `${moeda(stats.totalGlosas)} (${percentual(stats.taxaGlosa)})`, color: 'text-red-600', icon: ReceiptPercentIcon },
             { label: 'Líquido pós-glosa', value: moeda(stats.valorLiquido), color: 'text-teal-600', icon: CheckCircleIcon },
             { label: 'Total Recebido', value: moeda(stats.totalRecebido), color: 'text-emerald-600', icon: CheckCircleIcon },
             { label: 'Saldo Fluxo', value: moeda(stats.saldoFluxo), color: stats.saldoFluxo >= 0 ? 'text-cyan-600' : 'text-red-600', icon: CurrencyDollarIcon },

@@ -2,18 +2,18 @@ import { useState, useEffect } from 'react';
 import { 
   CurrencyDollarIcon, 
   BuildingOfficeIcon, 
-  UsersIcon,
   UserGroupIcon,
+  IdentificationIcon,
   DocumentTextIcon,
+  ClipboardDocumentIcon,
   ClipboardDocumentCheckIcon,
+  ReceiptPercentIcon,
   ClockIcon,
-  ExclamationTriangleIcon,
   CheckCircleIcon,
   ChartBarIcon,
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
   ArrowPathIcon,
-  ArchiveBoxIcon,
   BanknotesIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
@@ -165,16 +165,16 @@ export default function Dashboard() {
 
   const cards = [
     { name: 'Convênios Ativos', value: stats.totalConvenios, icon: BuildingOfficeIcon, color: 'from-blue-500 to-blue-600' },
-    { name: 'Pacientes', value: stats.totalPacientes, icon: UsersIcon, color: 'from-green-500 to-green-600' },
+    { name: 'Pacientes', value: stats.totalPacientes, icon: IdentificationIcon, color: 'from-green-500 to-green-600' },
     { name: 'Prestadores', value: stats.totalPrestadores, icon: UserGroupIcon, color: 'from-indigo-500 to-indigo-600' },
     { name: 'Procedimentos', value: stats.totalProcedimentos, icon: DocumentTextIcon, color: 'from-cyan-500 to-cyan-600' },
     { name: 'Total Atendimentos', value: stats.totalAtendimentos, icon: ClipboardDocumentCheckIcon, color: 'from-purple-500 to-purple-600' },
-    { name: 'Lotes Gerados', value: stats.totalLotes, icon: ArchiveBoxIcon, color: 'from-orange-500 to-orange-600' },
+    { name: 'Lotes Gerados', value: stats.totalLotes, icon: ClipboardDocumentIcon, color: 'from-orange-500 to-orange-600' },
     { name: 'Faturado no Mês', value: `R$ ${stats.faturadoMes.toFixed(2)}`, icon: CurrencyDollarIcon, color: 'from-emerald-500 to-emerald-600' },
     { name: 'Valor a Faturar', value: `R$ ${stats.valorPendente.toFixed(2)}`, icon: ClockIcon, color: 'from-yellow-500 to-yellow-600' },
     { name: 'A Receber', value: `R$ ${stats.totalReceber.toFixed(2)}`, icon: BanknotesIcon, color: 'from-blue-500 to-blue-600' },
     { name: 'A Pagar', value: `R$ ${stats.totalPagar.toFixed(2)}`, icon: BanknotesIcon, color: 'from-red-500 to-red-600' },
-    { name: 'Total Glosas', value: `R$ ${stats.totalGlosas.toFixed(2)}`, icon: ExclamationTriangleIcon, color: 'from-red-500 to-red-600' },
+    { name: 'Total Glosas', value: `R$ ${stats.totalGlosas.toFixed(2)}`, icon: ReceiptPercentIcon, color: 'from-red-500 to-red-600' },
     { name: 'Recebido no Mês', value: `R$ ${stats.recebidoMes.toFixed(2)}`, icon: CheckCircleIcon, color: 'from-green-500 to-green-600' },
   ];
 
