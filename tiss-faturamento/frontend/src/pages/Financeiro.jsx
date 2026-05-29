@@ -24,7 +24,8 @@ import {
   ExclamationTriangleIcon,
   CreditCardIcon,
   CalculatorIcon,
-  ClipboardDocumentCheckIcon
+  ClipboardDocumentCheckIcon,
+  ReceiptPercentIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
@@ -695,12 +696,12 @@ export default function Financeiro() {
         {/* Cards de resumo */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
           {[
-            { label: 'A Receber', value: formatCurrency(stats.totalReceber), icon: ArrowTrendingUpIcon, color: 'text-blue-600' },
-            { label: 'Recebido', value: formatCurrency(stats.totalRecebido), icon: CheckCircleIcon, color: 'text-green-600' },
-            { label: 'A Pagar', value: formatCurrency(stats.totalPagar), icon: ArrowTrendingDownIcon, color: 'text-red-600' },
+            { label: 'A Receber', value: formatCurrency(stats.totalReceber), icon: CreditCardIcon, color: 'text-blue-600' },
+            { label: 'Recebido', value: formatCurrency(stats.totalRecebido), icon: BanknotesIcon, color: 'text-green-600' },
+            { label: 'A Pagar', value: formatCurrency(stats.totalPagar), icon: MinusCircleIcon, color: 'text-red-600' },
             { label: 'Pago', value: formatCurrency(stats.totalPago), icon: CheckCircleIcon, color: 'text-emerald-600' },
             { label: 'Saldo', value: formatCurrency(stats.saldoGeral), icon: CalculatorIcon, color: stats.saldoGeral >= 0 ? 'text-green-600' : 'text-red-600' },
-            { label: 'Vencidas', value: stats.vencidasReceber, icon: ExclamationTriangleIcon, color: 'text-red-500' },
+            { label: 'Vencidas', value: stats.vencidasReceber, icon: ClockIcon, color: 'text-red-500' },
           ].map((card, i) => (
             <div key={i} className="bg-white dark:bg-gray-800 rounded-xl border p-4 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
@@ -718,9 +719,9 @@ export default function Financeiro() {
         <div className="flex gap-2 mb-6 flex-wrap">
           {[
             { key: 'dashboard', label: 'Dashboard', icon: ChartBarIcon },
-            { key: 'receber', label: 'Contas a Receber', icon: ArrowTrendingUpIcon },
-            { key: 'pagar', label: 'Contas a Pagar', icon: ArrowTrendingDownIcon },
-            { key: 'notas', label: 'Notas Fiscais', icon: DocumentTextIcon },
+            { key: 'receber', label: 'Contas a Receber', icon: CreditCardIcon },
+            { key: 'pagar', label: 'Contas a Pagar', icon: MinusCircleIcon },
+            { key: 'notas', label: 'Notas Fiscais', icon: ReceiptPercentIcon },
             { key: 'fluxo', label: 'Fluxo de Caixa', icon: BanknotesIcon },
             { key: 'conciliacao', label: 'Conciliação', icon: ClipboardDocumentCheckIcon },
           ].map(tab => (
@@ -1042,8 +1043,8 @@ export default function Financeiro() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               {[
-                { label: 'Entradas', value: formatCurrency(fluxoDoMes.filter(f => f.tipo === 'entrada').reduce((s, f) => s + (f.valor || 0), 0)), color: 'text-green-600', icon: ArrowTrendingUpIcon },
-                { label: 'Saídas', value: formatCurrency(fluxoDoMes.filter(f => f.tipo === 'saida').reduce((s, f) => s + (f.valor || 0), 0)), color: 'text-red-600', icon: ArrowTrendingDownIcon },
+                { label: 'Entradas', value: formatCurrency(fluxoDoMes.filter(f => f.tipo === 'entrada').reduce((s, f) => s + (f.valor || 0), 0)), color: 'text-green-600', icon: PlusCircleIcon },
+                { label: 'Saídas', value: formatCurrency(fluxoDoMes.filter(f => f.tipo === 'saida').reduce((s, f) => s + (f.valor || 0), 0)), color: 'text-red-600', icon: MinusCircleIcon },
                 { label: 'Saldo do Mês', value: formatCurrency(fluxoDoMes.reduce((s, f) => s + (f.tipo === 'entrada' ? (f.valor || 0) : -(f.valor || 0)), 0)), color: 'text-blue-600', icon: CalculatorIcon },
               ].map((item, i) => (
                 <div key={i} className="bg-white dark:bg-gray-800 rounded-xl border p-4">
