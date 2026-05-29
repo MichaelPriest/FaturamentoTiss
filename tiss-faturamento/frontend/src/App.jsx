@@ -4,7 +4,6 @@ import { Toaster, toast } from 'sonner';
 import {
   HomeIcon, BuildingOfficeIcon, UserGroupIcon,
   CurrencyDollarIcon,
-  ChartBarIcon, Cog6ToothIcon,
   Bars3Icon, XMarkIcon, ArrowRightOnRectangleIcon,
   ChevronLeftIcon, ChevronRightIcon, SunIcon, MoonIcon,
   CalendarDaysIcon, FolderIcon, ChevronDownIcon, ChevronUpIcon,
@@ -265,7 +264,7 @@ function MainApp() {
       ]
     },
     {
-      id: 'relatorios', name: 'Relatórios', icon: ChartBarIcon,
+      id: 'relatorios', name: 'Relatórios', icon: PresentationChartLineIcon,
       items: [{ id: 'relatorios', name: 'Relatórios', icon: PresentationChartLineIcon, color: 'from-indigo-500 to-indigo-600' }]
     },
     {
@@ -276,7 +275,7 @@ function MainApp() {
       ]
     },
     {
-      id: 'configuracoes', name: 'Configurações', icon: Cog6ToothIcon,
+      id: 'configuracoes', name: 'Configurações', icon: WrenchScrewdriverIcon,
       items: [
         { id: 'perfil', name: 'Meu Perfil', icon: UserCircleIcon, color: 'from-blue-500 to-blue-600' },
         { id: 'notificacoes', name: 'Notificações', icon: BellAlertIcon, color: 'from-rose-500 to-rose-600' },
