@@ -22,7 +22,8 @@ import {
   LockOpenIcon,
   ArrowPathIcon,
   PrinterIcon,
-  ReceiptPercentIcon
+  ReceiptPercentIcon,
+  CloudArrowUpIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -31,6 +32,7 @@ import { imprimirGuiaTISSOficial, imprimirMultiplasGuiasTISS } from '../componen
 import { useUnidade } from '../contexts/UnidadeContext';
 import { applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
 import { imprimirContaFaturada } from '../components/ImpressaoContaFaturada';
+import { solicitarAutorizacaoProcedimentoOrizon } from '../services/orizonWebservice';
 
 // ============================================
 // CONSTANTES E TABELAS
@@ -278,7 +280,7 @@ function getNomeTabela(codigo) {
 }
 
 export default function Atendimentos() {
-  const { unidadeAtualId } = useUnidade();
+  const { unidadeAtualId, unidadeAtual } = useUnidade();
   const [atendimentos, setAtendimentos] = useState([]);
   const [pacientes, setPacientes] = useState([]);
   const [prestadores, setPrestadores] = useState([]);
@@ -380,6 +382,7 @@ export default function Atendimentos() {
   const [searchPacienteTerm, setSearchPacienteTerm] = useState('');
   const [imprimindoGuia, setImprimindoGuia] = useState(false);
   const [configClinica, setConfigClinica] = useState({});  
+  const [enviandoAutorizacaoGuia, setEnviandoAutorizacaoGuia] = useState(false);
 
   // ============================================
   // FUNÇÕES DE AUTORIZAÇÃO E VALIDAÇÃO
@@ -415,6 +418,29 @@ export default function Atendimentos() {
     if (todosAutorizados && !algumPendente) return 'autorizado';
     return 'pendente';
   }, []);
+
+  const obterStatusAutorizacaoItem = useCallback((item, itensAutorizadosList = itensAutorizados, statusGuia = formData.status) => {
+    const itemAutorizado = itensAutorizadosList.find(aut => aut.codigo === item.codigo);
+    const quantidade = item.quantidade || 0;
+
+    if (['autorizado', 'faturado', 'finalizado'].includes(statusGuia) && itemAutorizado) {
+      return { status: 'autorizado', label: 'Autorizado', classe: 'bg-green-100 text-green-700', pendente: false };
+    }
+
+    if (!itemAutorizado) {
+      return { status: 'pendente', label: 'Pendente', classe: 'bg-orange-100 text-orange-700', pendente: true };
+    }
+
+    if (quantidade > (itemAutorizado.quantidade_autorizada || 0)) {
+      return { status: 'parcial', label: 'Parcial', classe: 'bg-yellow-100 text-yellow-700', pendente: true };
+    }
+
+    if (item.pendente_autorizacao && statusGuia !== 'autorizado') {
+      return { status: 'pendente', label: 'Pendente', classe: 'bg-orange-100 text-orange-700', pendente: true };
+    }
+
+    return { status: 'autorizado', label: 'Autorizado', classe: 'bg-green-100 text-green-700', pendente: false };
+  }, [formData.status, itensAutorizados]);
 
   const podeAdicionarItem = useCallback((itemCodigo, quantidade) => {
     const itemAutorizado = itensAutorizados.find(aut => aut.codigo === itemCodigo);
@@ -979,6 +1005,7 @@ export default function Atendimentos() {
       
       if (error) throw error;
       
+      setSelectedGuia(prev => prev?.id === id ? { ...prev, status } : prev);
       toast.success(`Atendimento ${status === 'faturado' ? 'enviado para faturamento!' : 'atualizado para ' + STATUS_ATENDIMENTO.find(s => s.value === status)?.label || status}`);
       await carregarDados();
     } catch (error) {
@@ -993,10 +1020,10 @@ export default function Atendimentos() {
   }, [itensGuia, itensAutorizados, calcularStatusGuia]);
 
   useEffect(() => {
-    if (!editing && (itensGuia.length > 0 || itensAutorizados.length > 0)) {
+    if (itensGuia.length > 0 || itensAutorizados.length > 0) {
       recalcularStatus();
     }
-  }, [itensGuia, itensAutorizados, recalcularStatus, editing]);
+  }, [itensGuia, itensAutorizados, recalcularStatus]);
 
   const alterarStatusManual = async (id, novoStatus) => {
     const atendimento = atendimentos.find(a => a.id === id);
@@ -1028,6 +1055,7 @@ export default function Atendimentos() {
       
       if (error) throw error;
       
+      setSelectedGuia(prev => prev?.id === id ? { ...prev, status: novoStatus } : prev);
       toast.success(`Status alterado para ${STATUS_ATENDIMENTO.find(s => s.value === novoStatus)?.label || novoStatus}`);
       await carregarDados();
     } catch (error) {
@@ -1090,24 +1118,36 @@ export default function Atendimentos() {
     
     const paciente = pacientes.find(p => p.id === id);
     if (paciente) {
-      const convenio = convenios.find(c => c.id === paciente.convenio_id);
       setFormData({
         ...formData,
         paciente_id: id,
         paciente_nome: paciente.nome || '',
-        paciente_carteira: paciente.numero_carteira || '',
-        convenio_id: paciente.convenio_id || null,
-        convenio_nome: convenio?.razao_social || 'Sem convênio',
-        convenio_registro_ans: convenio?.registro_ans || '',
-        convenio_codigo_prestador: convenio?.codigo_prestador || '',
-        convenio_proximo_numero_guia: convenio?.proximo_numero_guia || null,
-        codigo_operadora: convenio?.codigo_prestador || '',
-        nome_contratado: convenio?.nome_fantasia || ''
+        paciente_carteira: '',
+        convenio_id: '',
+        convenio_nome: '',
+        convenio_registro_ans: '',
+        convenio_codigo_prestador: '',
+        convenio_proximo_numero_guia: null,
+        codigo_operadora: '',
+        nome_contratado: ''
       });
-      if (!paciente.convenio_id) {
-        toast.warning('Este paciente não possui convênio associado!');
-      }
+      toast.info('Informe o convênio e a carteira desta guia no próprio atendimento.');
     }
+  };
+
+  const handleConvenioGuiaChange = (convenioId) => {
+    const id = convenioId ? parseInt(convenioId) : null;
+    const convenio = convenios.find(c => c.id === id);
+    setFormData(prev => ({
+      ...prev,
+      convenio_id: id || '',
+      convenio_nome: convenio?.razao_social || '',
+      convenio_registro_ans: convenio?.registro_ans || '',
+      convenio_codigo_prestador: convenio?.codigo_prestador || '',
+      convenio_proximo_numero_guia: convenio?.proximo_numero_guia || null,
+      codigo_operadora: convenio?.codigo_prestador || '',
+      nome_contratado: convenio?.nome_fantasia || convenio?.razao_social || ''
+    }));
   };
 
   const calcularValor = (item, convenio) => {
@@ -1393,10 +1433,14 @@ export default function Atendimentos() {
     }
 
     const paciente = pacientes.find(p => p.id === parseInt(formData.paciente_id));
-    const convenio = convenios.find(c => c.id === paciente?.convenio_id);
+    const convenio = convenios.find(c => c.id === parseInt(formData.convenio_id));
     
     if (!convenio) {
-      toast.error('Convênio não encontrado. Verifique se o paciente possui convênio associado.');
+      toast.error('Selecione o convênio da guia antes de salvar.');
+      return;
+    }
+    if (!formData.paciente_carteira?.trim()) {
+      toast.error('Informe o número da carteira desta guia.');
       return;
     }
     
@@ -1445,8 +1489,10 @@ export default function Atendimentos() {
       data_atendimento: itensGuia[0]?.data_execucao || new Date().toISOString().split('T')[0],
       paciente_id: paciente.id,
       paciente_nome: paciente.nome,
-      numero_carteira: paciente.numero_carteira,
-      paciente_convenio_id: paciente.convenio_id,
+      cpf: paciente.cpf || null,
+      data_nascimento: paciente.data_nascimento || null,
+      numero_carteira: formData.paciente_carteira,
+      paciente_convenio_id: parseInt(formData.convenio_id),
       paciente_convenio_nome: convenio?.razao_social || 'Sem convênio',
       convenio_registro_ans: convenio?.registro_ans,
       convenio_codigo_prestador: convenio?.codigo_prestador,
@@ -1677,6 +1723,165 @@ export default function Atendimentos() {
   // FUNÇÕES DE IMPRESSÃO
   // ============================================
   
+  const carregarCredenciaisWebserviceAutorizacao = async () => {
+    const convenio = convenios.find(c => c.id === formData.convenio_id);
+    if (!convenio) throw new Error('Selecione um paciente com convênio antes de solicitar autorização.');
+
+    let configIntegracao = {};
+    try {
+      const { data, error } = await supabase
+        .from('convenios_config')
+        .select('configuracoes')
+        .eq('convenio_id', convenio.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      configIntegracao = data?.configuracoes ? JSON.parse(data.configuracoes) : {};
+    } catch (error) {
+      console.warn('Não foi possível carregar configuração de WebService do convênio:', error);
+    }
+
+    const login = configIntegracao.usuario_webservice || configIntegracao.login_prestador_orizon || '';
+    const senha = configIntegracao.senha_webservice || configIntegracao.chave_transmissao_orizon || convenio.senha_prestador || '';
+    const endpointAutorizacao = configIntegracao.url_autorizacao_orizon || '';
+
+    if (!endpointAutorizacao) throw new Error('Informe o endpoint de Solicitação de Autorização na configuração WebService do convênio.');
+    if (!login || !senha) throw new Error('Informe login e chave/senha do WebService na configuração do convênio.');
+
+    return {
+      convenio,
+      login,
+      senha,
+      endpointAutorizacao,
+      proxyUrl: configIntegracao.proxy_url_webservice || '',
+      cnes: configIntegracao.cnes || convenio.cnes || configClinica.cnes || ''
+    };
+  };
+
+  const montarAtendimentoAutorizacaoWebservice = () => ({
+    id: editing?.id,
+    numero_guia_prestador: editing?.numero_guia_prestador || formData.numero_guia_prestador || `AUT${Date.now()}`,
+    numero_guia_operadora: formData.numero_guia_operadora,
+    paciente_nome: formData.paciente_nome,
+    numero_carteira: formData.paciente_carteira,
+    paciente_convenio_id: formData.convenio_id,
+    paciente_convenio_nome: formData.convenio_nome,
+    convenio_registro_ans: formData.convenio_registro_ans,
+    convenio_codigo_prestador: formData.convenio_codigo_prestador || formData.codigo_operadora,
+    profissional_solicitante: formData.profissional_solicitante || formData.nome_contratado || configClinica.nome_contratado,
+    conselho_profissional: formData.conselho_solicitante,
+    numero_conselho_profissional: formData.numero_conselho_solicitante,
+    uf_conselho: formData.uf_solicitante,
+    cbos: formData.cbos_solicitante,
+    carater_atendimento: formData.carater_atendimento,
+    data_solicitacao: formData.data_solicitacao,
+    atendimento_rn: formData.atendimento_rn,
+    indicacao_clinica: formData.indicacao_clinica,
+    itens: itensGuia.map(item => ({
+      codigo: item.codigo,
+      nome: item.nome,
+      tabela_referencia: item.tabela_referencia || '22',
+      quantidade: item.quantidade || 1,
+      quantidade_autorizar: item.quantidade || item.quantidade_autorizada || 1,
+      valor_unitario: item.valor_unitario || 0,
+      valor_total: item.valor_total || 0
+    }))
+  });
+
+  const solicitarAutorizacaoGuiaWebservice = async () => {
+    if (!formData.convenio_id) {
+      toast.error('Selecione um paciente com convênio antes de solicitar autorização.');
+      return;
+    }
+    if (itensGuia.length === 0) {
+      toast.error('Inclua ao menos um procedimento na aba Procedimentos antes de solicitar autorização.');
+      return;
+    }
+
+    setEnviandoAutorizacaoGuia(true);
+    try {
+      const credenciais = await carregarCredenciaisWebserviceAutorizacao();
+      const atendimentoWS = montarAtendimentoAutorizacaoWebservice();
+      const retorno = await solicitarAutorizacaoProcedimentoOrizon({
+        endpoint: credenciais.endpointAutorizacao,
+        atendimento: atendimentoWS,
+        convenio: credenciais.convenio,
+        login: credenciais.login,
+        senha: credenciais.senha,
+        cnes: credenciais.cnes,
+        proxyUrl: credenciais.proxyUrl
+      });
+
+      if (!retorno.sucesso) throw new Error(retorno.erro || 'A operadora retornou erro na solicitação de autorização.');
+
+      const statusRetorno = (retorno.statusSolicitacao || '').toString().toLowerCase();
+      const statusAutorizacaoRetorno = retorno.numeroGuiaOperadora || retorno.senha || /autoriz|aprov|liberad/.test(statusRetorno)
+        ? 'autorizado'
+        : /parcial/.test(statusRetorno)
+          ? 'parcial'
+          : formData.status;
+      const novosCamposAutorizacao = {
+        numero_guia_operadora: retorno.numeroGuiaOperadora || formData.numero_guia_operadora,
+        senha_autorizacao: retorno.senha || formData.senha_autorizacao,
+        data_autorizacao: retorno.dataAutorizacao || formData.data_autorizacao || new Date().toISOString().split('T')[0],
+        data_validade_senha: retorno.dataValidadeSenha || formData.data_validade_senha,
+        status: statusAutorizacaoRetorno
+      };
+      setFormData(prev => ({ ...prev, ...novosCamposAutorizacao }));
+
+      const autorizadosGerados = itensGuia.map(item => ({
+        id: `${Date.now()}-${item.id || item.codigo}`,
+        tipo: item.tipo || 'procedimento',
+        codigo: item.codigo,
+        nome: item.nome,
+        tabela_referencia: item.tabela_referencia || '22',
+        quantidade_autorizada: item.quantidade || 1,
+        quantidade_utilizada: 0,
+        valor_unitario: item.valor_unitario || 0,
+        valor_total: (item.valor_unitario || 0) * (item.quantidade || 1),
+        status_ws: retorno.statusSolicitacao || 'retorno_recebido'
+      }));
+      setItensAutorizados(autorizadosGerados);
+
+      if (editing?.id) {
+        const payloadBase = {
+          ...novosCamposAutorizacao,
+          itens_autorizados: autorizadosGerados,
+          status: statusAutorizacaoRetorno,
+          updated_at: new Date().toISOString()
+        };
+        const { error } = await supabase
+          .from('atendimentos')
+          .update({
+            ...payloadBase,
+            integracao_autorizacao: {
+              ...(editing.integracao_autorizacao || {}),
+              endpoint_autorizacao: credenciais.endpointAutorizacao,
+              numero_guia_operadora: retorno.numeroGuiaOperadora,
+              senha: retorno.senha,
+              status_solicitacao: retorno.statusSolicitacao,
+              motivo_negativa: retorno.motivoNegativa,
+              xml_resposta_autorizacao: retorno.xmlResposta,
+              enviado_em: new Date().toISOString()
+            }
+          })
+          .eq('id', editing.id);
+
+        if (error) {
+          const fallback = await supabase.from('atendimentos').update(payloadBase).eq('id', editing.id);
+          if (fallback.error) throw fallback.error;
+        }
+      }
+
+      toast.success(`Autorização solicitada${retorno.numeroGuiaOperadora ? ` - Guia operadora ${retorno.numeroGuiaOperadora}` : ''}.`);
+    } catch (error) {
+      console.error('Erro ao solicitar autorização da guia:', error);
+      toast.error(`Erro no WebService de autorização: ${error.message}`, { duration: 12000 });
+    } finally {
+      setEnviandoAutorizacaoGuia(false);
+    }
+  };
+
   const handleImprimirGuia = async (atendimento) => {
     setImprimindoGuia(true);
     
@@ -1713,14 +1918,75 @@ export default function Atendimentos() {
     }
   };
   
+  const getLogoUnidadeOuClinica = (configClinicaAtual = {}, convenio = {}) => (
+    unidadeAtual?.logo_base64 ||
+    unidadeAtual?.logo ||
+    configClinicaAtual.logo_base64 ||
+    convenio?.logo_base64 ||
+    ''
+  );
+
+  const montarDadosPacienteConta = (atendimento) => {
+    const pacienteCadastro = pacientes.find(p => p.id === atendimento?.paciente_id) || {};
+    return {
+      nome: atendimento?.paciente_nome || pacienteCadastro.nome || '',
+      numero_carteira: atendimento?.numero_carteira || atendimento?.paciente_carteira || pacienteCadastro.numero_carteira || '',
+      cpf: atendimento?.cpf || pacienteCadastro.cpf || '',
+      data_nascimento: atendimento?.data_nascimento || pacienteCadastro.data_nascimento || ''
+    };
+  };
+
+  const montarDadosContaFaturadaAtendimento = (atendimento, convenio = {}, configClinicaAtual = {}) => {
+    const itens = typeof atendimento.itens === 'string'
+      ? JSON.parse(atendimento.itens || '[]')
+      : (atendimento.itens || []);
+    const totalConta = itens.reduce((sum, item) => sum + Number(item.valor_total || 0), 0);
+
+    return {
+      numero_conta: atendimento.numero_guia_prestador || `GUI-${atendimento.id}`,
+      data_emissao: new Date().toISOString(),
+      status: atendimento.status || 'faturado',
+      paciente: montarDadosPacienteConta(atendimento),
+      convenio: {
+        razao_social: atendimento.paciente_convenio_nome || convenio?.razao_social || '',
+        registro_ans: atendimento.convenio_registro_ans || convenio?.registro_ans || '',
+        codigo_prestador: atendimento.convenio_codigo_prestador || convenio?.codigo_prestador || ''
+      },
+      clinica: {
+        nome_empresa: configClinicaAtual.nome_empresa || '',
+        nome_contratado: configClinicaAtual.nome_contratado || '',
+        cnpj: configClinicaAtual.cnpj || '',
+        cnes: configClinicaAtual.cnes || ''
+      },
+      itens: itens.map(item => ({
+        data_execucao: item.data_execucao || atendimento.data_atendimento || '',
+        codigo: item.codigo || item.codigo_procedimento || '',
+        nome: item.nome || item.descricao || '',
+        quantidade: item.quantidade || 1,
+        valor_unitario: item.valor_unitario || 0,
+        valor_total: item.valor_total || 0
+      })),
+      subtotal: totalConta || atendimento.valor_total || 0,
+      total_geral: totalConta || atendimento.valor_total || 0,
+      observacoes: `Guia ${atendimento.numero_guia_prestador || atendimento.id}${atendimento.observacao ? ` - ${atendimento.observacao}` : ''}`,
+      autorizacao: {
+        numero_guia_prestador: atendimento.numero_guia_prestador,
+        numero_guia_operadora: atendimento.numero_guia_operadora,
+        senha_autorizacao: atendimento.senha_autorizacao,
+        data_autorizacao: atendimento.data_autorizacao,
+        data_validade_senha: atendimento.data_validade_senha,
+        status_autorizacao: atendimento.status_autorizacao_ws || atendimento.status_autorizacao || atendimento.status
+      },
+      logo_base64: getLogoUnidadeOuClinica(configClinicaAtual, convenio)
+    };
+  };
+
   const handleImprimirContaFaturada = async (atendimento) => {
     setImprimindoGuia(true);
-    
+
     try {
-      // Buscar dados do convênio
       const convenio = convenios.find(c => c.id === atendimento.paciente_convenio_id);
-      
-      // Buscar dados da clínica
+
       let configClinicaAtual = configClinica;
       if (!configClinicaAtual?.cnes) {
         const { data: configData } = await supabase
@@ -1733,55 +1999,8 @@ export default function Atendimentos() {
           setConfigClinica(configClinicaAtual);
         }
       }
-      
-      // Coletar itens do atendimento
-      const itens = typeof atendimento.itens === 'string' 
-        ? JSON.parse(atendimento.itens) 
-        : (atendimento.itens || []);
-      
-      // Dados do paciente
-      const paciente = {
-        nome: atendimento.paciente_nome || '',
-        numero_carteira: atendimento.numero_carteira || '',
-        cpf: atendimento.cpf || '',
-        data_nascimento: atendimento.data_nascimento || ''
-      };
-      
-      // Dados da clínica
-      const clinica = {
-        nome_empresa: configClinicaAtual.nome_empresa || '',
-        nome_contratado: configClinicaAtual.nome_contratado || '',
-        cnpj: configClinicaAtual.cnpj || '',
-        cnes: configClinicaAtual.cnes || ''
-      };
-      
-      // Preparar dados da conta
-      const dadosConta = {
-        numero_conta: atendimento.numero_guia_prestador || `GUI-${atendimento.id}`,
-        data_emissao: new Date().toISOString(),
-        status: atendimento.status || 'pendente',
-        paciente,
-        convenio: {
-          razao_social: convenio?.razao_social || '',
-          registro_ans: convenio?.registro_ans || '',
-          codigo_prestador: convenio?.codigo_prestador || ''
-        },
-        clinica,
-        itens: itens.map(item => ({
-          data_execucao: item.data_execucao || '',
-          codigo: item.codigo || '',
-          nome: item.nome || '',
-          quantidade: item.quantidade || 1,
-          valor_unitario: item.valor_unitario || 0,
-          valor_total: item.valor_total || 0
-        })),
-        subtotal: atendimento.valor_total || 0,
-        total_geral: atendimento.valor_total || 0,
-        observacoes: `Guia: ${atendimento.numero_guia_prestador || 'N/A'} - ${atendimento.observacao || ''}`,
-        logo_base64: convenio?.logo_base64 || configClinicaAtual.logo_base64
-      };
-      
-      imprimirContaFaturada(dadosConta);
+
+      imprimirContaFaturada(montarDadosContaFaturadaAtendimento(atendimento, convenio, configClinicaAtual));
       toast.success('Conta faturada enviada para impressão!');
     } catch (error) {
       console.error('Erro ao imprimir conta faturada:', error);
@@ -2196,8 +2415,10 @@ export default function Atendimentos() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                      {(selectedGuia.itens || []).map((item, idx) => (
-                        <tr key={idx} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${item.pendente_autorizacao ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}>
+                      {(selectedGuia.itens || []).map((item, idx) => {
+                        const statusItem = obterStatusAutorizacaoItem(item, selectedGuia.itens_autorizados || [], selectedGuia.status);
+                        return (
+                        <tr key={idx} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${statusItem.pendente ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}>
                           <td className="px-3 py-2 text-xs text-center font-medium">{idx + 1}</td>
                           <td className="px-3 py-2 text-xs">{item.data_execucao || '-'}</td>
                           <td className="px-3 py-2 text-xs">{item.hora_inicial || '-'}</td>
@@ -2217,10 +2438,11 @@ export default function Atendimentos() {
                             {item.prestador_numero_conselho && <div className="text-xs text-gray-400">{item.prestador_conselho === '06' ? 'CRM' : item.prestador_conselho === '08' ? 'CRO' : item.prestador_conselho === '03' ? 'CRF' : item.prestador_conselho === '02' ? 'COREN' : item.prestador_conselho === '05' ? 'CREFITO' : item.prestador_conselho === '09' ? 'CRP' : item.prestador_conselho === '07' ? 'CRN' : ''} {item.prestador_numero_conselho} - {item.prestador_uf_conselho}</div>}
                           </td>
                           <td className="px-3 py-2 text-center">
-                            {item.pendente_autorizacao ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700"><ExclamationTriangleIcon className="w-3 h-3" />Pendente</span> : <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Autorizado</span>}
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusItem.classe}`}>{statusItem.pendente && <ExclamationTriangleIcon className="w-3 h-3" />}{statusItem.label}</span>
                            </td>
                          </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                     <tfoot className="bg-gray-50 dark:bg-gray-700/50">
                       <tr className="border-t">
@@ -2316,7 +2538,12 @@ export default function Atendimentos() {
                   {aba === 'paciente' && (
                     <div className="space-y-4">
                       <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Paciente</label><div className="relative"><MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" /><input type="text" placeholder="Digite nome, CPF ou data de nascimento..." value={searchPacienteTerm} onChange={(e) => setSearchPacienteTerm(e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" /></div></div>
-                      <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paciente *</label><select value={formData.paciente_id} onChange={e => handlePacienteChange(e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" required><option value="">Selecione um paciente</option>{pacientesFiltrados.map(p => { const convenioPaciente = convenios.find(c => c.id === p.convenio_id); return (<option key={p.id} value={p.id}>{p.nome} - {p.cpf || 'SEM CPF'} - Nasc: {p.data_nascimento ? format(new Date(p.data_nascimento), 'dd/MM/yyyy') : '---'} - Carteira: {p.numero_carteira} - Convênio: {convenioPaciente?.razao_social || 'SEM CONVÊNIO'}</option>);})}</select></div>
+                      <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paciente *</label><select value={formData.paciente_id} onChange={e => handlePacienteChange(e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" required><option value="">Selecione um paciente</option>{pacientesFiltrados.map(p => (<option key={p.id} value={p.id}>{p.nome} - {p.cpf || 'SEM CPF'} - Nasc: {p.data_nascimento ? format(new Date(p.data_nascimento), 'dd/MM/yyyy') : '---'}</option>))}</select></div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Convênio da Guia *</label><select value={formData.convenio_id || ''} onChange={e => handleConvenioGuiaChange(e.target.value)} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" required><option value="">Selecione o convênio desta guia</option>{convenios.filter(c => c.ativo !== false).map(c => (<option key={c.id} value={c.id}>{c.razao_social}</option>))}</select></div>
+                        <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Carteira da Guia *</label><input type="text" value={formData.paciente_carteira || ''} onChange={e => setFormData({...formData, paciente_carteira: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" placeholder="Número da carteira neste atendimento" required /></div>
+                      </div>
+                      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-xs text-blue-700 dark:text-blue-300">O convênio e a carteira são salvos na guia, não no cadastro do paciente, preservando o histórico quando o paciente trocar de convênio.</div>
                       <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Observações</label><textarea rows="3" value={formData.observacao} onChange={e => setFormData({...formData, observacao: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" /></div>
                       {editing && (<div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label><select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">{STATUS_ATENDIMENTO.map(s => (<option key={s.value} value={s.value}>{s.label}</option>))}</select></div>)}
                     </div>
@@ -2326,6 +2553,16 @@ export default function Atendimentos() {
                   {aba === 'autorizacao' && (
                     <div className="space-y-4">
                       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg mb-4"><p className="text-xs text-blue-700 dark:text-blue-300"><strong>📋 Autorização da Guia:</strong> Registre aqui os procedimentos autorizados PELO CONVÊNIO/OPERADORA.</p></div>
+                      <div className="bg-white dark:bg-gray-800 border border-blue-100 dark:border-blue-900/40 rounded-xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800 dark:text-white flex items-center gap-2"><CloudArrowUpIcon className="w-4 h-4 text-blue-600" /> Solicitação via WebService TISS</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Envia os procedimentos já incluídos na guia para o endpoint de autorização configurado no convênio.</p>
+                        </div>
+                        <button type="button" onClick={solicitarAutorizacaoGuiaWebservice} disabled={enviandoAutorizacaoGuia || !formData.convenio_id || itensGuia.length === 0} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                          {enviandoAutorizacaoGuia ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : <CloudArrowUpIcon className="w-4 h-4" />}
+                          {enviandoAutorizacaoGuia ? 'Solicitando...' : 'Solicitar autorização'}
+                        </button>
+                      </div>
                       {!formData.convenio_id && (<div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg mb-4"><p className="text-sm text-yellow-800 dark:text-yellow-200">⚠️ Selecione um paciente com convênio associado para visualizar os procedimentos autorizados.</p></div>)}
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Número da Guia (Operadora)</label><input type="text" value={formData.numero_guia_operadora} onChange={e => setFormData({...formData, numero_guia_operadora: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm font-mono" /></div>
@@ -2394,14 +2631,16 @@ export default function Atendimentos() {
                                 <tr><th className="px-2 py-2 text-left text-xs font-medium">Seq</th><th className="px-2 py-2 text-left text-xs font-medium">Data</th><th className="px-2 py-2 text-left text-xs font-medium">H.Início</th><th className="px-2 py-2 text-left text-xs font-medium">H.Fim</th><th className="px-2 py-2 text-left text-xs font-medium">Código</th><th className="px-2 py-2 text-left text-xs font-medium">Descrição</th><th className="px-2 py-2 text-left text-xs font-medium">Tabela</th><th className="px-2 py-2 text-center text-xs font-medium">Qtd</th><th className="px-2 py-2 text-right text-xs font-medium">Valor Unit.</th><th className="px-2 py-2 text-right text-xs font-medium">Valor Total</th><th className="px-2 py-2 text-left text-xs font-medium">Profissional</th><th className="px-2 py-2 text-center w-20 text-xs font-medium">Ações</th></tr>
                               </thead>
                               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                                {itensGuia.map((item, idx) => (
-                                  <tr key={item.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${item.pendente_autorizacao ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}>
+                                {itensGuia.map((item, idx) => {
+                                  const statusItem = obterStatusAutorizacaoItem(item, itensAutorizados, formData.status);
+                                  return (
+                                  <tr key={item.id} className={`hover:bg-gray-50 dark:hover:bg-gray-700/50 ${statusItem.pendente ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}>
                                     <td className="px-2 py-2 text-xs text-center">{idx + 1}</td>
                                     <td className="px-2 py-2 text-xs">{item.data_execucao}</td>
                                     <td className="px-2 py-2 text-xs">{item.hora_inicial || '-'}</td>
                                     <td className="px-2 py-2 text-xs">{item.hora_final || '-'}</td>
                                     <td className="px-2 py-2 text-xs font-mono text-blue-600">{item.codigo}</td>
-                                    <td className="px-2 py-2 text-xs">{item.nome}{item.pendente_autorizacao && <span className="ml-2 text-xs text-orange-600">(Sem autorização)</span>}</td>
+                                    <td className="px-2 py-2 text-xs">{item.nome}{statusItem.pendente && <span className="ml-2 text-xs text-orange-600">({statusItem.label})</span>}</td>
                                     <td className="px-2 py-2 text-xs">
                                       <span className="inline-flex px-1.5 py-0.5 rounded text-xs font-mono bg-gray-100 dark:bg-gray-700">
                                         {item.tabela_referencia || '-'}
@@ -2413,7 +2652,8 @@ export default function Atendimentos() {
                                     <td className="px-2 py-2 text-xs"><div className="text-gray-700 dark:text-gray-300">{item.prestador_nome || '-'}</div>{item.prestador_numero_conselho && <div className="text-xs text-gray-400">{item.prestador_conselho === '06' ? 'CRM' : item.prestador_conselho === '08' ? 'CRO' : item.prestador_conselho === '03' ? 'CRF' : item.prestador_conselho === '02' ? 'COREN' : item.prestador_conselho === '05' ? 'CREFITO' : item.prestador_conselho === '09' ? 'CRP' : item.prestador_conselho === '07' ? 'CRN' : ''} {item.prestador_numero_conselho} - {item.prestador_uf_conselho}</div>}</td>
                                     <td className="px-2 py-2 text-center"><div className="flex gap-1 justify-center"><button type="button" onClick={() => handleEditItem(item)} className="text-blue-600 hover:text-blue-800"><PencilIcon className="w-3 h-3" /></button><button type="button" onClick={() => removerItem(item.id)} className="text-red-600 hover:text-red-800"><TrashIcon className="w-3 h-3" /></button></div></td>
                                   </tr>
-                                ))}
+                                  );
+                                })}
                               </tbody>
                               <tfoot className="bg-gray-50 dark:bg-gray-700/50"><tr className="border-t"><td colSpan="9" className="px-2 py-2 text-right font-semibold">Total da Guia:</td><td className="px-2 py-2 text-right font-bold text-blue-600">R$ {itensGuia.reduce((sum, i) => sum + (i.valor_total || 0), 0).toFixed(2)}</td><td colSpan="2"></td></tr></tfoot>
                             </table>

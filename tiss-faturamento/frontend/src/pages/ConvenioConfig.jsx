@@ -24,6 +24,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useUnidade } from '../contexts/UnidadeContext';
 import { applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
 import { useNavigate } from 'react-router-dom';
+import WebserviceConfigForm from '../components/WebserviceConfigForm';
 
 const ESPECIALIDADES = [
   { id: 14, nome: 'Psicologia' },
@@ -118,6 +119,10 @@ export default function ConvenioConfig() {
     usuario_webservice: '',
     senha_webservice: '',
     retorno_automatico: false,
+    ambiente_orizon: 'homologacao',
+    url_status_protocolo_orizon: '',
+    chave_transmissao_orizon: '',
+    certificado_serial_orizon: '',
     regras_profissional: [],
     planos: [],
     glosas_comuns: [],
@@ -216,13 +221,18 @@ export default function ConvenioConfig() {
         setConfig(prev => ({
           ...prev,
           ...parsed,
-          nome: parsed.nome || convenio.razao_social
+          nome: parsed.nome || convenio.razao_social,
+          ambiente_orizon: parsed.ambiente_orizon || convenio.ambiente || 'homologacao',
+          url_webservice: parsed.url_webservice || convenio.url_webservice || '',
+          url_status_protocolo_orizon: parsed.url_status_protocolo_orizon || ''
         }));
       } else {
         setConfig(prev => ({
           ...prev,
           nome: convenio.razao_social,
+          ambiente_orizon: convenio.ambiente || 'homologacao',
           url_webservice: convenio.url_webservice || '',
+          url_status_protocolo_orizon: '',
           prazo_envio_dias: convenio.prazo_envio_dias || 30
         }));
       }
@@ -725,25 +735,22 @@ export default function ConvenioConfig() {
               {/* 7. Integrações */}
               {aba === 'integracoes' && (
                 <div className="space-y-4">
-                  <h3 className="font-semibold text-gray-800 dark:text-white mb-4">🔄 Integrações</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL do WebService</label>
-                      <input type="text" value={config.url_webservice} onChange={e => setConfig({...config, url_webservice: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" placeholder="https://..." />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Usuário do WebService</label>
-                      <input type="text" value={config.usuario_webservice} onChange={e => setConfig({...config, usuario_webservice: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Senha do WebService</label>
-                      <input type="password" value={config.senha_webservice} onChange={e => setConfig({...config, senha_webservice: e.target.value})} className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700" />
-                    </div>
-                    <div className="flex items-center gap-2 h-full pt-6">
-                      <input type="checkbox" checked={config.retorno_automatico} onChange={e => setConfig({...config, retorno_automatico: e.target.checked})} className="w-4 h-4 rounded border-gray-300 text-blue-600" />
-                      <label className="text-sm text-gray-700 dark:text-gray-300">Retorno automático de status</label>
-                    </div>
+                  <div className="flex items-center justify-between gap-3 mb-4">
+                    <h3 className="font-semibold text-gray-800 dark:text-white">🔄 Integrações</h3>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/convenio-webservice/${convenioSelecionado.id}`)}
+                      className="text-blue-600 dark:text-blue-400 text-sm hover:underline"
+                    >
+                      Abrir página completa
+                    </button>
                   </div>
+                  <WebserviceConfigForm
+                    config={config}
+                    setConfig={setConfig}
+                    convenioData={convenioData}
+                    setConvenioData={setConvenioData}
+                  />
                 </div>
               )}
 

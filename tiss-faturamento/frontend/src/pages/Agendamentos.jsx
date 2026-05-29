@@ -75,6 +75,8 @@ export default function Agendamentos() {
 
   const [formData, setFormData] = useState({
     paciente_id: '',
+    convenio_id: '',
+    numero_carteira: '',
     prestador_id: '',
     sala_id: '',
     tipo: 'consulta',
@@ -237,6 +239,14 @@ export default function Agendamentos() {
       toast.error('Selecione um paciente');
       return;
     }
+    if (!formData.convenio_id) {
+      toast.error('Selecione o convênio deste agendamento');
+      return;
+    }
+    if (!formData.numero_carteira?.trim()) {
+      toast.error('Informe a carteira do paciente para este agendamento');
+      return;
+    }
     if (!formData.prestador_id) {
       toast.error('Selecione um profissional');
       return;
@@ -258,7 +268,7 @@ export default function Agendamentos() {
     const paciente = pacientes.find(p => p.id === parseInt(formData.paciente_id));
     const prestador = prestadores.find(p => p.id === parseInt(formData.prestador_id));
     const sala = salas.find(s => s.id === parseInt(formData.sala_id));
-    const convenio = convenios.find(c => c.id === paciente?.convenio_id);
+    const convenio = convenios.find(c => c.id === parseInt(formData.convenio_id));
 
     const novoAgendamento = {
       paciente_id: parseInt(formData.paciente_id),
@@ -274,10 +284,10 @@ export default function Agendamentos() {
       observacao: formData.observacao || null,
       local: formData.local || null,
       paciente_nome: paciente?.nome || '',
-      paciente_carteira: paciente?.numero_carteira || '',
+      paciente_carteira: formData.numero_carteira || '',
       prestador_nome: prestador?.nome || '',
       prestador_especialidade: prestador?.especialidade || '',
-      convenio_id: paciente?.convenio_id || null,
+      convenio_id: formData.convenio_id ? parseInt(formData.convenio_id) : null,
       convenio_nome: convenio?.razao_social || 'Sem convênio',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
@@ -530,6 +540,8 @@ export default function Agendamentos() {
                 setEditing(null);
                 setFormData({
                   paciente_id: '',
+                  convenio_id: '',
+                  numero_carteira: '',
                   prestador_id: '',
                   sala_id: '',
                   tipo: 'consulta',
@@ -716,6 +728,8 @@ export default function Agendamentos() {
                             setEditing(ag);
                             setFormData({
                               paciente_id: ag.paciente_id?.toString() || '',
+                              convenio_id: ag.convenio_id?.toString() || '',
+                              numero_carteira: ag.paciente_carteira || '',
                               prestador_id: ag.prestador_id?.toString() || '',
                               sala_id: ag.sala_id?.toString() || '',
                               tipo: ag.tipo,
@@ -796,6 +810,8 @@ export default function Agendamentos() {
                                   setEditing(ag);
                                   setFormData({
                                     paciente_id: ag.paciente_id?.toString() || '',
+                                    convenio_id: ag.convenio_id?.toString() || '',
+                                    numero_carteira: ag.paciente_carteira || '',
                                     prestador_id: ag.prestador_id?.toString() || '',
                                     sala_id: ag.sala_id?.toString() || '',
                                     tipo: ag.tipo,
@@ -1035,7 +1051,7 @@ export default function Agendamentos() {
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paciente *</label>
                   <input
                     type="text"
-                    placeholder="Digite nome, CPF ou carteira..."
+                    placeholder="Digite nome ou CPF..."
                     value={pacienteBusca}
                     onChange={(e) => {
                       setPacienteBusca(e.target.value);
@@ -1053,17 +1069,44 @@ export default function Agendamentos() {
                           key={p.id}
                           className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer border-b dark:border-gray-700 last:border-b-0"
                           onClick={() => {
-                            setFormData({...formData, paciente_id: p.id.toString()});
-                            setPacienteBusca(`${p.nome} - ${p.numero_carteira}`);
+                            setFormData({...formData, paciente_id: p.id.toString(), numero_carteira: '', convenio_id: ''});
+                            setPacienteBusca(p.nome);
                             setShowPacienteList(false);
                           }}
                         >
                           <div className="font-medium text-gray-800 dark:text-white">{p.nome}</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">CPF: {p.cpf || '---'} | Carteira: {p.numero_carteira}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">CPF: {p.cpf || '---'} | Nasc.: {p.data_nascimento || '---'}</div>
                         </div>
                       ))}
                     </div>
                   )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Convênio do Agendamento *</label>
+                  <select
+                    value={formData.convenio_id || ''}
+                    onChange={(e) => setFormData({...formData, convenio_id: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    required
+                  >
+                    <option value="">Selecione o convênio</option>
+                    {convenios.filter(c => c.ativo !== false).map(c => (
+                      <option key={c.id} value={c.id}>{c.razao_social}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Carteira do Agendamento *</label>
+                  <input
+                    type="text"
+                    value={formData.numero_carteira || ''}
+                    onChange={(e) => setFormData({...formData, numero_carteira: e.target.value})}
+                    className="w-full border rounded-lg px-3 py-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    placeholder="Número da carteira neste convênio"
+                    required
+                  />
                 </div>
 
                 <div className="relative prestador-dropdown">

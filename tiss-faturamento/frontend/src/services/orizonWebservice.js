@@ -1,0 +1,432 @@
+import CryptoJS from 'crypto-js';
+
+const TISS_NS = 'http://www.ans.gov.br/padroes/tiss/schemas';
+const SOAP_NS = 'http://schemas.xmlsoap.org/soap/envelope/';
+
+export const ORIZON_ENDPOINTS = {
+  homologacao: {
+    loteGuias: 'https://wsp.hom.orizonbrasil.com.br:6281/fature/tiss/v40300/tissLoteGuias',
+    statusProtocolo: 'https://wsp.hom.orizonbrasil.com.br:6281/fature/tiss/v40300/tissSolicitacaoStatusProtocolo',
+    cancelaGuia: 'https://wsp.hom.orizonbrasil.com.br:6281/tiss/v40300/tissCancelaGuia',
+    comprovantes: 'https://wsp.hom.orizonbrasil.com.br:6280/wsGeraPDF/wsGerarProtocolo',
+    demonstrativos: 'https://wsp.hom.orizonbrasil.com.br:6281/fature/tiss/v40300/tissSolicitaDemonstrativo',
+    recursoGlosa: 'https://wsp.hom.orizonbrasil.com.br:6281/tiss/v40300/tissEnviaRecursoGlosa',
+    statusRecurso: 'https://wsp.hom.orizonbrasil.com.br:6281/tiss/v40300/tissSolicitaStatusRecurso',
+    documentos: 'https://tiss-hml-documentos.orizon.com.br/EnvioDocumentosV40300.asmx',
+    autorizacao: 'https://wsp.hom.orizonbrasil.com.br:6281/tiss/v40300/tissSolicitacaoProcedimento',
+    statusAutorizacao: 'https://wsp.hom.orizonbrasil.com.br:6281/tiss/v40300/tissSolicitacaoStatusAutorizacao'
+  },
+  producao: {
+    loteGuias: 'https://wsp.orizonbrasil.com.br:6281/fature/tiss/v40300/tissLoteGuias',
+    statusProtocolo: 'https://wsp.orizonbrasil.com.br:6281/fature/tiss/v40300/tissSolicitacaoStatusProtocolo',
+    cancelaGuia: 'https://wsp.orizonbrasil.com.br:6281/tiss/v40300/tissCancelaGuia',
+    comprovantes: 'https://wsp.orizonbrasil.com.br:6290/gerapdf/wsGerarProtocolo',
+    demonstrativos: 'https://wsp.orizonbrasil.com.br:6281/tiss/v40300/tissSolicitaDemonstrativo',
+    recursoGlosa: 'https://wsp.orizonbrasil.com.br:6281/tiss/v40300/tissEnviaRecursoGlosa',
+    statusRecurso: 'https://wsp.orizonbrasil.com.br:6281/tiss/v40300/tissSolicitaStatusRecurso',
+    documentos: 'https://tiss-documentos.orizon.com.br/EnvioDocumentosV40300.asmx',
+    autorizacao: 'https://wsp.orizonbrasil.com.br:6281/tiss/v40300/tissSolicitacaoProcedimento',
+    statusAutorizacao: 'https://wsp.orizonbrasil.com.br:6281/tiss/v40300/tissSolicitacaoStatusAutorizacao'
+  }
+};
+
+export function normalizarAmbiente(ambiente) {
+  return ambiente === 'producao' ? 'producao' : 'homologacao';
+}
+
+export function obterEndpointOrizon(ambiente, servico) {
+  const env = normalizarAmbiente(ambiente);
+  return ORIZON_ENDPOINTS[env][servico];
+}
+
+function escapeXML(value) {
+  if (value === null || value === undefined) return '';
+  return String(value).replace(/[&<>'"]/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&apos;', '"': '&quot;'
+  }[char]));
+}
+
+export function hashSenhaOrizon(senha) {
+  const valor = String(senha || '').trim();
+  if (/^[a-f0-9]{32}$/i.test(valor)) return valor.toLowerCase();
+  return CryptoJS.MD5(valor).toString();
+}
+
+function extrairTag(xml, tag) {
+  const match = xml.match(new RegExp(`<(?:\\w+:)?${tag}[^>]*>([\\s\\S]*?)<\\/(?:\\w+:)?${tag}>`, 'i'));
+  return match?.[1]?.trim() || '';
+}
+
+function trocarPrefixoAns(xml) {
+  return xml
+    .replace(/<\/?ans:/g, (match) => match.replace('ans:', 'sch:'))
+    .replace(/xmlns:ans="[^"]*"/g, '')
+    .replace(/xmlns:xsi="[^"]*"/g, '')
+    .replace(/xsi:schemaLocation="[^"]*"/g, '')
+    .replace(/<\?xml[^>]*>\s*/i, '');
+}
+
+function inserirLoginSenhaNoCabecalho(cabecalhoXML, login, senhaMD5) {
+  const credenciais = `\n    <sch:loginSenhaPrestador>\n      <sch:loginPrestador>${escapeXML(login)}</sch:loginPrestador>\n      <sch:senhaPrestador>${escapeXML(senhaMD5)}</sch:senhaPrestador>\n    </sch:loginSenhaPrestador>`;
+
+  if (/<(?:\w+:)?loginSenhaPrestador[\s>]/i.test(cabecalhoXML)) {
+    return cabecalhoXML.replace(
+      /<(?:\w+:)?loginSenhaPrestador[\s\S]*?<\/(?:\w+:)?loginSenhaPrestador>/i,
+      credenciais.trim()
+    );
+  }
+
+  return cabecalhoXML.replace(/<\/(?:\w+:)?cabecalho>/i, `${credenciais}\n  </sch:cabecalho>`);
+}
+
+export function montarEnvelopeLoteGuias(xmlTiss, credenciais) {
+  const cabecalho = trocarPrefixoAns(extrairTag(xmlTiss, 'cabecalho'));
+  const loteGuias = trocarPrefixoAns(extrairTag(xmlTiss, 'loteGuias'));
+  const hash = extrairTag(xmlTiss, 'hash');
+  const cabecalhoComLogin = inserirLoginSenhaNoCabecalho(`<sch:cabecalho>${cabecalho}</sch:cabecalho>`, credenciais.login, credenciais.senhaMD5);
+
+  return `<soapenv:Envelope xmlns:soapenv="${SOAP_NS}" xmlns:sch="${TISS_NS}" xmlns:xd="http://www.w3.org/2000/09/xmldsig#">
+  <soapenv:Header/>
+  <soapenv:Body>
+    <sch:loteGuiasWS>
+      ${cabecalhoComLogin}
+      <sch:loteGuias>${loteGuias}</sch:loteGuias>
+      <sch:hash>${escapeXML(hash)}</sch:hash>
+    </sch:loteGuiasWS>
+  </soapenv:Body>
+</soapenv:Envelope>`;
+}
+
+
+function dataHoje() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function horaAgora() {
+  return new Date().toTimeString().slice(0, 8);
+}
+
+function calcularHashTiss(xmlFragmento) {
+  return CryptoJS.SHA1(
+    xmlFragmento
+      .replace(/\s+/g, '')
+      .replace(/sch:/g, '')
+      .replace(/ans:/g, '')
+  ).toString().toUpperCase();
+}
+
+function obterItensSolicitados(atendimento) {
+  const pendentes = atendimento?.itens_pendentes?.length ? atendimento.itens_pendentes : atendimento?.itens || [];
+  return pendentes.length ? pendentes : [{ codigo: '10101012', nome: 'PROCEDIMENTO', quantidade: 1, valor_unitario: 0 }];
+}
+
+export function montarEnvelopeSolicitacaoAutorizacao({ atendimento, convenio, login, senhaMD5, sequencial = 1, cnes = '' }) {
+  const data = dataHoje();
+  const hora = horaAgora();
+  const codigoPrestador = convenio?.codigo_prestador || atendimento?.convenio_codigo_prestador || atendimento?.codigo_prestador || '';
+  const registroANS = convenio?.registro_ans || atendimento?.convenio_registro_ans || '';
+  const numeroGuiaPrestador = atendimento?.numero_guia_prestador || `AUT${Date.now()}`;
+  const numeroCarteira = atendimento?.numero_carteira || atendimento?.paciente?.numero_carteira || '';
+  const nomeContratado = convenio?.razao_social || convenio?.nome_contratado || atendimento?.paciente_convenio_nome || 'PRESTADOR';
+  const nomeProfissional = atendimento?.profissional_solicitante || atendimento?.profissional_nome || nomeContratado;
+  const conselho = atendimento?.conselho_profissional || '06';
+  const numeroConselho = atendimento?.numero_conselho_profissional || atendimento?.prestador_conselho || '00000';
+  const uf = atendimento?.uf_conselho || '35';
+  const cbos = atendimento?.cbos || '225125';
+  const itens = obterItensSolicitados(atendimento);
+
+  const procedimentos = itens.map((item) => {
+    const quantidade = item.quantidade_autorizar || item.quantidade_necessaria || item.quantidade || item.quantidade_executada || 1;
+    return `
+        <sch:procedimentosSolicitados>
+          <sch:procedimento>
+            <sch:codigoTabela>${escapeXML(item.tabela_referencia || item.codigo_tabela || '22')}</sch:codigoTabela>
+            <sch:codigoProcedimento>${escapeXML(item.codigo || item.codigo_procedimento || '')}</sch:codigoProcedimento>
+            <sch:descricaoProcedimento>${escapeXML(item.nome || item.descricao || item.nome_procedimento || 'PROCEDIMENTO')}</sch:descricaoProcedimento>
+          </sch:procedimento>
+          <sch:quantidadeSolicitada>${escapeXML(quantidade)}</sch:quantidadeSolicitada>
+        </sch:procedimentosSolicitados>`;
+  }).join('');
+
+  const corpoSemHash = `<sch:solicitacaoProcedimentoWS>
+    <sch:cabecalho>
+      <sch:identificacaoTransacao>
+        <sch:tipoTransacao>SOLICITACAO_PROCEDIMENTOS</sch:tipoTransacao>
+        <sch:sequencialTransacao>${escapeXML(sequencial)}</sch:sequencialTransacao>
+        <sch:dataRegistroTransacao>${data}</sch:dataRegistroTransacao>
+        <sch:horaRegistroTransacao>${hora}</sch:horaRegistroTransacao>
+      </sch:identificacaoTransacao>
+      <sch:origem><sch:identificacaoPrestador><sch:codigoPrestadorNaOperadora>${escapeXML(codigoPrestador)}</sch:codigoPrestadorNaOperadora></sch:identificacaoPrestador></sch:origem>
+      <sch:destino><sch:registroANS>${escapeXML(registroANS)}</sch:registroANS></sch:destino>
+      <sch:Padrao>4.03.00</sch:Padrao>
+      <sch:loginSenhaPrestador><sch:loginPrestador>${escapeXML(login)}</sch:loginPrestador><sch:senhaPrestador>${escapeXML(senhaMD5)}</sch:senhaPrestador></sch:loginSenhaPrestador>
+    </sch:cabecalho>
+    <sch:solicitacaoProcedimento>
+      <sch:solicitacaoSP-SADT>
+        <sch:cabecalhoSolicitacao>
+          <sch:registroANS>${escapeXML(registroANS)}</sch:registroANS>
+          <sch:numeroGuiaPrestador>${escapeXML(numeroGuiaPrestador)}</sch:numeroGuiaPrestador>
+        </sch:cabecalhoSolicitacao>
+        <sch:tipoEtapaAutorizacao>2</sch:tipoEtapaAutorizacao>
+        <sch:dadosBeneficiario>
+          <sch:numeroCarteira>${escapeXML(numeroCarteira)}</sch:numeroCarteira>
+          <sch:atendimentoRN>${escapeXML(atendimento?.atendimento_rn || 'N')}</sch:atendimentoRN>
+        </sch:dadosBeneficiario>
+        <sch:dadosSolicitante>
+          <sch:contratadoSolicitante><sch:codigoPrestadorNaOperadora>${escapeXML(codigoPrestador)}</sch:codigoPrestadorNaOperadora></sch:contratadoSolicitante>
+          <sch:nomeContratadoSolicitante>${escapeXML(nomeContratado)}</sch:nomeContratadoSolicitante>
+          <sch:profissionalSolicitante>
+            <sch:nomeProfissional>${escapeXML(nomeProfissional)}</sch:nomeProfissional>
+            <sch:conselhoProfissional>${escapeXML(conselho)}</sch:conselhoProfissional>
+            <sch:numeroConselhoProfissional>${escapeXML(numeroConselho)}</sch:numeroConselhoProfissional>
+            <sch:UF>${escapeXML(uf)}</sch:UF>
+            <sch:CBOS>${escapeXML(cbos)}</sch:CBOS>
+          </sch:profissionalSolicitante>
+        </sch:dadosSolicitante>
+        <sch:caraterAtendimento>${escapeXML(atendimento?.carater_atendimento || '1')}</sch:caraterAtendimento>
+        <sch:dataSolicitacao>${escapeXML(atendimento?.data_solicitacao || atendimento?.data_atendimento || data)}</sch:dataSolicitacao>${procedimentos}
+        <sch:dadosExecutante>
+          <sch:codigonaOperadora>${escapeXML(codigoPrestador)}</sch:codigonaOperadora>
+          ${cnes ? `<sch:CNES>${escapeXML(cnes)}</sch:CNES>` : ''}
+        </sch:dadosExecutante>
+      </sch:solicitacaoSP-SADT>
+    </sch:solicitacaoProcedimento>`;
+  const hash = calcularHashTiss(corpoSemHash);
+
+  return `<soapenv:Envelope xmlns:soapenv="${SOAP_NS}" xmlns:sch="${TISS_NS}" xmlns:xd="http://www.w3.org/2000/09/xmldsig#">
+  <soapenv:Header/>
+  <soapenv:Body>
+    ${corpoSemHash}
+    <sch:hash>${hash}</sch:hash>
+  </sch:solicitacaoProcedimentoWS>
+  </soapenv:Body>
+</soapenv:Envelope>`;
+}
+
+export function montarEnvelopeStatusAutorizacao({ codigoPrestador, registroANS, numeroGuiaPrestador, numeroGuiaOperadora = '', login, senhaMD5, sequencial = 1 }) {
+  const data = dataHoje();
+  const hora = horaAgora();
+  const identificacao = numeroGuiaOperadora
+    ? `<sch:numeroGuiaOperadora>${escapeXML(numeroGuiaOperadora)}</sch:numeroGuiaOperadora>`
+    : `<sch:numeroGuiaPrestador>${escapeXML(numeroGuiaPrestador)}</sch:numeroGuiaPrestador>`;
+  const corpoSemHash = `<sch:solicitaStatusAutorizacaoWS>
+    <sch:cabecalho>
+      <sch:identificacaoTransacao>
+        <sch:tipoTransacao>SOLICITA_STATUS_AUTORIZACAO</sch:tipoTransacao>
+        <sch:sequencialTransacao>${escapeXML(sequencial)}</sch:sequencialTransacao>
+        <sch:dataRegistroTransacao>${data}</sch:dataRegistroTransacao>
+        <sch:horaRegistroTransacao>${hora}</sch:horaRegistroTransacao>
+      </sch:identificacaoTransacao>
+      <sch:origem><sch:identificacaoPrestador><sch:codigoPrestadorNaOperadora>${escapeXML(codigoPrestador)}</sch:codigoPrestadorNaOperadora></sch:identificacaoPrestador></sch:origem>
+      <sch:destino><sch:registroANS>${escapeXML(registroANS)}</sch:registroANS></sch:destino>
+      <sch:Padrao>4.03.00</sch:Padrao>
+      <sch:loginSenhaPrestador><sch:loginPrestador>${escapeXML(login)}</sch:loginPrestador><sch:senhaPrestador>${escapeXML(senhaMD5)}</sch:senhaPrestador></sch:loginSenhaPrestador>
+    </sch:cabecalho>
+    <sch:solicitaStatusAutorizacao>
+      <sch:dadosPrestador><sch:codigoPrestadorNaOperadora>${escapeXML(codigoPrestador)}</sch:codigoPrestadorNaOperadora></sch:dadosPrestador>
+      <sch:identificacaoSolicitacao>${identificacao}</sch:identificacaoSolicitacao>
+    </sch:solicitaStatusAutorizacao>`;
+  const hash = calcularHashTiss(corpoSemHash);
+
+  return `<soapenv:Envelope xmlns:soapenv="${SOAP_NS}" xmlns:sch="${TISS_NS}" xmlns:xd="http://www.w3.org/2000/09/xmldsig#">
+  <soapenv:Header/>
+  <soapenv:Body>
+    ${corpoSemHash}
+    <sch:hash>${hash}</sch:hash>
+  </sch:solicitaStatusAutorizacaoWS>
+  </soapenv:Body>
+</soapenv:Envelope>`;
+}
+
+export function montarEnvelopeStatusProtocolo({ codigoPrestador, registroANS, numeroProtocolo, login, senhaMD5, sequencial = 1 }) {
+  const now = new Date();
+  const data = now.toISOString().slice(0, 10);
+  const hora = now.toTimeString().slice(0, 8);
+  const corpoSemHash = `<sch:solicitacaoStatusProtocoloWS>
+      <sch:cabecalho>
+        <sch:identificacaoTransacao>
+          <sch:tipoTransacao>SOLIC_STATUS_PROTOCOLO</sch:tipoTransacao>
+          <sch:sequencialTransacao>${escapeXML(sequencial)}</sch:sequencialTransacao>
+          <sch:dataRegistroTransacao>${data}</sch:dataRegistroTransacao>
+          <sch:horaRegistroTransacao>${hora}</sch:horaRegistroTransacao>
+        </sch:identificacaoTransacao>
+        <sch:origem><sch:identificacaoPrestador><sch:codigoPrestadorNaOperadora>${escapeXML(codigoPrestador)}</sch:codigoPrestadorNaOperadora></sch:identificacaoPrestador></sch:origem>
+        <sch:destino><sch:registroANS>${escapeXML(registroANS)}</sch:registroANS></sch:destino>
+        <sch:Padrao>4.03.00</sch:Padrao>
+        <sch:loginSenhaPrestador><sch:loginPrestador>${escapeXML(login)}</sch:loginPrestador><sch:senhaPrestador>${escapeXML(senhaMD5)}</sch:senhaPrestador></sch:loginSenhaPrestador>
+      </sch:cabecalho>
+      <sch:solicitacaoStatusProtocolo>
+        <sch:dadosPrestador><sch:codigoPrestadorNaOperadora>${escapeXML(codigoPrestador)}</sch:codigoPrestadorNaOperadora></sch:dadosPrestador>
+        <sch:numeroProtocolo>${escapeXML(numeroProtocolo)}</sch:numeroProtocolo>
+      </sch:solicitacaoStatusProtocolo>`;
+  const hash = calcularHashTiss(corpoSemHash);
+
+  return `<soapenv:Envelope xmlns:soapenv="${SOAP_NS}" xmlns:sch="${TISS_NS}" xmlns:xd="http://www.w3.org/2000/09/xmldsig#">
+  <soapenv:Header/>
+  <soapenv:Body>
+    ${corpoSemHash}
+      <sch:hash>${hash}</sch:hash>
+    </sch:solicitacaoStatusProtocoloWS>
+  </soapenv:Body>
+</soapenv:Envelope>`;
+}
+
+async function compactarGzip(texto) {
+  if (typeof CompressionStream === 'undefined') {
+    return { body: texto, gzip: false };
+  }
+
+  const stream = new Blob([texto]).stream().pipeThrough(new CompressionStream('gzip'));
+  const buffer = await new Response(stream).arrayBuffer();
+  return { body: buffer, gzip: true };
+}
+
+function deveUsarProxy(opcoes = {}) {
+  if (opcoes.proxy === false) return false;
+  return import.meta.env?.VITE_ORIZON_DIRECT_FETCH !== 'true';
+}
+
+async function enviarSOAPDireto(endpoint, envelope, opcoes = {}) {
+  const { body, gzip } = opcoes.gzip === false ? { body: envelope, gzip: false } : await compactarGzip(envelope);
+  const headers = {
+    'Content-Type': 'text/xml; charset=utf-8',
+    SOAPAction: opcoes.soapAction || ''
+  };
+  if (gzip) headers['Content-Encoding'] = 'gzip';
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers,
+    body
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${text || response.statusText}`);
+  }
+  return text;
+}
+
+async function enviarSOAPPorProxy(endpoint, envelope, opcoes = {}) {
+  const response = await fetch(opcoes.proxyUrl || '/api/orizon-soap', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      endpoint,
+      envelope,
+      gzip: opcoes.gzip !== false,
+      soapAction: opcoes.soapAction || ''
+    })
+  });
+
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || payload?.ok === false) {
+    const detalhe = payload?.detail || payload?.text || payload?.statusText || response.statusText;
+    const erro = new Error(`${payload?.error || 'Falha ao comunicar com o WebService do convênio.'}${detalhe ? ` Detalhe: ${detalhe}` : ''}`);
+    erro.codigo = payload?.code || payload?.statusText || response.status;
+    erro.payload = payload;
+    throw erro;
+  }
+
+  return payload?.text || '';
+}
+
+async function enviarSOAP(endpoint, envelope, opcoes = {}) {
+  if (deveUsarProxy(opcoes)) {
+    return enviarSOAPPorProxy(endpoint, envelope, opcoes);
+  }
+
+  return enviarSOAPDireto(endpoint, envelope, opcoes);
+}
+
+function parseSoapFault(xml) {
+  const fault = extrairTag(xml, 'faultstring') || extrairTag(xml, 'tissFault');
+  return fault ? fault.replace(/\s+/g, ' ').trim() : '';
+}
+
+export function interpretarProtocoloRecebimento(xmlResposta) {
+  const fault = parseSoapFault(xmlResposta);
+  if (fault) return { sucesso: false, erro: fault, xmlResposta };
+
+  return {
+    sucesso: true,
+    numeroProtocolo: extrairTag(xmlResposta, 'numeroProtocolo'),
+    numeroLote: extrairTag(xmlResposta, 'numeroLote'),
+    valorTotalProtocolo: extrairTag(xmlResposta, 'valorTotalProtocolo'),
+    xmlResposta
+  };
+}
+
+export function interpretarSituacaoProtocolo(xmlResposta) {
+  const fault = parseSoapFault(xmlResposta);
+  if (fault) return { sucesso: false, erro: fault, xmlResposta };
+
+  return {
+    sucesso: true,
+    statusProtocolo: extrairTag(xmlResposta, 'statusProtocolo'),
+    numeroProtocolo: extrairTag(xmlResposta, 'numeroProtocolo'),
+    numeroLote: extrairTag(xmlResposta, 'numeroLote'),
+    valorProcessado: extrairTag(xmlResposta, 'valorProcessado'),
+    valorGlosa: extrairTag(xmlResposta, 'valorGlosa'),
+    valorLiberado: extrairTag(xmlResposta, 'valorLiberado'),
+    xmlResposta
+  };
+}
+
+
+export function interpretarAutorizacao(xmlResposta) {
+  const fault = parseSoapFault(xmlResposta);
+  if (fault) return { sucesso: false, erro: fault, xmlResposta };
+
+  return {
+    sucesso: true,
+    numeroGuiaPrestador: extrairTag(xmlResposta, 'numeroGuiaPrestador'),
+    numeroGuiaOperadora: extrairTag(xmlResposta, 'numeroGuiaOperadora'),
+    senha: extrairTag(xmlResposta, 'senha'),
+    dataAutorizacao: extrairTag(xmlResposta, 'dataAutorizacao'),
+    dataValidadeSenha: extrairTag(xmlResposta, 'dataValidadeSenha'),
+    statusSolicitacao: extrairTag(xmlResposta, 'statusSolicitacao') || extrairTag(xmlResposta, 'statusAutorizacao'),
+    motivoNegativa: extrairTag(xmlResposta, 'descricaoGlosa') || extrairTag(xmlResposta, 'mensagemErro'),
+    xmlResposta
+  };
+}
+
+export function interpretarStatusAutorizacao(xmlResposta) {
+  return interpretarAutorizacao(xmlResposta);
+}
+
+export async function enviarLoteGuiasOrizon({ endpoint, xmlTiss, login, senha, gzip = true, proxyUrl }) {
+  const senhaMD5 = hashSenhaOrizon(senha);
+  const envelope = montarEnvelopeLoteGuias(xmlTiss, { login, senhaMD5 });
+  const xmlResposta = await enviarSOAP(endpoint, envelope, { gzip, proxyUrl });
+  return interpretarProtocoloRecebimento(xmlResposta);
+}
+
+export async function consultarStatusProtocoloOrizon({ endpoint, codigoPrestador, registroANS, numeroProtocolo, login, senha, gzip = true, proxyUrl }) {
+  const senhaMD5 = hashSenhaOrizon(senha);
+  const envelope = montarEnvelopeStatusProtocolo({ codigoPrestador, registroANS, numeroProtocolo, login, senhaMD5 });
+  const xmlResposta = await enviarSOAP(endpoint, envelope, { gzip, proxyUrl });
+  return interpretarSituacaoProtocolo(xmlResposta);
+}
+
+
+export async function solicitarAutorizacaoProcedimentoOrizon({ endpoint, atendimento, convenio, login, senha, cnes, gzip = true, proxyUrl }) {
+  const senhaMD5 = hashSenhaOrizon(senha);
+  const envelope = montarEnvelopeSolicitacaoAutorizacao({ atendimento, convenio, login, senhaMD5, cnes });
+  const xmlResposta = await enviarSOAP(endpoint, envelope, { gzip, proxyUrl });
+  return interpretarAutorizacao(xmlResposta);
+}
+
+export async function consultarStatusAutorizacaoOrizon({ endpoint, codigoPrestador, registroANS, numeroGuiaPrestador, numeroGuiaOperadora, login, senha, gzip = true, proxyUrl }) {
+  const senhaMD5 = hashSenhaOrizon(senha);
+  const envelope = montarEnvelopeStatusAutorizacao({ codigoPrestador, registroANS, numeroGuiaPrestador, numeroGuiaOperadora, login, senhaMD5 });
+  const xmlResposta = await enviarSOAP(endpoint, envelope, { gzip, proxyUrl });
+  return interpretarStatusAutorizacao(xmlResposta);
+}
+
+export const STATUS_PROTOCOLO_ORIZON = {
+  '1': 'Recebido',
+  '2': 'Em análise',
+  '4': 'Encerrado sem pagamento',
+  '7': 'Não localizado',
+  '9': 'Processado pela operadora'
+};

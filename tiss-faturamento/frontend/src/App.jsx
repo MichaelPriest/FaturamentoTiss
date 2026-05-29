@@ -9,13 +9,16 @@ import {
   ChevronLeftIcon, ChevronRightIcon, SunIcon, MoonIcon,
   CalendarDaysIcon, FolderIcon, ChevronDownIcon, ChevronUpIcon,
   HomeModernIcon, BanknotesIcon, ClipboardDocumentCheckIcon, BuildingOffice2Icon, BellAlertIcon,
-  UserCircleIcon, MegaphoneIcon, TvIcon
+  UserCircleIcon, MegaphoneIcon, TvIcon, BeakerIcon
 } from '@heroicons/react/24/outline';
 
 import Dashboard from './pages/Dashboard';
 import Convenios from './pages/Convenios';
 import ConvenioConfig from './pages/ConvenioConfig';
+import WebserviceConfig from './pages/WebserviceConfig';
+import HomologacaoWebservice from './pages/HomologacaoWebservice';
 import Pacientes from './pages/Pacientes';
+import PacienteHistorico from './pages/PacienteHistorico';
 import Prestadores from './pages/Prestadores';
 import Procedimentos from './pages/Procedimentos';
 import Atendimentos from './pages/Atendimentos';
@@ -58,6 +61,7 @@ const TAB_ROUTES = new Set([
   'ocupacao',
   'autorizacoes',
   'faturamento',
+  'homologacao-webservice',
   'glosas',
   'financeiro',
   'relatorios',
@@ -141,7 +145,7 @@ function MainApp() {
   const [currentDateTime, setCurrentDateTime] = useState(() => new Date());
 
   // Verificar se é rota de prontuário ou convenio-config
-  const isSpecialRoute = location.pathname.includes('/prontuario/') || location.pathname.includes('/convenio-config/');
+  const isSpecialRoute = location.pathname.includes('/prontuario/') || location.pathname.includes('/pacientes/') || location.pathname.includes('/convenio-config/') || location.pathname.includes('/convenio-webservice');
 
   // Verificar se é rota fullscreen (Painel de Chamadas)
   const isFullscreenRoute = location.pathname === '/chamados/painel';
@@ -248,6 +252,7 @@ function MainApp() {
       id: 'faturamento', name: 'Faturamento', icon: CurrencyDollarIcon,
       items: [
         { id: 'faturamento', name: 'Lotes TISS', icon: CurrencyDollarIcon, color: 'from-emerald-500 to-emerald-600' },
+        { id: 'homologacao-webservice', name: 'Homologação WS', icon: BeakerIcon, color: 'from-blue-500 to-indigo-600' },
         { id: 'glosas', name: 'Glosas', icon: ExclamationTriangleIcon, color: 'from-red-500 to-red-600' }
       ]
     },
@@ -292,6 +297,7 @@ function MainApp() {
       case 'ocupacao': return <Ocupacao />;
       case 'autorizacoes': return <Autorizacoes />;
       case 'faturamento': return <Faturamento />;
+      case 'homologacao-webservice': return <HomologacaoWebservice />;
       case 'glosas': return <Glosas />;
       case 'financeiro': return <Financeiro />;
       case 'relatorios': return <Relatorios />;
@@ -308,7 +314,9 @@ function MainApp() {
     const pathname = location.pathname;
 
     if (pathname.includes('/prontuario/')) return <Prontuario />;
+    if (pathname.includes('/pacientes/') && pathname.includes('/historico')) return <PacienteHistorico />;
     if (pathname.includes('/convenio-config/')) return <ConvenioConfig />;
+    if (pathname.includes('/convenio-webservice')) return <WebserviceConfig />;
 
     return renderTabContent(activeTab);
   };
@@ -316,7 +324,9 @@ function MainApp() {
   const getPageTitle = () => {
     const pathname = location.pathname;
     if (pathname.includes('/prontuario/')) return 'Prontuário Eletrônico';
+    if (pathname.includes('/pacientes/') && pathname.includes('/historico')) return 'Histórico do Paciente';
     if (pathname.includes('/convenio-config/')) return 'Configurações Avançadas do Convênio';
+    if (pathname.includes('/convenio-webservice')) return 'Configuração de WebService';
     
     if (activeTab === 'chamados') return 'Recepção / Registro';
     if (activeTab === 'chamados-painel') return 'Painel de Chamadas';
@@ -329,11 +339,13 @@ function MainApp() {
     const pathname = location.pathname;
     if (pathname.includes('/prontuario/')) return 'Atendimento médico e registro clínico';
     if (pathname.includes('/convenio-config/')) return 'Regras de faturamento, prazos, glosas e integrações';
+    if (pathname.includes('/convenio-webservice')) return 'Endpoints, credenciais e certificado por convênio';
     
     const subtitles = {
       dashboard: 'Visão geral do sistema',
       autorizacoes: 'Gerenciamento de autorizações de procedimentos pelos convênios',
       faturamento: 'Geração e envio de lotes TISS',
+      'homologacao-webservice': 'Testes de homologação dos endpoints TISS/Orizon',
       atendimentos: 'Registro de atendimentos e guias',
       agendamentos: 'Gerenciamento de agenda e consultas',
       ocupacao: 'Mapa de salas, horários e disponibilidade',
@@ -606,7 +618,10 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/prontuario/:id" element={<ProtectedApp />} />
+            <Route path="/pacientes/:id/historico" element={<ProtectedApp />} />
             <Route path="/convenio-config/:id" element={<ProtectedApp />} />
+            <Route path="/convenio-webservice" element={<ProtectedApp />} />
+            <Route path="/convenio-webservice/:id" element={<ProtectedApp />} />
             <Route path="/chamados/registro" element={<ProtectedApp />} />
             <Route path="/chamados/painel" element={<ProtectedApp />} />
             <Route path="/*" element={<ProtectedApp />} />

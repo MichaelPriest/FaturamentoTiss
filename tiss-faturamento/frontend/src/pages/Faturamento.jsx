@@ -20,16 +20,26 @@ import {
   LockOpenIcon,
   XCircleIcon,
   PrinterIcon,
-  ArchiveBoxIcon
+  ArchiveBoxIcon,
+  CloudArrowUpIcon,
+  InformationCircleIcon,
+  PaperClipIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
 import { gerarXMLTISS, converterAtendimentoParaTISS, setVersao } from '../lib/tissGenerator';
 import { imprimirGuiaTISSOficial, imprimirMultiplasGuiasTISS } from '../components/ImpressaoGuiaTISS';
-import { imprimirContaFaturada } from '../components/ImpressaoContaFaturada';
+import { imprimirContaFaturada, imprimirMultiplasContas as imprimirMultiplasContasFaturadas } from '../components/ImpressaoContaFaturada';
 import { useUnidade } from '../contexts/UnidadeContext';
-import { applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
+import { TODAS_UNIDADES_ID, applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
+import {
+  STATUS_PROTOCOLO_ORIZON,
+  consultarStatusProtocoloOrizon,
+  enviarLoteGuiasOrizon,
+  hashSenhaOrizon,
+  montarEnvelopeLoteGuias
+} from '../services/orizonWebservice';
 
 // ============================================
 // MAPA DE CÓDIGOS CBOS (TISS)
@@ -209,7 +219,7 @@ const CBOS_MAP = {
 const MAX_GUIAS_POR_LOTE = 100;
 
 export default function Faturamento() {
-  const { unidadeAtualId } = useUnidade();
+  const { unidadeAtualId, unidadeAtual } = useUnidade();
 
   const prepararLoteParaInsert = (lote) => applyUnidadeToPayload({
     ...lote,
@@ -217,6 +227,7 @@ export default function Faturamento() {
   }, unidadeAtualId);
   const [atendimentos, setAtendimentos] = useState([]);
   const [convenios, setConvenios] = useState([]);
+  const [pacientes, setPacientes] = useState([]);
   const [prestadores, setPrestadores] = useState([]);
   const [procedimentos, setProcedimentos] = useState([]);
   const [selecionados, setSelecionados] = useState([]);
@@ -224,6 +235,9 @@ export default function Faturamento() {
   const [gerando, setGerando] = useState(false);
   const [imprimindo, setImprimindo] = useState(false);
   const [cancelando, setCancelando] = useState(false);
+  const [enviandoOrizonId, setEnviandoOrizonId] = useState(null);
+  const [consultandoOrizonId, setConsultandoOrizonId] = useState(null);
+  const [gerandoWebserviceId, setGerandoWebserviceId] = useState(null);
   const [buscandoLote, setBuscandoLote] = useState(false);
   const [loading, setLoading] = useState(true);
   const [guiasGeradas, setGuiasGeradas] = useState([]);
@@ -242,6 +256,9 @@ export default function Faturamento() {
   const [showHistoricoLogs, setShowHistoricoLogs] = useState(false);
   const [showGerarPorLote, setShowGerarPorLote] = useState(false);
   const [selectedLote, setSelectedLote] = useState(null);
+  const [showFaturaModal, setShowFaturaModal] = useState(false);
+  const [selectedFaturaLote, setSelectedFaturaLote] = useState(null);
+  const [modoVisualizacaoXml, setModoVisualizacaoXml] = useState('xml');
   const [sequencialGlobal, setSequencialGlobal] = useState(1);
   const [logsLotes, setLogsLotes] = useState([]);
   const [numeroLoteBusca, setNumeroLoteBusca] = useState('');
@@ -269,7 +286,11 @@ export default function Faturamento() {
     aliquotaCOFINS: 3,
     valorCOFINS: 0,
     valorLiquido: 0,
-    observacoes: ''
+    observacoes: '',
+    numeroNota: '',
+    protocoloNota: '',
+    anexoNome: '',
+    anexoUrl: ''
   });
 
   // ============================================
@@ -310,16 +331,26 @@ export default function Faturamento() {
 
   const carregarConfigClinica = async () => {
     try {
+      const chaves = [
+        unidadeAtualId && unidadeAtualId !== TODAS_UNIDADES_ID ? `config_clinica_${unidadeAtualId}` : null,
+        'config_clinica',
+        'config_sistema'
+      ].filter(Boolean);
+
       const { data, error } = await supabase
         .from('configuracoes')
-        .select('valor')
-        .eq('chave', 'config_sistema')
-        .maybeSingle();
-      
+        .select('chave, valor')
+        .in('chave', chaves);
+
       if (error) throw error;
-      
-      if (data?.valor) {
-        setConfigClinica(JSON.parse(data.valor));
+
+      const configsPorChave = (data || []).reduce((acc, item) => ({ ...acc, [item.chave]: item.valor }), {});
+      const chavePreferida = chaves.find(chave => configsPorChave[chave]);
+
+      if (chavePreferida) {
+        setConfigClinica(JSON.parse(configsPorChave[chavePreferida]));
+      } else {
+        setConfigClinica({});
       }
     } catch (error) {
       console.error('Erro ao carregar config clínica:', error);
@@ -387,22 +418,25 @@ export default function Faturamento() {
 
   const carregarDados = async () => {
     try {
-      const [atendimentosRes, conveniosRes, prestadoresRes, procedimentosRes] = await Promise.all([
+      const [atendimentosRes, conveniosRes, prestadoresRes, procedimentosRes, pacientesRes] = await Promise.all([
         supabase.from('atendimentos').select('*').eq('status', 'faturado').order('created_at', { ascending: false }),
         supabase.from('convenios').select('*').eq('ativo', true).order('razao_social'),
         supabase.from('prestadores').select('*').order('nome'),
-        supabase.from('procedimentos').select('*').order('nome')
+        supabase.from('procedimentos').select('*').order('nome'),
+        supabase.from('pacientes').select('id, nome, cpf, data_nascimento, numero_carteira')
       ]);
 
       if (atendimentosRes.error) throw atendimentosRes.error;
       if (conveniosRes.error) throw conveniosRes.error;
       if (prestadoresRes.error) throw prestadoresRes.error;
       if (procedimentosRes.error) throw procedimentosRes.error;
+      if (pacientesRes.error) throw pacientesRes.error;
 
-      setAtendimentos(filterByUnidade(atendimentosRes.data || [], unidadeAtualId));
-      setConvenios(filterByUnidade(conveniosRes.data || [], unidadeAtualId));
-      setPrestadores(filterByUnidade(prestadoresRes.data || [], unidadeAtualId));
-      setProcedimentos(filterByUnidade(procedimentosRes.data || [], unidadeAtualId));
+      setAtendimentos(filtrarPorUnidadeIncluindoGlobais(atendimentosRes.data || []));
+      setConvenios(filtrarPorUnidadeIncluindoGlobais(conveniosRes.data || []));
+      setPrestadores(filtrarPorUnidadeIncluindoGlobais(prestadoresRes.data || []));
+      setProcedimentos(filtrarPorUnidadeIncluindoGlobais(procedimentosRes.data || []));
+      setPacientes(filtrarPorUnidadeIncluindoGlobais(pacientesRes.data || []));
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       toast.error('Erro ao carregar dados');
@@ -478,6 +512,11 @@ export default function Faturamento() {
     return cbosDescricao ? `${nome} / ${cbosDescricao}` : nome;
   };
 
+  const filtrarPorUnidadeIncluindoGlobais = (items = []) => {
+    if (!unidadeAtualId || unidadeAtualId === TODAS_UNIDADES_ID) return items;
+    return items.filter(item => !Object.prototype.hasOwnProperty.call(item, 'unidade_id') || !item.unidade_id || item.unidade_id === unidadeAtualId);
+  };
+
   const calcularImpostos = (baseCalculo, aliquotaISS, aliquotaIBS, aliquotaCBS, aliquotaIR, aliquotaCSLL, aliquotaPIS, aliquotaCOFINS) => {
     const iss = (baseCalculo * aliquotaISS) / 100;
     const ibs = (baseCalculo * aliquotaIBS) / 100;
@@ -489,6 +528,72 @@ export default function Faturamento() {
     const totalImpostos = iss + ibs + cbs + ir + csll + pis + cofins;
     const valorLiquido = baseCalculo - totalImpostos;
     return { iss, ibs, cbs, ir, csll, pis, cofins, totalImpostos, valorLiquido };
+  };
+
+  const getLogoUnidadeOuClinica = (convenio) => unidadeAtual?.logo_base64 || unidadeAtual?.logo || configClinica.logo_base64 || convenio?.logo_base64 || '';
+
+  const getPacienteCadastro = (atendimento) => pacientes.find(p => p.id === atendimento?.paciente_id) || {};
+
+  const montarDadosPacienteConta = (atendimento) => {
+    const pacienteCadastro = getPacienteCadastro(atendimento);
+    return {
+      nome: atendimento?.paciente_nome || pacienteCadastro.nome || '',
+      numero_carteira: atendimento?.numero_carteira || atendimento?.paciente_carteira || pacienteCadastro.numero_carteira || '',
+      cpf: atendimento?.cpf || pacienteCadastro.cpf || '',
+      data_nascimento: atendimento?.data_nascimento || pacienteCadastro.data_nascimento || ''
+    };
+  };
+
+  const getAnexosFatura = (lote) => {
+    const dados = lote?.dados_fatura || {};
+    let anexos = [];
+    if (Array.isArray(dados.anexos)) {
+      anexos = [...dados.anexos];
+    } else if (typeof dados.anexos === 'string') {
+      try {
+        anexos = JSON.parse(dados.anexos || '[]');
+      } catch {
+        anexos = [];
+      }
+    }
+    if (dados.anexo_nota_url) {
+      anexos.push({
+        nome: dados.anexo_nota_nome || dados.numero_nota || 'Anexo da nota fiscal',
+        url: dados.anexo_nota_url,
+        data: dados.data_fechamento || lote?.data_envio
+      });
+    }
+    return anexos.filter(anexo => anexo?.url);
+  };
+
+  const loteTemAnexosOuProtocolos = (lote) => {
+    const dados = lote?.dados_fatura || {};
+    return getAnexosFatura(lote).length > 0 || Boolean(dados.protocolo_nota || lote?.protocolo_orizon || lote?.integracao_orizon?.protocolo_recebimento);
+  };
+
+  const abrirDadosFaturaLote = (lote) => {
+    setSelectedFaturaLote(lote);
+    setShowFaturaModal(true);
+  };
+
+  const valorMoeda = (valor) => `R$ ${(Number(valor) || 0).toFixed(2)}`;
+
+  const resumoFormularioXml = (lote) => {
+    const xml = lote?.xml_content || '';
+    const extrair = (tag) => xml.match(new RegExp(`<[^:>]*:?${tag}[^>]*>([^<]*)<\\/[^:>]*:?${tag}>`, 'i'))?.[1] || '-';
+    const guiasNoXml = (xml.match(/<[^:>]*:?numeroGuiaPrestador[^>]*>/gi) || []).length;
+
+    return {
+      tipoTransacao: extrair('tipoTransacao'),
+      padrao: extrair('Padrao'),
+      sequencialTransacao: extrair('sequencialTransacao'),
+      numeroLote: extrair('numeroLote'),
+      dataRegistro: extrair('dataRegistroTransacao'),
+      horaRegistro: extrair('horaRegistroTransacao'),
+      registroANS: extrair('registroANS'),
+      codigoPrestador: extrair('codigoPrestadorNaOperadora'),
+      guiasNoXml
+    };
   };
 
   const atualizarTodosImpostos = (baseCalculo) => {
@@ -682,70 +787,83 @@ export default function Faturamento() {
     }
   };
 
-  const handleImprimirConta = (lote) => {
-    // Buscar os atendimentos do lote para pegar os itens
-    const atendimentosDoLote = atendimentos.filter(a => lote.guias_ids?.includes(a.id));
-    
-    // Coletar todos os itens dos atendimentos
-    const todosItens = [];
-    atendimentosDoLote.forEach(atendimento => {
-      const itens = typeof atendimento.itens === 'string' 
-        ? JSON.parse(atendimento.itens) 
-        : (atendimento.itens || []);
-      todosItens.push(...itens);
-    });
-    
-    // Calcular total geral
-    const totalGeral = todosItens.reduce((sum, item) => sum + (item.valor_total || 0), 0);
-    
-    // Buscar dados do paciente (primeiro atendimento do lote)
-    const primeiroAtendimento = atendimentosDoLote[0];
-    const paciente = {
-      nome: primeiroAtendimento?.paciente_nome || '',
-      numero_carteira: primeiroAtendimento?.numero_carteira || '',
-      cpf: primeiroAtendimento?.cpf || '',
-      data_nascimento: primeiroAtendimento?.data_nascimento || ''
-    };
-    
-    // Buscar dados do convênio
-    const convenio = convenios.find(c => c.id === lote.convenio_id);
-    
-    // Buscar dados da clínica (config)
-    const clinica = {
-      nome_empresa: configClinica.nome_empresa || '',
-      nome_contratado: configClinica.nome_contratado || '',
-      cnpj: configClinica.cnpj || '',
-      cnes: configClinica.cnes || ''
-    };
-    
-    // Preparar dados da conta
-    const dadosConta = {
-      numero_conta: lote.numero_lote,
-      data_emissao: lote.data_envio || new Date().toISOString(),
-      status: 'faturado',
-      paciente,
-      convenio: {
-        razao_social: lote.convenio_nome,
-        registro_ans: convenio?.registro_ans || '',
-        codigo_prestador: convenio?.codigo_prestador || ''
-      },
-      clinica,
-      itens: todosItens.map(item => ({
-        data_execucao: item.data_execucao || '',
-        codigo: item.codigo || '',
-        nome: item.nome || '',
-        quantidade: item.quantidade || 1,
-        valor_unitario: item.valor_unitario || 0,
-        valor_total: item.valor_total || 0
-      })),
-      subtotal: totalGeral,
-      total_geral: totalGeral,
-      observacoes: `Lote referente às guias: ${lote.guias_ids?.join(', ') || ''}`,
-      logo_base64: convenio?.logo_base64 || configClinica.logo_base64
-    };
-    
-    imprimirContaFaturada(dadosConta);
-    toast.success('Conta faturada enviada para impressão!');
+  const handleImprimirConta = async (lote) => {
+    try {
+      const guiaIds = lote.guias_ids || [];
+      if (guiaIds.length === 0) {
+        toast.error('Este lote não possui guias vinculadas para imprimir.');
+        return;
+      }
+
+      let atendimentosDoLote = atendimentos.filter(a => guiaIds.includes(a.id));
+      if (atendimentosDoLote.length !== guiaIds.length) {
+        const { data, error } = await supabase
+          .from('atendimentos')
+          .select('*')
+          .in('id', guiaIds);
+        if (error) throw error;
+        atendimentosDoLote = data || atendimentosDoLote;
+      }
+
+      if (atendimentosDoLote.length === 0) {
+        toast.error('Nenhuma conta encontrada para este lote.');
+        return;
+      }
+
+      const convenio = convenios.find(c => c.id === lote.convenio_id);
+      const clinica = {
+        nome_empresa: configClinica.nome_empresa || '',
+        nome_contratado: configClinica.nome_contratado || '',
+        cnpj: configClinica.cnpj || '',
+        cnes: configClinica.cnes || ''
+      };
+
+      const contas = atendimentosDoLote.map((atendimento) => {
+        const itens = typeof atendimento.itens === 'string'
+          ? JSON.parse(atendimento.itens || '[]')
+          : (atendimento.itens || []);
+        const totalConta = itens.reduce((sum, item) => sum + Number(item.valor_total || 0), 0);
+
+        return {
+          numero_conta: atendimento.numero_guia_prestador || `${lote.numero_lote}-${atendimento.id}`,
+          data_emissao: lote.data_envio || new Date().toISOString(),
+          status: 'faturado',
+          paciente: montarDadosPacienteConta(atendimento),
+          convenio: {
+            razao_social: atendimento.paciente_convenio_nome || lote.convenio_nome || convenio?.razao_social || '',
+            registro_ans: atendimento.convenio_registro_ans || convenio?.registro_ans || '',
+            codigo_prestador: atendimento.convenio_codigo_prestador || convenio?.codigo_prestador || ''
+          },
+          clinica,
+          itens: itens.map(item => ({
+            data_execucao: item.data_execucao || atendimento.data_atendimento || '',
+            codigo: item.codigo || item.codigo_procedimento || '',
+            nome: item.nome || item.descricao || '',
+            quantidade: item.quantidade || 1,
+            valor_unitario: item.valor_unitario || 0,
+            valor_total: item.valor_total || 0
+          })),
+          subtotal: totalConta,
+          total_geral: totalConta,
+          observacoes: `Lote ${lote.numero_lote} - Guia ${atendimento.numero_guia_prestador || atendimento.id}`,
+          autorizacao: {
+            numero_guia_prestador: atendimento.numero_guia_prestador,
+            numero_guia_operadora: atendimento.numero_guia_operadora,
+            senha_autorizacao: atendimento.senha_autorizacao,
+            data_autorizacao: atendimento.data_autorizacao,
+            data_validade_senha: atendimento.data_validade_senha,
+            status_autorizacao: atendimento.status_autorizacao_ws || atendimento.status
+          },
+          logo_base64: getLogoUnidadeOuClinica(convenio)
+        };
+      });
+
+      imprimirMultiplasContasFaturadas(contas);
+      toast.success(`Imprimindo ${contas.length} conta(s) faturada(s) do lote...`);
+    } catch (error) {
+      console.error('Erro ao imprimir contas faturadas do lote:', error);
+      toast.error('Erro ao imprimir contas faturadas do lote.');
+    }
   };
 
   const handleImprimirContaIndividual = (atendimento) => {
@@ -755,12 +873,7 @@ export default function Faturamento() {
       ? JSON.parse(atendimento.itens) 
       : (atendimento.itens || []);
     
-    const paciente = {
-      nome: atendimento.paciente_nome || '',
-      numero_carteira: atendimento.numero_carteira || '',
-      cpf: atendimento.cpf || '',
-      data_nascimento: atendimento.data_nascimento || ''
-    };
+    const paciente = montarDadosPacienteConta(atendimento);
     
     const clinica = {
       nome_empresa: configClinica.nome_empresa || '',
@@ -791,7 +904,15 @@ export default function Faturamento() {
       subtotal: atendimento.valor_total || 0,
       total_geral: atendimento.valor_total || 0,
       observacoes: `Guia: ${atendimento.numero_guia_prestador || 'N/A'}`,
-      logo_base64: convenio?.logo_base64 || configClinica.logo_base64
+      autorizacao: {
+        numero_guia_prestador: atendimento.numero_guia_prestador,
+        numero_guia_operadora: atendimento.numero_guia_operadora,
+        senha_autorizacao: atendimento.senha_autorizacao,
+        data_autorizacao: atendimento.data_autorizacao,
+        data_validade_senha: atendimento.data_validade_senha,
+        status_autorizacao: atendimento.status_autorizacao_ws || atendimento.status
+      },
+      logo_base64: getLogoUnidadeOuClinica(convenio)
     };
     
     imprimirContaFaturada(dadosConta);
@@ -1097,7 +1218,12 @@ export default function Faturamento() {
             aliquota_cofins: dadosFatura.aliquotaCOFINS,
             valor_cofins: dadosFatura.valorCOFINS,
             valor_liquido: dadosFatura.valorLiquido,
-            observacoes: dadosFatura.observacoes
+            observacoes: dadosFatura.observacoes,
+            numero_nota: dadosFatura.numeroNota,
+            protocolo_nota: dadosFatura.protocoloNota,
+            anexo_nota_nome: dadosFatura.anexoNome,
+            anexo_nota_url: dadosFatura.anexoUrl,
+            anexos: dadosFatura.anexoUrl ? [{ nome: dadosFatura.anexoNome || dadosFatura.numeroNota || 'Anexo da nota fiscal', url: dadosFatura.anexoUrl, data: new Date().toISOString() }] : []
           },
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -1393,19 +1519,255 @@ export default function Faturamento() {
     }
   };
 
-  const gerarXMLporLote = (lote) => {
-    const blob = new Blob([lote.xml_content], { type: 'application/xml' });
+  const carregarCredenciaisOrizon = async (convenio, opcoes = {}) => {
+    if (!convenio) throw new Error('Convênio não encontrado para o lote.');
+
+    let configIntegracao = {};
+    try {
+      const { data, error } = await supabase
+        .from('convenios_config')
+        .select('configuracoes')
+        .eq('convenio_id', convenio.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      configIntegracao = data?.configuracoes ? JSON.parse(data.configuracoes) : {};
+    } catch (error) {
+      console.warn('Não foi possível carregar configurações avançadas do convênio:', error);
+    }
+
+    const ambiente = configIntegracao.ambiente_orizon || convenio.ambiente || 'homologacao';
+    const login = configIntegracao.usuario_webservice || configIntegracao.login_prestador_orizon || '';
+    const senha = configIntegracao.senha_webservice || configIntegracao.chave_transmissao_orizon || convenio.senha_prestador || '';
+
+    if (!login || !senha) {
+      throw new Error('Informe usuário e chave/senha do WebService na página WebService do convênio. Se a Orizon exigir certificado digital, o envio deve ocorrer pelo proxy/servidor configurado.');
+    }
+
+    const endpointLote = configIntegracao.url_webservice || convenio.url_webservice || '';
+    const endpointStatus = configIntegracao.url_status_protocolo_orizon || '';
+    const proxyUrl = configIntegracao.proxy_url_webservice || '';
+
+    if (opcoes.exigirEndpointLote !== false && !endpointLote) {
+      throw new Error('Informe o endpoint de envio de lote específico deste convênio na configuração do WebService.');
+    }
+
+    return {
+      ambiente,
+      login,
+      senha,
+      endpointLote,
+      endpointStatus,
+      proxyUrl
+    };
+  };
+
+  const atualizarLoteIntegracaoOrizon = async (lote, patchIntegracao, patchCampos = {}) => {
+    const integracaoAtual = lote.integracao_orizon || {};
+    const payload = {
+      ...patchCampos,
+      integracao_orizon: {
+        ...integracaoAtual,
+        ...patchIntegracao,
+        atualizado_em: new Date().toISOString()
+      },
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = await supabase
+      .from('lotes_faturamento')
+      .update(payload)
+      .eq('id', lote.id);
+
+    if (error) throw error;
+  };
+
+  const isErroConexaoOrizon = (error) => {
+    const texto = `${error?.message || ''} ${error?.codigo || ''}`;
+    return /ECONNRESET|NETWORK_ERROR|fetch failed|certificado|mTLS|IP|liberação|proxy/i.test(texto);
+  };
+
+  const formatarErroConexaoOrizon = (error) => {
+    if (!isErroConexaoOrizon(error)) return error.message;
+
+    return [
+      'A Orizon encerrou a conexão antes de aceitar o lote.',
+      'Isso geralmente não é erro do XML: exige IP fixo/liberado e/ou certificado A1/mTLS no servidor de transmissão.',
+      'Configure o campo "Proxy de transmissão autorizado" do convênio com um servidor que tenha IP/certificado liberados pela Orizon.',
+      `Detalhe técnico: ${error.message}`
+    ].join(' ');
+  };
+
+  const enviarLoteOrizon = async (lote) => {
+    const convenio = convenios.find(c => c.id === lote.convenio_id);
+    if (!lote.xml_content) {
+      toast.error('Lote sem XML para envio. Regere o XML antes de transmitir.');
+      return;
+    }
+
+    setEnviandoOrizonId(lote.id || lote.numero_lote);
+    try {
+      const credenciais = await carregarCredenciaisOrizon(convenio);
+      const retorno = await enviarLoteGuiasOrizon({
+        endpoint: credenciais.endpointLote,
+        xmlTiss: lote.xml_content,
+        login: credenciais.login,
+        senha: credenciais.senha,
+        proxyUrl: credenciais.proxyUrl
+      });
+
+      if (!retorno.sucesso) {
+        throw new Error(retorno.erro || 'A Orizon retornou erro no envio do lote.');
+      }
+
+      await atualizarLoteIntegracaoOrizon(lote, {
+        ambiente: credenciais.ambiente,
+        endpoint_lote: credenciais.endpointLote,
+        protocolo_recebimento: retorno.numeroProtocolo,
+        numero_lote_retorno: retorno.numeroLote,
+        valor_total_protocolo: retorno.valorTotalProtocolo,
+        xml_protocolo_recebimento: retorno.xmlResposta,
+        enviado_em: new Date().toISOString()
+      }, {
+        protocolo_orizon: retorno.numeroProtocolo || null,
+        status_integracao: retorno.numeroProtocolo ? 'protocolo_recebido' : 'enviado_sem_protocolo'
+      });
+
+      await registrarLog('ENVIO_ORIZON', lote, `Lote enviado ao WebService Orizon. Protocolo: ${retorno.numeroProtocolo || 'não informado'}`);
+      await carregarLotes();
+      toast.success(`Lote enviado à Orizon${retorno.numeroProtocolo ? ` com protocolo ${retorno.numeroProtocolo}` : ''}.`);
+    } catch (error) {
+      console.error('Erro ao enviar lote Orizon:', error);
+      const mensagem = formatarErroConexaoOrizon(error);
+
+      try {
+        const credenciais = convenio ? await carregarCredenciaisOrizon(convenio) : {};
+        await atualizarLoteIntegracaoOrizon(lote, {
+          erro_envio: mensagem,
+          codigo_erro: error?.codigo || error?.payload?.code || null,
+          endpoint_lote: credenciais.endpointLote,
+          proxy_url: credenciais.proxyUrl || '/api/orizon-soap',
+          falha_em: new Date().toISOString()
+        }, {
+          status_integracao: isErroConexaoOrizon(error) ? 'falha_conexao_orizon' : 'falha_envio_orizon'
+        });
+        await carregarLotes();
+      } catch (logError) {
+        console.warn('Não foi possível registrar falha de integração Orizon:', logError);
+      }
+
+      toast.error(`Erro no envio Orizon: ${mensagem}`, { duration: 14000 });
+    } finally {
+      setEnviandoOrizonId(null);
+    }
+  };
+
+  const consultarStatusOrizon = async (lote) => {
+    const convenio = convenios.find(c => c.id === lote.convenio_id);
+    const numeroProtocolo = lote.protocolo_orizon || lote.integracao_orizon?.protocolo_recebimento;
+    if (!numeroProtocolo) {
+      toast.error('Este lote ainda não possui protocolo Orizon para consulta.');
+      return;
+    }
+
+    setConsultandoOrizonId(lote.id || lote.numero_lote);
+    try {
+      const credenciais = await carregarCredenciaisOrizon(convenio);
+      if (!credenciais.endpointStatus) {
+        throw new Error('Informe o endpoint de status específico deste convênio na configuração do WebService.');
+      }
+      const retorno = await consultarStatusProtocoloOrizon({
+        endpoint: credenciais.endpointStatus,
+        codigoPrestador: convenio.codigo_prestador,
+        registroANS: convenio.registro_ans,
+        numeroProtocolo,
+        login: credenciais.login,
+        senha: credenciais.senha,
+        proxyUrl: credenciais.proxyUrl
+      });
+
+      if (!retorno.sucesso) {
+        throw new Error(retorno.erro || 'A Orizon retornou erro na consulta de status.');
+      }
+
+      const statusDescricao = STATUS_PROTOCOLO_ORIZON[retorno.statusProtocolo] || retorno.statusProtocolo || 'Status não informado';
+      await atualizarLoteIntegracaoOrizon(lote, {
+        endpoint_status: credenciais.endpointStatus,
+        status_protocolo: retorno.statusProtocolo,
+        status_descricao: statusDescricao,
+        numero_lote_status: retorno.numeroLote,
+        valor_processado: retorno.valorProcessado,
+        valor_glosa: retorno.valorGlosa,
+        valor_liberado: retorno.valorLiberado,
+        xml_situacao_protocolo: retorno.xmlResposta,
+        consultado_em: new Date().toISOString()
+      }, {
+        status_integracao: retorno.statusProtocolo ? `status_${retorno.statusProtocolo}` : 'status_consultado'
+      });
+
+      await registrarLog('STATUS_ORIZON', lote, `Status Orizon consultado: ${statusDescricao}`);
+      await carregarLotes();
+      toast.success(`Status Orizon: ${statusDescricao}`);
+    } catch (error) {
+      console.error('Erro ao consultar status Orizon:', error);
+      toast.error(`Erro na consulta Orizon: ${error.message}`);
+    } finally {
+      setConsultandoOrizonId(null);
+    }
+  };
+
+  const baixarArquivoXML = (conteudo, nomeArquivo, mensagem = 'XML baixado!') => {
+    const blob = new Blob([conteudo], { type: 'application/xml' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${lote.numero_lote}.xml`;
+    a.download = nomeArquivo;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success('XML baixado!');
+    toast.success(mensagem);
+  };
+
+  const gerarXMLporLote = (lote) => {
+    if (!lote.xml_content) {
+      toast.error('Lote sem XML TISS armazenado. Regere o XML antes de baixar.');
+      return;
+    }
+
+    baixarArquivoXML(lote.xml_content, `${lote.numero_lote}.xml`);
+  };
+
+  const gerarXMLWebservicePorLote = async (lote) => {
+    const loteKey = lote.id || lote.numero_lote;
+    const convenio = convenios.find(c => c.id === lote.convenio_id);
+
+    if (!lote.xml_content) {
+      toast.error('Lote sem XML TISS armazenado. Regere o XML antes de gerar o formato WebService.');
+      return;
+    }
+
+    setGerandoWebserviceId(loteKey);
+    try {
+      const credenciais = await carregarCredenciaisOrizon(convenio, { exigirEndpointLote: false });
+      const xmlWebservice = montarEnvelopeLoteGuias(lote.xml_content, {
+        login: credenciais.login,
+        senhaMD5: hashSenhaOrizon(credenciais.senha)
+      });
+      const ambiente = credenciais.ambiente === 'producao' ? 'producao' : 'homologacao';
+      const nomeArquivo = `${lote.numero_lote}_webservice_orizon_${ambiente}.xml`;
+
+      baixarArquivoXML(xmlWebservice, nomeArquivo, 'XML WebService gerado no padrão SOAP Orizon!');
+      await registrarLog('GERACAO_XML_WEBSERVICE', lote, `XML WebService SOAP Orizon (${ambiente}) gerado para o lote ${lote.numero_lote}`);
+    } catch (error) {
+      console.error('Erro ao gerar XML WebService do lote:', error);
+      toast.error(`Erro ao gerar XML WebService: ${error.message}`, { duration: 12000 });
+    } finally {
+      setGerandoWebserviceId(null);
+    }
   };
 
   const visualizarLote = (lote) => {
     setSelectedLote(lote);
+    setModoVisualizacaoXml('xml');
     setShowLoteModal(true);
   };
 
@@ -1828,22 +2190,38 @@ export default function Faturamento() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Data</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Guias</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Valor</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 w-64">Ações</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Protocolo Orizon</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400">Status Orizon</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 w-72">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {guiasGeradas.map((g) => (
+                  {guiasGeradas.map((g) => {
+                    const statusOrizon = g.integracao_orizon?.status_descricao || STATUS_PROTOCOLO_ORIZON[g.integracao_orizon?.status_protocolo] || g.status_integracao || '-';
+                    const protocoloOrizon = g.protocolo_orizon || g.integracao_orizon?.protocolo_recebimento || '-';
+                    const loteKey = g.id || g.numero_lote;
+                    const possuiAnexosOuProtocolos = loteTemAnexosOuProtocolos(g);
+                    return (
                     <tr key={g.id || `lote-${g.numero_lote}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                       <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">{g.convenio_nome}</td>
                       <td className="px-4 py-3 text-xs font-mono text-blue-600 dark:text-blue-400 font-medium">{g.numero_lote}</td>
                       <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{g.data_envio}</td>
                       <td className="px-4 py-3 text-xs text-gray-500 dark:text-gray-400">{g.quantidade_guias}</td>
                       <td className="px-4 py-3 text-xs font-semibold text-gray-700 dark:text-gray-300">R$ {(g.dados_fatura?.base_calculo || 0).toFixed(2)}</td>
+                      <td className="px-4 py-3 text-xs font-mono text-blue-700 dark:text-blue-300">{protocoloOrizon}</td>
+                      <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{statusOrizon}</td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex gap-1 justify-center flex-wrap">
                           {/* Visualizar XML */}
                           <button onClick={() => visualizarLote(g)} className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors" title="Visualizar XML">
                             <EyeIcon className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => abrirDadosFaturaLote(g)} className="p-1 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors" title="Visualizar dados da nota fiscal/faturamento">
+                            <InformationCircleIcon className="w-4 h-4" />
+                          </button>
+
+                          <button onClick={() => abrirDadosFaturaLote(g)} disabled={!possuiAnexosOuProtocolos} className="p-1 rounded-lg text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-900/20 transition-colors disabled:opacity-40" title="Ver anexos, nota fiscal e protocolos vinculados">
+                            <PaperClipIcon className="w-4 h-4" />
                           </button>
                           
                           {/* Imprimir Guias TISS */}
@@ -1862,8 +2240,38 @@ export default function Faturamento() {
                           </button>
                           
                           {/* Baixar XML */}
-                          <button onClick={() => gerarXMLporLote(g)} className="p-1 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" title="Baixar XML">
+                          <button onClick={() => gerarXMLporLote(g)} className="p-1 rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors" title="Baixar XML TISS padrão">
                             <DocumentArrowDownIcon className="w-4 h-4" />
+                          </button>
+
+                          {/* Baixar XML WebService */}
+                          <button
+                            onClick={() => gerarXMLWebservicePorLote(g)}
+                            disabled={gerandoWebserviceId === loteKey}
+                            className="p-1 rounded-lg text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors disabled:opacity-50"
+                            title="Baixar XML formato WebService SOAP Orizon"
+                          >
+                            {gerandoWebserviceId === loteKey ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-600"></div> : <DocumentPlusIcon className="w-4 h-4" />}
+                          </button>
+
+                          {/* Enviar Orizon */}
+                          <button
+                            onClick={() => enviarLoteOrizon(g)}
+                            disabled={enviandoOrizonId === loteKey}
+                            className="p-1 rounded-lg text-cyan-600 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-colors disabled:opacity-50"
+                            title="Enviar lote para Orizon"
+                          >
+                            {enviandoOrizonId === loteKey ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-600"></div> : <CloudArrowUpIcon className="w-4 h-4" />}
+                          </button>
+
+                          {/* Consultar Status Orizon */}
+                          <button
+                            onClick={() => consultarStatusOrizon(g)}
+                            disabled={consultandoOrizonId === loteKey || !protocoloOrizon || protocoloOrizon === '-'}
+                            className="p-1 rounded-lg text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors disabled:opacity-40"
+                            title="Consultar status do protocolo Orizon"
+                          >
+                            {consultandoOrizonId === loteKey ? <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-teal-600"></div> : <ArrowPathIcon className="w-4 h-4" />}
                           </button>
                           
                           {/* Regenerar XML */}
@@ -1888,10 +2296,10 @@ export default function Faturamento() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  );})}
                   {guiasGeradas.length === 0 && (
                     <tr>
-                      <td colSpan="6" className="px-4 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
+                      <td colSpan="8" className="px-4 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
                         <DocumentPlusIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
                         Nenhum lote gerado ainda
                       </td>
@@ -2064,6 +2472,25 @@ export default function Faturamento() {
                     </div>
                   </div>
 
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nº Nota Fiscal</label>
+                      <input type="text" value={dadosFatura.numeroNota} onChange={e => setDadosFatura({...dadosFatura, numeroNota: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" placeholder="NF-e/NFS-e" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Protocolo / RPS</label>
+                      <input type="text" value={dadosFatura.protocoloNota} onChange={e => setDadosFatura({...dadosFatura, protocoloNota: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" placeholder="Protocolo, RPS ou recibo" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome do Anexo</label>
+                      <input type="text" value={dadosFatura.anexoNome} onChange={e => setDadosFatura({...dadosFatura, anexoNome: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" placeholder="PDF da nota, protocolo..." />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">URL do Anexo</label>
+                      <input type="url" value={dadosFatura.anexoUrl} onChange={e => setDadosFatura({...dadosFatura, anexoUrl: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" placeholder="https://..." />
+                    </div>
+                  </div>
+
                   <div className="mt-4">
                     <h5 className="font-medium text-sm text-gray-700 dark:text-gray-300 mb-2">Impostos e Deduções</h5>
                     <div className="grid grid-cols-2 md:grid-cols-8 gap-2">
@@ -2166,12 +2593,150 @@ export default function Faturamento() {
                     <div><span className="text-xs text-gray-500">Previsão Pagto:</span> <span className="text-sm">{selectedLote.dados_fatura.data_previsao_pagamento || '-'}</span></div>
                   </div>
                 )}
-                <div className="bg-gray-900 rounded-xl p-4 overflow-auto max-h-96">
-                  <pre className="text-xs text-green-400 font-mono whitespace-pre-wrap">{selectedLote.xml_content}</pre>
+                {(selectedLote.protocolo_orizon || selectedLote.integracao_orizon?.protocolo_recebimento || selectedLote.status_integracao) && (
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-5 p-4 bg-cyan-50 dark:bg-cyan-900/20 rounded-xl">
+                    <div><span className="text-xs text-gray-500">Protocolo Orizon:</span> <span className="text-sm font-mono">{selectedLote.protocolo_orizon || selectedLote.integracao_orizon?.protocolo_recebimento || '-'}</span></div>
+                    <div><span className="text-xs text-gray-500">Status:</span> <span className="text-sm">{selectedLote.integracao_orizon?.status_descricao || STATUS_PROTOCOLO_ORIZON[selectedLote.integracao_orizon?.status_protocolo] || selectedLote.status_integracao || '-'}</span></div>
+                    <div><span className="text-xs text-gray-500">Enviado em:</span> <span className="text-sm">{selectedLote.integracao_orizon?.enviado_em ? format(new Date(selectedLote.integracao_orizon.enviado_em), 'dd/MM/yyyy HH:mm') : '-'}</span></div>
+                    <div><span className="text-xs text-gray-500">Última consulta:</span> <span className="text-sm">{selectedLote.integracao_orizon?.consultado_em ? format(new Date(selectedLote.integracao_orizon.consultado_em), 'dd/MM/yyyy HH:mm') : '-'}</span></div>
+                  </div>
+                )}
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-800 dark:text-white">Visualização do XML</h4>
+                    <p className="text-xs text-gray-500">Alterne entre o arquivo XML bruto e um resumo em formato de formulário.</p>
+                  </div>
+                  <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setModoVisualizacaoXml('xml')}
+                      className={`px-3 py-1.5 text-xs font-medium ${modoVisualizacaoXml === 'xml' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300'}`}
+                    >
+                      XML
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModoVisualizacaoXml('formulario')}
+                      className={`px-3 py-1.5 text-xs font-medium ${modoVisualizacaoXml === 'formulario' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300'}`}
+                    >
+                      Formulário
+                    </button>
+                  </div>
                 </div>
-                <div className="flex justify-end gap-3 mt-5 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <button onClick={() => { const blob = new Blob([selectedLote.xml_content], { type: 'application/xml' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${selectedLote.numero_lote}.xml`; a.click(); URL.revokeObjectURL(url); toast.success('XML baixado!'); }} className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg">Baixar XML</button>
+                {modoVisualizacaoXml === 'formulario' ? (() => {
+                  const resumoXml = resumoFormularioXml(selectedLote);
+                  return (
+                    <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <div><span className="text-xs text-gray-500">Tipo transação</span><p className="text-sm font-semibold">{resumoXml.tipoTransacao}</p></div>
+                        <div><span className="text-xs text-gray-500">Padrão TISS</span><p className="text-sm font-semibold">{resumoXml.padrao}</p></div>
+                        <div><span className="text-xs text-gray-500">Sequencial</span><p className="text-sm font-mono">{resumoXml.sequencialTransacao}</p></div>
+                        <div><span className="text-xs text-gray-500">Nº lote XML</span><p className="text-sm font-mono">{resumoXml.numeroLote}</p></div>
+                        <div><span className="text-xs text-gray-500">Data registro</span><p className="text-sm">{resumoXml.dataRegistro}</p></div>
+                        <div><span className="text-xs text-gray-500">Hora registro</span><p className="text-sm">{resumoXml.horaRegistro}</p></div>
+                        <div><span className="text-xs text-gray-500">Registro ANS</span><p className="text-sm font-mono">{resumoXml.registroANS}</p></div>
+                        <div><span className="text-xs text-gray-500">Prestador operadora</span><p className="text-sm font-mono">{resumoXml.codigoPrestador}</p></div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                        <div><span className="text-xs text-gray-500">Convênio</span><p className="text-sm font-medium">{selectedLote.convenio_nome || '-'}</p></div>
+                        <div><span className="text-xs text-gray-500">Guias no cadastro</span><p className="text-sm font-semibold">{selectedLote.quantidade_guias || selectedLote.guias_ids?.length || 0}</p></div>
+                        <div><span className="text-xs text-gray-500">Guias no XML</span><p className="text-sm font-semibold">{resumoXml.guiasNoXml}</p></div>
+                        <div><span className="text-xs text-gray-500">Valor total</span><p className="text-sm font-bold text-green-600">{valorMoeda(selectedLote.valor_total)}</p></div>
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        Esta visualização ajuda a conferir rapidamente o cabeçalho SOAP/TISS antes do envio. Para auditoria técnica, use a aba XML.
+                      </div>
+                    </div>
+                  );
+                })() : (
+                  <div className="bg-gray-900 rounded-xl p-4 overflow-auto max-h-96">
+                    <pre className="text-xs text-green-400 font-mono whitespace-pre-wrap">{selectedLote.xml_content}</pre>
+                  </div>
+                )}
+                <div className="flex flex-wrap justify-end gap-3 mt-5 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <button onClick={() => gerarXMLporLote(selectedLote)} className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg">Baixar XML TISS</button>
+                  <button
+                    onClick={() => gerarXMLWebservicePorLote(selectedLote)}
+                    disabled={gerandoWebserviceId === (selectedLote.id || selectedLote.numero_lote)}
+                    className="px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-600 text-white rounded-lg disabled:opacity-50"
+                  >
+                    {gerandoWebserviceId === (selectedLote.id || selectedLote.numero_lote) ? 'Gerando...' : 'Baixar XML WebService'}
+                  </button>
                   <button onClick={() => setShowLoteModal(false)} className="px-4 py-2 border rounded-lg">Fechar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Dados da Nota Fiscal / Faturamento */}
+        {showFaturaModal && selectedFaturaLote && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-5 rounded-t-2xl">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Dados da Nota Fiscal / Faturamento</h3>
+                  <button onClick={() => setShowFaturaModal(false)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"><XMarkIcon className="w-5 h-5" /></button>
+                </div>
+              </div>
+              <div className="p-5 space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                  <div><span className="text-xs text-gray-500">Convênio</span><p className="text-sm font-medium text-gray-800 dark:text-white">{selectedFaturaLote.convenio_nome || '-'}</p></div>
+                  <div><span className="text-xs text-gray-500">Nº Lote</span><p className="text-sm font-mono text-blue-600">{selectedFaturaLote.numero_lote || '-'}</p></div>
+                  <div><span className="text-xs text-gray-500">Guias</span><p className="text-sm font-semibold">{selectedFaturaLote.quantidade_guias || selectedFaturaLote.guias_ids?.length || 0}</p></div>
+                </div>
+
+                <div className="border rounded-xl p-4">
+                  <h4 className="font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2"><BanknotesIcon className="w-5 h-5 text-green-600" /> Nota fiscal e faturamento</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div><span className="text-xs text-gray-500">Nº Nota Fiscal</span><p className="text-sm font-mono">{selectedFaturaLote.dados_fatura?.numero_nota || '-'}</p></div>
+                    <div><span className="text-xs text-gray-500">Protocolo / RPS</span><p className="text-sm font-mono">{selectedFaturaLote.dados_fatura?.protocolo_nota || '-'}</p></div>
+                    <div><span className="text-xs text-gray-500">Competência</span><p className="text-sm">{selectedFaturaLote.dados_fatura?.competencia || '-'}</p></div>
+                    <div><span className="text-xs text-gray-500">Fechamento</span><p className="text-sm">{selectedFaturaLote.dados_fatura?.data_fechamento || '-'}</p></div>
+                    <div><span className="text-xs text-gray-500">Previsão pagamento</span><p className="text-sm">{selectedFaturaLote.dados_fatura?.data_previsao_pagamento || '-'}</p></div>
+                    <div><span className="text-xs text-gray-500">Base cálculo</span><p className="text-sm font-semibold">{valorMoeda(selectedFaturaLote.dados_fatura?.base_calculo)}</p></div>
+                    <div><span className="text-xs text-gray-500">Valor bruto do lote</span><p className="text-sm font-semibold">{valorMoeda(selectedFaturaLote.valor_total)}</p></div>
+                    <div><span className="text-xs text-gray-500">Valor líquido</span><p className="text-sm font-bold text-green-600">{valorMoeda(selectedFaturaLote.dados_fatura?.valor_liquido)}</p></div>
+                  </div>
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {[
+                      ['ISS', 'aliquota_iss', 'valor_iss'],
+                      ['IBS', 'aliquota_ibs', 'valor_ibs'],
+                      ['CBS', 'aliquota_cbs', 'valor_cbs'],
+                      ['IR', 'aliquota_ir', 'valor_ir'],
+                      ['CSLL', 'aliquota_csll', 'valor_csll'],
+                      ['PIS', 'aliquota_pis', 'valor_pis'],
+                      ['COFINS', 'aliquota_cofins', 'valor_cofins']
+                    ].map(([label, aliquotaKey, valorKey]) => (
+                      <div key={label} className="rounded-lg bg-gray-50 dark:bg-gray-700/50 p-3">
+                        <span className="text-xs text-gray-500">{label}</span>
+                        <p className="text-sm font-medium">{Number(selectedFaturaLote.dados_fatura?.[aliquotaKey] || 0).toFixed(2)}% • {valorMoeda(selectedFaturaLote.dados_fatura?.[valorKey])}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {selectedFaturaLote.dados_fatura?.observacoes && (
+                    <div className="mt-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm text-gray-700 dark:text-gray-300">{selectedFaturaLote.dados_fatura.observacoes}</div>
+                  )}
+                </div>
+
+                <div className="border rounded-xl p-4">
+                  <h4 className="font-semibold text-gray-800 dark:text-white mb-3 flex items-center gap-2"><PaperClipIcon className="w-5 h-5 text-slate-600" /> Anexos e protocolos</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                    <div><span className="text-xs text-gray-500">Protocolo Orizon</span><p className="text-sm font-mono">{selectedFaturaLote.protocolo_orizon || selectedFaturaLote.integracao_orizon?.protocolo_recebimento || '-'}</p></div>
+                    <div><span className="text-xs text-gray-500">Status Orizon</span><p className="text-sm">{selectedFaturaLote.integracao_orizon?.status_descricao || STATUS_PROTOCOLO_ORIZON[selectedFaturaLote.integracao_orizon?.status_protocolo] || selectedFaturaLote.status_integracao || '-'}</p></div>
+                  </div>
+                  {getAnexosFatura(selectedFaturaLote).length > 0 ? (
+                    <div className="space-y-2">
+                      {getAnexosFatura(selectedFaturaLote).map((anexo, idx) => (
+                        <a key={`${anexo.url}-${idx}`} href={anexo.url} target="_blank" rel="noreferrer" className="flex items-center justify-between gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                          <span className="text-sm font-medium text-blue-700 dark:text-blue-300">{anexo.nome || `Anexo ${idx + 1}`}</span>
+                          <span className="text-xs text-gray-500">Abrir</span>
+                        </a>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">Nenhum anexo de nota fiscal/protocolo informado para este lote.</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -2187,6 +2752,7 @@ export default function Faturamento() {
             <li>• Após faturar, as guias são finalizadas e não podem ser alteradas no módulo de atendimentos</li>
             <li>• Para reabrir as guias, cancele o lote no histórico</li>
             <li>• Use "Gerar por Nº Lote" para regenerar o XML de um lote específico</li>
+            <li>• Use "Baixar XML WebService" nos lotes para gerar o envelope SOAP TISS com login/senha do convênio</li>
             <li>• Cancelar um lote retorna as guias para o status "faturado"</li>
             <li>• Limite máximo de <strong>{MAX_GUIAS_POR_LOTE} guias por lote</strong></li>
             <li>• O número do lote é um sequencial único de até 12 dígitos</li>

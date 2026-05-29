@@ -74,6 +74,18 @@ const exportToHTML = (data, title, filename) => {
   toast.success('HTML exportado com sucesso!');
 };
 
+
+const moeda = (valor = 0) => `R$ ${Number(valor || 0).toFixed(2)}`;
+const percentual = (valor = 0) => `${Number(valor || 0).toFixed(2)}%`;
+
+const getRelatorioLabel = (tipo) => ({
+  faturamento: 'Faturamento consolidado',
+  financeiro: 'Financeiro consolidado',
+  atendimentos: 'Atendimentos / Produção',
+  glosas: 'Glosas e recursos',
+  notas: 'Notas fiscais / Faturamento'
+}[tipo] || 'Relatório');
+
 export default function Relatorios() {
   const { unidadeAtualId } = useUnidade();
   const [loading, setLoading] = useState(true);
@@ -174,6 +186,9 @@ export default function Relatorios() {
   const lotesFiltrados = useMemo(() => filtrarPorData(lotes), [lotes, filtroPeriodo, dataInicio, dataFim]);
   const notasFiltradas = useMemo(() => filtrarPorData(notasFiscais, 'data_emissao'), [notasFiscais, filtroPeriodo, dataInicio, dataFim]);
   const glosasFiltradas = useMemo(() => filtrarPorData(glosas), [glosas, filtroPeriodo, dataInicio, dataFim]);
+  const contasReceberFiltradas = useMemo(() => filtrarPorData(contasReceber, 'data_vencimento'), [contasReceber, filtroPeriodo, dataInicio, dataFim]);
+  const contasPagarFiltradas = useMemo(() => filtrarPorData(contasPagar, 'data_vencimento'), [contasPagar, filtroPeriodo, dataInicio, dataFim]);
+  const fluxoFiltrado = useMemo(() => filtrarPorData(fluxoCaixa, 'data'), [fluxoCaixa, filtroPeriodo, dataInicio, dataFim]);
 
   // ===== ESTATÍSTICAS =====
   const stats = useMemo(() => {
@@ -181,21 +196,26 @@ export default function Relatorios() {
     const totalLotes = lotesFiltrados.length;
     const totalNotas = notasFiltradas.length;
     const totalGlosas = glosasFiltradas.reduce((s, g) => s + (g.valor_glosado || 0), 0);
-    const totalRecebido = contasReceber
+    const totalReceber = contasReceberFiltradas.reduce((s, c) => s + (c.valor_total || c.valor || 0), 0);
+    const totalRecebido = contasReceberFiltradas
       .filter(c => c.status === 'recebido')
-      .reduce((s, c) => s + (c.valor_recebido || 0), 0);
-    const totalPago = contasPagar
+      .reduce((s, c) => s + (c.valor_recebido || c.valor_total || c.valor || 0), 0);
+    const totalPagar = contasPagarFiltradas.reduce((s, c) => s + (c.valor_total || c.valor || 0), 0);
+    const totalPago = contasPagarFiltradas
       .filter(c => c.status === 'pago')
-      .reduce((s, c) => s + (c.valor_pago || 0), 0);
-    const saldoFluxo = fluxoCaixa.reduce((s, f) => s + (f.tipo === 'entrada' ? (f.valor || 0) : -(f.valor || 0)), 0);
+      .reduce((s, c) => s + (c.valor_pago || c.valor_total || c.valor || 0), 0);
+    const saldoFluxo = fluxoFiltrado.reduce((s, f) => s + (f.tipo === 'entrada' ? (f.valor || 0) : -(f.valor || 0)), 0);
+    const valorLiquido = totalFaturado - totalGlosas;
+    const taxaGlosa = totalFaturado > 0 ? (totalGlosas / totalFaturado) * 100 : 0;
 
     return {
       totalFaturado, totalLotes, totalNotas, totalGlosas,
-      totalRecebido, totalPago, saldoFluxo,
+      totalReceber, totalRecebido, totalPagar, totalPago, saldoFluxo,
+      valorLiquido, taxaGlosa,
       totalAtendimentos: atendimentosFiltrados.length,
       ticketMedio: atendimentosFiltrados.length > 0 ? totalFaturado / atendimentosFiltrados.length : 0
     };
-  }, [atendimentosFiltrados, lotesFiltrados, notasFiltradas, glosasFiltradas, contasReceber, contasPagar, fluxoCaixa]);
+  }, [atendimentosFiltrados, lotesFiltrados, notasFiltradas, glosasFiltradas, contasReceberFiltradas, contasPagarFiltradas, fluxoFiltrado]);
 
   const faturamentoPorConvenio = useMemo(() => {
     const map = {};
@@ -218,39 +238,65 @@ export default function Relatorios() {
   // ===== GERAÇÃO DE RELATÓRIOS =====
   const gerarDadosFaturamento = () => {
     return [
-      { Indicador: 'Total Faturado', Valor: `R$ ${stats.totalFaturado.toFixed(2)}` },
+      { Indicador: 'Total Faturado', Valor: moeda(stats.totalFaturado) },
       { Indicador: 'Total de Atendimentos', Valor: stats.totalAtendimentos },
-      { Indicador: 'Ticket Médio', Valor: `R$ ${stats.ticketMedio.toFixed(2)}` },
+      { Indicador: 'Ticket Médio', Valor: moeda(stats.ticketMedio) },
       { Indicador: 'Total de Lotes', Valor: stats.totalLotes },
       { Indicador: 'Total de Notas Fiscais', Valor: stats.totalNotas },
-      { Indicador: 'Total Glosado', Valor: `R$ ${stats.totalGlosas.toFixed(2)}` },
-      { Indicador: 'Total Recebido', Valor: `R$ ${stats.totalRecebido.toFixed(2)}` },
-      { Indicador: 'Total Pago', Valor: `R$ ${stats.totalPago.toFixed(2)}` },
-      { Indicador: 'Saldo Fluxo de Caixa', Valor: `R$ ${stats.saldoFluxo.toFixed(2)}` },
+      { Indicador: 'Total Glosado', Valor: `${moeda(stats.totalGlosas)} (${percentual(stats.taxaGlosa)})` },
+      { Indicador: 'Total Recebido', Valor: moeda(stats.totalRecebido) },
+      { Indicador: 'Total Pago', Valor: moeda(stats.totalPago) },
+      { Indicador: 'Saldo Fluxo de Caixa', Valor: moeda(stats.saldoFluxo) },
+      { Indicador: 'Valor Líquido após Glosas', Valor: moeda(stats.valorLiquido) },
       {},
       { Indicador: '--- FATURAMENTO POR CONVÊNIO ---', Valor: '' },
       ...faturamentoPorConvenio.map(([conv, valor]) => ({
-        Indicador: conv, Valor: `R$ ${valor.toFixed(2)}`
+        Indicador: conv, Valor: moeda(valor)
       })),
       {},
       { Indicador: '--- GLOSAS POR TIPO ---', Valor: '' },
       ...glosasPorTipo.map(([tipo, valor]) => ({
-        Indicador: `Tipo ${tipo}`, Valor: `R$ ${valor.toFixed(2)}`
+        Indicador: `Tipo ${tipo}`, Valor: moeda(valor)
       }))
     ];
   };
 
   const gerarDadosFinanceiro = () => {
+    const receberPendente = contasReceberFiltradas.filter(c => c.status !== 'recebido');
+    const receberRecebido = contasReceberFiltradas.filter(c => c.status === 'recebido');
+    const pagarPendente = contasPagarFiltradas.filter(c => c.status !== 'pago');
+    const pagarPago = contasPagarFiltradas.filter(c => c.status === 'pago');
     return [
-      { Categoria: 'Contas a Receber (pendentes)', Quantidade: contasReceber.filter(c => c.status === 'pendente').length, Valor: `R$ ${contasReceber.filter(c => c.status === 'pendente').reduce((s, c) => s + (c.valor_total || 0), 0).toFixed(2)}` },
-      { Categoria: 'Contas a Receber (recebidas)', Quantidade: contasReceber.filter(c => c.status === 'recebido').length, Valor: `R$ ${contasReceber.filter(c => c.status === 'recebido').reduce((s, c) => s + (c.valor_recebido || 0), 0).toFixed(2)}` },
-      { Categoria: 'Contas a Pagar (pendentes)', Quantidade: contasPagar.filter(c => c.status === 'pendente').length, Valor: `R$ ${contasPagar.filter(c => c.status === 'pendente').reduce((s, c) => s + (c.valor_total || 0), 0).toFixed(2)}` },
-      { Categoria: 'Contas a Pagar (pagas)', Quantidade: contasPagar.filter(c => c.status === 'pago').length, Valor: `R$ ${contasPagar.filter(c => c.status === 'pago').reduce((s, c) => s + (c.valor_pago || 0), 0).toFixed(2)}` },
-      { Categoria: 'Entradas (fluxo de caixa)', Quantidade: fluxoCaixa.filter(f => f.tipo === 'entrada').length, Valor: `R$ ${fluxoCaixa.filter(f => f.tipo === 'entrada').reduce((s, f) => s + (f.valor || 0), 0).toFixed(2)}` },
-      { Categoria: 'Saídas (fluxo de caixa)', Quantidade: fluxoCaixa.filter(f => f.tipo === 'saida').length, Valor: `R$ ${fluxoCaixa.filter(f => f.tipo === 'saida').reduce((s, f) => s + (f.valor || 0), 0).toFixed(2)}` },
-      { Categoria: 'Saldo Líquido', Quantidade: '-', Valor: `R$ ${stats.saldoFluxo.toFixed(2)}` }
+      { Categoria: 'Contas a Receber (pendentes)', Quantidade: receberPendente.length, Valor: moeda(receberPendente.reduce((s, c) => s + (c.valor_total || c.valor || 0), 0)) },
+      { Categoria: 'Contas a Receber (recebidas)', Quantidade: receberRecebido.length, Valor: moeda(receberRecebido.reduce((s, c) => s + (c.valor_recebido || c.valor_total || c.valor || 0), 0)) },
+      { Categoria: 'Contas a Pagar (pendentes)', Quantidade: pagarPendente.length, Valor: moeda(pagarPendente.reduce((s, c) => s + (c.valor_total || c.valor || 0), 0)) },
+      { Categoria: 'Contas a Pagar (pagas)', Quantidade: pagarPago.length, Valor: moeda(pagarPago.reduce((s, c) => s + (c.valor_pago || c.valor_total || c.valor || 0), 0)) },
+      { Categoria: 'Entradas (fluxo de caixa)', Quantidade: fluxoFiltrado.filter(f => f.tipo === 'entrada').length, Valor: moeda(fluxoFiltrado.filter(f => f.tipo === 'entrada').reduce((s, f) => s + (f.valor || 0), 0)) },
+      { Categoria: 'Saídas (fluxo de caixa)', Quantidade: fluxoFiltrado.filter(f => f.tipo === 'saida').length, Valor: moeda(fluxoFiltrado.filter(f => f.tipo === 'saida').reduce((s, f) => s + (f.valor || 0), 0)) },
+      { Categoria: 'Saldo Líquido', Quantidade: '-', Valor: moeda(stats.saldoFluxo) }
     ];
   };
+
+  const gerarDadosGlosas = () => glosasFiltradas.map(g => ({
+    Data: g.data_glosa || g.created_at || '-',
+    Paciente: g.paciente_nome || g.beneficiario || '-',
+    Convênio: g.convenio_nome || g.paciente_convenio_nome || '-',
+    Guia: g.numero_guia || g.numero_guia_prestador || '-',
+    Tipo: g.tipo_glosa || '-',
+    Motivo: g.motivo || g.descricao || g.observacao || '-',
+    'Valor Glosado': moeda(g.valor_glosado || g.valor || 0),
+    Status: g.status || '-'
+  }));
+
+  const gerarDadosNotas = () => notasFiltradas.map(n => ({
+    Emissão: n.data_emissao || n.created_at || '-',
+    Número: n.numero_nota || n.numero_nf || '-',
+    Convênio: n.convenio_nome || n.tomador || '-',
+    Lote: n.numero_lote || n.lote_id || '-',
+    'Valor Bruto': moeda(n.valor_bruto || n.valor_total || 0),
+    'Valor Líquido': moeda(n.valor_liquido || n.valor_total || 0),
+    Status: n.status || '-'
+  }));
 
   const gerarRelatorio = () => {
     const dataAtual = format(new Date(), 'yyyyMMdd_HHmmss');
@@ -261,13 +307,20 @@ export default function Relatorios() {
       dados = gerarDadosFaturamento();
     } else if (tipoRelatorio === 'financeiro') {
       dados = gerarDadosFinanceiro();
+    } else if (tipoRelatorio === 'glosas') {
+      dados = gerarDadosGlosas();
+    } else if (tipoRelatorio === 'notas') {
+      dados = gerarDadosNotas();
     } else {
       dados = atendimentosFiltrados.map(a => ({
         Data: a.data_atendimento || '-',
         Paciente: a.paciente_nome || '-',
+        CPF: a.cpf || '-',
         Convênio: a.paciente_convenio_nome || '-',
         Carteira: a.numero_carteira || '-',
-        'Valor Total': `R$ ${(a.valor_total || 0).toFixed(2)}`,
+        Guia: a.numero_guia_prestador || '-',
+        Autorização: a.senha_autorizacao || a.numero_guia_operadora || '-',
+        'Valor Total': moeda(a.valor_total || 0),
         Status: a.status || '-'
       }));
     }
@@ -286,6 +339,31 @@ export default function Relatorios() {
 
   const imprimirRelatorio = () => {
     const printWindow = window.open('', '_blank');
+    const dadosDetalhados = tipoRelatorio === 'faturamento'
+      ? gerarDadosFaturamento()
+      : tipoRelatorio === 'financeiro'
+        ? gerarDadosFinanceiro()
+        : tipoRelatorio === 'glosas'
+          ? gerarDadosGlosas()
+          : tipoRelatorio === 'notas'
+            ? gerarDadosNotas()
+            : atendimentosFiltrados.map(a => ({
+                Data: a.data_atendimento || '-',
+                Paciente: a.paciente_nome || '-',
+                CPF: a.cpf || '-',
+                Convênio: a.paciente_convenio_nome || '-',
+                Carteira: a.numero_carteira || '-',
+                Guia: a.numero_guia_prestador || '-',
+                Autorização: a.senha_autorizacao || a.numero_guia_operadora || '-',
+                'Valor Total': moeda(a.valor_total || 0),
+                Status: a.status || '-'
+              }));
+    const headersDetalhe = Object.keys(dadosDetalhados[0] || {});
+    const tabelaDetalhe = headersDetalhe.length ? `
+      <h3>Detalhamento</h3>
+      <table><thead><tr>${headersDetalhe.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>
+      ${dadosDetalhados.map(row => `<tr>${headersDetalhe.map(h => `<td>${row[h] || ''}</td>`).join('')}</tr>`).join('')}
+      </tbody></table>` : '<p>Sem dados detalhados para o período.</p>';
     let conteudo = `
       <!DOCTYPE html><html><head><title>Relatório</title>
       <style>body{font-family:Arial;margin:20px}h1{color:#2563eb}h2{color:#333;margin-top:20px}
@@ -293,25 +371,26 @@ export default function Relatorios() {
       td{border:1px solid #ddd;padding:8px}.footer{margin-top:30px;font-size:12px;color:#666;text-align:center}
       @media print{button{display:none}}</style></head><body>
       <h1>Sistema de Faturamento TISS</h1>
-      <h2>Relatório de ${tipoRelatorio === 'faturamento' ? 'Faturamento' : tipoRelatorio === 'financeiro' ? 'Financeiro' : 'Atendimentos'}</h2>
+      <h2>${getRelatorioLabel(tipoRelatorio)}</h2>
       <p><strong>Gerado em:</strong> ${new Date().toLocaleString()}</p>
       <p><strong>Período:</strong> ${getPeriodoFiltro().inicio.toLocaleDateString()} a ${getPeriodoFiltro().fim.toLocaleDateString()}</p>
       <hr>
       <h3>Resumo</h3>
       <table><tr><th>Indicador</th><th>Valor</th></tr>
-      <tr><td>Total Faturado</td><td>R$ ${stats.totalFaturado.toFixed(2)}</td></tr>
+      <tr><td>Total Faturado</td><td>${moeda(stats.totalFaturado)}</td></tr>
       <tr><td>Total Atendimentos</td><td>${stats.totalAtendimentos}</td></tr>
-      <tr><td>Ticket Médio</td><td>R$ ${stats.ticketMedio.toFixed(2)}</td></tr>
+      <tr><td>Ticket Médio</td><td>${moeda(stats.ticketMedio)}</td></tr>
       <tr><td>Total Lotes</td><td>${stats.totalLotes}</td></tr>
       <tr><td>Notas Fiscais</td><td>${stats.totalNotas}</td></tr>
-      <tr><td>Valor Glosado</td><td>R$ ${stats.totalGlosas.toFixed(2)}</td></tr>
-      <tr><td>Total Recebido</td><td>R$ ${stats.totalRecebido.toFixed(2)}</td></tr>
-      <tr><td>Total Pago</td><td>R$ ${stats.totalPago.toFixed(2)}</td></tr>
-      <tr><td>Saldo Fluxo</td><td>R$ ${stats.saldoFluxo.toFixed(2)}</td></tr>
+      <tr><td>Valor Glosado</td><td>${moeda(stats.totalGlosas)} (${percentual(stats.taxaGlosa)})</td></tr>
+      <tr><td>Total Recebido</td><td>${moeda(stats.totalRecebido)}</td></tr>
+      <tr><td>Total Pago</td><td>${moeda(stats.totalPago)}</td></tr>
+      <tr><td>Saldo Fluxo</td><td>${moeda(stats.saldoFluxo)}</td></tr><tr><td>Valor Líquido após Glosas</td><td>${moeda(stats.valorLiquido)}</td></tr>
       </table>
+      ${tabelaDetalhe}
       <div class="footer">Sistema de Faturamento TISS</div>
       <script>window.onload=function(){window.print()}</script></body></html>`;
-    
+
     printWindow.document.write(conteudo);
     printWindow.document.close();
   };
@@ -388,14 +467,15 @@ export default function Relatorios() {
         {/* Cards resumo */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {[
-            { label: 'Total Faturado', value: `R$ ${stats.totalFaturado.toFixed(2)}`, color: 'text-green-600', icon: CurrencyDollarIcon },
+            { label: 'Total Faturado', value: moeda(stats.totalFaturado), color: 'text-green-600', icon: CurrencyDollarIcon },
             { label: 'Atendimentos', value: stats.totalAtendimentos, color: 'text-blue-600', icon: ClipboardDocumentListIcon },
-            { label: 'Ticket Médio', value: `R$ ${stats.ticketMedio.toFixed(2)}`, color: 'text-purple-600', icon: ChartBarIcon },
+            { label: 'Ticket Médio', value: moeda(stats.ticketMedio), color: 'text-purple-600', icon: ChartBarIcon },
             { label: 'Lotes Gerados', value: stats.totalLotes, color: 'text-orange-600', icon: DocumentTextIcon },
             { label: 'Notas Fiscais', value: stats.totalNotas, color: 'text-indigo-600', icon: BanknotesIcon },
-            { label: 'Valor Glosado', value: `R$ ${stats.totalGlosas.toFixed(2)}`, color: 'text-red-600', icon: ExclamationTriangleIcon },
-            { label: 'Total Recebido', value: `R$ ${stats.totalRecebido.toFixed(2)}`, color: 'text-emerald-600', icon: CheckCircleIcon },
-            { label: 'Saldo Fluxo', value: `R$ ${stats.saldoFluxo.toFixed(2)}`, color: stats.saldoFluxo >= 0 ? 'text-cyan-600' : 'text-red-600', icon: CurrencyDollarIcon },
+            { label: 'Valor Glosado', value: `${moeda(stats.totalGlosas)} (${percentual(stats.taxaGlosa)})`, color: 'text-red-600', icon: ExclamationTriangleIcon },
+            { label: 'Líquido pós-glosa', value: moeda(stats.valorLiquido), color: 'text-teal-600', icon: CheckCircleIcon },
+            { label: 'Total Recebido', value: moeda(stats.totalRecebido), color: 'text-emerald-600', icon: CheckCircleIcon },
+            { label: 'Saldo Fluxo', value: moeda(stats.saldoFluxo), color: stats.saldoFluxo >= 0 ? 'text-cyan-600' : 'text-red-600', icon: CurrencyDollarIcon },
           ].map((card, i) => (
             <div key={i} className="bg-white dark:bg-gray-800 rounded-xl border p-4 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between">
@@ -414,10 +494,10 @@ export default function Relatorios() {
           <div className="bg-white dark:bg-gray-800 rounded-xl border p-4">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tipo de Relatório</label>
             <div className="flex gap-4 flex-wrap">
-              {['faturamento', 'financeiro', 'atendimentos'].map(tipo => (
+              {['faturamento', 'financeiro', 'atendimentos', 'glosas', 'notas'].map(tipo => (
                 <label key={tipo} className="flex items-center gap-2 cursor-pointer">
                   <input type="radio" value={tipo} checked={tipoRelatorio === tipo} onChange={(e) => setTipoRelatorio(e.target.value)} className="w-4 h-4 text-blue-600" />
-                  <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">{tipo}</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{getRelatorioLabel(tipo)}</span>
                 </label>
               ))}
             </div>
