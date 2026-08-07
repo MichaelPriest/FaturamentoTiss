@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext';
 import {
   filterByUnidade,
+  getStoredUnidadeId,
   setStoredUnidadeId,
   unidadesService
 } from '../services/unidadesService';
@@ -33,7 +34,10 @@ export function UnidadeProvider({ children }) {
       const data = await unidadesService.listar();
       setUnidades(data);
 
-      const unidadePermitida = data.find((unidade) => unidade.id === user?.unidade_id) || data[0];
+      const armazenada = getStoredUnidadeId();
+      const unidadePermitida = data.find((unidade) => unidade.id === armazenada)
+        || data.find((unidade) => unidade.id === user?.unidade_id)
+        || data[0];
       const idPermitido = unidadePermitida?.id || null;
       setUnidadeAtualId(idPermitido);
       if (idPermitido) setStoredUnidadeId(idPermitido);
