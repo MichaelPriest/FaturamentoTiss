@@ -43,9 +43,7 @@ export const logAuthState = async () => {
   }
   
   if (session) {
-    console.log('✅ Usuário autenticado:', session.user.email);
-    console.log('📅 Expira em:', new Date(session.expires_at * 1000).toLocaleString());
-    console.log('🔑 Token:', session.access_token?.substring(0, 50) + '...');
+    console.log('✅ Usuário autenticado');
   } else {
     console.log('❌ Usuário NÃO autenticado - Nenhuma sessão encontrada');
   }
@@ -57,7 +55,7 @@ export const fazerLogin = async (email, password) => {
     throw new Error('Supabase não configurado');
   }
   
-  console.log('🔐 Tentando login com:', email);
+  console.log('🔐 Tentando login');
   
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
@@ -70,8 +68,6 @@ export const fazerLogin = async (email, password) => {
   }
   
   console.log('✅ Login realizado com sucesso!');
-  console.log('👤 Usuário:', data.user.email);
-  console.log('🔑 Token:', data.session?.access_token?.substring(0, 50) + '...');
   
   await logAuthState();
   return data;

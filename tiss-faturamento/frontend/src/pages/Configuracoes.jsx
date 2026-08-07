@@ -472,8 +472,9 @@ export default function Configuracoes() {
               <h3 className="font-semibold text-gray-800 dark:text-white">Usuários do Sistema</h3>
             </div>
             <button
-              onClick={() => abrirModalUsuario()}
-              className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm flex items-center gap-2 hover:from-blue-600 hover:to-indigo-700 transition-all duration-200"
+              disabled
+              title="O provisionamento será feito pelo painel SaaS"
+              className="bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-300 px-3 py-1.5 rounded-lg text-sm flex items-center gap-2 cursor-not-allowed"
             >
               <PlusIcon className="w-4 h-4" />
               Novo Usuário
@@ -502,7 +503,7 @@ export default function Configuracoes() {
                 ) : usuarios.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                      Nenhum usuário cadastrado
+                      O provisionamento de usuários é realizado pelo painel SaaS. Cada usuário deve possuir uma única unidade configurada.
                     </td>
                   </tr>
                 ) : (

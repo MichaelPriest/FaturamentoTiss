@@ -28,20 +28,8 @@ const ensureAuth = async () => {
     if (!session) {
       console.error('❌ [unidadesService] Nenhuma sessão encontrada!');
       
-      // Tentar recuperar sessão do localStorage
-      const storedToken = localStorage.getItem('supabase.auth.token');
-      console.log('📦 [unidadesService] Token armazenado:', storedToken ? 'Presente' : 'Ausente');
-      
-      // Verificar se há refresh token
-      const refreshToken = localStorage.getItem('supabase.auth.refreshToken');
-      console.log('🔄 [unidadesService] Refresh token:', refreshToken ? 'Presente' : 'Ausente');
-      
       throw new Error('Usuário não autenticado. Faça login novamente.');
     }
-    
-    console.log('✅ [unidadesService] Sessão válida para:', session.user.email);
-    console.log('📅 [unidadesService] Expira em:', new Date(session.expires_at * 1000).toLocaleString());
-    console.log('🔑 [unidadesService] Token (primeiros 50 chars):', session.access_token?.substring(0, 50) + '...');
     
     return session;
   } catch (error) {

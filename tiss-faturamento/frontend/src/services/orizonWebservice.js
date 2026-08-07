@@ -1,4 +1,5 @@
 import CryptoJS from 'crypto-js';
+import { supabase } from '../lib/supabaseClient';
 
 const TISS_NS = 'http://www.ans.gov.br/padroes/tiss/schemas';
 const SOAP_NS = 'http://schemas.xmlsoap.org/soap/envelope/';
@@ -307,9 +308,14 @@ async function enviarSOAPDireto(endpoint, envelope, opcoes = {}) {
 }
 
 async function enviarSOAPPorProxy(endpoint, envelope, opcoes = {}) {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Sessão expirada. Entre novamente para usar o WebService.');
   const response = await fetch(opcoes.proxyUrl || '/api/orizon-soap', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`
+    },
     body: JSON.stringify({
       endpoint,
       envelope,

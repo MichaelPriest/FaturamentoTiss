@@ -27,6 +27,7 @@ export const conveniosService = {
       return filterByUnidade(data || []);
     } catch (err) {
       console.error('Erro ao listar convênios:', err);
+      throw err;
       return filterByUnidade(localStorageFallback.get(TABLES.CONVENIOS));
     }
   },
@@ -43,8 +44,6 @@ export const conveniosService = {
       // Remover o campo versao_tiss dos dados a serem inseridos (não existe na tabela)
       const { versao_tiss, ...dadosParaInserir } = convenio;
       
-      console.log('Inserindo convênio:', dadosParaInserir);
-      
       const { data, error } = await supabase
         .from(TABLES.CONVENIOS)
         .insert([applyUnidadeToPayload(dadosParaInserir)])
@@ -54,6 +53,7 @@ export const conveniosService = {
       return data;
     } catch (err) {
       console.error('Erro ao criar convênio:', err);
+      throw err;
       const data = localStorageFallback.get(TABLES.CONVENIOS);
       const { versao_tiss, ...dadosLimpos } = convenio;
       const newItem = { ...applyUnidadeToPayload(dadosLimpos), id: Date.now() };
@@ -87,6 +87,7 @@ export const conveniosService = {
       return data;
     } catch (err) {
       console.error('Erro ao atualizar convênio:', err);
+      throw err;
       return { ...convenio, id };
     }
   },
@@ -107,6 +108,7 @@ export const conveniosService = {
       return true;
     } catch (err) {
       console.error('Erro ao deletar convênio:', err);
+      throw err;
       const data = localStorageFallback.get(TABLES.CONVENIOS);
       const filtered = data.filter(item => item.id !== id);
       localStorageFallback.set(TABLES.CONVENIOS, filtered);
@@ -119,7 +121,7 @@ export const conveniosService = {
 export const pacientesService = {
   async listar() {
     if (!isSupabaseAvailable()) {
-      return filterByUnidade(localStorageFallback.get(TABLES.PACIENTES));
+      return localStorageFallback.get(TABLES.PACIENTES);
     }
     try {
       const { data, error } = await supabase
@@ -127,10 +129,11 @@ export const pacientesService = {
         .select('*')
         .order('nome', { ascending: true });
       if (error) throw error;
-      return filterByUnidade(data || []);
+      return data || [];
     } catch (err) {
       console.error('Erro ao listar pacientes:', err);
-      return filterByUnidade(localStorageFallback.get(TABLES.PACIENTES));
+      throw err;
+      return localStorageFallback.get(TABLES.PACIENTES);
     }
   },
 
@@ -149,12 +152,12 @@ export const pacientesService = {
       return data;
     } catch (err) {
       console.error('Erro ao buscar paciente:', err);
+      throw err;
       return null;
     }
   },
 
   async criar(paciente) {
-    console.log('Chamando pacientesService.criar:', paciente);
     if (!isSupabaseAvailable()) {
       const data = localStorageFallback.get(TABLES.PACIENTES);
       const newItem = { ...applyUnidadeToPayload(paciente), id: Date.now(), created_at: new Date().toISOString() };
@@ -171,6 +174,7 @@ export const pacientesService = {
       return data;
     } catch (err) {
       console.error('Erro ao criar paciente no Supabase:', err);
+      throw err;
       const data = localStorageFallback.get(TABLES.PACIENTES);
       const newItem = { ...applyUnidadeToPayload(paciente), id: Date.now(), created_at: new Date().toISOString() };
       localStorageFallback.set(TABLES.PACIENTES, [...data, newItem]);
@@ -199,6 +203,7 @@ export const pacientesService = {
       return data;
     } catch (err) {
       console.error('Erro ao atualizar paciente:', err);
+      throw err;
       return { ...paciente, id };
     }
   },
@@ -219,6 +224,7 @@ export const pacientesService = {
       return true;
     } catch (err) {
       console.error('Erro ao deletar paciente:', err);
+      throw err;
       const data = localStorageFallback.get(TABLES.PACIENTES);
       const filtered = data.filter(item => item.id !== id);
       localStorageFallback.set(TABLES.PACIENTES, filtered);
@@ -244,6 +250,7 @@ export const prestadoresService = {
       return filterByUnidade(data || []);
     } catch (err) {
       console.error('Erro ao listar prestadores:', err);
+      throw err;
       return filterByUnidade(localStorageFallback.get(TABLES.PRESTADORES));
     }
   },
@@ -322,6 +329,7 @@ export const prestadoresService = {
       return resultado;
     } catch (err) {
       console.error('Erro ao listar prestadores com especialidades:', err);
+      throw err;
       return this.listar();
     }
   },
@@ -366,6 +374,7 @@ export const prestadoresService = {
       };
     } catch (err) {
       console.error('Erro ao buscar prestador:', err);
+      throw err;
       return null;
     }
   },
@@ -388,6 +397,7 @@ export const prestadoresService = {
       return data;
     } catch (err) {
       console.error('Erro ao criar prestador no Supabase:', err);
+      throw err;
       const data = localStorageFallback.get(TABLES.PRESTADORES);
       const newItem = { ...applyUnidadeToPayload(prestador), id: Date.now(), created_at: new Date().toISOString() };
       localStorageFallback.set(TABLES.PRESTADORES, [...data, newItem]);
@@ -467,6 +477,7 @@ export const prestadoresService = {
       return data;
     } catch (err) {
       console.error('Erro ao atualizar prestador:', err);
+      throw err;
       return { ...prestador, id };
     }
   },
@@ -556,6 +567,7 @@ export const prestadoresService = {
       return true;
     } catch (err) {
       console.error('Erro ao deletar prestador:', err);
+      throw err;
       return false;
     }
   }
@@ -576,6 +588,7 @@ export const especialidadesService = {
       return filterByUnidade(data || []);
     } catch (err) {
       console.error('Erro ao listar especialidades:', err);
+      throw err;
       return localStorageFallback.get('especialidades') || [];
     }
   },
@@ -597,6 +610,7 @@ export const especialidadesService = {
       return data;
     } catch (err) {
       console.error('Erro ao criar especialidade:', err);
+      throw err;
       return null;
     }
   },
@@ -622,6 +636,7 @@ export const especialidadesService = {
       return data;
     } catch (err) {
       console.error('Erro ao atualizar especialidade:', err);
+      throw err;
       return { ...especialidade, id };
     }
   },
@@ -642,6 +657,7 @@ export const especialidadesService = {
       return true;
     } catch (err) {
       console.error('Erro ao deletar especialidade:', err);
+      throw err;
       return false;
     }
   },
@@ -701,6 +717,7 @@ export const procedimentosService = {
       return filterByUnidade(data || []);
     } catch (err) {
       console.error('Erro ao listar procedimentos:', err);
+      throw err;
       return filterByUnidade(localStorageFallback.get(TABLES.PROCEDIMENTOS));
     }
   },
@@ -742,6 +759,7 @@ export const procedimentosService = {
       return data;
     } catch (err) {
       console.error('Erro ao criar procedimento:', err);
+      throw err;
       // Fallback para localStorage
       const data = localStorageFallback.get(TABLES.PROCEDIMENTOS);
       const newItem = { ...applyUnidadeToPayload(procedimento), id: Date.now() };
@@ -787,6 +805,7 @@ export const procedimentosService = {
       return data;
     } catch (err) {
       console.error('Erro ao atualizar procedimento:', err);
+      throw err;
       return { ...procedimento, id };
     }
   },
@@ -807,6 +826,7 @@ export const procedimentosService = {
       return true;
     } catch (err) {
       console.error('Erro ao deletar procedimento:', err);
+      throw err;
       return true;
     }
   }
@@ -837,6 +857,7 @@ export const atendimentosService = {
       return filterByUnidade(data || []);
     } catch (err) {
       console.error('Erro ao listar atendimentos:', err);
+      throw err;
       return [];
     }
   },
@@ -858,6 +879,7 @@ export const atendimentosService = {
       return data;
     } catch (err) {
       console.error('Erro ao criar atendimento:', err);
+      throw err;
       return null;
     }
   },
@@ -935,6 +957,7 @@ export const logsFaturamentoService = {
       return filterByUnidade(data || []);
     } catch (err) {
       console.error('Erro ao listar logs:', err);
+      throw err;
       return filterByUnidade(localStorageFallback.get(TABLES.LOGS_FATURAMENTO) || []);
     }
   },
@@ -956,6 +979,7 @@ export const logsFaturamentoService = {
       return data;
     } catch (err) {
       console.error('Erro ao criar log:', err);
+      throw err;
       return null;
     }
   }
@@ -976,6 +1000,7 @@ export const lotesFaturamentoService = {
       return filterByUnidade(data || []);
     } catch (err) {
       console.error('Erro ao listar lotes:', err);
+      throw err;
       return filterByUnidade(localStorageFallback.get(TABLES.LOTES_FATURAMENTO) || []);
     }
   },
@@ -995,6 +1020,7 @@ export const lotesFaturamentoService = {
       return data;
     } catch (err) {
       console.error('Erro ao buscar lote:', err);
+      throw err;
       return null;
     }
   },
@@ -1016,6 +1042,7 @@ export const lotesFaturamentoService = {
       return data;
     } catch (err) {
       console.error('Erro ao criar lote:', err);
+      throw err;
       return null;
     }
   },
@@ -1036,6 +1063,7 @@ export const lotesFaturamentoService = {
       return true;
     } catch (err) {
       console.error('Erro ao deletar lote:', err);
+      throw err;
       return false;
     }
   }
@@ -1058,6 +1086,7 @@ export const configuracoesService = {
       return data;
     } catch (err) {
       console.error('Erro ao buscar configuração:', err);
+      throw err;
       return null;
     }
   },
@@ -1086,6 +1115,7 @@ export const configuracoesService = {
       return data;
     } catch (err) {
       console.error('Erro ao salvar configuração:', err);
+      throw err;
       return null;
     }
   },
@@ -1104,6 +1134,7 @@ export const configuracoesService = {
       return filterByUnidade(data || []);
     } catch (err) {
       console.error('Erro ao buscar configurações:', err);
+      throw err;
       return [];
     }
   }
