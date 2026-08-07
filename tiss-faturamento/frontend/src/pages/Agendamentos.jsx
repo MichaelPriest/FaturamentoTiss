@@ -107,7 +107,8 @@ export default function Agendamentos() {
       if (salasRes.error) throw salasRes.error;
 
       setAgendamentos(filterByUnidade(agendamentosRes.data || [], unidadeAtualId));
-      setPacientes(filterByUnidade(pacientesRes.data || [], unidadeAtualId));
+      // Pacientes são compartilhados por empresa; o RLS já limita a empresa atual.
+      setPacientes(pacientesRes.data || []);
       setPrestadores(filterByUnidade(prestadoresRes.data || [], unidadeAtualId));
       setConvenios(filterByUnidade(conveniosRes.data || [], unidadeAtualId));
       setSalas(filterByUnidade(salasRes.data || [], unidadeAtualId));

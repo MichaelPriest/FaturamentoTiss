@@ -1,5 +1,4 @@
 import { BuildingOffice2Icon } from '@heroicons/react/24/outline';
-import { TODAS_UNIDADES_ID } from '../services/unidadesService';
 import { useUnidade } from '../contexts/UnidadeContext';
 
 export default function UnidadeSelector() {
@@ -15,7 +14,6 @@ export default function UnidadeSelector() {
         className="bg-transparent text-sm text-gray-700 dark:text-gray-200 focus:outline-none min-w-40"
         title="Selecionar unidade de trabalho"
       >
-        <option value={TODAS_UNIDADES_ID}>Todas as unidades</option>
         {unidades.map((unidade) => (
           <option key={unidade.id} value={unidade.id}>
             {unidade.nome}

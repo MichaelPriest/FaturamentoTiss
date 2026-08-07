@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "node --test ../api/*.test.cjs",
     "build": "vite build",
     "preview": "vite preview",
     "vercel-build": "vite build"
@@ -12,7 +13,6 @@
   "dependencies": {
     "@heroicons/react": "^2.1.0",
     "@supabase/supabase-js": "^2.45.0",
-    "axios": "^1.7.0",
     "crypto-js": "^4.2.0",
     "date-fns": "^3.0.0",
     "react": "^18.3.1",

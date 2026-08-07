@@ -1,9 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { toast } from 'sonner';
+import { useAuth } from './AuthContext';
 import {
-  TODAS_UNIDADES_ID,
   filterByUnidade,
-  getStoredUnidadeId,
   setStoredUnidadeId,
   unidadesService
 } from '../services/unidadesService';
@@ -11,7 +9,7 @@ import {
 const UnidadeContext = createContext({
   unidades: [],
   unidadeAtual: null,
-  unidadeAtualId: TODAS_UNIDADES_ID,
+  unidadeAtualId: null,
   loadingUnidades: false,
   selecionarUnidade: () => {},
   recarregarUnidades: async () => [],
@@ -19,8 +17,9 @@ const UnidadeContext = createContext({
 });
 
 export function UnidadeProvider({ children }) {
+  const { user } = useAuth();
   const [unidades, setUnidades] = useState([]);
-  const [unidadeAtualId, setUnidadeAtualId] = useState(getStoredUnidadeId);
+  const [unidadeAtualId, setUnidadeAtualId] = useState(user?.unidade_id || null);
   const [loadingUnidades, setLoadingUnidades] = useState(true);
 
   const unidadeAtual = useMemo(
@@ -34,11 +33,10 @@ export function UnidadeProvider({ children }) {
       const data = await unidadesService.listar();
       setUnidades(data);
 
-      const selectedStillExists = unidadeAtualId === TODAS_UNIDADES_ID || data.some((unidade) => unidade.id === unidadeAtualId);
-      if (!selectedStillExists) {
-        setUnidadeAtualId(TODAS_UNIDADES_ID);
-        setStoredUnidadeId(TODAS_UNIDADES_ID);
-      }
+      const unidadePermitida = data.find((unidade) => unidade.id === user?.unidade_id) || data[0];
+      const idPermitido = unidadePermitida?.id || null;
+      setUnidadeAtualId(idPermitido);
+      if (idPermitido) setStoredUnidadeId(idPermitido);
 
       return data;
     } catch (error) {
@@ -52,15 +50,13 @@ export function UnidadeProvider({ children }) {
 
   useEffect(() => {
     recarregarUnidades();
-  }, []);
+  }, [user?.unidade_id]);
 
   const selecionarUnidade = (unidadeId) => {
-    const nextUnidadeId = unidadeId || TODAS_UNIDADES_ID;
-    setUnidadeAtualId(nextUnidadeId);
-    setStoredUnidadeId(nextUnidadeId);
-
-    const unidade = unidades.find((item) => item.id === nextUnidadeId);
-    toast.success(nextUnidadeId === TODAS_UNIDADES_ID ? 'Visualizando todas as unidades' : `Unidade ativa: ${unidade?.nome || 'selecionada'}`);
+    if (unidades.some((item) => item.id === unidadeId)) {
+      setUnidadeAtualId(unidadeId);
+      setStoredUnidadeId(unidadeId);
+    }
   };
 
   const filtrarPorUnidade = (items = []) => filterByUnidade(items, unidadeAtualId);

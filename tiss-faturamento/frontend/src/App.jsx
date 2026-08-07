@@ -141,6 +141,7 @@ function MainApp() {
   });
   const { darkMode, toggleDarkMode } = useTheme();
   const { user, signOut } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const navigate = useNavigate();
   const location = useLocation();
   const [currentDateTime, setCurrentDateTime] = useState(() => new Date());
@@ -285,6 +286,9 @@ function MainApp() {
   ];
 
   const renderTabContent = (tabId) => {
+    if (['configuracoes', 'unidades', 'homologacao-webservice'].includes(tabId) && !isAdmin) {
+      return <Navigate to="/" replace />;
+    }
     switch(tabId) {
       case 'dashboard': return <Dashboard />;
       case 'convenios': return <Convenios />;
@@ -316,8 +320,8 @@ function MainApp() {
 
     if (pathname.includes('/prontuario/')) return <Prontuario />;
     if (pathname.includes('/pacientes/') && pathname.includes('/historico')) return <PacienteHistorico />;
-    if (pathname.includes('/convenio-config/')) return <ConvenioConfig />;
-    if (pathname.includes('/convenio-webservice')) return <WebserviceConfig />;
+    if (pathname.includes('/convenio-config/')) return isAdmin ? <ConvenioConfig /> : <Navigate to="/" replace />;
+    if (pathname.includes('/convenio-webservice')) return isAdmin ? <WebserviceConfig /> : <Navigate to="/" replace />;
 
     return renderTabContent(activeTab);
   };
@@ -430,7 +434,7 @@ function MainApp() {
         </div>
 
         <nav className="p-4 space-y-2 mt-4 overflow-y-auto max-h-[calc(100vh-100px)]">
-          {menuGroups.map((group) => (
+          {menuGroups.map((group) => ({ ...group, items: group.items.filter((item) => isAdmin || !['configuracoes', 'unidades', 'homologacao-webservice'].includes(item.id)) })).filter((group) => group.items.length > 0).map((group) => (
             <div key={group.id} className="space-y-1">
               {sidebarOpen && (
                 <button 
@@ -561,7 +565,7 @@ function MainApp() {
         </div>
 
         <nav className="p-4 space-y-2 mt-4 overflow-y-auto max-h-[calc(100vh-180px)]">
-          {menuGroups.map((group) => (
+          {menuGroups.map((group) => ({ ...group, items: group.items.filter((item) => isAdmin || !['configuracoes', 'unidades', 'homologacao-webservice'].includes(item.id)) })).filter((group) => group.items.length > 0).map((group) => (
             <div key={group.id} className="space-y-1">
               <button 
                 onClick={() => toggleGroup(group.id)} 

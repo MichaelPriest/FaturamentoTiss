@@ -9,8 +9,11 @@ const profileFromAuthUser = (authUser) => ({
   id: authUser.id,
   email: authUser.email,
   nome: authUser.user_metadata?.nome || authUser.email?.split('@')[0] || 'Usuário',
-  role: authUser.user_metadata?.role || 'usuario',
+  // Papéis de acesso nunca são aceitos de metadata controlada pelo cliente.
+  role: 'usuario',
   foto: authUser.user_metadata?.foto || null,
+  empresa_id: null,
+  unidade_id: null,
 });
 
 export function AuthProvider({ children }) {
@@ -26,6 +29,7 @@ export function AuthProvider({ children }) {
       : { id: authUserOrId, email, user_metadata: metadata };
     const fallbackProfile = profileFromAuthUser(authUser);
 
+    if (!supabase) return fallbackProfile;
     try {
       const { data: userData, error: userError } = await supabase
         .from('usuarios')
@@ -46,6 +50,8 @@ export function AuthProvider({ children }) {
           nome: userData.nome || fallbackProfile.nome,
           role: userData.role || fallbackProfile.role,
           foto: userData.foto || fallbackProfile.foto,
+          empresa_id: userData.empresa_id,
+          unidade_id: userData.unidade_id,
         };
       }
 
@@ -57,7 +63,7 @@ export function AuthProvider({ children }) {
           id: authUser.id,
           email: fallbackProfile.email,
           nome: fallbackProfile.nome,
-          role: fallbackProfile.role,
+          role: 'usuario',
           ativo: true,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -76,6 +82,8 @@ export function AuthProvider({ children }) {
         nome: newUser.nome || fallbackProfile.nome,
         role: newUser.role || fallbackProfile.role,
         foto: newUser.foto || fallbackProfile.foto,
+        empresa_id: newUser.empresa_id,
+        unidade_id: newUser.unidade_id,
       };
     } catch (error) {
       console.error('Erro ao carregar perfil:', error);
@@ -109,6 +117,11 @@ export function AuthProvider({ children }) {
     initialized.current = true;
 
     const checkSession = async () => {
+      if (!supabase) {
+        setUser(null);
+        setLoading(false);
+        return;
+      }
       try {
         setLoading(true);
 
@@ -134,6 +147,7 @@ export function AuthProvider({ children }) {
     // Escutar mudanças na autenticação. O callback do Supabase não deve aguardar
     // outras chamadas Supabase diretamente; agendamos o carregamento do perfil
     // fora do callback para evitar travamentos/loops de autenticação.
+    if (!supabase) return undefined;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state changed:', event);
 
@@ -201,6 +215,7 @@ export function AuthProvider({ children }) {
   };
 
   const signOut = async () => {
+    if (!supabase) return { success: true };
     try {
       setLoading(true);
       const { error } = await supabase.auth.signOut();
