@@ -34,7 +34,9 @@ insert into public.saas_administradores (usuario_id)
 values ('UUID_DO_USUARIO_NO_SUPABASE_AUTH');
 ```
 
-Configure `SUPABASE_SERVICE_ROLE_KEY` exclusivamente nas variáveis server-side da Vercel e publique novamente.
+Configure `SUPABASE_SERVICE_ROLE_KEY` (chave legada `service_role`) ou `SUPABASE_SECRET_KEY`
+(chave secreta atual) exclusivamente nas variáveis server-side da Vercel e publique novamente.
+Em URLs de deploy que contêm `git-`, a variável precisa estar habilitada para o ambiente **Preview**.
 O menu **Administração SaaS** permitirá cadastrar empresas, unidades, usuários, unidade padrão e todas as unidades
 às quais cada usuário terá acesso.
 
@@ -45,7 +47,7 @@ O endpoint `/api/orizon-soap` exige um JWT Supabase válido, aceita somente HTTP
 
 - `SUPABASE_URL`;
 - `SUPABASE_ANON_KEY`;
-- `SUPABASE_SERVICE_ROLE_KEY` (somente servidor, necessária para o painel SaaS);
+- `SUPABASE_SERVICE_ROLE_KEY` ou `SUPABASE_SECRET_KEY` (somente servidor, necessária para o painel SaaS);
 - `ORIZON_ALLOWED_HOSTS` (domínios exatos, separados por vírgula);
 - opcionalmente `ORIZON_CLIENT_PFX_BASE64` e `ORIZON_CLIENT_PFX_PASSPHRASE` para mTLS.
 

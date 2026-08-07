@@ -10,6 +10,7 @@ const emptyUsuario = { nome: '', email: '', password: '', role: 'usuario', empre
 export default function SaasAdmin() {
   const [data, setData] = useState({ empresas: [], unidades: [], usuarios: [], acessos: [] });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [tab, setTab] = useState('empresas');
   const [formType, setFormType] = useState(null);
@@ -18,9 +19,9 @@ export default function SaasAdmin() {
   const [usuarioForm, setUsuarioForm] = useState(emptyUsuario);
 
   const carregar = async () => {
-    setLoading(true);
+    setLoading(true); setLoadError(null);
     try { setData(await saasAdminService.carregar()); }
-    catch (error) { toast.error(error.message); }
+    catch (error) { setLoadError(error); toast.error(error.message); }
     finally { setLoading(false); }
   };
 
@@ -81,6 +82,15 @@ export default function SaasAdmin() {
         <div className="grid sm:grid-cols-3 gap-4">
           {tabs.map(([id, label, Icon, count]) => <button key={id} onClick={() => setTab(id)} className={`p-4 rounded-xl border text-left flex items-center gap-4 ${tab === id ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-gray-800 dark:text-white'}`}><Icon className="w-8 h-8" /><span><strong className="block text-2xl">{count}</strong><span className="text-sm">{label}</span></span></button>)}
         </div>
+
+        {loadError && <div className="rounded-xl border border-red-300 bg-red-50 dark:bg-red-950/30 p-5 text-red-800 dark:text-red-200">
+          <h2 className="font-bold">Painel SaaS indisponível</h2>
+          <p className="text-sm mt-1">{loadError.message}</p>
+          {loadError.code === 'SAAS_ENV_MISSING' && <div className="mt-3 text-sm space-y-1">
+            <p>Na Vercel, abra Settings → Environment Variables e configure as variáveis indicadas acima.</p>
+            <p>Marque <strong>Preview</strong> para links <code>git-*</code> e depois execute um novo deploy.</p>
+          </div>}
+        </div>}
 
         <section className="bg-white dark:bg-gray-800 rounded-xl border dark:border-gray-700 overflow-hidden">
           <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center"><h2 className="font-semibold dark:text-white">{tabs.find(([id]) => id === tab)?.[1]}</h2><button onClick={() => tab === 'empresas' ? abrirEmpresa() : tab === 'unidades' ? abrirUnidade() : abrirUsuario()} className="px-3 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 text-sm"><PlusIcon className="w-4 h-4" />Novo cadastro</button></div>

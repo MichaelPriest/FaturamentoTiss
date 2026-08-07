@@ -19,4 +19,6 @@ test('API SaaS falha de forma clara sem service role no servidor', async () => {
   await handler({ method: 'POST', headers: {}, body: {} }, res);
   assert.equal(res.statusCode, 503);
   assert.match(res.body.error, /não configurada/);
+  assert.equal(res.body.code, 'SAAS_ENV_MISSING');
+  assert.ok(Array.isArray(res.body.missing));
 });

@@ -15,7 +15,12 @@ export async function executarAcaoSaas(action, payload = {}) {
     body: JSON.stringify({ action, payload })
   });
   const result = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(result?.error || 'Falha na administração SaaS.');
+  if (!response.ok) {
+    const error = new Error(result?.error || 'Falha na administração SaaS.');
+    error.code = result?.code;
+    error.missing = result?.missing || [];
+    throw error;
+  }
   return result?.data;
 }
 

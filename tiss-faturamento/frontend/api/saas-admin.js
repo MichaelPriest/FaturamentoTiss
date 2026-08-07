@@ -1,10 +1,21 @@
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+  || process.env.SUPABASE_SECRET_KEY
+  || process.env.SUPABASE_SERVICE_KEY
+  || process.env.SB_SECRET_KEY;
 
 function requireConfiguration() {
-  if (!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY) {
-    throw Object.assign(new Error('API SaaS não configurada no servidor.'), { status: 503 });
+  const missing = [];
+  if (!SUPABASE_URL) missing.push('SUPABASE_URL');
+  if (!ANON_KEY) missing.push('SUPABASE_ANON_KEY');
+  if (!SERVICE_KEY) missing.push('SUPABASE_SERVICE_ROLE_KEY ou SUPABASE_SECRET_KEY');
+  if (missing.length) {
+    throw Object.assign(new Error(`API SaaS não configurada no servidor. Variáveis ausentes: ${missing.join(', ')}. Configure-as também no ambiente Preview da Vercel e faça um novo deploy.`), {
+      status: 503,
+      code: 'SAAS_ENV_MISSING',
+      missing
+    });
   }
 }
 
@@ -189,6 +200,10 @@ export default async function handler(req, res) {
     return res.status(200).json({ data });
   } catch (error) {
     console.error('[saas-admin]', error.message);
-    return res.status(error.status || 500).json({ error: error.message || 'Erro interno no painel SaaS.' });
+    return res.status(error.status || 500).json({
+      error: error.message || 'Erro interno no painel SaaS.',
+      code: error.code || 'SAAS_ADMIN_ERROR',
+      missing: error.missing || undefined
+    });
   }
 };
