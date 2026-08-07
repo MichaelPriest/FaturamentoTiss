@@ -4,7 +4,8 @@ Aplicação React/Vite integrada ao Supabase para faturamento TISS 4.03.00.
 
 ## Desenvolvimento
 
-1. Copie `.env.example` para `.env.local` e configure a URL e a chave anônima do projeto Supabase.
+1. O projeto atual já possui a URL e a chave pública `anon` usadas pelo cliente web em `.env.local`.
+   Para outro ambiente/projeto Supabase, substitua os valores a partir de `.env.example` ou configure-os na plataforma de publicação.
 2. Execute as migrations de `../database` na ordem cronológica. A migration
    `20260807_multiempresa_rls.sql` implanta o isolamento obrigatório.
 3. Instale e execute:

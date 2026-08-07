@@ -172,8 +172,10 @@ export function AuthProvider({ children }) {
 
   const signIn = async (email, password) => {
     if (!supabase) {
-      toast.error('Supabase não disponível');
-      return { success: false };
+      const message = 'Configuração do Supabase ausente. Verifique VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no ambiente de publicação.';
+      console.error('[AuthContext]', message);
+      toast.error(message);
+      return { success: false, error: message, code: 'SUPABASE_NOT_CONFIGURED' };
     }
 
     try {
@@ -210,7 +212,7 @@ export function AuthProvider({ children }) {
       console.error('❌ [AuthContext] Erro inesperado:', error);
       setLoading(false);
       toast.error(error.message || 'Erro ao fazer login');
-      return { success: false, error: error.message };
+      return { success: false, error: error?.message || 'Erro inesperado ao fazer login', code: error?.code };
     }
   };
 
