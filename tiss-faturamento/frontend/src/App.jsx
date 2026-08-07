@@ -10,7 +10,7 @@ import {
   HomeModernIcon, BanknotesIcon, ClipboardDocumentCheckIcon, BuildingOffice2Icon, BellAlertIcon,
   UserCircleIcon, MegaphoneIcon, TvIcon, IdentificationIcon,
   DocumentTextIcon, ClipboardDocumentIcon, ShieldCheckIcon,
-  ReceiptPercentIcon, PresentationChartLineIcon, WrenchScrewdriverIcon, ServerStackIcon
+  ReceiptPercentIcon, PresentationChartLineIcon, WrenchScrewdriverIcon, ServerStackIcon, CircleStackIcon
 } from '@heroicons/react/24/outline';
 
 import Dashboard from './pages/Dashboard';
@@ -42,6 +42,7 @@ import Unidades from './pages/Unidades';
 import LoginPage from './pages/Login';
 import Perfil from './pages/Perfil';
 import ResetPassword from './pages/ResetPassword';
+import SaasAdmin from './pages/SaasAdmin';
 
 import { setConfig } from './lib/tissGenerator';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
@@ -70,7 +71,8 @@ const TAB_ROUTES = new Set([
   'notificacoes',
   'chamados',
   'chamados-painel',
-  'configuracoes'
+  'configuracoes',
+  'saas-admin'
 ]);
 
 const getTabFromPath = (pathname) => {
@@ -142,6 +144,11 @@ function MainApp() {
   const { darkMode, toggleDarkMode } = useTheme();
   const { user, signOut } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const canAccessMenuItem = (itemId) => {
+    if (itemId === 'saas-admin') return user?.saas_admin === true;
+    if (['configuracoes', 'unidades', 'homologacao-webservice'].includes(itemId)) return isAdmin;
+    return true;
+  };
   const navigate = useNavigate();
   const location = useLocation();
   const [currentDateTime, setCurrentDateTime] = useState(() => new Date());
@@ -280,12 +287,14 @@ function MainApp() {
       items: [
         { id: 'perfil', name: 'Meu Perfil', icon: UserCircleIcon, color: 'from-blue-500 to-blue-600' },
         { id: 'notificacoes', name: 'Notificações', icon: BellAlertIcon, color: 'from-rose-500 to-rose-600' },
-        { id: 'configuracoes', name: 'Configurações', icon: WrenchScrewdriverIcon, color: 'from-gray-500 to-gray-600' }
+        { id: 'configuracoes', name: 'Configurações', icon: WrenchScrewdriverIcon, color: 'from-gray-500 to-gray-600' },
+        { id: 'saas-admin', name: 'Administração SaaS', icon: CircleStackIcon, color: 'from-violet-500 to-fuchsia-600' }
       ]
     }
   ];
 
   const renderTabContent = (tabId) => {
+    if (tabId === 'saas-admin' && !user?.saas_admin) return <Navigate to="/" replace />;
     if (['configuracoes', 'unidades', 'homologacao-webservice'].includes(tabId) && !isAdmin) {
       return <Navigate to="/" replace />;
     }
@@ -311,6 +320,7 @@ function MainApp() {
       case 'chamados': return <ChamadosRegistro />;
       case 'chamados-painel': return <ChamadosPainel />;
       case 'configuracoes': return <Configuracoes />;
+      case 'saas-admin': return <SaasAdmin />;
       default: return <Dashboard />;
     }
   };
@@ -434,7 +444,7 @@ function MainApp() {
         </div>
 
         <nav className="p-4 space-y-2 mt-4 overflow-y-auto max-h-[calc(100vh-100px)]">
-          {menuGroups.map((group) => ({ ...group, items: group.items.filter((item) => isAdmin || !['configuracoes', 'unidades', 'homologacao-webservice'].includes(item.id)) })).filter((group) => group.items.length > 0).map((group) => (
+          {menuGroups.map((group) => ({ ...group, items: group.items.filter((item) => canAccessMenuItem(item.id)) })).filter((group) => group.items.length > 0).map((group) => (
             <div key={group.id} className="space-y-1">
               {sidebarOpen && (
                 <button 
@@ -565,7 +575,7 @@ function MainApp() {
         </div>
 
         <nav className="p-4 space-y-2 mt-4 overflow-y-auto max-h-[calc(100vh-180px)]">
-          {menuGroups.map((group) => ({ ...group, items: group.items.filter((item) => isAdmin || !['configuracoes', 'unidades', 'homologacao-webservice'].includes(item.id)) })).filter((group) => group.items.length > 0).map((group) => (
+          {menuGroups.map((group) => ({ ...group, items: group.items.filter((item) => canAccessMenuItem(item.id)) })).filter((group) => group.items.length > 0).map((group) => (
             <div key={group.id} className="space-y-1">
               <button 
                 onClick={() => toggleGroup(group.id)} 

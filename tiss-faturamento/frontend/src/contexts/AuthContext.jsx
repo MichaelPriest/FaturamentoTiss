@@ -14,6 +14,7 @@ const profileFromAuthUser = (authUser) => ({
   foto: authUser.user_metadata?.foto || null,
   empresa_id: null,
   unidade_id: null,
+  saas_admin: false,
 });
 
 export function AuthProvider({ children }) {
@@ -42,6 +43,13 @@ export function AuthProvider({ children }) {
         return fallbackProfile;
       }
 
+      const { data: saasAdmin } = await supabase
+        .from('saas_administradores')
+        .select('usuario_id')
+        .eq('usuario_id', authUser.id)
+        .maybeSingle();
+      fallbackProfile.saas_admin = Boolean(saasAdmin);
+
       if (userData) {
         // Usuário existe na tabela
         return {
@@ -52,6 +60,7 @@ export function AuthProvider({ children }) {
           foto: userData.foto || fallbackProfile.foto,
           empresa_id: userData.empresa_id,
           unidade_id: userData.unidade_id,
+          saas_admin: Boolean(saasAdmin),
         };
       }
 
@@ -84,6 +93,7 @@ export function AuthProvider({ children }) {
         foto: newUser.foto || fallbackProfile.foto,
         empresa_id: newUser.empresa_id,
         unidade_id: newUser.unidade_id,
+        saas_admin: Boolean(saasAdmin),
       };
     } catch (error) {
       console.error('Erro ao carregar perfil:', error);
