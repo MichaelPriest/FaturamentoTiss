@@ -120,7 +120,8 @@ export default function Autorizacoes() {
       ]);
 
       setAutorizacoes(filterByUnidade(autorizacoesData, unidadeAtualId));
-      setPacientes(filterByUnidade(pacientesData.data || [], unidadeAtualId));
+      // Pacientes são compartilhados por empresa; o RLS já limita a empresa atual.
+      setPacientes(pacientesData.data || []);
       setConvenios(filterByUnidade(conveniosData.data || [], unidadeAtualId));
       setProcedimentos(filterByUnidade(procedimentosData.data || [], unidadeAtualId));
     } catch (error) {

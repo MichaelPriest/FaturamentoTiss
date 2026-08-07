@@ -654,7 +654,8 @@ export default function Atendimentos() {
       if (conveniosRes.error) throw conveniosRes.error;
 
       setAtendimentos(filterByUnidade(atendimentosRes.data || [], unidadeAtualId));
-      setPacientes(filterByUnidade(pacientesRes.data || [], unidadeAtualId));
+      // Pacientes são compartilhados por empresa; o RLS já limita a empresa atual.
+      setPacientes(pacientesRes.data || []);
       setPrestadores(filterByUnidade(prestadoresRes.data || [], unidadeAtualId));
       setProcedimentos(filterByUnidade(procedimentosRes.data || [], unidadeAtualId));
       setConvenios(filterByUnidade(conveniosRes.data || [], unidadeAtualId));
