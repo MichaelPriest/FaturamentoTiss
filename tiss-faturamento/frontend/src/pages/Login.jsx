@@ -61,21 +61,25 @@ export default function LoginPage() {
     setLoading(true);
     
     try {
-      const result = await signIn(email, senha);
+      const result = await signIn(email.trim(), senha);
+      if (!result || typeof result.success !== 'boolean') {
+        throw new Error('O serviço de autenticação retornou uma resposta inválida. Atualize a página e tente novamente.');
+      }
       
       if (result.success) {
         console.log('✅ [LoginPage] Login bem-sucedido!');
         toast.success('Login realizado com sucesso!');
         navigate('/', { replace: true });
       } else {
-        console.error('❌ [LoginPage] Falha no login:', result.error);
+        const loginError = result.error || 'Não foi possível autenticar. Verifique a configuração do ambiente.';
+        console.error('❌ [LoginPage] Falha no login:', loginError);
         
-        if (result.error?.includes('Invalid login credentials')) {
+        if (loginError.includes('Invalid login credentials')) {
           toast.error('Email ou senha inválidos');
-        } else if (result.error?.includes('Email not confirmed')) {
+        } else if (loginError.includes('Email not confirmed')) {
           toast.error('Email não confirmado. Verifique sua caixa de entrada.');
         } else {
-          toast.error(result.error || 'Erro ao fazer login');
+          toast.error(loginError);
         }
       }
     } catch (error) {
