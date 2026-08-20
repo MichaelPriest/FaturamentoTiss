@@ -393,7 +393,7 @@ export default function Procedimentos() {
   const handleDelete = async (id) => {
     if (!confirm('Tem certeza que deseja excluir este item?')) return;
     try {
-      await procedimentosService.remover(id);
+      await procedimentosService.deletar(id);
       toast.success('Item excluído!');
       carregarDados();
     } catch (error) {
