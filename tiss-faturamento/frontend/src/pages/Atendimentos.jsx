@@ -32,7 +32,7 @@ import { imprimirGuiaTISSOficial, imprimirMultiplasGuiasTISS } from '../componen
 import { useUnidade } from '../contexts/UnidadeContext';
 import { applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
 import { imprimirContaFaturada } from '../components/ImpressaoContaFaturada';
-import { solicitarAutorizacaoProcedimentoOrizon } from '../services/orizonWebservice';
+import { obterEndpointOrizon, solicitarAutorizacaoProcedimentoOrizon } from '../services/orizonWebservice';
 import { prestadoresService } from '../services/supabaseService';
 import {
   normalizeProcedureSearch,
@@ -720,6 +720,7 @@ export default function Atendimentos() {
   ) || { nome: currentItem.nome, tipo: currentItem.tipo }, [procedimentosDoConvenio, currentItem.codigo, currentItem.nome, currentItem.tipo]);
   const especialidadesSugeridas = useMemo(() => inferProcedureSpecialties(procedimentoSelecionado), [procedimentoSelecionado]);
   const prestadoresRecomendados = useMemo(() => rankProfessionalsForProcedure(prestadores, procedimentoSelecionado), [prestadores, procedimentoSelecionado]);
+  const recomendacaoUsouFallback = prestadoresRecomendados.some(prestador => prestador.recommendationFallback);
 
   // Filtrar prestadores para busca digitável (adição de item)
   const filteredPrestadores = useMemo(() => {
@@ -1778,7 +1779,8 @@ export default function Atendimentos() {
 
     const login = configIntegracao.usuario_webservice || configIntegracao.login_prestador_orizon || '';
     const senha = configIntegracao.senha_webservice || configIntegracao.chave_transmissao_orizon || convenio.senha_prestador || '';
-    const endpointAutorizacao = configIntegracao.url_autorizacao_orizon || '';
+    const ambiente = configIntegracao.ambiente_orizon || convenio.ambiente || 'homologacao';
+    const endpointAutorizacao = configIntegracao.url_autorizacao_orizon || obterEndpointOrizon(ambiente, 'autorizacao');
 
     if (!endpointAutorizacao) throw new Error('Informe o endpoint de Solicitação de Autorização na configuração WebService do convênio.');
     if (!login || !senha) throw new Error('Informe login e chave/senha do WebService na configuração do convênio.');
@@ -2736,7 +2738,7 @@ export default function Atendimentos() {
                       {currentItem.codigo && (
                         <div className="mt-4 rounded-xl border border-blue-200 bg-white p-4 dark:border-blue-900 dark:bg-gray-800">
                           <div className="mb-4 flex flex-col gap-1 border-b border-gray-100 pb-3 dark:border-gray-700"><span className="font-mono text-xs font-semibold text-blue-600">{currentItem.codigo}</span><h5 className="font-semibold text-gray-900 dark:text-white">{currentItem.nome}</h5></div>
-                          {especialidadesSugeridas.length > 0 && <div className="mb-4 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-800 dark:border-violet-900 dark:bg-violet-900/20 dark:text-violet-200"><strong>Seleção inteligente:</strong> mostrando profissionais compatíveis com {especialidadesSugeridas.join(', ')}. Encontrados: {prestadoresRecomendados.length}.</div>}
+                          {especialidadesSugeridas.length > 0 && <div className="mb-4 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-800 dark:border-violet-900 dark:bg-violet-900/20 dark:text-violet-200"><strong>Seleção inteligente:</strong> {recomendacaoUsouFallback ? 'não encontramos correspondência exata; exibindo todos os profissionais cadastrados.' : `mostrando ${prestadoresRecomendados.length} profissional(is) compatível(is) com ${especialidadesSugeridas.join(', ')}.`}</div>}
                           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Dados da execução</p>
                           <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
                             <div className="md:col-span-1"><label className="block text-xs text-gray-500 mb-1">Data</label><input type="date" value={currentItem.data_execucao} onChange={e => setCurrentItem({...currentItem, data_execucao: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" /></div>

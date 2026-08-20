@@ -19,6 +19,7 @@ import { useUnidade } from '../contexts/UnidadeContext';
 import { filterByUnidade } from '../services/unidadesService';
 import {
   consultarStatusAutorizacaoOrizon,
+  obterEndpointOrizon,
   solicitarAutorizacaoProcedimentoOrizon
 } from '../services/orizonWebservice';
 
@@ -522,8 +523,9 @@ export default function Autorizacoes() {
 
     const login = configIntegracao.usuario_webservice || configIntegracao.login_prestador_orizon || '';
     const senha = configIntegracao.senha_webservice || configIntegracao.chave_transmissao_orizon || convenio.senha_prestador || '';
-    const endpointAutorizacao = configIntegracao.url_autorizacao_orizon || '';
-    const endpointStatusAutorizacao = configIntegracao.url_status_autorizacao_orizon || '';
+    const ambiente = configIntegracao.ambiente_orizon || convenio.ambiente || 'homologacao';
+    const endpointAutorizacao = configIntegracao.url_autorizacao_orizon || obterEndpointOrizon(ambiente, 'autorizacao');
+    const endpointStatusAutorizacao = configIntegracao.url_status_autorizacao_orizon || obterEndpointOrizon(ambiente, 'statusAutorizacao');
 
     if (!login || !senha) {
       throw new Error('Informe login e chave/senha do WebService na configuração do convênio.');

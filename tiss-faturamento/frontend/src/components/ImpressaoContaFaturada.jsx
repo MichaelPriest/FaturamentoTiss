@@ -74,6 +74,15 @@ body {
   page-break-after: auto;
 }
 
+.document-table, .document-table > thead > tr > td, .document-table > tbody > tr > td {
+  width: 100%;
+  border: 0;
+  padding: 0;
+}
+
+.document-table > thead { display: table-header-group; }
+.document-table > tbody { display: table-row-group; }
+
 /* CABEÇALHO */
 .header {
   display: flex;
@@ -347,6 +356,27 @@ export const gerarHTMLContaFaturada = (dados) => {
     logo_base64 = ''
   } = dados;
 
+  const cabecalho = `
+    <div class="header">
+      <div class="logo-area">
+        ${logo_base64
+          ? `<img src="${logo_base64}" alt="Logo" class="logo" />`
+          : `<div style="font-size:10pt; font-weight:bold;">${clinica.nome_empresa || ''}</div>`
+        }
+        <div style="font-size:7pt;">CNPJ: ${clinica.cnpj || ''}</div>
+        <div style="font-size:7pt;">CNES: ${clinica.cnes || ''}</div>
+      </div>
+      <div class="titulo-area">
+        <div class="titulo-principal">CONTA FATURADA / ESPELHO DA CONTA</div>
+        <div class="subtitulo">Demonstrativo de Serviços Prestados</div>
+      </div>
+      <div class="numero-area">
+        <div class="numero-conta">Nº ${numero_conta}</div>
+        <div style="font-size:8pt; margin-top:5px;">Emissão: ${formatarDataSimples(data_emissao)}</div>
+        <span class="status-pill">${STATUS_MAP[status] || status}</span>
+      </div>
+    </div>`;
+
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -356,29 +386,9 @@ export const gerarHTMLContaFaturada = (dados) => {
 </head>
 <body>
 <div class="conta-page">
-
-  <!-- CABEÇALHO -->
-  <div class="header">
-    <div class="logo-area">
-      ${logo_base64 
-        ? `<img src="${logo_base64}" alt="Logo" class="logo" />` 
-        : `<div style="font-size:10pt; font-weight:bold;">${clinica.nome_empresa || ''}</div>`
-      }
-      <div style="font-size:7pt;">CNPJ: ${clinica.cnpj || ''}</div>
-      <div style="font-size:7pt;">CNES: ${clinica.cnes || ''}</div>
-    </div>
-    <div class="titulo-area">
-      <div class="titulo-principal">CONTA FATURADA / ESPELHO DA CONTA</div>
-      <div class="subtitulo">Demonstrativo de Serviços Prestados</div>
-    </div>
-    <div class="numero-area">
-      <div class="numero-conta">Nº ${numero_conta}</div>
-      <div style="font-size:8pt; margin-top:5px;">Emissão: ${formatarDataSimples(data_emissao)}</div>
-      <div style="font-size:8pt; margin-top:3px;">
-        <span class="status-pill">${STATUS_MAP[status] || status}</span>
-      </div>
-    </div>
-  </div>
+<table class="document-table">
+  <thead><tr><td>${cabecalho}</td></tr></thead>
+  <tbody><tr><td>
 
   <!-- DADOS DO BENEFICIÁRIO -->
   <div class="info-card">
@@ -531,6 +541,8 @@ export const gerarHTMLContaFaturada = (dados) => {
     <div>Documento emitido eletronicamente - Sistema de Faturamento TISS</div>
     <div>Emissão: ${formatarData(data_emissao)}</div>
   </div>
+  </td></tr></tbody>
+</table>
 </div>
 </body>
 </html>`;

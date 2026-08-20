@@ -35,7 +35,7 @@ export function rankProfessionalsForProcedure(professionals = [], procedure = {}
   const inferred = inferProcedureSpecialties(procedure);
   if (!inferred.length) return professionals.map(professional => ({ ...professional, recommendationScore: 0 }));
 
-  return professionals
+  const ranked = professionals
     .map(professional => {
       const specialties = professional.especialidades || [];
       const matches = specialties.filter(relation => inferred.some(term => specialtyName(relation).includes(term)));
@@ -48,4 +48,8 @@ export function rankProfessionalsForProcedure(professionals = [], procedure = {}
     })
     .filter(professional => professional.recommendationScore > 0)
     .sort((a, b) => b.recommendationScore - a.recommendationScore || a.nome.localeCompare(b.nome));
+
+  return ranked.length > 0
+    ? ranked
+    : professionals.map(professional => ({ ...professional, recommendationScore: 0, recommendationFallback: true }));
 }
