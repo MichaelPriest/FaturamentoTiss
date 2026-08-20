@@ -33,12 +33,14 @@ import { useUnidade } from '../contexts/UnidadeContext';
 import { applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
 import { imprimirContaFaturada } from '../components/ImpressaoContaFaturada';
 import { solicitarAutorizacaoProcedimentoOrizon } from '../services/orizonWebservice';
+import { prestadoresService } from '../services/supabaseService';
 import {
   normalizeProcedureSearch,
   resolveProcedureValue,
   validateAuthorizedQuantity,
   validateExecutionPeriod
 } from '../lib/procedureLaunchRules';
+import { inferProcedureSpecialties, rankProfessionalsForProcedure } from '../lib/professionalRecommendation';
 
 // ============================================
 // CONSTANTES E TABELAS
@@ -389,6 +391,7 @@ export default function Atendimentos() {
   const [imprimindoGuia, setImprimindoGuia] = useState(false);
   const [configClinica, setConfigClinica] = useState({});  
   const [enviandoAutorizacaoGuia, setEnviandoAutorizacaoGuia] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState('idle');
 
   // ============================================
   // FUNÇÕES DE AUTORIZAÇÃO E VALIDAÇÃO
@@ -636,21 +639,20 @@ export default function Atendimentos() {
       const [atendimentosRes, pacientesRes, prestadoresRes, procedimentosRes, conveniosRes] = await Promise.all([
         supabase.from('atendimentos').select('*').order('created_at', { ascending: false }),
         supabase.from('pacientes').select('*').order('nome'),
-        supabase.from('prestadores').select('*').order('nome'),
+        prestadoresService.listarComEspecialidades(),
         supabase.from('procedimentos').select('*').order('codigo_tuss'),
         supabase.from('convenios').select('*').order('razao_social')
       ]);
 
       if (atendimentosRes.error) throw atendimentosRes.error;
       if (pacientesRes.error) throw pacientesRes.error;
-      if (prestadoresRes.error) throw prestadoresRes.error;
       if (procedimentosRes.error) throw procedimentosRes.error;
       if (conveniosRes.error) throw conveniosRes.error;
 
       setAtendimentos(filterByUnidade(atendimentosRes.data || [], unidadeAtualId));
       // Pacientes são compartilhados por empresa; o RLS já limita a empresa atual.
       setPacientes(pacientesRes.data || []);
-      setPrestadores(filterByUnidade(prestadoresRes.data || [], unidadeAtualId));
+      setPrestadores(filterByUnidade(prestadoresRes || [], unidadeAtualId));
       setProcedimentos(filterByUnidade(procedimentosRes.data || [], unidadeAtualId));
       setConvenios(filterByUnidade(conveniosRes.data || [], unidadeAtualId));
     } catch (error) {
@@ -713,12 +715,19 @@ export default function Atendimentos() {
     return procedimentos.filter(p => !p.convenio_id || p.convenio_id === formData.convenio_id);
   }, [procedimentos, formData.convenio_id]);
 
+  const procedimentoSelecionado = useMemo(() => procedimentosDoConvenio.find(
+    procedimento => procedimento.codigo_tuss === currentItem.codigo
+  ) || { nome: currentItem.nome, tipo: currentItem.tipo }, [procedimentosDoConvenio, currentItem.codigo, currentItem.nome, currentItem.tipo]);
+  const especialidadesSugeridas = useMemo(() => inferProcedureSpecialties(procedimentoSelecionado), [procedimentoSelecionado]);
+  const prestadoresRecomendados = useMemo(() => rankProfessionalsForProcedure(prestadores, procedimentoSelecionado), [prestadores, procedimentoSelecionado]);
+
   // Filtrar prestadores para busca digitável (adição de item)
   const filteredPrestadores = useMemo(() => {
-    if (!searchPrestadorTerm.trim()) return prestadores;
+    const base = currentItem.codigo && especialidadesSugeridas.length > 0 ? prestadoresRecomendados : prestadores;
+    if (!searchPrestadorTerm.trim()) return base;
     const term = searchPrestadorTerm.toLowerCase().trim();
     
-    return prestadores.filter(p => {
+    return base.filter(p => {
       if (p.nome?.toLowerCase().includes(term)) return true;
       if (p.numero_conselho?.toLowerCase().includes(term)) return true;
       if (p.uf_conselho?.toLowerCase().includes(term)) return true;
@@ -738,7 +747,7 @@ export default function Atendimentos() {
       
       return false;
     });
-  }, [searchPrestadorTerm, prestadores]);
+  }, [searchPrestadorTerm, prestadores, prestadoresRecomendados, especialidadesSugeridas, currentItem.codigo]);
 
   // Filtrar prestadores para edição de item
   const filteredPrestadoresEdit = useMemo(() => {
@@ -1146,6 +1155,31 @@ export default function Atendimentos() {
     return resolveProcedureValue(item, convenio);
   };
 
+  const sincronizarLancamentos = async (proximosItens) => {
+    const proximosAutorizados = itensAutorizados.map(autorizado => {
+      const utilizada = proximosItens.filter(item => item.codigo === autorizado.codigo).reduce((total, item) => total + Number(item.quantidade || 0), 0);
+      return { ...autorizado, quantidade_utilizada: utilizada, saldo_autorizado: Number(autorizado.quantidade_autorizada || 0) - utilizada };
+    });
+    setItensGuia(proximosItens);
+    setItensAutorizados(proximosAutorizados);
+    if (!editing?.id) return;
+    setAutoSaveStatus('saving');
+    const valorTotal = proximosItens.reduce((total, item) => total + Number(item.valor_total || 0), 0);
+    const status = calcularStatusGuia(proximosItens, proximosAutorizados);
+    try {
+      const { error } = await supabase.from('atendimentos').update({ itens: proximosItens, itens_autorizados: proximosAutorizados, valor_total: valorTotal, data_atendimento: proximosItens[0]?.data_execucao || editing.data_atendimento, status, updated_at: new Date().toISOString() }).eq('id', editing.id);
+      if (error) throw error;
+      setEditing(prev => ({ ...prev, itens: proximosItens, itens_autorizados: proximosAutorizados, valor_total: valorTotal, status }));
+      setFormData(prev => ({ ...prev, status }));
+      setAtendimentos(prev => prev.map(atendimento => atendimento.id === editing.id ? { ...atendimento, itens: proximosItens, itens_autorizados: proximosAutorizados, valor_total: valorTotal, status } : atendimento));
+      setAutoSaveStatus('saved');
+    } catch (error) {
+      console.error('Erro no salvamento automático:', error);
+      setAutoSaveStatus('error');
+      toast.error('Não foi possível salvar o lançamento automaticamente');
+    }
+  };
+
   const handleAdicionarItemAutorizado = () => {
     if (!currentItem.codigo) {
       toast.error('Selecione um procedimento');
@@ -1242,17 +1276,6 @@ export default function Atendimentos() {
       return;
     }
     
-    const itemAntigo = itensGuia.find(item => item.id === editandoItem.id);
-    if (itemAntigo && itemAntigo.codigo !== currentItem.codigo) {
-      atualizarQuantidadeUtilizada(itemAntigo.codigo, itemAntigo.quantidade, false);
-      atualizarQuantidadeUtilizada(currentItem.codigo, currentItem.quantidade, true);
-    } else if (itemAntigo) {
-      const diferenca = currentItem.quantidade - itemAntigo.quantidade;
-      if (diferenca !== 0) {
-        atualizarQuantidadeUtilizada(currentItem.codigo, Math.abs(diferenca), diferenca > 0);
-      }
-    }
-    
     const valorTotal = currentItem.quantidade * currentItem.valor_unitario;
     const pendenteAutorizacao = validacao.pendente || !itensAutorizados.some(aut => aut.codigo === currentItem.codigo);
     
@@ -1262,7 +1285,7 @@ export default function Atendimentos() {
       pendente_autorizacao: pendenteAutorizacao
     };
     
-    setItensGuia(itensGuia.map(item => 
+    sincronizarLancamentos(itensGuia.map(item =>
       item.id === editandoItem.id ? { ...itemAtualizado, id: item.id } : item
     ));
     
@@ -1336,9 +1359,7 @@ export default function Atendimentos() {
       id: Date.now() + Math.random()
     };
     
-    atualizarQuantidadeUtilizada(currentItem.codigo, currentItem.quantidade, true);
-    
-    setItensGuia([...itensGuia, novoItem]);
+    sincronizarLancamentos([...itensGuia, novoItem]);
     resetCurrentItem();
     setSearchPrestadorTerm('');
     toast.success('Item adicionado à guia!');
@@ -1378,10 +1399,8 @@ export default function Atendimentos() {
 
   const removerItem = (itemId) => {
     const itemRemovido = itensGuia.find(item => item.id === itemId);
-    if (itemRemovido) {
-      atualizarQuantidadeUtilizada(itemRemovido.codigo, itemRemovido.quantidade, false);
-    }
-    setItensGuia(itensGuia.filter(item => item.id !== itemId));
+    if (!itemRemovido) return;
+    sincronizarLancamentos(itensGuia.filter(item => item.id !== itemId));
     toast.success('Item removido da guia');
   };
 
@@ -1978,6 +1997,7 @@ export default function Atendimentos() {
         data_execucao: item.data_execucao || atendimento.data_atendimento || '',
         codigo: item.codigo || item.codigo_procedimento || '',
         nome: item.nome || item.descricao || '',
+        prestador_nome: item.prestador_nome || '',
         quantidade: item.quantidade || 1,
         valor_unitario: item.valor_unitario || 0,
         valor_total: item.valor_total || 0
@@ -2634,6 +2654,11 @@ export default function Atendimentos() {
                   {/* Aba Procedimentos - COM CAMPO TABELA VISÍVEL */}
                   {aba === 'procedimentos' && (
                     <div className="space-y-4">
+                      <div className="flex justify-end min-h-5" aria-live="polite">
+                        {editing?.id && autoSaveStatus === 'saving' && <span className="text-xs text-blue-600 flex items-center gap-1"><ArrowPathIcon className="h-3.5 w-3.5 animate-spin" /> Salvando lançamento...</span>}
+                        {editing?.id && autoSaveStatus === 'saved' && <span className="text-xs text-emerald-600 flex items-center gap-1"><CheckIcon className="h-3.5 w-3.5" /> Alterações salvas automaticamente</span>}
+                        {editing?.id && autoSaveStatus === 'error' && <span className="text-xs text-red-600 flex items-center gap-1"><ExclamationTriangleIcon className="h-3.5 w-3.5" /> Falha ao salvar automaticamente</span>}
+                      </div>
                       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" aria-label="Resumo dos lançamentos">
                         <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 dark:border-blue-900/50 dark:bg-blue-900/20"><p className="text-xs font-medium text-blue-600 dark:text-blue-300">Itens lançados</p><p className="mt-1 text-2xl font-bold text-blue-800 dark:text-blue-100">{itensGuia.length}</p></div>
                         <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 dark:border-emerald-900/50 dark:bg-emerald-900/20"><p className="text-xs font-medium text-emerald-600 dark:text-emerald-300">Autorizados</p><p className="mt-1 text-2xl font-bold text-emerald-800 dark:text-emerald-100">{itensGuia.filter(item => !obterStatusAutorizacaoItem(item, itensAutorizados, formData.status).pendente).length}</p></div>
@@ -2711,6 +2736,7 @@ export default function Atendimentos() {
                       {currentItem.codigo && (
                         <div className="mt-4 rounded-xl border border-blue-200 bg-white p-4 dark:border-blue-900 dark:bg-gray-800">
                           <div className="mb-4 flex flex-col gap-1 border-b border-gray-100 pb-3 dark:border-gray-700"><span className="font-mono text-xs font-semibold text-blue-600">{currentItem.codigo}</span><h5 className="font-semibold text-gray-900 dark:text-white">{currentItem.nome}</h5></div>
+                          {especialidadesSugeridas.length > 0 && <div className="mb-4 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-800 dark:border-violet-900 dark:bg-violet-900/20 dark:text-violet-200"><strong>Seleção inteligente:</strong> mostrando profissionais compatíveis com {especialidadesSugeridas.join(', ')}. Encontrados: {prestadoresRecomendados.length}.</div>}
                           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Dados da execução</p>
                           <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
                             <div className="md:col-span-1"><label className="block text-xs text-gray-500 mb-1">Data</label><input type="date" value={currentItem.data_execucao} onChange={e => setCurrentItem({...currentItem, data_execucao: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" /></div>
