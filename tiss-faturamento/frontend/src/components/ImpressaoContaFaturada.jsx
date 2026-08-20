@@ -1,5 +1,6 @@
 // src/components/ImpressaoContaFaturada.jsx
 import { format } from 'date-fns';
+import { formatDateOnly, parseDateWithoutTimezone } from '../lib/dateUtils';
 
 /* =========================================================
    CONSTANTES
@@ -21,7 +22,7 @@ const STATUS_MAP = {
 const formatarData = (data) => {
   if (!data) return '';
   try {
-    return format(new Date(data), 'dd/MM/yyyy HH:mm');
+    return format(parseDateWithoutTimezone(data), 'dd/MM/yyyy HH:mm');
   } catch {
     return data;
   }
@@ -30,7 +31,7 @@ const formatarData = (data) => {
 const formatarDataSimples = (data) => {
   if (!data) return '';
   try {
-    return format(new Date(data), 'dd/MM/yyyy');
+    return formatDateOnly(data);
   } catch {
     return data;
   }
@@ -54,16 +55,16 @@ const gerarCSS = () => `
 }
 
 body {
-  font-family: 'Arial', 'Helvetica', sans-serif;
-  background: #FFF;
-  color: #000;
-  font-size: 10pt;
+  font-family: Inter, Arial, Helvetica, sans-serif;
+  background: #f1f5f9;
+  color: #172033;
+  font-size: 9.5pt;
 }
 
 .conta-page {
   width: 210mm;
   min-height: 297mm;
-  padding: 8mm;
+  padding: 10mm;
   margin: 0 auto;
   background: #FFF;
   page-break-after: always;
@@ -79,7 +80,8 @@ body {
   justify-content: space-between;
   margin-bottom: 10mm;
   padding-bottom: 5mm;
-  border-bottom: 2px solid #000;
+  align-items: center;
+  border-bottom: 3px solid #1d4ed8;
 }
 
 .logo-area {
@@ -99,8 +101,9 @@ body {
 }
 
 .titulo-principal {
-  font-size: 16pt;
+  font-size: 15pt;
   font-weight: bold;
+  color: #172554;
   margin-bottom: 5px;
 }
 
@@ -120,18 +123,32 @@ body {
   font-family: monospace;
 }
 
+.status-pill {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1e40af;
+  font-size: 7.5pt;
+  font-weight: bold;
+}
+
 /* INFORMAÇÕES DA CONTA */
 .info-card {
-  border: 1px solid #000;
-  margin-bottom: 8mm;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 5mm;
 }
 
 .info-header {
-  background: #d9d9d9;
-  padding: 4px 8px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  padding: 7px 10px;
   font-weight: bold;
   font-size: 11pt;
-  border-bottom: 1px solid #000;
+  border-bottom: 1px solid #dbe3ef;
 }
 
 .info-grid {
@@ -142,8 +159,8 @@ body {
 
 .info-item {
   padding: 6px 8px;
-  border-right: 1px solid #000;
-  border-bottom: 1px solid #000;
+  border-right: 1px solid #e8edf5;
+  border-bottom: 1px solid #e8edf5;
 }
 
 .info-item:nth-child(3n) {
@@ -174,16 +191,19 @@ table {
 }
 
 th, td {
-  border: 1px solid #000;
+  border: 1px solid #dbe3ef;
   padding: 6px 4px;
   vertical-align: top;
 }
 
 th {
-  background: #d9d9d9;
+  background: #172554;
+  color: #fff;
   font-weight: bold;
   text-align: center;
 }
+
+tbody tr:nth-child(even) { background: #f8fafc; }
 
 td {
   text-align: left;
@@ -209,6 +229,8 @@ td {
   min-width: 200px;
 }
 
+.resumo-table tr:last-child { background: #172554; color: white; }
+
 .resumo-table td {
   padding: 4px 8px;
 }
@@ -220,12 +242,15 @@ td {
 
 /* INFORMAÇÕES DO CONTRATADO */
 .contratado-box {
-  border: 1px solid #000;
-  margin-bottom: 8mm;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 5mm;
 }
 
 .contratado-header {
-  background: #d9d9d9;
+  background: #eff6ff;
+  color: #1e3a8a;
   padding: 4px 8px;
   font-weight: bold;
   border-bottom: 1px solid #000;
@@ -240,12 +265,14 @@ td {
 
 /* OBSERVAÇÕES */
 .observacao-box {
-  border: 1px solid #000;
+  border: 1px solid #dbe3ef;
+  border-radius: 8px;
+  overflow: hidden;
   margin-bottom: 8mm;
 }
 
 .observacao-header {
-  background: #d9d9d9;
+  background: #f8fafc;
   padding: 4px 8px;
   font-weight: bold;
   border-bottom: 1px solid #000;
@@ -276,9 +303,9 @@ td {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-  th, .info-header, .contratado-header, .observacao-header {
-    background: #d9d9d9 !important;
-  }
+  th { background: #172554 !important; color: #fff !important; }
+  .info-header, .contratado-header { background: #eff6ff !important; }
+  .observacao-header { background: #f8fafc !important; }
 }
 `;
 
@@ -348,8 +375,7 @@ export const gerarHTMLContaFaturada = (dados) => {
       <div class="numero-conta">Nº ${numero_conta}</div>
       <div style="font-size:8pt; margin-top:5px;">Emissão: ${formatarDataSimples(data_emissao)}</div>
       <div style="font-size:8pt; margin-top:3px;">
-        <span style="font-weight:bold;">Status:</span> 
-        ${STATUS_MAP[status] || status}
+        <span class="status-pill">${STATUS_MAP[status] || status}</span>
       </div>
     </div>
   </div>
@@ -435,7 +461,8 @@ export const gerarHTMLContaFaturada = (dados) => {
           <th width="5%">Seq</th>
           <th width="12%">Data Execução</th>
           <th width="12%">Código</th>
-          <th width="38%">Descrição</th>
+          <th width="25%">Descrição</th>
+          <th width="13%">Profissional</th>
           <th width="8%">Qtd</th>
           <th width="12%">Valor Unit.</th>
           <th width="13%">Valor Total</th>
@@ -448,6 +475,7 @@ export const gerarHTMLContaFaturada = (dados) => {
             <td class="text-center">${formatarDataSimples(item.data_execucao) || '-'}</td>
             <td class="text-center">${item.codigo || '-'}</td>
             <td>${item.nome || '-'}</td>
+            <td>${item.prestador_nome || '-'}</td>
             <td class="text-center">${item.quantidade || 1}</td>
             <td class="text-right">R$ ${moeda(item.valor_unitario)}</td>
             <td class="text-right">R$ ${moeda(item.valor_total)}</td>
@@ -455,7 +483,7 @@ export const gerarHTMLContaFaturada = (dados) => {
         `).join('')}
         ${itens.length === 0 ? `
           <tr>
-            <td colspan="7" style="text-align:center; padding:20px;">Nenhum item encontrado</td>
+            <td colspan="8" style="text-align:center; padding:20px;">Nenhum item encontrado</td>
           </tr>
         ` : ''}
       </tbody>
