@@ -38,7 +38,8 @@ import {
   consultarStatusProtocoloOrizon,
   enviarLoteGuiasOrizon,
   hashSenhaOrizon,
-  montarEnvelopeLoteGuias
+  montarEnvelopeLoteGuias,
+  obterEndpointOrizon
 } from '../services/orizonWebservice';
 
 // ============================================
@@ -1544,8 +1545,8 @@ export default function Faturamento() {
       throw new Error('Informe usuário e chave/senha do WebService na página WebService do convênio. Se a Orizon exigir certificado digital, o envio deve ocorrer pelo proxy/servidor configurado.');
     }
 
-    const endpointLote = configIntegracao.url_webservice || convenio.url_webservice || '';
-    const endpointStatus = configIntegracao.url_status_protocolo_orizon || '';
+    const endpointLote = configIntegracao.url_webservice || convenio.url_webservice || obterEndpointOrizon(ambiente, 'loteGuias');
+    const endpointStatus = configIntegracao.url_status_protocolo_orizon || obterEndpointOrizon(ambiente, 'statusProtocolo');
     const proxyUrl = configIntegracao.proxy_url_webservice || '';
 
     if (opcoes.exigirEndpointLote !== false && !endpointLote) {

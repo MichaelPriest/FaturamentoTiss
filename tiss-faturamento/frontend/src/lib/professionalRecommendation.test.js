@@ -15,3 +15,10 @@ test('retorna somente profissionais da especialidade inferida', () => {
   assert.deepEqual(result.map(item => item.id), [1]);
   assert.equal(result[0].recommendationReason, 'Psicologia');
 });
+
+test('mantém todos os profissionais como fallback quando não há correspondência cadastrada', () => {
+  const professionals = [{ id: 1, nome: 'Ana', especialidades: [] }, { id: 2, nome: 'Bruno', especialidades: [] }];
+  const result = rankProfessionalsForProcedure(professionals, { nome: 'Sessão de psicoterapia' });
+  assert.deepEqual(result.map(item => item.id), [1, 2]);
+  assert.equal(result.every(item => item.recommendationFallback), true);
+});

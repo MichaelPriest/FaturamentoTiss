@@ -46,10 +46,12 @@ O endpoint `/api/orizon-soap` exige um JWT Supabase válido, aceita somente HTTP
 - `SUPABASE_URL`;
 - `SUPABASE_ANON_KEY`;
 - `SUPABASE_SERVICE_ROLE_KEY` (somente servidor, necessária para o painel SaaS);
-- `ORIZON_ALLOWED_HOSTS` (domínios exatos, separados por vírgula);
+- `ORIZON_ALLOWED_HOSTS` (domínios exatos, separados por vírgula). Se omitida, a API permite somente os quatro hosts oficiais já usados pelos modelos Orizon de homologação e produção;
 - opcionalmente `ORIZON_CLIENT_PFX_BASE64` e `ORIZON_CLIENT_PFX_PASSPHRASE` para mTLS.
 
 Nunca inclua credenciais reais, certificados ou chaves locais no Git.
+
+O cliente tenta primeiro a transmissão compactada e repete uma vez sem GZIP quando o servidor remoto rejeita a primeira tentativa. Mesmo com a aplicação configurada, a Orizon pode exigir liberação do IP de saída e certificado A1 no proxy; esses requisitos devem ser habilitados no ambiente da API.
 
 ## Build
 
