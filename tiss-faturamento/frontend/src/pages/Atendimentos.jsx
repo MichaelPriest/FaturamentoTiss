@@ -41,6 +41,7 @@ import {
   validateExecutionPeriod
 } from '../lib/procedureLaunchRules';
 import { inferProcedureSpecialties, rankProfessionalsForProcedure } from '../lib/professionalRecommendation';
+import { buildContractorData } from '../lib/printData';
 
 // ============================================
 // CONSTANTES E TABELAS
@@ -1945,7 +1946,7 @@ export default function Atendimentos() {
         }
       }
       
-      imprimirGuiaTISSOficial(atendimento, convenio, configClinicaAtual);
+      imprimirGuiaTISSOficial(atendimento, convenio, buildContractorData({ unidade: unidadeAtual, configuracao: configClinicaAtual, atendimento, convenio }));
       toast.success('Guia enviada para impressão!');
     } catch (error) {
       console.error('Erro ao imprimir guia:', error);
@@ -1989,12 +1990,7 @@ export default function Atendimentos() {
         registro_ans: atendimento.convenio_registro_ans || convenio?.registro_ans || '',
         codigo_prestador: atendimento.convenio_codigo_prestador || convenio?.codigo_prestador || ''
       },
-      clinica: {
-        nome_empresa: configClinicaAtual.nome_empresa || '',
-        nome_contratado: configClinicaAtual.nome_contratado || '',
-        cnpj: configClinicaAtual.cnpj || '',
-        cnes: configClinicaAtual.cnes || ''
-      },
+      clinica: buildContractorData({ unidade: unidadeAtual, configuracao: configClinicaAtual, atendimento, convenio }),
       itens: itens.map(item => ({
         data_execucao: item.data_execucao || atendimento.data_atendimento || '',
         codigo: item.codigo || item.codigo_procedimento || '',
