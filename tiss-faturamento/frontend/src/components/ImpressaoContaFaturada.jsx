@@ -302,9 +302,18 @@ td {
   color: #666;
 }
 
+.page-counter::after {
+  content: "Página " counter(page) " de " counter(pages);
+}
+
 @page {
   size: A4;
   margin: 5mm;
+  @bottom-right {
+    content: "Página " counter(page) " de " counter(pages);
+    font: 7pt Arial, sans-serif;
+    color: #64748b;
+  }
 }
 
 @media print {
@@ -460,6 +469,10 @@ export const gerarHTMLContaFaturada = (dados) => {
       <div><strong>CNPJ:</strong> ${clinica.cnpj || '-'}</div>
       <div><strong>Código Prestador:</strong> ${convenio.codigo_prestador || '-'}</div>
       <div><strong>CNES:</strong> ${clinica.cnes || convenio.cnes || '-'}</div>
+      <div><strong>Endereço:</strong> ${clinica.endereco || '-'}</div>
+      <div><strong>Cidade/UF:</strong> ${[clinica.cidade, clinica.uf].filter(Boolean).join(' / ') || '-'}</div>
+      <div><strong>Telefone:</strong> ${clinica.telefone || '-'}</div>
+      <div><strong>E-mail:</strong> ${clinica.email || '-'}</div>
     </div>
   </div>
 
@@ -540,6 +553,7 @@ export const gerarHTMLContaFaturada = (dados) => {
   <div class="footer">
     <div>Documento emitido eletronicamente - Sistema de Faturamento TISS</div>
     <div>Emissão: ${formatarData(data_emissao)}</div>
+    <div class="page-counter"></div>
   </div>
   </td></tr></tbody>
 </table>

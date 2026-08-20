@@ -1,6 +1,7 @@
 // src/components/ImpressaoGuiaTISS.jsx
 
-import { format } from 'date-fns';
+import { formatDateOnly } from '../lib/dateUtils';
+import { paginateTissGuideItems } from '../lib/printData';
 
 /* =========================================================
    MAPAS
@@ -73,7 +74,7 @@ const TECNICA_MAP = {
 const formatarData = (data) => {
   if (!data) return '';
   try {
-    return format(new Date(data), 'dd/MM/yyyy');
+    return formatDateOnly(data);
   } catch {
     return data;
   }
@@ -90,22 +91,6 @@ const limitar = (txt = '', max = 200) => {
   return txt.length > max
     ? txt.substring(0, max) + '...'
     : txt;
-};
-
-const dividirPaginas = (itens = []) => {
-  const MAX = 12;
-  const paginas = [];
-  for (let i = 0; i < itens.length; i += MAX) {
-    paginas.push({
-      itens: itens.slice(i, i + MAX),
-      inicio: i + 1,
-      fim: Math.min(i + MAX, itens.length)
-    });
-  }
-  if (!paginas.length) {
-    paginas.push({ itens: [], inicio: 0, fim: 0 });
-  }
-  return paginas;
 };
 
 /* =========================================================
@@ -127,11 +112,14 @@ body {
 
 .guia-page {
   width: 297mm;
-  min-height: 210mm;
+  height: 204mm;
   padding: 3mm;
   margin: 0 auto;
   background: #FFF;
   page-break-after: always;
+  break-after: page;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .guia-page:last-child {
@@ -142,6 +130,15 @@ table {
   width: 100%;
   border-collapse: collapse;
   table-layout: auto;
+}
+
+.guia-page > table { page-break-inside: avoid; break-inside: avoid; }
+
+.pagina-indicador {
+  margin-top: 2px;
+  font-size: 6px;
+  font-weight: bold;
+  text-align: right;
 }
 
 td, th {
@@ -303,10 +300,12 @@ const gerarPagina = (
   convenio,
   configClinica,
   itensPagina,
+  itensAutorizadosPagina,
+  sequencialInicial,
   paginaAtual,
   totalPaginas
 ) => {
-  const totalProcedimentos = (itensPagina || []).reduce(
+  const totalProcedimentos = (atendimento.itens || []).reduce(
     (s, i) => s + Number(i.valor_total || 0),
     0
   );
@@ -315,8 +314,6 @@ const gerarPagina = (
     (s, i) => s + Number(i.valor_total || 0),
     0
   );
-
-  const isUltimaPagina = paginaAtual === totalPaginas;
 
   // Logo do convênio (prioriza logo do convênio, fallback para configClinica.nome_empresa)
   const logoTemplate = convenio?.logo_base64
@@ -413,8 +410,8 @@ const gerarPagina = (
       <th width="10%">27-Qtde.Solic.</th>
       <th width="13%">28-Qtde.Aut.</th>
     </tr>
-    ${(atendimento.itens_autorizados || []).length > 0
-      ? (atendimento.itens_autorizados || []).map(
+    ${itensAutorizadosPagina.length > 0
+      ? itensAutorizadosPagina.map(
           (item) => `
           <tr>
             <td class="text-center">${item.tabela_referencia || '22'}</td>
@@ -482,7 +479,7 @@ const gerarPagina = (
       ? itensPagina.map(
           (item, idx) => `
           <tr>
-            <td class="text-center num-col">${idx + 1}</td>
+            <td class="text-center num-col">${sequencialInicial + idx}</td>
             <td class="text-center num-col">${item.data_execucao || ''}</td>
             <td class="text-center num-col">${item.hora_inicial || ''}</td>
             <td class="text-center num-col">${item.hora_final || ''}</td>
@@ -524,7 +521,7 @@ const gerarPagina = (
     ${itensPagina.map(
       (item, idx) => `
       <tr>
-        <td class="text-center num-col">${idx + 1}</td>
+        <td class="text-center num-col">${sequencialInicial + idx}</td>
         <td class="text-center num-col">${GRAU_PARTICIPACAO_MAP[item.grau_participacao] || ''}</td>
         <td class="text-center num-col">${item.prestador_cpf || ''}</td>
         <td>${limitar(item.prestador_nome || '', 60)}</td>
@@ -537,8 +534,7 @@ const gerarPagina = (
     ).join('')}
   </table>
 
-  <!-- ASSINATURAS EM SÉRIE (apenas na última página) -->
-  ${isUltimaPagina ? `
+  <!-- ASSINATURAS EM SÉRIE -->
   <table>
     <tr>
       <td colspan="10" class="secao">
@@ -609,14 +605,9 @@ const gerarPagina = (
       </td>
     </tr>
   </table>
-  ` : `
-  <div class="continuacao">
-    * Continua na próxima página *
-  </div>
-  `}
 
-  <div style="margin-top:3px;font-size:5px;text-align:right;">
-    Gerado por Sistema TISS
+  <div class="pagina-indicador">
+    Guia ${atendimento.numero_guia_prestador || ''} · Página ${paginaAtual} de ${totalPaginas} · Gerado por Sistema TISS
   </div>
 </div>
 `;
@@ -631,7 +622,7 @@ export const gerarHTMLGuiaTISSOficial = (
   convenio,
   configClinica = {}
 ) => {
-  const paginas = dividirPaginas(atendimento.itens || []);
+  const paginas = paginateTissGuideItems(atendimento.itens || [], atendimento.itens_autorizados || [], 4);
   const totalPaginas = paginas.length;
 
   return `
@@ -649,6 +640,8 @@ export const gerarHTMLGuiaTISSOficial = (
       convenio,
       configClinica,
       pagina.itens,
+      pagina.itensAutorizados,
+      pagina.inicio,
       idx + 1,
       totalPaginas
     )
