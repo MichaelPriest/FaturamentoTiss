@@ -33,6 +33,12 @@ import { useUnidade } from '../contexts/UnidadeContext';
 import { applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
 import { imprimirContaFaturada } from '../components/ImpressaoContaFaturada';
 import { solicitarAutorizacaoProcedimentoOrizon } from '../services/orizonWebservice';
+import {
+  normalizeProcedureSearch,
+  resolveProcedureValue,
+  validateAuthorizedQuantity,
+  validateExecutionPeriod
+} from '../lib/procedureLaunchRules';
 
 // ============================================
 // CONSTANTES E TABELAS
@@ -442,22 +448,10 @@ export default function Atendimentos() {
     return { status: 'autorizado', label: 'Autorizado', classe: 'bg-green-100 text-green-700', pendente: false };
   }, [formData.status, itensAutorizados]);
 
-  const podeAdicionarItem = useCallback((itemCodigo, quantidade) => {
+  const podeAdicionarItem = useCallback((itemCodigo, quantidade, itemEmEdicao = null) => {
     const itemAutorizado = itensAutorizados.find(aut => aut.codigo === itemCodigo);
-    
-    if (!itemAutorizado) {
-      return { pode: true, mensagem: 'Este procedimento não está autorizado. Será marcado como pendente.', pendente: true };
-    }
-    
-    const qtdAutorizada = itemAutorizado.quantidade_autorizada;
-    const qtdUtilizada = itemAutorizado.quantidade_utilizada || 0;
-    const saldo = qtdAutorizada - qtdUtilizada;
-    
-    if (quantidade > saldo) {
-      return { pode: false, mensagem: `Quantidade excede o saldo autorizado! Saldo disponível: ${saldo}`, pendente: false };
-    }
-    
-    return { pode: true, mensagem: '', pendente: false };
+    const quantidadeRestaurada = itemEmEdicao?.codigo === itemCodigo ? itemEmEdicao.quantidade : 0;
+    return validateAuthorizedQuantity({ itemCodigo, authorizedItem: itemAutorizado, quantity: quantidade, restoredQuantity: quantidadeRestaurada });
   }, [itensAutorizados]);
 
   const atualizarQuantidadeUtilizada = useCallback((itemCodigo, quantidade, isAdicionando = true) => {
@@ -667,10 +661,6 @@ export default function Atendimentos() {
     }
   };
 
-  useEffect(() => {
-    carregarDados();
-  }, [unidadeAtualId]);
-
   const carregarConfigClinica = async () => {
     try {
       const { data, error } = await supabase
@@ -819,10 +809,11 @@ export default function Atendimentos() {
   const itensFiltrados = useMemo(() => {
     if (!procedimentosDoConvenio.length) return [];
     if (!searchItemTerm) return procedimentosDoConvenio;
-    const term = searchItemTerm.toLowerCase();
-    return procedimentosDoConvenio.filter(p => 
-      p.codigo_tuss?.toLowerCase().includes(term) ||
-      p.nome?.toLowerCase().includes(term)
+    const term = normalizeProcedureSearch(searchItemTerm);
+    return procedimentosDoConvenio.filter(p =>
+      normalizeProcedureSearch(p.codigo_tuss).includes(term) ||
+      normalizeProcedureSearch(p.nome).includes(term) ||
+      normalizeProcedureSearch(p.grupo).includes(term)
     );
   }, [procedimentosDoConvenio, searchItemTerm]);
 
@@ -1152,11 +1143,7 @@ export default function Atendimentos() {
   };
 
   const calcularValor = (item, convenio) => {
-    // Prioriza valor_convenio se existir, senão usa valor_sugerido
-    let valorBase = item.valor_convenio || item.valor_sugerido || 0;
-    const multiplicador = convenio?.multiplicador || 1;
-    
-    return valorBase * multiplicador;
+    return resolveProcedureValue(item, convenio);
   };
 
   const handleAdicionarItemAutorizado = () => {
@@ -1239,14 +1226,27 @@ export default function Atendimentos() {
       return;
     }
     
-    const validacao = podeAdicionarItem(currentItem.codigo, currentItem.quantidade);
+    const erroPeriodo = validateExecutionPeriod({
+      dataExecucao: currentItem.data_execucao,
+      horaInicial: currentItem.hora_inicial,
+      horaFinal: currentItem.hora_final
+    });
+    if (erroPeriodo) {
+      toast.error(erroPeriodo);
+      return;
+    }
+
+    const validacao = podeAdicionarItem(currentItem.codigo, currentItem.quantidade, editandoItem);
     if (!validacao.pode) {
       toast.error(validacao.mensagem);
       return;
     }
     
     const itemAntigo = itensGuia.find(item => item.id === editandoItem.id);
-    if (itemAntigo && itemAntigo.codigo === currentItem.codigo) {
+    if (itemAntigo && itemAntigo.codigo !== currentItem.codigo) {
+      atualizarQuantidadeUtilizada(itemAntigo.codigo, itemAntigo.quantidade, false);
+      atualizarQuantidadeUtilizada(currentItem.codigo, currentItem.quantidade, true);
+    } else if (itemAntigo) {
       const diferenca = currentItem.quantidade - itemAntigo.quantidade;
       if (diferenca !== 0) {
         atualizarQuantidadeUtilizada(currentItem.codigo, Math.abs(diferenca), diferenca > 0);
@@ -1280,6 +1280,21 @@ export default function Atendimentos() {
     
     if (currentItem.tipo === 'procedimento' && !currentItem.prestador_id) {
       toast.error('Selecione o profissional que executou este procedimento');
+      return;
+    }
+
+    const erroPeriodo = validateExecutionPeriod({
+      dataExecucao: currentItem.data_execucao,
+      horaInicial: currentItem.hora_inicial,
+      horaFinal: currentItem.hora_final
+    });
+    if (erroPeriodo) {
+      toast.error(erroPeriodo);
+      return;
+    }
+
+    if (currentItem.tipo === 'procedimento' && (!currentItem.prestador_numero_conselho || !currentItem.prestador_cbos)) {
+      toast.error('O profissional selecionado precisa ter conselho e CBOS cadastrados');
       return;
     }
     
@@ -2619,8 +2634,11 @@ export default function Atendimentos() {
                   {/* Aba Procedimentos - COM CAMPO TABELA VISÍVEL */}
                   {aba === 'procedimentos' && (
                     <div className="space-y-4">
-                      <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl">
-                        <p className="text-sm text-blue-700 dark:text-blue-300"><strong>ℹ️ Informações:</strong> Selecione o tipo de item e busque por código ou descrição.{itensAutorizados.length > 0 && <span className="block mt-1 text-xs">✅ Você possui {itensAutorizados.length} procedimento(s) autorizado(s).</span>}</p>
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" aria-label="Resumo dos lançamentos">
+                        <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 dark:border-blue-900/50 dark:bg-blue-900/20"><p className="text-xs font-medium text-blue-600 dark:text-blue-300">Itens lançados</p><p className="mt-1 text-2xl font-bold text-blue-800 dark:text-blue-100">{itensGuia.length}</p></div>
+                        <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 dark:border-emerald-900/50 dark:bg-emerald-900/20"><p className="text-xs font-medium text-emerald-600 dark:text-emerald-300">Autorizados</p><p className="mt-1 text-2xl font-bold text-emerald-800 dark:text-emerald-100">{itensGuia.filter(item => !obterStatusAutorizacaoItem(item, itensAutorizados, formData.status).pendente).length}</p></div>
+                        <div className="rounded-xl border border-orange-100 bg-orange-50 p-3 dark:border-orange-900/50 dark:bg-orange-900/20"><p className="text-xs font-medium text-orange-600 dark:text-orange-300">Com pendência</p><p className="mt-1 text-2xl font-bold text-orange-800 dark:text-orange-100">{itensGuia.filter(item => obterStatusAutorizacaoItem(item, itensAutorizados, formData.status).pendente).length}</p></div>
+                        <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3 dark:border-indigo-900/50 dark:bg-indigo-900/20"><p className="text-xs font-medium text-indigo-600 dark:text-indigo-300">Total da guia</p><p className="mt-1 text-xl font-bold text-indigo-800 dark:text-indigo-100">R$ {itensGuia.reduce((sum, item) => sum + Number(item.valor_total || 0), 0).toFixed(2)}</p></div>
                       </div>
                       {!formData.convenio_id && (<div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg"><p className="text-sm text-yellow-800 dark:text-yellow-200">⚠️ Selecione um paciente com convênio associado para visualizar os procedimentos disponíveis.</p></div>)}
                       
@@ -2679,16 +2697,21 @@ export default function Atendimentos() {
                         </div>
                       )}
                       
+                      <section className="rounded-2xl border border-gray-200 bg-gray-50/70 p-4 dark:border-gray-700 dark:bg-gray-800/50" aria-labelledby="novo-lancamento-title">
+                      <div className="mb-4"><h4 id="novo-lancamento-title" className="font-semibold text-gray-900 dark:text-white">Novo lançamento</h4><p className="text-xs text-gray-500 dark:text-gray-400">Escolha a categoria, localize o item e complete os dados da execução.</p></div>
                       <div className="flex flex-wrap gap-2 border-b border-gray-200 dark:border-gray-700 pb-3">
                         {TIPOS_ITEM.map(tipo => (<button key={tipo.value} type="button" onClick={() => { setTipoItem(tipo.value); setTabelaSelecionada(tipo.tabelas[0]); setCurrentItem({...currentItem, tipo: tipo.value, tabela_referencia: tipo.tabelas[0]}); }} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${tipoItem === tipo.value ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-md' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>{tipo.label}</button>))}
                       </div>
                       
-                      <div><label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Item</label><div className="relative"><MagnifyingGlassIcon className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" /><input type="text" value={searchItemTerm} onChange={e => setSearchItemTerm(e.target.value)} placeholder="Digite o código ou descrição..." className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" disabled={!formData.convenio_id} list="itens-suggestions-proc" /><datalist id="itens-suggestions-proc">{itensFiltrados.slice(0, 20).map(item => (<option key={item.codigo_tuss} value={item.codigo_tuss}>{item.codigo_tuss} - {item.nome}</option>))}</datalist></div></div>
+                      <div className="mt-4"><label htmlFor="procedure-search" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar por código, descrição ou grupo</label><div className="relative"><MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" /><input id="procedure-search" type="search" autoComplete="off" value={searchItemTerm} onChange={e => setSearchItemTerm(e.target.value)} placeholder="Ex.: 10101012 ou consulta em consultório" className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl pl-10 pr-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white" disabled={!formData.convenio_id} aria-controls="procedure-results" /></div></div>
                       
-                      {searchItemTerm && itensFiltrados.length > 0 && formData.convenio_id && (<div className="border rounded-xl max-h-48 overflow-y-auto">{itensFiltrados.slice(0, 10).map(item => { const itemAutorizado = itensAutorizados.find(aut => aut.codigo === item.codigo_tuss); const saldo = itemAutorizado?.quantidade_autorizada - (itemAutorizado?.quantidade_utilizada || 0); return (<button key={item.codigo_tuss} type="button" onClick={() => { handleProcedimentoItemChange(item.codigo_tuss); setSearchItemTerm(''); }} className="w-full text-left px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 border-b last:border-b-0 transition-colors"><div className="flex justify-between items-center"><div><span className="font-mono text-sm text-blue-600">{item.codigo_tuss}</span><span className="text-sm text-gray-700 dark:text-gray-300 ml-2">{item.nome}</span></div><div className="text-right"><span className="text-sm font-semibold text-green-600">R$ {item.valor_convenio?.toFixed(2)}</span>{itemAutorizado && <span className="text-xs text-blue-600 ml-2 block">✅ Autorizado: {saldo} disponível</span>}{!itemAutorizado && <span className="text-xs text-orange-500 ml-2 block">⚠️ Sem autorização</span>}</div></div></button>);})}</div>)}
+                      {searchItemTerm && itensFiltrados.length > 0 && formData.convenio_id && (<div id="procedure-results" className="mt-2 border border-gray-200 rounded-xl max-h-60 overflow-y-auto bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800" role="listbox">{itensFiltrados.slice(0, 10).map(item => { const itemAutorizado = itensAutorizados.find(aut => aut.codigo === item.codigo_tuss); const saldo = itemAutorizado?.quantidade_autorizada - (itemAutorizado?.quantidade_utilizada || 0); const valorExibido = calcularValor(item, convenios.find(c => c.id === formData.convenio_id)); return (<button key={item.id || `${item.codigo_tuss}-${item.convenio_id || 'global'}`} type="button" role="option" onClick={() => { handleProcedimentoItemChange(item.codigo_tuss); setSearchItemTerm(''); }} className="w-full text-left px-4 py-3 hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors"><div className="flex justify-between items-start gap-4"><div><span className="font-mono text-sm font-semibold text-blue-600">{item.codigo_tuss}</span><p className="text-sm text-gray-800 dark:text-gray-200 mt-0.5">{item.nome}</p>{item.grupo && <p className="text-xs text-gray-400 mt-1">{item.grupo}</p>}</div><div className="text-right shrink-0"><span className="text-sm font-semibold text-gray-800 dark:text-gray-100">R$ {valorExibido.toFixed(2)}</span>{itemAutorizado ? <span className="text-xs text-emerald-600 block mt-1">Autorizado · saldo {saldo}</span> : <span className="text-xs text-orange-500 block mt-1">Sem autorização</span>}</div></div></button>);})}</div>)}
+                      {searchItemTerm && itensFiltrados.length === 0 && formData.convenio_id && <div className="mt-2 rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm text-gray-500 dark:border-gray-600 dark:text-gray-400">Nenhum item encontrado para “{searchItemTerm}”.</div>}
                       
                       {currentItem.codigo && (
-                        <div className="border-t pt-4 mt-2">
+                        <div className="mt-4 rounded-xl border border-blue-200 bg-white p-4 dark:border-blue-900 dark:bg-gray-800">
+                          <div className="mb-4 flex flex-col gap-1 border-b border-gray-100 pb-3 dark:border-gray-700"><span className="font-mono text-xs font-semibold text-blue-600">{currentItem.codigo}</span><h5 className="font-semibold text-gray-900 dark:text-white">{currentItem.nome}</h5></div>
+                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Dados da execução</p>
                           <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
                             <div className="md:col-span-1"><label className="block text-xs text-gray-500 mb-1">Data</label><input type="date" value={currentItem.data_execucao} onChange={e => setCurrentItem({...currentItem, data_execucao: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" /></div>
                             <div className="md:col-span-1"><label className="block text-xs text-gray-500 mb-1">H.Início</label><input type="time" value={currentItem.hora_inicial} onChange={e => setCurrentItem({...currentItem, hora_inicial: e.target.value})} className="w-full border rounded px-2 py-1.5 text-sm dark:bg-gray-700 dark:text-white" /></div>
@@ -2700,10 +2723,12 @@ export default function Atendimentos() {
                             <div className="md:col-span-1"><label className="block text-xs text-gray-500 mb-1">Qtd</label><input type="number" min="1" value={currentItem.quantidade} onChange={e => { const qtd = parseInt(e.target.value) || 1; const saldo = calcularSaldoAutorizado(currentItem.codigo, qtd); setCurrentItem({...currentItem, quantidade: qtd, saldo_autorizado: saldo, valor_total: qtd * currentItem.valor_unitario}); }} className="w-full border rounded px-2 py-1.5 text-sm text-center dark:bg-gray-700 dark:text-white" />{currentItem.saldo_autorizado > 0 && <span className="text-xs text-green-600">Saldo: {currentItem.saldo_autorizado}</span>}</div>
                             <div className="md:col-span-2"><label className="block text-xs text-gray-500 mb-1">Valor Unitário</label><input type="number" step="0.01" value={currentItem.valor_unitario} onChange={e => { const valor = parseFloat(e.target.value) || 0; setCurrentItem({...currentItem, valor_unitario: valor, valor_total: currentItem.quantidade * valor}); }} className="w-full border rounded px-2 py-1.5 text-sm text-right dark:bg-gray-700 dark:text-white" /></div>
                             <div className="md:col-span-2 relative"><label className="block text-xs text-gray-500 mb-1">Profissional</label><input ref={prestadorInputRef} type="text" value={searchPrestadorTerm} onChange={(e) => { setSearchPrestadorTerm(e.target.value); setShowPrestadorOptions(true); if (e.target.value === '') { setCurrentItem(prev => ({ ...prev, prestador_id: '', prestador_nome: '', prestador_cpf: '00000000000', prestador_conselho: '06', prestador_numero_conselho: '', prestador_uf_conselho: '35', prestador_cbos: '225125' })); } }} onFocus={() => setShowPrestadorOptions(true)} onBlur={() => setTimeout(() => setShowPrestadorOptions(false), 200)} placeholder="Nome, CRM, número..." className="w-full border rounded px-2 py-1.5 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" />{showPrestadorOptions && filteredPrestadores.length > 0 && (<ul className="absolute z-20 w-full bg-white dark:bg-gray-800 border rounded-lg mt-1 max-h-60 overflow-y-auto shadow-lg">{filteredPrestadores.map(p => { let sigla = ''; if (p.codigo_conselho_ans === '06') sigla = 'CRM'; else if (p.codigo_conselho_ans === '08') sigla = 'CRO'; else if (p.codigo_conselho_ans === '03') sigla = 'CRF'; else if (p.codigo_conselho_ans === '02') sigla = 'COREN'; else if (p.codigo_conselho_ans === '05') sigla = 'CREFITO'; else if (p.codigo_conselho_ans === '09') sigla = 'CRP'; else if (p.codigo_conselho_ans === '07') sigla = 'CRN'; return (<li key={p.id} onClick={() => { setCurrentItem(prev => ({ ...prev, prestador_id: p.id, prestador_nome: p.nome || '', prestador_cpf: p.cpf || '00000000000', prestador_conselho: p.codigo_conselho_ans || '06', prestador_numero_conselho: p.numero_conselho || '', prestador_uf_conselho: p.uf_conselho || '35', prestador_cbos: p.cbos || '225125' })); setSearchPrestadorTerm(`${p.nome} - ${sigla} ${p.numero_conselho} - ${p.uf_conselho}`); setShowPrestadorOptions(false); }} className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-sm"><div className="flex justify-between"><span className="font-medium">{p.nome}</span><span className="text-xs text-gray-500">{sigla} {p.numero_conselho} - {p.uf_conselho}</span></div></li>);})}</ul>)}</div>
-                            <div className="md:col-span-1"><button type="button" onClick={handleAdicionarItem} className="w-full bg-green-600 text-white px-2 py-1.5 rounded-lg text-sm hover:bg-green-700 mt-5">+ Add</button></div>
+                            <div className="md:col-span-1"><button type="button" onClick={handleAdicionarItem} className="w-full bg-emerald-600 text-white px-3 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700 mt-5 shadow-sm">Adicionar à guia</button></div>
                           </div>
+                          <div className="mt-4 flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3 dark:bg-gray-700/50"><span className="text-sm text-gray-500 dark:text-gray-300">Total deste lançamento</span><strong className="text-lg text-blue-700 dark:text-blue-300">R$ {Number(currentItem.valor_total || 0).toFixed(2)}</strong></div>
                         </div>
                       )}
+                      </section>
                     </div>
                   )}
 
