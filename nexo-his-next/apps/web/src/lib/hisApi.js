@@ -144,7 +144,7 @@ export async function registerTriage(form) {
 }
 
 export async function loadClinicalQueue() {
-  const {data}=await request('atendimentos?select=id,numero_atendimento,status,prioridade,tipo,setor,local_atendimento,data_chegada,modalidade_pagamento,numero_carteirinha,plano,numero_guia,senha_autorizacao,validade_autorizacao,origem_paciente,motivo_atendimento,pacientes(id,nome,nome_social,cpf,data_nascimento,sexo,responsavel_nome,foto_url,alergias,doencas_cronicas,medicamentos_continuos,alertas_clinicos),unidades(nome),convenios(razao_social),prestadores(nome,conselho,numero_conselho),triagens(classificacao,queixa_principal,pressao_sistolica,pressao_diastolica,frequencia_cardiaca,saturacao,temperatura,escala_dor,observacoes,realizada_em)&status=eq.EM_ATENDIMENTO&order=updated_at.asc&limit=100');
+  const {data}=await request('atendimentos?select=id,numero_atendimento,status,prioridade,tipo,setor,local_atendimento,data_chegada,modalidade_pagamento,numero_carteirinha,plano,numero_guia,senha_autorizacao,validade_autorizacao,origem_paciente,motivo_atendimento,pacientes(id,nome,nome_social,cpf,data_nascimento,sexo,responsavel_nome,foto_url,alergias,doencas_cronicas,medicamentos_continuos,alertas_clinicos),unidade:unidades!atendimentos_unidade_id_fkey(nome),convenios(razao_social),prestadores(nome,conselho,numero_conselho),triagens(classificacao,queixa_principal,pressao_sistolica,pressao_diastolica,frequencia_cardiaca,saturacao,temperatura,escala_dor,observacoes,realizada_em)&status=eq.EM_ATENDIMENTO&order=updated_at.asc&limit=100');
   return data;
 }
 

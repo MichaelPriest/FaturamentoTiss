@@ -2,7 +2,7 @@
 -- NEXO HIS NEXT - INSTALACAO COMPLETA PARA SUPABASE
 -- Arquivo gerado automaticamente. Nao edite manualmente.
 -- Execute em um projeto Supabase NOVO pelo SQL Editor, usando uma conta owner.
--- Fonte: database/migrations/000...013, na ordem abaixo.
+-- Fonte: database/migrations/000_core...014_attendance_relationships, na ordem abaixo.
 -- Gerado em ordem deterministica; nenhuma credencial ou dado inicial e incluido.
 -- ============================================================================
 
@@ -871,6 +871,29 @@ revoke all on function public.registrar_diagnostico_atendimento(uuid,text,text,t
 revoke all on function public.registrar_solicitacao_assistencial(uuid,text,text,text,numeric,text,text,text,boolean,text,numeric) from public;
 grant execute on function public.registrar_diagnostico_atendimento(uuid,text,text,text,text,boolean) to authenticated;
 grant execute on function public.registrar_solicitacao_assistencial(uuid,text,text,text,numeric,text,text,text,boolean,text,numeric) to authenticated;
+commit;
+
+-- ============================================================================
+-- MIGRATION: 014_attendance_relationships.sql
+-- ============================================================================
+-- Relacionamentos explícitos necessários para embeds do PostgREST/Supabase.
+begin;
+
+alter table public.atendimentos
+  drop constraint if exists atendimentos_empresa_id_fkey,
+  drop constraint if exists atendimentos_unidade_id_fkey;
+
+alter table public.atendimentos
+  add constraint atendimentos_empresa_id_fkey foreign key (empresa_id)
+    references public.empresas(id) on update cascade on delete restrict,
+  add constraint atendimentos_unidade_id_fkey foreign key (unidade_id)
+    references public.unidades(id) on update cascade on delete restrict;
+
+create index if not exists atendimentos_empresa_idx on public.atendimentos(empresa_id);
+create index if not exists atendimentos_unidade_idx on public.atendimentos(unidade_id);
+
+-- Solicita ao PostgREST a atualização imediata do cache de relacionamentos.
+notify pgrst, 'reload schema';
 commit;
 
 -- ============================================================================

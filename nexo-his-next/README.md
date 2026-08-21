@@ -38,7 +38,7 @@ Para um projeto Supabase novo, abra o **SQL Editor** como proprietário e execut
 database/supabase_full_setup.sql
 ```
 
-O arquivo consolidado contém, na ordem correta, todas as migrations `000_core.sql` até `013_clinical_workspace_operations.sql`: tabelas, relacionamentos, índices, funções RPC, triggers, grants e políticas RLS. Ele é destinado a uma base vazia e não inclui usuários, senhas ou dados fictícios. Depois de criar o primeiro usuário no Supabase Auth, siga o exemplo comentado no final do SQL para vincular empresa, unidade e perfil.
+O arquivo consolidado contém, na ordem correta, todas as migrations `000_core.sql` até `014_attendance_relationships.sql`: tabelas, relacionamentos, índices, funções RPC, triggers, grants e políticas RLS. Ele é destinado a uma base vazia e não inclui usuários, senhas ou dados fictícios. Depois de criar o primeiro usuário no Supabase Auth, siga o exemplo comentado no final do SQL para vincular empresa, unidade e perfil.
 
 Ao adicionar uma migration, regenere o instalador consolidado com `npm run db:build`. Em ambientes já instalados, não reaplique o arquivo completo: execute somente as migrations novas. O seed contábil opcional continua em `database/seeds/financial_base.sql` e deve ser aplicado somente após validação da instituição.
 

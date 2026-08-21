@@ -7,7 +7,9 @@ const databaseDir = resolve(here, '..');
 const migrationsDir = resolve(databaseDir, 'migrations');
 const output = resolve(databaseDir, 'supabase_full_setup.sql');
 const files = (await readdir(migrationsDir)).filter(name => /^\d{3}_.+\.sql$/.test(name)).sort();
-const header = `-- ============================================================================\n-- NEXO HIS NEXT - INSTALACAO COMPLETA PARA SUPABASE\n-- Arquivo gerado automaticamente. Nao edite manualmente.\n-- Execute em um projeto Supabase NOVO pelo SQL Editor, usando uma conta owner.\n-- Fonte: database/migrations/000...013, na ordem abaixo.\n-- Gerado em ordem deterministica; nenhuma credencial ou dado inicial e incluido.\n-- ============================================================================\n\n`;
+const firstMigration = files.at(0)?.replace('.sql', '') || 'nenhuma';
+const lastMigration = files.at(-1)?.replace('.sql', '') || 'nenhuma';
+const header = `-- ============================================================================\n-- NEXO HIS NEXT - INSTALACAO COMPLETA PARA SUPABASE\n-- Arquivo gerado automaticamente. Nao edite manualmente.\n-- Execute em um projeto Supabase NOVO pelo SQL Editor, usando uma conta owner.\n-- Fonte: database/migrations/${firstMigration}...${lastMigration}, na ordem abaixo.\n-- Gerado em ordem deterministica; nenhuma credencial ou dado inicial e incluido.\n-- ============================================================================\n\n`;
 const sections = [];
 for (const file of files) {
   const sql = (await readFile(resolve(migrationsDir, file), 'utf8')).trim();
