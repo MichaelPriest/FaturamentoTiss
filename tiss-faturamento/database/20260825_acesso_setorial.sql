@@ -34,7 +34,8 @@ do $$ declare regra record; acao text; begin
     ('administracoes_hospitalares',array['assistencial','farmacia']),
     ('classificacoes_risco',array['recepcao','assistencial']),
     ('exames_catalogo',array['assistencial','diagnostico']),('solicitacoes_exames',array['assistencial','diagnostico']),
-    ('resultados_exames',array['assistencial','diagnostico'])
+    ('resultados_exames',array['assistencial','diagnostico']),
+    ('cirurgias',array['assistencial']),('checklist_cirurgia_segura',array['assistencial'])
   ) as r(tabela,setores) loop
     if to_regclass('public.'||regra.tabela) is not null then
       foreach acao in array array['select','insert','update','delete'] loop
