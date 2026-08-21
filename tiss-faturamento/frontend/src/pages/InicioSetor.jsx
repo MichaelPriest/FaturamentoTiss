@@ -13,8 +13,8 @@ const ACTIONS = {
     ['Agenda do dia','agendamentos',CalendarDaysIcon], ['Central hospitalar','operacao-hospitalar',HomeModernIcon],
     ['Lançar atendimento','atendimentos',CheckCircleIcon], ['Faturamento TISS','faturamento',CurrencyDollarIcon]
   ],
-  recepcao: [['Novo atendimento','atendimentos',CheckCircleIcon],['Agenda','agendamentos',CalendarDaysIcon],['Fila de pacientes','chamados',UserGroupIcon],['Mapa de ocupação','ocupacao',HomeModernIcon]],
-  assistencial: [['Central hospitalar','operacao-hospitalar',HomeModernIcon],['Prescrição e enfermagem','prescricao-enfermagem',CheckCircleIcon],['Atendimentos','atendimentos',UserGroupIcon],['Pacientes','pacientes',UserGroupIcon]],
+  recepcao: [['Pronto atendimento','pronto-atendimento',ClockIcon],['Novo atendimento','atendimentos',CheckCircleIcon],['Agenda','agendamentos',CalendarDaysIcon],['Fila de pacientes','chamados',UserGroupIcon]],
+  assistencial: [['Pronto atendimento','pronto-atendimento',ClockIcon],['Central hospitalar','operacao-hospitalar',HomeModernIcon],['Prescrição e enfermagem','prescricao-enfermagem',CheckCircleIcon],['Atendimentos','atendimentos',UserGroupIcon]],
   farmacia: [['Estoque hospitalar','operacao-hospitalar',HomeModernIcon],['Agenda de administração','prescricao-enfermagem',ClockIcon],['Procedimentos','procedimentos',CheckCircleIcon]],
   faturamento: [['Contas e lotes','faturamento',CurrencyDollarIcon],['Autorizações','autorizacoes',CheckCircleIcon],['Glosas','glosas',ExclamationTriangleIcon],['Relatórios','relatorios',ChartBarIcon]],
   financeiro: [['Financeiro','financeiro',CurrencyDollarIcon],['Relatórios gerenciais','relatorios',ChartBarIcon],['Unidades','unidades',HomeModernIcon]],
