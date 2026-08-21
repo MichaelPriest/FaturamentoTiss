@@ -13,7 +13,7 @@ import {
   ReceiptPercentIcon, PresentationChartLineIcon, WrenchScrewdriverIcon, ServerStackIcon, CircleStackIcon
 } from '@heroicons/react/24/outline';
 
-import Dashboard from './pages/Dashboard';
+import InicioSetor from './pages/InicioSetor';
 import Convenios from './pages/Convenios';
 import ConvenioConfig from './pages/ConvenioConfig';
 import WebserviceConfig from './pages/WebserviceConfig';
@@ -45,6 +45,7 @@ import ResetPassword from './pages/ResetPassword';
 import SaasAdmin from './pages/SaasAdmin';
 import OperacaoHospitalar from './pages/OperacaoHospitalar';
 import PrescricaoEnfermagem from './pages/PrescricaoEnfermagem';
+import { filterMenuGroups, getWorkspace, SECTOR_WORKSPACES } from './lib/sectorWorkspaces';
 
 import { setConfig } from './lib/tissGenerator';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
@@ -134,6 +135,7 @@ function MainApp() {
   const [visitedTabs, setVisitedTabs] = useState(() => new Set([getTabFromPath(window.location.pathname)]));
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [workspaceId, setWorkspaceId] = useState(() => localStorage.getItem('hospital_workspace') || 'todos');
   const [openGroups, setOpenGroups] = useState({
     principal: true,
     cadastros: false,
@@ -156,6 +158,7 @@ function MainApp() {
   const navigate = useNavigate();
   const location = useLocation();
   const [currentDateTime, setCurrentDateTime] = useState(() => new Date());
+  const workspace = getWorkspace(workspaceId);
 
   // Verificar se é rota de prontuário ou convenio-config
   const isSpecialRoute = location.pathname.includes('/prontuario/') || location.pathname.includes('/pacientes/') || location.pathname.includes('/convenio-config/') || location.pathname.includes('/convenio-webservice');
@@ -197,6 +200,14 @@ function MainApp() {
     navigate('/login', { replace: true });
   };
 
+  const changeWorkspace = (nextWorkspace) => {
+    setWorkspaceId(nextWorkspace);
+    localStorage.setItem('hospital_workspace', nextWorkspace);
+    setActiveTab('dashboard');
+    setOpenGroups(prev => ({ ...Object.fromEntries(Object.keys(prev).map(key => [key, false])), principal: true }));
+    navigate('/');
+  };
+
   const toggleGroup = (group) => {
     setOpenGroups(prev => {
       const allClosed = {};
@@ -234,7 +245,7 @@ function MainApp() {
   const menuGroups = [
     {
       id: 'principal', name: 'Principal', icon: HomeIcon,
-      items: [{ id: 'dashboard', name: 'Dashboard', icon: HomeIcon, color: 'from-blue-500 to-blue-600' }]
+      items: [{ id: 'dashboard', name: 'Início do setor', icon: HomeIcon, color: 'from-cyan-500 to-blue-600' }]
     },
     {
       id: 'cadastros', name: 'Cadastros', icon: FolderIcon,
@@ -310,7 +321,7 @@ function MainApp() {
       return <Navigate to="/" replace />;
     }
     switch(tabId) {
-      case 'dashboard': return <Dashboard />;
+      case 'dashboard': return <InicioSetor workspaceId={workspaceId} />;
       case 'convenios': return <Convenios />;
       case 'pacientes': return <Pacientes />;
       case 'prestadores': return <Prestadores />;
@@ -441,16 +452,16 @@ function MainApp() {
           {sidebarOpen ? (
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                <CurrencyDollarIcon className="w-5 h-5 text-white" />
+                <BuildingOffice2Icon className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-white tracking-tight">TISS Faturamento</h1>
-                <p className="text-xs text-gray-400">Sistema TISS 4.03.00</p>
+                <h1 className="text-lg font-bold text-white tracking-tight">Nexo Hospitalar</h1>
+                <p className="text-xs text-cyan-300">Gestão integrada em saúde</p>
               </div>
             </div>
           ) : (
             <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center mx-auto shadow-lg">
-              <CurrencyDollarIcon className="w-5 h-5 text-white" />
+              <BuildingOffice2Icon className="w-5 h-5 text-white" />
             </div>
           )}
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-xl hover:bg-gray-700/50 transition-all duration-200 text-gray-400 hover:text-white">
@@ -458,8 +469,10 @@ function MainApp() {
           </button>
         </div>
 
-        <nav className="p-4 space-y-2 mt-4 overflow-y-auto max-h-[calc(100vh-100px)]">
-          {menuGroups.map((group) => ({ ...group, items: group.items.filter((item) => canAccessMenuItem(item.id)) })).filter((group) => group.items.length > 0).map((group) => (
+        {sidebarOpen && <div className="mx-4 mt-4 rounded-2xl border border-white/10 bg-white/5 p-3"><label className="text-[10px] font-bold uppercase tracking-widest text-cyan-300">Área de trabalho</label><select value={workspaceId} onChange={event => changeWorkspace(event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-sm font-medium text-white"><option value="todos">Visão geral</option>{SECTOR_WORKSPACES.slice(1).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select><p className="mt-2 text-xs leading-relaxed text-slate-400">{workspace.description}</p></div>}
+
+        <nav className="p-4 space-y-2 mt-2 overflow-y-auto max-h-[calc(100vh-230px)]">
+          {filterMenuGroups(menuGroups, workspaceId, canAccessMenuItem).map((group) => (
             <div key={group.id} className="space-y-1">
               {sidebarOpen && (
                 <button 
@@ -522,6 +535,7 @@ function MainApp() {
 
             <div className="flex items-center gap-3">
               <UnidadeSelector />
+              <div className="hidden xl:flex items-center gap-2 rounded-xl border border-cyan-100 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-800 dark:border-cyan-900 dark:bg-cyan-950/30 dark:text-cyan-300"><BuildingOffice2Icon className="h-4 w-4" />{workspace.shortName}</div>
               <div className="hidden md:flex flex-col items-end px-3 py-1.5 rounded-xl bg-gray-100/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700">
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400 capitalize">{formattedDate}</span>
                 <span className="font-mono text-sm font-semibold text-gray-800 dark:text-gray-100 tabular-nums">{formattedTime}</span>
@@ -571,13 +585,15 @@ function MainApp() {
       <aside className={`fixed left-0 top-0 h-full w-80 bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 shadow-2xl z-40 transition-transform duration-300 lg:hidden ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex items-center justify-between p-5 border-b border-gray-700/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center"><CurrencyDollarIcon className="w-5 h-5 text-white" /></div>
-            <div><h1 className="text-lg font-bold text-white">TISS Faturamento</h1><p className="text-xs text-gray-400">Sistema TISS 4.03.00</p></div>
+            <div className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center"><BuildingOffice2Icon className="w-5 h-5 text-white" /></div>
+            <div><h1 className="text-lg font-bold text-white">Nexo Hospitalar</h1><p className="text-xs text-cyan-300">Gestão integrada em saúde</p></div>
           </div>
           <button onClick={() => setMobileSidebarOpen(false)} className="p-2 rounded-xl hover:bg-gray-700/50"><XMarkIcon className="w-5 h-5 text-gray-400" /></button>
         </div>
 
-        <div className="mx-4 mt-6 p-3 bg-gradient-to-r from-gray-800 to-gray-750 rounded-xl">
+        <div className="mx-4 mt-5 rounded-xl border border-white/10 bg-slate-800 p-3"><label className="text-[10px] font-bold uppercase tracking-widest text-cyan-300">Área de trabalho</label><select value={workspaceId} onChange={event => changeWorkspace(event.target.value)} className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-sm text-white"><option value="todos">Visão geral</option>{SECTOR_WORKSPACES.slice(1).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>
+
+        <div className="mx-4 mt-3 p-3 bg-gradient-to-r from-gray-800 to-gray-750 rounded-xl">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
               <span className="text-white font-semibold text-sm">{nomeUsuario.substring(0, 2).toUpperCase()}</span>
@@ -590,7 +606,7 @@ function MainApp() {
         </div>
 
         <nav className="p-4 space-y-2 mt-4 overflow-y-auto max-h-[calc(100vh-180px)]">
-          {menuGroups.map((group) => ({ ...group, items: group.items.filter((item) => canAccessMenuItem(item.id)) })).filter((group) => group.items.length > 0).map((group) => (
+          {filterMenuGroups(menuGroups, workspaceId, canAccessMenuItem).map((group) => (
             <div key={group.id} className="space-y-1">
               <button 
                 onClick={() => toggleGroup(group.id)} 

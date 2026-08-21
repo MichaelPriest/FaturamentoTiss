@@ -1,0 +1,23 @@
+export const SECTOR_WORKSPACES = [
+  { id: 'todos', name: 'Visão geral', shortName: 'Geral', description: 'Indicadores integrados de toda a instituição', color: 'blue', items: [] },
+  { id: 'recepcao', name: 'Recepção e agenda', shortName: 'Recepção', description: 'Jornada do paciente, agenda e filas', color: 'cyan', items: ['dashboard','pacientes','agendamentos','ocupacao','atendimentos','chamados','chamados-painel'] },
+  { id: 'assistencial', name: 'Assistência clínica', shortName: 'Assistencial', description: 'Atendimento, internação, prescrição e prontuário', color: 'emerald', items: ['dashboard','pacientes','atendimentos','operacao-hospitalar','prescricao-enfermagem'] },
+  { id: 'farmacia', name: 'Farmácia e suprimentos', shortName: 'Farmácia', description: 'Estoque, dispensação e segurança medicamentosa', color: 'violet', items: ['dashboard','operacao-hospitalar','prescricao-enfermagem','procedimentos'] },
+  { id: 'faturamento', name: 'Faturamento e auditoria', shortName: 'Faturamento', description: 'Autorizações, contas, lotes TISS e glosas', color: 'amber', items: ['dashboard','convenios','procedimentos','atendimentos','autorizacoes','faturamento','glosas','relatorios'] },
+  { id: 'financeiro', name: 'Financeiro e gestão', shortName: 'Gestão', description: 'Receitas, despesas, unidades e indicadores', color: 'indigo', items: ['dashboard','financeiro','relatorios','prestadores','salas','unidades'] },
+  { id: 'administracao', name: 'Administração do sistema', shortName: 'Administração', description: 'Cadastros, integrações, usuários e configurações', color: 'slate', items: ['dashboard','convenios','pacientes','prestadores','procedimentos','salas','unidades','homologacao-webservice','perfil','notificacoes','configuracoes','saas-admin'] }
+];
+
+export function getWorkspace(id) {
+  return SECTOR_WORKSPACES.find(workspace => workspace.id === id) || SECTOR_WORKSPACES[0];
+}
+
+export function filterMenuGroups(groups, workspaceId, canAccess = () => true) {
+  const workspace = getWorkspace(workspaceId);
+  return groups
+    .map(group => ({
+      ...group,
+      items: group.items.filter(item => canAccess(item.id) && (workspace.id === 'todos' || workspace.items.includes(item.id)))
+    }))
+    .filter(group => group.items.length > 0);
+}
