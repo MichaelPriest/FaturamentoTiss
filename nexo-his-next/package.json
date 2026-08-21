@@ -1,0 +1,10 @@
+{
+  "name": "nexo-his-next",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "npm --prefix apps/web run dev",
+    "build": "npm --prefix apps/web run build",
+    "test": "node --test apps/api/src/**/*.test.cjs"
+  }
+}

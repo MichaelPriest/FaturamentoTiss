@@ -26,7 +26,7 @@ async function validarEndpoint(endpoint) {
   if (url.protocol !== 'https:') throw new Error('Somente endpoints HTTPS são permitidos.');
   if (url.username || url.password) throw new Error('Credenciais não são permitidas na URL.');
 
-  const allowedHosts = String(process.env.ORIZON_ALLOWED_HOSTS || '')
+  const allowedHosts = String(process.env.ORIZON_ALLOWED_HOSTS || 'wsp.hom.orizonbrasil.com.br,wsp.orizonbrasil.com.br,tiss-hml-documentos.orizon.com.br,tiss-documentos.orizon.com.br')
     .split(',').map((host) => host.trim().toLowerCase()).filter(Boolean);
   if (!allowedHosts.length || !allowedHosts.includes(url.hostname.toLowerCase())) {
     throw new Error('O domínio do WebService não está autorizado no servidor.');

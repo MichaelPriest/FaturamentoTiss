@@ -13,7 +13,7 @@ import {
   ReceiptPercentIcon, PresentationChartLineIcon, WrenchScrewdriverIcon, ServerStackIcon, CircleStackIcon
 } from '@heroicons/react/24/outline';
 
-import Dashboard from './pages/Dashboard';
+import InicioSetor from './pages/InicioSetor';
 import Convenios from './pages/Convenios';
 import ConvenioConfig from './pages/ConvenioConfig';
 import WebserviceConfig from './pages/WebserviceConfig';
@@ -43,6 +43,13 @@ import LoginPage from './pages/Login';
 import Perfil from './pages/Perfil';
 import ResetPassword from './pages/ResetPassword';
 import SaasAdmin from './pages/SaasAdmin';
+import OperacaoHospitalar from './pages/OperacaoHospitalar';
+import PrescricaoEnfermagem from './pages/PrescricaoEnfermagem';
+import ProntoAtendimento from './pages/ProntoAtendimento';
+import ApoioDiagnostico from './pages/ApoioDiagnostico';
+import CentroCirurgico from './pages/CentroCirurgico';
+import CentralAssistencial from './pages/CentralAssistencial';
+import { filterMenuGroups, getUserWorkspace } from './lib/sectorWorkspaces';
 
 import { setConfig } from './lib/tissGenerator';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
@@ -61,6 +68,12 @@ const TAB_ROUTES = new Set([
   'atendimentos',
   'agendamentos',
   'ocupacao',
+  'operacao-hospitalar',
+  'prescricao-enfermagem',
+  'pronto-atendimento',
+  'apoio-diagnostico',
+  'centro-cirurgico',
+  'central-assistencial',
   'autorizacoes',
   'faturamento',
   'homologacao-webservice',
@@ -143,6 +156,8 @@ function MainApp() {
   });
   const { darkMode, toggleDarkMode } = useTheme();
   const { user, signOut } = useAuth();
+  const workspace = getUserWorkspace(user);
+  const workspaceId = workspace.id;
   const isAdmin = user?.role === 'admin';
   const canAccessMenuItem = (itemId) => {
     if (itemId === 'saas-admin') return user?.saas_admin === true;
@@ -230,7 +245,7 @@ function MainApp() {
   const menuGroups = [
     {
       id: 'principal', name: 'Principal', icon: HomeIcon,
-      items: [{ id: 'dashboard', name: 'Dashboard', icon: HomeIcon, color: 'from-blue-500 to-blue-600' }]
+      items: [{ id: 'dashboard', name: 'Início do setor', icon: HomeIcon, color: 'from-cyan-500 to-blue-600' }]
     },
     {
       id: 'cadastros', name: 'Cadastros', icon: FolderIcon,
@@ -249,6 +264,12 @@ function MainApp() {
         { id: 'agendamentos', name: 'Agendamentos', icon: CalendarDaysIcon, color: 'from-cyan-500 to-cyan-600' },
         { id: 'ocupacao', name: 'Mapa de Ocupação', icon: HomeModernIcon, color: 'from-violet-500 to-violet-600' },
         { id: 'atendimentos', name: 'Atendimentos', icon: ClipboardDocumentCheckIcon, color: 'from-pink-500 to-pink-600' }
+      ]
+    },
+    {
+      id: 'hospitalar', name: 'Cuidado Integrado', icon: BuildingOffice2Icon,
+      items: [
+        { id: 'central-assistencial', name: 'Central Assistencial', icon: ClipboardDocumentCheckIcon, color: 'from-cyan-600 to-blue-600' }
       ]
     },
     {
@@ -298,8 +319,11 @@ function MainApp() {
     if (['configuracoes', 'unidades', 'homologacao-webservice'].includes(tabId) && !isAdmin) {
       return <Navigate to="/" replace />;
     }
+    if (workspaceId !== 'todos' && !['dashboard','perfil','notificacoes'].includes(tabId) && !workspace.items.includes(tabId)) {
+      return <Navigate to="/" replace />;
+    }
     switch(tabId) {
-      case 'dashboard': return <Dashboard />;
+      case 'dashboard': return <InicioSetor workspaceId={workspaceId} />;
       case 'convenios': return <Convenios />;
       case 'pacientes': return <Pacientes />;
       case 'prestadores': return <Prestadores />;
@@ -309,6 +333,12 @@ function MainApp() {
       case 'atendimentos': return <Atendimentos />;
       case 'agendamentos': return <Agendamentos />;
       case 'ocupacao': return <Ocupacao />;
+      case 'operacao-hospitalar': return <OperacaoHospitalar />;
+      case 'prescricao-enfermagem': return <PrescricaoEnfermagem />;
+      case 'pronto-atendimento': return <ProntoAtendimento />;
+      case 'apoio-diagnostico': return <ApoioDiagnostico />;
+      case 'centro-cirurgico': return <CentroCirurgico />;
+      case 'central-assistencial': return <CentralAssistencial />;
       case 'autorizacoes': return <Autorizacoes />;
       case 'faturamento': return <Faturamento />;
       case 'homologacao-webservice': return <HomologacaoWebservice />;
@@ -364,6 +394,12 @@ function MainApp() {
       atendimentos: 'Registro de atendimentos e guias',
       agendamentos: 'Gerenciamento de agenda e consultas',
       ocupacao: 'Mapa de salas, horários e disponibilidade',
+      'operacao-hospitalar': 'Gestão integrada de internações, leitos, estoque e farmácia',
+      'prescricao-enfermagem': 'Prescrição eletrônica, aprazamento e checagem segura à beira-leito',
+      'pronto-atendimento': 'Classificação de risco, sinais vitais e fila assistencial',
+      'apoio-diagnostico': 'Solicitações, coleta, processamento e resultados de exames',
+      'centro-cirurgico': 'Mapa cirúrgico, segurança pré-operatória e fluxo de sala',
+      'central-assistencial': 'Jornada unificada do pronto atendimento à alta hospitalar',
       financeiro: 'Contas a receber, pagar e fluxo de caixa',
       glosas: 'Gestão de glosas e recursos',
       relatorios: 'Análise de dados e métricas',
@@ -426,16 +462,16 @@ function MainApp() {
           {sidebarOpen ? (
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                <CurrencyDollarIcon className="w-5 h-5 text-white" />
+                <BuildingOffice2Icon className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-white tracking-tight">TISS Faturamento</h1>
-                <p className="text-xs text-gray-400">Sistema TISS 4.03.00</p>
+                <h1 className="text-lg font-bold text-white tracking-tight">Nexo Hospitalar</h1>
+                <p className="text-xs text-cyan-300">Gestão integrada em saúde</p>
               </div>
             </div>
           ) : (
             <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center mx-auto shadow-lg">
-              <CurrencyDollarIcon className="w-5 h-5 text-white" />
+              <BuildingOffice2Icon className="w-5 h-5 text-white" />
             </div>
           )}
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 rounded-xl hover:bg-gray-700/50 transition-all duration-200 text-gray-400 hover:text-white">
@@ -444,7 +480,7 @@ function MainApp() {
         </div>
 
         <nav className="p-4 space-y-2 mt-4 overflow-y-auto max-h-[calc(100vh-100px)]">
-          {menuGroups.map((group) => ({ ...group, items: group.items.filter((item) => canAccessMenuItem(item.id)) })).filter((group) => group.items.length > 0).map((group) => (
+          {filterMenuGroups(menuGroups, workspaceId, canAccessMenuItem).map((group) => (
             <div key={group.id} className="space-y-1">
               {sidebarOpen && (
                 <button 
@@ -507,6 +543,7 @@ function MainApp() {
 
             <div className="flex items-center gap-3">
               <UnidadeSelector />
+              <div className="hidden xl:flex items-center gap-2 rounded-xl border border-cyan-100 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-800 dark:border-cyan-900 dark:bg-cyan-950/30 dark:text-cyan-300"><BuildingOffice2Icon className="h-4 w-4" />{workspace.shortName}</div>
               <div className="hidden md:flex flex-col items-end px-3 py-1.5 rounded-xl bg-gray-100/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700">
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400 capitalize">{formattedDate}</span>
                 <span className="font-mono text-sm font-semibold text-gray-800 dark:text-gray-100 tabular-nums">{formattedTime}</span>
@@ -556,13 +593,13 @@ function MainApp() {
       <aside className={`fixed left-0 top-0 h-full w-80 bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 shadow-2xl z-40 transition-transform duration-300 lg:hidden ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex items-center justify-between p-5 border-b border-gray-700/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center"><CurrencyDollarIcon className="w-5 h-5 text-white" /></div>
-            <div><h1 className="text-lg font-bold text-white">TISS Faturamento</h1><p className="text-xs text-gray-400">Sistema TISS 4.03.00</p></div>
+            <div className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center"><BuildingOffice2Icon className="w-5 h-5 text-white" /></div>
+            <div><h1 className="text-lg font-bold text-white">Nexo Hospitalar</h1><p className="text-xs text-cyan-300">Gestão integrada em saúde</p></div>
           </div>
           <button onClick={() => setMobileSidebarOpen(false)} className="p-2 rounded-xl hover:bg-gray-700/50"><XMarkIcon className="w-5 h-5 text-gray-400" /></button>
         </div>
 
-        <div className="mx-4 mt-6 p-3 bg-gradient-to-r from-gray-800 to-gray-750 rounded-xl">
+        <div className="mx-4 mt-3 p-3 bg-gradient-to-r from-gray-800 to-gray-750 rounded-xl">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
               <span className="text-white font-semibold text-sm">{nomeUsuario.substring(0, 2).toUpperCase()}</span>
@@ -575,7 +612,7 @@ function MainApp() {
         </div>
 
         <nav className="p-4 space-y-2 mt-4 overflow-y-auto max-h-[calc(100vh-180px)]">
-          {menuGroups.map((group) => ({ ...group, items: group.items.filter((item) => canAccessMenuItem(item.id)) })).filter((group) => group.items.length > 0).map((group) => (
+          {filterMenuGroups(menuGroups, workspaceId, canAccessMenuItem).map((group) => (
             <div key={group.id} className="space-y-1">
               <button 
                 onClick={() => toggleGroup(group.id)} 

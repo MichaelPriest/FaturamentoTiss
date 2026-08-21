@@ -2,6 +2,18 @@
   "version": 2,
   "routes": [
     {
+      "src": "/nexo",
+      "dest": "/nexo/index.html"
+    },
+    {
+      "src": "/nexo/assets/(.*)",
+      "dest": "/nexo/assets/$1"
+    },
+    {
+      "src": "/nexo/(.*)",
+      "dest": "/nexo/index.html"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "/api/$1"
     },

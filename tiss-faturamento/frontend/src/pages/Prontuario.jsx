@@ -22,7 +22,6 @@ import {
   CurrencyDollarIcon,
   IdentificationIcon,
   HeartIcon,
-  StethoscopeIcon,
   ShieldCheckIcon,
   SparklesIcon,
   MicrophoneIcon,
@@ -31,9 +30,7 @@ import {
   ClipboardDocumentCheckIcon,
   ListBulletIcon,
   UserGroupIcon,
-  BandAidIcon,
-  CalendarDaysIcon,
-  SearchIcon
+  CalendarDaysIcon
 } from '@heroicons/react/24/outline';
 
 // Ícones do react-icons que realmente existem
@@ -53,8 +50,7 @@ import {
   FaClipboardList,
   FaMicroscope,
   FaNotesMedical,
-  FaCut,
-  FaScissors
+  FaCut
 } from 'react-icons/fa';
 
 import { toast } from 'sonner';
