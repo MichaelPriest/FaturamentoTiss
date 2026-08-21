@@ -40,7 +40,8 @@ Execute em uma base vazia, nesta ordem:
 4. `database/migrations/003_triage.sql`;
 5. `database/migrations/004_triage_idempotency.sql`;
 6. `database/migrations/005_user_profile.sql`;
-7. após validação contábil, `database/seeds/financial_base.sql`.
+7. `database/migrations/006_profile_onboarding.sql`;
+8. após validação contábil, `database/seeds/financial_base.sql`.
 
 O contrato inicial está em `docs/openapi.yaml`. Antes de qualquer transmissão real ainda são obrigatórios adaptador TISS da versão contratada, validação XSD, assinatura ICP-Brasil e homologação da operadora.
 
@@ -93,4 +94,4 @@ O cliente guarda access token, refresh token e vencimento somente em `sessionSto
 
 ## Identidade do usuário
 
-A migration `005_user_profile.sql` libera por RLS somente o próprio perfil e a unidade vinculada. O cabeçalho, saudação, iniciais, setor, nível, nome da unidade e CNES passam a vir do banco; o e-mail é usado apenas como fallback quando o cadastro institucional ainda não existe.
+As migrations `005_user_profile.sql` e `006_profile_onboarding.sql` liberam por RLS somente o próprio perfil e a unidade vinculada. No primeiro acesso sem cadastro, o RPC `garantir_meu_perfil` cria o vínculo automaticamente quando existe no máximo uma unidade; em instalações multiunidade, exige vínculo explícito de um administrador para evitar acesso à unidade errada. O cabeçalho, saudação, iniciais, setor, nível, nome da unidade e CNES passam a vir do banco; o e-mail é usado apenas como fallback.

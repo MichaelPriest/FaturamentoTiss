@@ -62,8 +62,13 @@ export function signOut() {
 export async function loadCurrentProfile() {
   const session=getStoredSession();
   if(!session?.user?.id) throw new Error('Usuário autenticado sem identificador.');
-  const {data}=await request(`usuarios?id=eq.${encodeURIComponent(session.user.id)}&select=id,nome,role,setor_acesso,nivel_acesso,unidades(nome,cnes)&limit=1`);
-  if(!data[0]) throw new Error('Perfil institucional não encontrado. Solicite o vínculo à unidade.');
+  const path=`usuarios?id=eq.${encodeURIComponent(session.user.id)}&select=id,nome,role,setor_acesso,nivel_acesso,unidades(nome,cnes)&limit=1`;
+  let {data}=await request(path);
+  if(!data[0]) {
+    await request('rpc/garantir_meu_perfil',{method:'POST',body:{}});
+    ({data}=await request(path));
+  }
+  if(!data[0]) throw new Error('Não foi possível preparar o perfil institucional. Entre novamente ou contate o administrador.');
   return data[0];
 }
 
