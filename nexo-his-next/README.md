@@ -60,3 +60,9 @@ Os arquivos em `tiss-faturamento/frontend/public/nexo` são somente artefatos de
 4. associe um domínio próprio, por exemplo `nexo-his.vercel.app` ou `his.suaempresa.com.br`.
 
 No projeto independente, a interface abre na raiz do novo domínio (`/`). No deploy legado, a regra específica da Vercel preserva `/nexo` e seus assets antes do fallback da aplicação antiga.
+
+O comando `vercel-build` do frontend legado recompila esta fonte a cada deploy. Assim, `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` configuradas na Vercel são incorporadas à distribuição `/nexo`, sem duplicar código-fonte no legado.
+
+## Conexão com dados reais
+
+Copie `apps/web/.env.example` para `apps/web/.env.local` e informe a URL e a chave pública `anon` do projeto Supabase criado pelas migrations. A interface exibe **Dados reais** somente após consultar com sucesso pacientes, internações, contas e glosas respeitando o JWT/RLS; sem configuração, mostra explicitamente **Demonstração**. Um token de sessão autenticado deve ser gravado em `sessionStorage` sob `nexo_access_token` pelo futuro módulo de login.
