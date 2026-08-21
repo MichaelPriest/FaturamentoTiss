@@ -48,7 +48,7 @@ async function request(path, { count = false, method = 'GET', body, prefer } = {
 }
 
 export async function loadReceptionQueue() {
-  const { data } = await request('atendimentos?select=id,paciente_id,tipo,status,prioridade,data_chegada,observacoes,pacientes(id,nome,cpf,data_nascimento)&status=in.(AGENDADO,CHEGOU,TRIAGEM,EM_ATENDIMENTO)&order=data_chegada.asc&limit=100');
+  const { data } = await request('atendimentos?select=id,paciente_id,tipo,status,prioridade,data_chegada,observacoes,pacientes(id,nome,cpf,data_nascimento)&status=in.(AGENDADO,CHEGOU)&order=data_chegada.asc&limit=100');
   return data;
 }
 
@@ -67,12 +67,24 @@ export async function advanceReception(id, status) {
   return data[0];
 }
 
+export async function loadTriageQueue() {
+  const { data } = await request('atendimentos?select=id,status,prioridade,data_chegada,pacientes(id,nome,cpf,data_nascimento),triagens(id,classificacao,queixa_principal,realizada_em)&status=in.(CHEGOU,TRIAGEM)&order=data_chegada.asc&limit=100');
+  return data;
+}
+
+export async function registerTriage(form) {
+  const payload={p_atendimento_id:form.atendimento_id,p_classificacao:form.classificacao,p_queixa:form.queixa_principal.trim(),p_sistolica:form.pressao_sistolica===''?null:Number(form.pressao_sistolica),p_diastolica:form.pressao_diastolica===''?null:Number(form.pressao_diastolica),p_fc:form.frequencia_cardiaca===''?null:Number(form.frequencia_cardiaca),p_saturacao:form.saturacao===''?null:Number(form.saturacao),p_temperatura:form.temperatura===''?null:Number(form.temperatura),p_dor:form.escala_dor===''?null:Number(form.escala_dor),p_observacoes:form.observacoes||null};
+  const { data }=await request('rpc/registrar_triagem',{method:'POST',body:payload});
+  return data;
+}
+
 export async function loadOperationalDashboard() {
-  const [patients, admissions, accounts, glosas] = await Promise.all([
+  const [patients, admissions, accounts, glosas, receptions] = await Promise.all([
     request('pacientes?select=id,nome,cpf,data_nascimento&order=nome.asc&limit=20', { count: true }),
     request('internacoes?select=id,paciente_id,status,data_entrada&status=eq.ativa&order=data_entrada.desc&limit=20', { count: true }),
     request('contas_hospitalares?select=id,valor_total_liquido,situacao&situacao=in.(ABERTA,FECHADA)&limit=1000', { count: true }),
-    request('glosas_financeiras?select=id,valor_glosado,prazo_recurso,situacao&situacao=eq.PENDENTE&order=prazo_recurso.asc&limit=1000', { count: true })
+    request('glosas_financeiras?select=id,valor_glosado,prazo_recurso,situacao&situacao=eq.PENDENTE&order=prazo_recurso.asc&limit=1000', { count: true }),
+    request('atendimentos?select=id,status&status=in.(AGENDADO,CHEGOU,TRIAGEM,EM_ATENDIMENTO)&limit=1000',{count:true})
   ]);
   const admissionByPatient = new Map(admissions.data.map(item => [String(item.paciente_id), item]));
   return {
@@ -84,7 +96,8 @@ export async function loadOperationalDashboard() {
     },
     patients: patients.data.map(item => ({ ...item, admission: admissionByPatient.get(String(item.id)) })),
     accounts: accounts.data,
-    glosas: glosas.data
+    glosas: glosas.data,
+    receptionSummary: receptions.data.reduce((summary,item)=>({...summary,[item.status]:(summary[item.status]||0)+1}),{})
   };
 }
 

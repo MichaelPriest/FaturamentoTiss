@@ -37,7 +37,8 @@ Execute em uma base vazia, nesta ordem:
 1. `database/migrations/000_core.sql`;
 2. `database/migrations/001_financial_cycle.sql`;
 3. `database/migrations/002_reception.sql`;
-4. após validação contábil, `database/seeds/financial_base.sql`.
+4. `database/migrations/003_triage.sql`;
+5. após validação contábil, `database/seeds/financial_base.sql`.
 
 O contrato inicial está em `docs/openapi.yaml`. Antes de qualquer transmissão real ainda são obrigatórios adaptador TISS da versão contratada, validação XSD, assinatura ICP-Brasil e homologação da operadora.
 
@@ -75,3 +76,7 @@ O ambiente de produção está apontado para o projeto Supabase institucional po
 ## Primeiro fluxo transacional
 
 A migration `002_reception.sql` ativa o primeiro módulo completo: autenticação, cadastro real de paciente, registro de chegada, fila da recepção e avanço controlado pelos estados `AGENDADO → CHEGOU → TRIAGEM → EM_ATENDIMENTO → FINALIZADO`. Execute-a depois de `001_financial_cycle.sql`.
+
+## Triagem e dashboard vivo
+
+A migration `003_triage.sql` adiciona classificação de risco, sinais vitais, queixa principal e o RPC transacional que atualiza a etapa do atendimento. O dashboard deixa de usar números fixos para recepção, triagem, atendimento e internação quando conectado ao banco. A classificação é sempre escolhida pelo profissional habilitado; o sistema apenas valida limites técnicos dos dados informados.
