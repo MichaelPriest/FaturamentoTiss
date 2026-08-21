@@ -5,6 +5,6 @@
   "scripts": {
     "dev": "npm --prefix apps/web run dev",
     "build": "npm --prefix apps/web run build",
-    "test": "node --test apps/api/src/**/*.test.cjs"
+    "test": "node --test apps/api/src/**/*.test.cjs apps/web/src/**/*.test.js"
   }
 }

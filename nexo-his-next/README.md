@@ -36,7 +36,8 @@ Execute em uma base vazia, nesta ordem:
 
 1. `database/migrations/000_core.sql`;
 2. `database/migrations/001_financial_cycle.sql`;
-3. após validação contábil, `database/seeds/financial_base.sql`.
+3. `database/migrations/002_reception.sql`;
+4. após validação contábil, `database/seeds/financial_base.sql`.
 
 O contrato inicial está em `docs/openapi.yaml`. Antes de qualquer transmissão real ainda são obrigatórios adaptador TISS da versão contratada, validação XSD, assinatura ICP-Brasil e homologação da operadora.
 
@@ -68,3 +69,7 @@ Os bundles públicos usam os nomes estáveis `nexo-app.js` e `nexo-app.css`. Iss
 ## Conexão com dados reais
 
 Copie `apps/web/.env.example` para `apps/web/.env.local` e informe a URL e a chave pública `anon` do projeto Supabase criado pelas migrations. A interface exibe **Dados reais** somente após consultar com sucesso pacientes, internações, contas e glosas respeitando o JWT/RLS; sem configuração, mostra explicitamente **Demonstração**. Um token de sessão autenticado deve ser gravado em `sessionStorage` sob `nexo_access_token` pelo futuro módulo de login.
+
+## Primeiro fluxo transacional
+
+A migration `002_reception.sql` ativa o primeiro módulo completo: autenticação, cadastro real de paciente, registro de chegada, fila da recepção e avanço controlado pelos estados `AGENDADO → CHEGOU → TRIAGEM → EM_ATENDIMENTO → FINALIZADO`. Execute-a depois de `001_financial_cycle.sql`.

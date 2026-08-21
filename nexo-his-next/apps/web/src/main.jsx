@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import Icon from './components/Icon';
-import { isHisApiConfigured, loadOperationalDashboard, searchPatients } from './lib/hisApi';
+import LoginView from './components/LoginView';
+import ReceptionModule from './components/ReceptionModule';
+import { getStoredSession, isHisApiConfigured, loadOperationalDashboard, searchPatients, signIn, signOut } from './lib/hisApi';
 import './styles.css';
 
 const menu = [
@@ -40,6 +42,7 @@ const moduleDefinitions = {
 };
 
 function App() {
+  const [session,setSession]=useState(getStoredSession());
   const [active, setActive] = useState('Visão operacional');
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(patients[0]);
@@ -48,9 +51,9 @@ function App() {
   const [dataState, setDataState] = useState(isHisApiConfigured ? 'loading' : 'demo');
   const [error, setError] = useState('');
   useEffect(() => {
-    if (!isHisApiConfigured) return;
+    if (!isHisApiConfigured || !session) return;
     loadOperationalDashboard().then(data => { setDashboard(data); setDataState('live'); }).catch(err => { setError(err.message); setDataState('error'); });
-  }, []);
+  }, [session]);
   useEffect(() => {
     if (!isHisApiConfigured || query.trim().length < 2) { setRemotePatients([]); return; }
     const timer = setTimeout(() => searchPatients(query).then(setRemotePatients).catch(err => setError(err.message)), 250);
@@ -63,6 +66,12 @@ function App() {
     { label:'Contas a fechar', value:String(dashboard.metrics.openAccounts), note:'Abertas ou fechadas', tone:'amber' },
     { label:'Glosas no prazo', value:String(dashboard.metrics.pendingGlosas), note:'Pendentes de análise', tone:'red' }
   ] : cards;
+  const displayPatients = dashboard ? dashboard.patients.map(patient => ({
+    initials: patient.nome.split(' ').slice(0,2).map(part=>part[0]).join(''), name: patient.nome,
+    id: String(patient.id).padStart(8,'0'), age: patient.data_nascimento ? new Date(`${patient.data_nascimento}T12:00:00`).toLocaleDateString('pt-BR') : 'Nascimento não informado', payer: 'Atendimento atual', journey: patient.admission ? 'Internada' : 'Cadastro ativo',
+    bed: patient.admission ? 'Internação ativa' : '—', since: patient.admission ? new Date(patient.admission.data_entrada).toLocaleDateString('pt-BR') : '—', risk: 'Sem alerta'
+  })) : patients;
+  if (isHisApiConfigured && !session) return <LoginView onLogin={async(email,password)=>setSession(await signIn(email,password))}/>;
   return <div className="app-shell">
     <aside className="sidebar">
       <div className="brand"><span className="brand-mark">N</span><div><strong>Nexo HIS</strong><small>Gestão hospitalar integrada</small></div></div>
@@ -70,11 +79,11 @@ function App() {
       <div className="unit-card"><span className="status-dot"/><div><strong>Hospital Central</strong><small>Unidade Matriz · CNES 1234567</small></div></div>
     </aside>
     <main>
-      <header className="topbar"><div><span className="eyebrow">CENTRAL OPERACIONAL</span><h1>{active}</h1></div><div className="top-actions"><span className={`data-status ${dataState}`}>{dataState==='live'?'Dados reais':dataState==='loading'?'Sincronizando':dataState==='error'?'Falha na conexão':'Demonstração'}</span><button className="icon-btn" aria-label="Notificações"><Icon name="bell" size={16}/><i/></button><div className="avatar">MF</div><div className="user"><strong>Marina Ferreira</strong><small>Supervisão · Faturamento</small></div></div></header>
+      <header className="topbar"><div><span className="eyebrow">CENTRAL OPERACIONAL</span><h1>{active}</h1></div><div className="top-actions"><span className={`data-status ${dataState}`}>{dataState==='live'?'Dados reais':dataState==='loading'?'Sincronizando':dataState==='error'?'Falha na conexão':'Demonstração'}</span><button className="icon-btn" aria-label="Notificações"><Icon name="bell" size={16}/><i/></button><div className="avatar">{session?.user?.email?.slice(0,2).toUpperCase()||'MF'}</div><div className="user"><strong>{session?.user?.email||'Marina Ferreira'}</strong><button className="logout-link" onClick={()=>{signOut();setSession(null)}}>{session?'Sair':'Supervisão · Faturamento'}</button></div></div></header>
       <section className="patient-bar"><div className="search-wrap"><span><Icon name="search" size={16}/></span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Localizar paciente por nome, prontuário ou CPF"/>{query&&<div className="search-results">{filtered.map(p=><button key={p.id} onClick={()=>{setSelected(p);setQuery('')}}><span className="mini-avatar">{p.initials}</span><span><strong>{p.name}</strong><small>Pront. {p.id} · {p.payer}</small></span></button>)}{filtered.length===0&&<p>Nenhum paciente localizado.</p>}</div>}</div><div className="patient-context"><span className="patient-avatar">{selected.initials}</span><div><strong>{selected.name}</strong><small>Pront. {selected.id} · {selected.age} · {selected.payer}</small></div><span className="tag blue">{selected.journey}</span><button>Ver contexto completo <Icon name="chevron" size={12}/></button></div></section>
       <div className="workspace">
         <section className="hero"><div><span className="eyebrow">SEXTA-FEIRA, 21 DE AGOSTO</span><h2>Bom dia, Marina.</h2><p>Acompanhe a operação assistencial e financeira da unidade em uma única visão.</p>{error&&<p className="connection-error">{error}</p>}</div><div className="hero-actions"><button className="secondary"><Icon name="download" size={14}/> Exportar painel</button><button className="primary"><Icon name="plus" size={14}/> Nova admissão</button></div></section>
-        {active === 'Visão operacional' ? <><section className="metrics">{liveCards.map(c=><article className={`metric ${c.tone}`} key={c.label}><div><span>{c.label}</span><strong>{c.value}</strong><small>{c.note}</small></div><i/></article>)}</section>
+        {active === 'Recepção e agenda' ? <ReceptionModule onPatientSelected={patient=>setSelected({initials:patient.nome.split(' ').slice(0,2).map(x=>x[0]).join(''),name:patient.nome,id:String(patient.id).padStart(8,'0'),age:'Cadastro ativo',payer:'Consulte o atendimento',journey:'Recepção'})}/> : active === 'Visão operacional' ? <><section className="metrics">{liveCards.map(c=><article className={`metric ${c.tone}`} key={c.label}><div><span>{c.label}</span><strong>{c.value}</strong><small>{c.note}</small></div><i/></article>)}</section>
         <section className="grid-main">
           <article className="panel flow-panel"><header><div><h3>Fluxo assistencial em tempo real</h3><p>Pacientes por etapa da jornada</p></div><button>Ver central →</button></header><div className="journey">
             {[['Recepção','24','6 aguardando cadastro'],['Triagem','11','3 acima do tempo'],['Atendimento','38','12 em consultório'],['Internação','47','82% de ocupação'],['Alta','8','5 com pendências']].map((x,i)=><React.Fragment key={x[0]}><div className="stage"><span>{i+1}</span><strong>{x[1]}</strong><b>{x[0]}</b><small>{x[2]}</small></div>{i<4&&<em>›</em>}</React.Fragment>)}
@@ -82,7 +91,7 @@ function App() {
           <article className="panel pending"><header><div><h3>Pendências prioritárias</h3><p>Exigem ação da sua equipe</p></div><span className="tag red">12 abertas</span></header>{[
             ['Glosas vencem em até 5 dias','5 contas · R$ 18.420,00','Recorrer','red'],['Contas aguardando fechamento','12 contas · R$ 96.340,50','Revisar','amber'],['Altas com documentação incompleta','3 pacientes · prontuário pendente','Regularizar','blue']
           ].map(x=><div className="pending-row" key={x[0]}><span className={`alert-icon ${x[3]}`}>!</span><div><strong>{x[0]}</strong><small>{x[1]}</small></div><button>{x[2]}</button></div>)}</article>
-          <article className="panel table-panel"><header><div><h3>Pacientes em acompanhamento</h3><p>Visão integrada da unidade</p></div><button>Todos os pacientes →</button></header><table><thead><tr><th>Paciente</th><th>Jornada</th><th>Local</th><th>Tempo</th><th>Condição</th><th></th></tr></thead><tbody>{patients.map(p=><tr key={p.id} onClick={()=>setSelected(p)}><td><span className="mini-avatar">{p.initials}</span><span><strong>{p.name}</strong><small>Pront. {p.id}</small></span></td><td><span className="tag blue">{p.journey}</span></td><td>{p.bed}</td><td>{p.since}</td><td><span className={`condition ${p.risk==='Urgente'?'urgent':''}`}>{p.risk}</span></td><td>•••</td></tr>)}</tbody></table></article>
+          <article className="panel table-panel"><header><div><h3>Pacientes em acompanhamento</h3><p>Visão integrada da unidade</p></div><button>Todos os pacientes →</button></header><table><thead><tr><th>Paciente</th><th>Jornada</th><th>Local</th><th>Tempo</th><th>Condição</th><th></th></tr></thead><tbody>{displayPatients.map(p=><tr key={p.id} onClick={()=>setSelected(p)}><td><span className="mini-avatar">{p.initials}</span><span><strong>{p.name}</strong><small>Pront. {p.id}</small></span></td><td><span className="tag blue">{p.journey}</span></td><td>{p.bed}</td><td>{p.since}</td><td><span className={`condition ${p.risk==='Urgente'?'urgent':''}`}>{p.risk}</span></td><td>•••</td></tr>)}</tbody></table></article>
         </section></> : <section className="module-workspace"><header><div><span className="eyebrow">MÓDULO OPERACIONAL</span><h3>{active}</h3><p>Fila de trabalho integrada ao contexto do paciente e às permissões do setor.</p></div><button className="primary"><Icon name="plus" size={14}/> Novo registro</button></header><div className="module-actions">{(moduleDefinitions[active] || []).map((label,index)=><button key={label}><span>{String(index+1).padStart(2,'0')}</span><div><strong>{label}</strong><small>Abrir função e manter o paciente selecionado</small></div><Icon name="chevron" size={16}/></button>)}</div><div className="empty-queue"><Icon name="account" size={24}/><div><strong>Fila pronta para integração</strong><p>Os registros aparecerão aqui após a aplicação das migrations e a autenticação da unidade.</p></div></div></section>}
       </div>
     </main>
