@@ -45,6 +45,7 @@ import ResetPassword from './pages/ResetPassword';
 import SaasAdmin from './pages/SaasAdmin';
 import OperacaoHospitalar from './pages/OperacaoHospitalar';
 import PrescricaoEnfermagem from './pages/PrescricaoEnfermagem';
+import ProntoAtendimento from './pages/ProntoAtendimento';
 import { filterMenuGroups, getWorkspace, SECTOR_WORKSPACES } from './lib/sectorWorkspaces';
 
 import { setConfig } from './lib/tissGenerator';
@@ -66,6 +67,7 @@ const TAB_ROUTES = new Set([
   'ocupacao',
   'operacao-hospitalar',
   'prescricao-enfermagem',
+  'pronto-atendimento',
   'autorizacoes',
   'faturamento',
   'homologacao-webservice',
@@ -269,6 +271,7 @@ function MainApp() {
     {
       id: 'hospitalar', name: 'Operação Hospitalar', icon: BuildingOffice2Icon,
       items: [
+        { id: 'pronto-atendimento', name: 'Pronto Atendimento', icon: ShieldCheckIcon, color: 'from-red-600 to-orange-500' },
         { id: 'operacao-hospitalar', name: 'Central Hospitalar', icon: BuildingOffice2Icon, color: 'from-blue-600 to-cyan-600' },
         { id: 'prescricao-enfermagem', name: 'Prescrição e Enfermagem', icon: ClipboardDocumentCheckIcon, color: 'from-emerald-600 to-teal-600' }
       ]
@@ -333,6 +336,7 @@ function MainApp() {
       case 'ocupacao': return <Ocupacao />;
       case 'operacao-hospitalar': return <OperacaoHospitalar />;
       case 'prescricao-enfermagem': return <PrescricaoEnfermagem />;
+      case 'pronto-atendimento': return <ProntoAtendimento />;
       case 'autorizacoes': return <Autorizacoes />;
       case 'faturamento': return <Faturamento />;
       case 'homologacao-webservice': return <HomologacaoWebservice />;
@@ -390,6 +394,7 @@ function MainApp() {
       ocupacao: 'Mapa de salas, horários e disponibilidade',
       'operacao-hospitalar': 'Gestão integrada de internações, leitos, estoque e farmácia',
       'prescricao-enfermagem': 'Prescrição eletrônica, aprazamento e checagem segura à beira-leito',
+      'pronto-atendimento': 'Classificação de risco, sinais vitais e fila assistencial',
       financeiro: 'Contas a receber, pagar e fluxo de caixa',
       glosas: 'Gestão de glosas e recursos',
       relatorios: 'Análise de dados e métricas',
