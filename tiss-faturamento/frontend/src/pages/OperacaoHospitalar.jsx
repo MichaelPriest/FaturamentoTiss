@@ -24,7 +24,7 @@ const emptyAdmission = { paciente_id: '', leito_id: '', medico_id: '', diagnosti
 const emptyStock = { nome: '', codigo: '', categoria: 'material', unidade_medida: 'UN', estoque_atual: 0, estoque_minimo: 0, lote: '', validade: '' };
 const emptyBed = { codigo: '', setor: '', tipo: 'enfermaria' };
 
-export default function OperacaoHospitalar() {
+export default function OperacaoHospitalar({ patientId: contextPatientId = '' }) {
   const { unidadeAtualId } = useUnidade();
   const [tab, setTab] = useState('visao');
   const [loading, setLoading] = useState(true);
@@ -61,6 +61,7 @@ export default function OperacaoHospitalar() {
     } finally { setLoading(false); }
   };
   useEffect(() => { carregar(); }, [unidadeAtualId]);
+  useEffect(() => { if (contextPatientId) setAdmission(current => ({...current,paciente_id:String(contextPatientId)})); }, [contextPatientId]);
 
   const metricas = useMemo(() => ({
     total: leitos.filter(item => item.ativo).length,

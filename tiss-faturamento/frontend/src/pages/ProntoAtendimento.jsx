@@ -19,7 +19,7 @@ const emptyForm = {
 };
 const numericFields = ['pressao_sistolica','pressao_diastolica','frequencia_cardiaca','frequencia_respiratoria','saturacao','temperatura','glicemia','escala_dor'];
 
-export default function ProntoAtendimento() {
+export default function ProntoAtendimento({ patientId: contextPatientId = '' }) {
   const { unidadeAtualId } = useUnidade();
   const [loading, setLoading] = useState(true);
   const [patients, setPatients] = useState([]);
@@ -49,6 +49,7 @@ export default function ProntoAtendimento() {
   };
 
   useEffect(() => { load(); }, [unidadeAtualId]);
+  useEffect(() => { if (contextPatientId) setForm(current => ({...current,paciente_id:String(contextPatientId)})); }, [contextPatientId]);
   useEffect(() => { const timer = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(timer); }, []);
 
   const activeQueue = useMemo(() => sortTriageQueue(triages.filter(item => ['aguardando','chamado','em_atendimento'].includes(item.status))), [triages]);
