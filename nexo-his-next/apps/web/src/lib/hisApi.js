@@ -148,8 +148,14 @@ export async function loadClinicalQueue() {
   return data;
 }
 
+export async function loadClinicalRecord(atendimentoId) {
+  if(!atendimentoId) return [];
+  const {data}=await request(`evolucoes_clinicas?select=id,subjetivo,objetivo,avaliacao,plano,cid10,prescricao,exames_solicitados,orientacoes,desfecho,created_at&atendimento_id=eq.${encodeURIComponent(atendimentoId)}&order=created_at.desc&limit=20`);
+  return data;
+}
+
 export async function registerClinicalEvolution(form) {
-  const {data}=await request('rpc/registrar_evolucao_clinica',{method:'POST',body:{p_atendimento_id:form.atendimento_id,p_subjetivo:form.subjetivo.trim(),p_objetivo:form.objetivo.trim(),p_avaliacao:form.avaliacao.trim(),p_plano:form.plano.trim(),p_cid10:form.cid10.trim()||null,p_desfecho:form.desfecho,p_finalizar:form.finalizar}});
+  const {data}=await request('rpc/registrar_atendimento_clinico',{method:'POST',body:{p_atendimento_id:form.atendimento_id,p_subjetivo:form.subjetivo.trim(),p_objetivo:form.objetivo.trim(),p_avaliacao:form.avaliacao.trim(),p_plano:form.plano.trim(),p_cid10:form.cid10.trim()||null,p_prescricao:form.prescricao.trim()||null,p_exames:form.exames_solicitados.trim()||null,p_orientacoes:form.orientacoes.trim()||null,p_desfecho:form.desfecho,p_finalizar:form.finalizar}});
   return data;
 }
 

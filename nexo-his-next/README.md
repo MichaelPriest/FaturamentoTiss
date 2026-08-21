@@ -100,7 +100,7 @@ As migrations `005_user_profile.sql` e `006_profile_onboarding.sql` liberam por 
 
 ## Estação clínica
 
-A migration `007_clinical_care.sql` adiciona evoluções SOAP associadas ao atendimento e ao profissional autenticado. A estação lista somente pacientes em `EM_ATENDIMENTO`, valida os quatro campos clínicos e o CID-10, registra o desfecho e pode finalizar o atendimento na mesma transação.
+A migration `007_clinical_care.sql` adiciona evoluções SOAP associadas ao atendimento e ao profissional autenticado. A migration `010_complete_clinical_station.sql` completa a estação com prescrição, solicitação de exames, orientações e histórico do atendimento. A estação lista somente pacientes em `EM_ATENDIMENTO`, apresenta a classificação e os sinais vitais, valida o CID-10 e as orientações de alta, registra o desfecho e pode finalizar o atendimento na mesma transação.
 
 ## Cadastro completo e fonte pagadora
 
