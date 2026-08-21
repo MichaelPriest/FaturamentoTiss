@@ -19,8 +19,6 @@ O painel contextual consolida alertas operacionais, internação ativa e pendên
 
 O desenho-alvo, as lacunas e os critérios de conclusão estão em [`../docs/ARQUITETURA_HIS.md`](../docs/ARQUITETURA_HIS.md). A versão TISS não deve ser atualizada apenas no texto da interface: XML, schemas, terminologias, endpoints e homologação da operadora precisam pertencer ao mesmo pacote normativo.
 
-O ciclo de conta hospitalar, remessas, glosas, recursos, segurança e precisão monetária está em [`../docs/FINANCEIRO_GLOSAS.md`](../docs/FINANCEIRO_GLOSAS.md), com contrato REST em [`../docs/openapi-financeiro.yaml`](../docs/openapi-financeiro.yaml).
-
 ## Desenvolvimento
 
 1. O projeto atual já possui a URL e a chave pública `anon` usadas pelo cliente web em `.env.local`.
@@ -34,8 +32,6 @@ O ciclo de conta hospitalar, remessas, glosas, recursos, segurança e precisão 
    - `20260824_diagnostico.sql`;
    - `20260825_acesso_setorial.sql`;
    - `20260826_centro_cirurgico.sql`.
-   - `20260827_financeiro_glosas.sql`;
-   - `seeds/financeiro_base.sql` (após validar a estrutura contábil com a instituição).
 3. Instale e execute:
 
 ```bash

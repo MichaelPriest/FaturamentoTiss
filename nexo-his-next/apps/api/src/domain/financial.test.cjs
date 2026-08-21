@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { moneyToCents, centsToMoney, calculateAccountTotals, validateAppeal, assertSafeReturnXml } = require('./_financial-domain.cjs');
+const { moneyToCents, centsToMoney, calculateAccountTotals, validateAppeal, assertSafeReturnXml } = require('./financial.cjs');
 
 test('dinheiro usa centavos inteiros sem ponto flutuante', () => {
   assert.equal(moneyToCents('999999999999.99'), 99999999999999n);

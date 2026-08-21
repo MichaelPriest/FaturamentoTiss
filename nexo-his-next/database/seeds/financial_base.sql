@@ -1,6 +1,6 @@
 -- Seed estrutural auditável. Dados regulatórios NÃO são inventados neste arquivo.
 -- tabela_glosas_ans e indices_reajuste_ans devem ser importadas do pacote oficial ANS,
--- preservando fonte_oficial, versão e vigência (veja docs/FINANCEIRO_GLOSAS.md).
+-- preservando fonte_oficial, versão e vigência (veja docs/FINANCIAL.md).
 begin;
 insert into public.plano_contas_contabil(codigo,descricao,natureza,tipo,codigo_pai) values
  ('1','ATIVO','DEVEDORA','SINTETICA',null),

@@ -1,10 +1,6 @@
 {
   "version": 2,
   "routes": [
-    { "src": "/api/faturamento/(.*)", "dest": "/api/financeiro?route=faturamento/$1" },
-    { "src": "/api/glosas(.*)", "dest": "/api/financeiro?route=glosas$1" },
-    { "src": "/api/dashboard/financeiro", "dest": "/api/financeiro?route=dashboard/financeiro" },
-    { "src": "/api/relatorios/glosas-por-motivo", "dest": "/api/financeiro?route=relatorios/glosas-por-motivo" },
     {
       "src": "/api/(.*)",
       "dest": "/api/$1"
