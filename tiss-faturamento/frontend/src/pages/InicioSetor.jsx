@@ -10,13 +10,13 @@ import { getWorkspace } from '../lib/sectorWorkspaces';
 
 const ACTIONS = {
   todos: [
-    ['Agenda do dia','agendamentos',CalendarDaysIcon], ['Central hospitalar','operacao-hospitalar',HomeModernIcon],
+    ['Agenda do dia','agendamentos',CalendarDaysIcon], ['Central assistencial','central-assistencial?area=internacao',HomeModernIcon],
     ['Lançar atendimento','atendimentos',CheckCircleIcon], ['Faturamento TISS','faturamento',CurrencyDollarIcon]
   ],
-  recepcao: [['Pronto atendimento','pronto-atendimento',ClockIcon],['Novo atendimento','atendimentos',CheckCircleIcon],['Agenda','agendamentos',CalendarDaysIcon],['Fila de pacientes','chamados',UserGroupIcon]],
-  assistencial: [['Pronto atendimento','pronto-atendimento',ClockIcon],['Central hospitalar','operacao-hospitalar',HomeModernIcon],['Centro cirúrgico','centro-cirurgico',CalendarDaysIcon],['Prescrição e enfermagem','prescricao-enfermagem',CheckCircleIcon]],
-  diagnostico: [['Fila de exames','apoio-diagnostico',ChartBarIcon],['Pacientes','pacientes',UserGroupIcon],['Pronto atendimento','pronto-atendimento',ClockIcon],['Atendimentos','atendimentos',CheckCircleIcon]],
-  farmacia: [['Estoque hospitalar','operacao-hospitalar',HomeModernIcon],['Agenda de administração','prescricao-enfermagem',ClockIcon],['Procedimentos','procedimentos',CheckCircleIcon]],
+  recepcao: [['Pronto atendimento','central-assistencial?area=pronto',ClockIcon],['Novo atendimento','atendimentos',CheckCircleIcon],['Agenda','agendamentos',CalendarDaysIcon],['Fila de pacientes','chamados',UserGroupIcon]],
+  assistencial: [['Jornada assistencial','central-assistencial?area=internacao',HomeModernIcon],['Centro cirúrgico','central-assistencial?area=cirurgico',CalendarDaysIcon],['Apoio diagnóstico','central-assistencial?area=diagnostico',ChartBarIcon],['Prescrição','central-assistencial?area=prescricao',CheckCircleIcon]],
+  diagnostico: [['Fila de exames','central-assistencial?area=diagnostico',ChartBarIcon],['Pacientes','pacientes',UserGroupIcon],['Atendimentos','atendimentos',CheckCircleIcon]],
+  farmacia: [['Estoque e farmácia','central-assistencial?area=internacao',HomeModernIcon],['Agenda de administração','central-assistencial?area=prescricao',ClockIcon],['Procedimentos','procedimentos',CheckCircleIcon]],
   faturamento: [['Contas e lotes','faturamento',CurrencyDollarIcon],['Autorizações','autorizacoes',CheckCircleIcon],['Glosas','glosas',ExclamationTriangleIcon],['Relatórios','relatorios',ChartBarIcon]],
   financeiro: [['Financeiro','financeiro',CurrencyDollarIcon],['Relatórios gerenciais','relatorios',ChartBarIcon],['Unidades','unidades',HomeModernIcon]],
   administracao: [['Configurações','configuracoes',CheckCircleIcon],['Unidades','unidades',HomeModernIcon],['Prestadores','prestadores',UserGroupIcon],['Homologação WS','homologacao-webservice',ChartBarIcon]]

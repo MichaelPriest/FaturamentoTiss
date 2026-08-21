@@ -48,6 +48,7 @@ import PrescricaoEnfermagem from './pages/PrescricaoEnfermagem';
 import ProntoAtendimento from './pages/ProntoAtendimento';
 import ApoioDiagnostico from './pages/ApoioDiagnostico';
 import CentroCirurgico from './pages/CentroCirurgico';
+import CentralAssistencial from './pages/CentralAssistencial';
 import { filterMenuGroups, getUserWorkspace } from './lib/sectorWorkspaces';
 
 import { setConfig } from './lib/tissGenerator';
@@ -72,6 +73,7 @@ const TAB_ROUTES = new Set([
   'pronto-atendimento',
   'apoio-diagnostico',
   'centro-cirurgico',
+  'central-assistencial',
   'autorizacoes',
   'faturamento',
   'homologacao-webservice',
@@ -265,13 +267,9 @@ function MainApp() {
       ]
     },
     {
-      id: 'hospitalar', name: 'Operação Hospitalar', icon: BuildingOffice2Icon,
+      id: 'hospitalar', name: 'Cuidado Integrado', icon: BuildingOffice2Icon,
       items: [
-        { id: 'pronto-atendimento', name: 'Pronto Atendimento', icon: ShieldCheckIcon, color: 'from-red-600 to-orange-500' },
-        { id: 'operacao-hospitalar', name: 'Central Hospitalar', icon: BuildingOffice2Icon, color: 'from-blue-600 to-cyan-600' },
-        { id: 'prescricao-enfermagem', name: 'Prescrição e Enfermagem', icon: ClipboardDocumentCheckIcon, color: 'from-emerald-600 to-teal-600' },
-        { id: 'apoio-diagnostico', name: 'Laboratório e Imagem', icon: DocumentTextIcon, color: 'from-violet-600 to-fuchsia-500' },
-        { id: 'centro-cirurgico', name: 'Centro Cirúrgico', icon: CalendarDaysIcon, color: 'from-rose-600 to-red-500' }
+        { id: 'central-assistencial', name: 'Central Assistencial', icon: ClipboardDocumentCheckIcon, color: 'from-cyan-600 to-blue-600' }
       ]
     },
     {
@@ -340,6 +338,7 @@ function MainApp() {
       case 'pronto-atendimento': return <ProntoAtendimento />;
       case 'apoio-diagnostico': return <ApoioDiagnostico />;
       case 'centro-cirurgico': return <CentroCirurgico />;
+      case 'central-assistencial': return <CentralAssistencial />;
       case 'autorizacoes': return <Autorizacoes />;
       case 'faturamento': return <Faturamento />;
       case 'homologacao-webservice': return <HomologacaoWebservice />;
@@ -400,6 +399,7 @@ function MainApp() {
       'pronto-atendimento': 'Classificação de risco, sinais vitais e fila assistencial',
       'apoio-diagnostico': 'Solicitações, coleta, processamento e resultados de exames',
       'centro-cirurgico': 'Mapa cirúrgico, segurança pré-operatória e fluxo de sala',
+      'central-assistencial': 'Jornada unificada do pronto atendimento à alta hospitalar',
       financeiro: 'Contas a receber, pagar e fluxo de caixa',
       glosas: 'Gestão de glosas e recursos',
       relatorios: 'Análise de dados e métricas',
