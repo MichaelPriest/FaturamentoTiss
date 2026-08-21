@@ -17,5 +17,14 @@ export default defineConfig({
     ]
   },
   publicDir: false,
-  build: { emptyOutDir: true }
+  build: {
+    emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        entryFileNames: 'assets/nexo-app.js',
+        chunkFileNames: 'assets/nexo-[name].js',
+        assetFileNames: asset => asset.names?.some(name => name.endsWith('.css')) ? 'assets/nexo-app.css' : 'assets/nexo-[name][extname]'
+      }
+    }
+  }
 });

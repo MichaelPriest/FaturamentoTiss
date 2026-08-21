@@ -63,6 +63,8 @@ No projeto independente, a interface abre na raiz do novo domínio (`/`). No dep
 
 O comando `vercel-build` do frontend legado recompila esta fonte a cada deploy. Assim, `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` configuradas na Vercel são incorporadas à distribuição `/nexo`, sem duplicar código-fonte no legado.
 
+Os bundles públicos usam os nomes estáveis `nexo-app.js` e `nexo-app.css`. Isso evita que um HTML mantido no cache referencie hashes removidos no deploy seguinte. As rotas da Vercel também mantêm compatibilidade com os primeiros hashes já publicados.
+
 ## Conexão com dados reais
 
 Copie `apps/web/.env.example` para `apps/web/.env.local` e informe a URL e a chave pública `anon` do projeto Supabase criado pelas migrations. A interface exibe **Dados reais** somente após consultar com sucesso pacientes, internações, contas e glosas respeitando o JWT/RLS; sem configuração, mostra explicitamente **Demonstração**. Um token de sessão autenticado deve ser gravado em `sessionStorage` sob `nexo_access_token` pelo futuro módulo de login.

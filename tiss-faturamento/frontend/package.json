@@ -8,7 +8,7 @@
     "test": "node --test ../api/*.test.cjs src/lib/*.test.js",
     "build": "vite build",
     "preview": "vite preview",
-    "build:nexo": "vite build ../../nexo-his-next/apps/web --config nexo.vite.config.js --base=/nexo/ --outDir=../../../tiss-faturamento/frontend/public/nexo --emptyOutDir",
+    "build:nexo": "vite build ../../nexo-his-next/apps/web --config nexo.vite.config.js --base=/nexo/ --outDir=../../../tiss-faturamento/frontend/public/nexo --emptyOutDir && node scripts/create-nexo-compat.mjs",
     "vercel-build": "npm run build:nexo && vite build"
   },
   "dependencies": {
