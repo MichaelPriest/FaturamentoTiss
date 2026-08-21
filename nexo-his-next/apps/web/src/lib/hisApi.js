@@ -130,6 +130,16 @@ export async function registerTriage(form) {
   return data;
 }
 
+export async function loadClinicalQueue() {
+  const {data}=await request('atendimentos?select=id,status,prioridade,data_chegada,pacientes(id,nome,cpf,data_nascimento),triagens(classificacao,queixa_principal,pressao_sistolica,pressao_diastolica,frequencia_cardiaca,saturacao,temperatura,escala_dor)&status=eq.EM_ATENDIMENTO&order=updated_at.asc&limit=100');
+  return data;
+}
+
+export async function registerClinicalEvolution(form) {
+  const {data}=await request('rpc/registrar_evolucao_clinica',{method:'POST',body:{p_atendimento_id:form.atendimento_id,p_subjetivo:form.subjetivo.trim(),p_objetivo:form.objetivo.trim(),p_avaliacao:form.avaliacao.trim(),p_plano:form.plano.trim(),p_cid10:form.cid10.trim()||null,p_desfecho:form.desfecho,p_finalizar:form.finalizar}});
+  return data;
+}
+
 export async function loadOperationalDashboard() {
   const [patients, admissions, accounts, glosas, receptions] = await Promise.all([
     request('pacientes?select=id,nome,cpf,data_nascimento&order=nome.asc&limit=20', { count: true }),

@@ -41,7 +41,8 @@ Execute em uma base vazia, nesta ordem:
 5. `database/migrations/004_triage_idempotency.sql`;
 6. `database/migrations/005_user_profile.sql`;
 7. `database/migrations/006_profile_onboarding.sql`;
-8. após validação contábil, `database/seeds/financial_base.sql`.
+8. `database/migrations/007_clinical_care.sql`;
+9. após validação contábil, `database/seeds/financial_base.sql`.
 
 O contrato inicial está em `docs/openapi.yaml`. Antes de qualquer transmissão real ainda são obrigatórios adaptador TISS da versão contratada, validação XSD, assinatura ICP-Brasil e homologação da operadora.
 
@@ -95,3 +96,7 @@ O cliente guarda access token, refresh token e vencimento somente em `sessionSto
 ## Identidade do usuário
 
 As migrations `005_user_profile.sql` e `006_profile_onboarding.sql` liberam por RLS somente o próprio perfil e a unidade vinculada. No primeiro acesso sem cadastro, o RPC `garantir_meu_perfil` cria o vínculo automaticamente quando existe no máximo uma unidade; em instalações multiunidade, exige vínculo explícito de um administrador para evitar acesso à unidade errada. O cabeçalho, saudação, iniciais, setor, nível, nome da unidade e CNES passam a vir do banco; o e-mail é usado apenas como fallback.
+
+## Estação clínica
+
+A migration `007_clinical_care.sql` adiciona evoluções SOAP associadas ao atendimento e ao profissional autenticado. A estação lista somente pacientes em `EM_ATENDIMENTO`, valida os quatro campos clínicos e o CID-10, registra o desfecho e pode finalizar o atendimento na mesma transação.
