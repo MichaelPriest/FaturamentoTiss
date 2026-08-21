@@ -55,6 +55,7 @@ function App() {
     if (!isHisApiConfigured || !session) return;
     loadOperationalDashboard().then(data => { setDashboard(data); setDataState('live'); }).catch(err => { setError(err.message); setDataState('error'); });
   }, [session]);
+  useEffect(()=>{const expired=()=>setSession(null);window.addEventListener('nexo:session-expired',expired);return()=>window.removeEventListener('nexo:session-expired',expired);},[]);
   useEffect(() => {
     if (!isHisApiConfigured || query.trim().length < 2) { setRemotePatients([]); return; }
     const timer = setTimeout(() => searchPatients(query).then(setRemotePatients).catch(err => setError(err.message)), 250);

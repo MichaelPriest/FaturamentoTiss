@@ -85,3 +85,7 @@ A migration `003_triage.sql` adiciona classificação de risco, sinais vitais, q
 ## Correção de concorrência da triagem
 
 A migration `004_triage_idempotency.sql` torna o registro idempotente: uma repetição devolve a triagem existente e uma classificação iniciada simultaneamente ao atendimento não perde os dados. Todas as mudanças de estado passam pela RPC `avancar_atendimento`, que bloqueia saltos de etapa e impede iniciar atendimento sem classificação concluída.
+
+## Renovação de sessão
+
+O cliente guarda access token, refresh token e vencimento somente em `sessionStorage`. Antes de uma consulta, renova preventivamente o JWT; diante de HTTP 401, tenta uma única renovação e repete a requisição. Se o refresh também estiver vencido ou revogado, limpa a sessão e retorna à tela de login, sem ciclo infinito de requisições.

@@ -1,4 +1,4 @@
-import { normalizePatientSearch } from './hisApiRules';
+import { normalizePatientSearch, shouldRefreshSession } from './hisApiRules';
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -12,8 +12,19 @@ function authHeaders() {
 
 export function getStoredSession() {
   const token = sessionStorage.getItem('nexo_access_token');
+  const refreshToken = sessionStorage.getItem('nexo_refresh_token');
+  const expiresAt = Number(sessionStorage.getItem('nexo_expires_at') || 0);
   const user = JSON.parse(sessionStorage.getItem('nexo_user') || 'null');
-  return token ? { token, user } : null;
+  return token ? { token, refreshToken, expiresAt, user } : null;
+}
+
+function storeSession(payload) {
+  const expiresAt = Date.now() + Math.max(0, Number(payload.expires_in || 3600) - 30) * 1000;
+  sessionStorage.setItem('nexo_access_token', payload.access_token);
+  if (payload.refresh_token) sessionStorage.setItem('nexo_refresh_token', payload.refresh_token);
+  sessionStorage.setItem('nexo_expires_at', String(expiresAt));
+  if (payload.user) sessionStorage.setItem('nexo_user', JSON.stringify(payload.user));
+  return { token: payload.access_token, refreshToken: payload.refresh_token, expiresAt, user: payload.user || JSON.parse(sessionStorage.getItem('nexo_user') || 'null') };
 }
 
 export async function signIn(email, password) {
@@ -23,23 +34,51 @@ export async function signIn(email, password) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error_description || payload.msg || 'Credenciais inválidas.');
-  sessionStorage.setItem('nexo_access_token', payload.access_token);
-  sessionStorage.setItem('nexo_user', JSON.stringify(payload.user));
-  return { token: payload.access_token, user: payload.user };
+  return storeSession(payload);
+}
+
+let refreshPromise;
+export async function refreshSession() {
+  if (refreshPromise) return refreshPromise;
+  const refreshToken = sessionStorage.getItem('nexo_refresh_token');
+  if (!refreshToken) throw new Error('Sua sessão expirou. Entre novamente.');
+  refreshPromise = fetch(`${url}/auth/v1/token?grant_type=refresh_token`, {
+    method: 'POST', headers: { apikey: anonKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: refreshToken })
+  }).then(async response => {
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error_description || payload.msg || 'Não foi possível renovar a sessão.');
+    return storeSession(payload);
+  }).finally(() => { refreshPromise = null; });
+  return refreshPromise;
 }
 
 export function signOut() {
   sessionStorage.removeItem('nexo_access_token');
+  sessionStorage.removeItem('nexo_refresh_token');
+  sessionStorage.removeItem('nexo_expires_at');
   sessionStorage.removeItem('nexo_user');
 }
 
-async function request(path, { count = false, method = 'GET', body, prefer } = {}) {
+function expireSession() {
+  signOut();
+  window.dispatchEvent(new CustomEvent('nexo:session-expired'));
+}
+
+async function request(path, { count = false, method = 'GET', body, prefer } = {}, allowRefresh = true) {
   if (!isHisApiConfigured) throw new Error('Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY.');
+  const expiresAt = Number(sessionStorage.getItem('nexo_expires_at') || 0);
+  if (allowRefresh && shouldRefreshSession(expiresAt)) {
+    try { await refreshSession(); } catch (error) { expireSession(); throw error; }
+  }
   const response = await fetch(`${url}/rest/v1/${path}`, {
     method,
     headers: { ...authHeaders(), ...((count || prefer) ? { Prefer: prefer || 'count=exact' } : {}) },
     body: body === undefined ? undefined : JSON.stringify(body)
   });
+  if (response.status === 401 && allowRefresh) {
+    try { await refreshSession(); return request(path, { count, method, body, prefer }, false); }
+    catch (error) { expireSession(); throw error; }
+  }
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new Error(body.message || `Falha ao consultar dados (${response.status}).`);
