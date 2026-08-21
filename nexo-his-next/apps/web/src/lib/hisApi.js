@@ -100,7 +100,7 @@ async function request(path, { count = false, method = 'GET', body, prefer } = {
 }
 
 export async function loadReceptionQueue() {
-  const { data } = await request('atendimentos?select=id,paciente_id,tipo,status,prioridade,data_chegada,observacoes,pacientes(id,nome,cpf,data_nascimento)&status=in.(AGENDADO,CHEGOU)&order=data_chegada.asc&limit=100');
+  const { data } = await request('atendimentos?select=id,paciente_id,tipo,status,prioridade,data_chegada,observacoes,modalidade_pagamento,convenio_id,numero_carteirinha,pacientes(id,nome,cpf,data_nascimento)&status=in.(AGENDADO,CHEGOU)&order=data_chegada.asc&limit=100');
   return data;
 }
 
@@ -114,13 +114,26 @@ export async function createReception(payload) {
   return data[0];
 }
 
+export async function loadInsurers() {
+  const {data}=await request('convenios?select=id,razao_social,registro_ans&order=razao_social.asc');
+  return data;
+}
+
+export async function registerCompleteArrival(form) {
+  const patientFields=['nome','nome_social','cpf','data_nascimento','sexo','nome_mae','telefone','email','cep','logradouro','numero','complemento','bairro','cidade','uf'];
+  const paciente=Object.fromEntries(patientFields.map(field=>[field,form[field]||'']));
+  const atendimento={tipo:form.tipo,prioridade:form.prioridade,observacoes:form.observacoes,modalidade_pagamento:form.modalidade_pagamento,convenio_id:form.convenio_id,numero_carteirinha:form.numero_carteirinha,validade_carteirinha:form.validade_carteirinha};
+  const {data}=await request('rpc/registrar_chegada_completa',{method:'POST',body:{p_paciente:paciente,p_atendimento:atendimento}});
+  return data;
+}
+
 export async function advanceReception(id, status) {
   const { data } = await request('rpc/avancar_atendimento', { method: 'POST', body: { p_atendimento_id: id, p_novo_status: status } });
   return data;
 }
 
 export async function loadTriageQueue() {
-  const { data } = await request('atendimentos?select=id,status,prioridade,data_chegada,pacientes(id,nome,cpf,data_nascimento),triagens(id,classificacao,queixa_principal,realizada_em)&status=in.(CHEGOU,TRIAGEM)&order=data_chegada.asc&limit=100');
+  const { data } = await request('atendimentos?select=id,status,prioridade,data_chegada,pacientes(id,nome,cpf,data_nascimento),triagens(id,classificacao,queixa_principal,pressao_sistolica,pressao_diastolica,frequencia_cardiaca,saturacao,temperatura,escala_dor,observacoes,realizada_em)&status=in.(CHEGOU,TRIAGEM)&order=data_chegada.asc&limit=100');
   return data;
 }
 

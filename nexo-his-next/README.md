@@ -42,7 +42,8 @@ Execute em uma base vazia, nesta ordem:
 6. `database/migrations/005_user_profile.sql`;
 7. `database/migrations/006_profile_onboarding.sql`;
 8. `database/migrations/007_clinical_care.sql`;
-9. após validação contábil, `database/seeds/financial_base.sql`.
+9. `database/migrations/008_complete_patient_registration.sql`;
+10. após validação contábil, `database/seeds/financial_base.sql`.
 
 O contrato inicial está em `docs/openapi.yaml`. Antes de qualquer transmissão real ainda são obrigatórios adaptador TISS da versão contratada, validação XSD, assinatura ICP-Brasil e homologação da operadora.
 
@@ -100,3 +101,7 @@ As migrations `005_user_profile.sql` e `006_profile_onboarding.sql` liberam por 
 ## Estação clínica
 
 A migration `007_clinical_care.sql` adiciona evoluções SOAP associadas ao atendimento e ao profissional autenticado. A estação lista somente pacientes em `EM_ATENDIMENTO`, valida os quatro campos clínicos e o CID-10, registra o desfecho e pode finalizar o atendimento na mesma transação.
+
+## Cadastro completo e fonte pagadora
+
+A migration `008_complete_patient_registration.sql` amplia o cadastro demográfico, diferencia particular de beneficiário, vincula convênio e carteirinha ao atendimento e registra paciente e chegada na mesma transação. A triagem mantém o paciente selecionado, mostra a classificação já salva e oferece um avanço explícito e seguro para a Estação clínica.
