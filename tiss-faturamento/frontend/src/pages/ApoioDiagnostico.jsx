@@ -11,7 +11,7 @@ const emptyRequest = { paciente_id:'', exame_id:'', solicitante_id:'', prioridad
 const emptyExam = { codigo:'', nome:'', modalidade:'laboratorio', preparo:'', prazo_horas:24 };
 const statusStyles = { solicitado:'bg-blue-100 text-blue-700',coletado:'bg-violet-100 text-violet-700',em_processamento:'bg-amber-100 text-amber-700',laudo_disponivel:'bg-emerald-100 text-emerald-700',cancelado:'bg-slate-100 text-slate-600' };
 
-export default function ApoioDiagnostico() {
+export default function ApoioDiagnostico({ patientId: contextPatientId = '' }) {
   const { unidadeAtualId } = useUnidade();
   const [loading,setLoading] = useState(true);
   const [requests,setRequests] = useState([]); const [exams,setExams] = useState([]); const [patients,setPatients] = useState([]); const [providers,setProviders] = useState([]);
@@ -31,6 +31,7 @@ export default function ApoioDiagnostico() {
     setLoading(false);
   };
   useEffect(()=>{load();},[unidadeAtualId]);
+  useEffect(()=>{if(contextPatientId)setRequestForm(current=>({...current,paciente_id:String(contextPatientId)}));},[contextPatientId]);
 
   const queue=useMemo(()=>sortDiagnosticQueue(requests.filter(item=>!['laudo_disponivel','cancelado'].includes(item.status))),[requests]);
   const metrics={pending:queue.length,emergency:queue.filter(item=>item.prioridade==='emergencia').length,delayed:queue.filter(item=>isDiagnosticDelayed(item)).length,released:requests.filter(item=>item.status==='laudo_disponivel').length};

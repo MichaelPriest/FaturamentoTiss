@@ -2,6 +2,26 @@
   "version": 2,
   "routes": [
     {
+      "src": "/nexo",
+      "dest": "/nexo/index.html"
+    },
+    {
+      "src": "/nexo/assets/index-DEzECamV.js",
+      "dest": "/nexo/assets/nexo-app.js"
+    },
+    {
+      "src": "/nexo/assets/index-DjIVxaWu.css",
+      "dest": "/nexo/assets/nexo-app.css"
+    },
+    {
+      "src": "/nexo/assets/(.*)",
+      "dest": "/nexo/assets/$1"
+    },
+    {
+      "src": "/nexo/(.*)",
+      "dest": "/nexo/index.html"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "/api/$1"
     },

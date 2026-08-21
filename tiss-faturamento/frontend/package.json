@@ -8,7 +8,8 @@
     "test": "node --test ../api/*.test.cjs src/lib/*.test.js",
     "build": "vite build",
     "preview": "vite preview",
-    "vercel-build": "vite build"
+    "build:nexo": "vite build ../../nexo-his-next/apps/web --config nexo.vite.config.js --base=/nexo/ --outDir=../../../tiss-faturamento/frontend/public/nexo --emptyOutDir && node scripts/create-nexo-compat.mjs",
+    "vercel-build": "npm run build:nexo && vite build"
   },
   "dependencies": {
     "@heroicons/react": "^2.1.0",

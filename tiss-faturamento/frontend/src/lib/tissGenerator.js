@@ -1,16 +1,13 @@
 import CryptoJS from 'crypto-js';
+import { DEFAULT_TISS_VERSION, SUPPORTED_TISS_VERSIONS } from './tissCompliance';
 
 // ============================================
 // VERSÕES SUPORTADAS DO PADRÃO TISS
 // ============================================
-export const VERSAO_TISS = {
-  '4.01.00': '4.01.00',
-  '4.02.00': '4.02.00',
-  '4.03.00': '4.03.00'
-};
+export const VERSAO_TISS = Object.fromEntries(SUPPORTED_TISS_VERSIONS.map(version => [version,version]));
 
 let configGlobal = null;
-let versaoAtual = VERSAO_TISS['4.03.00'];
+let versaoAtual = VERSAO_TISS[DEFAULT_TISS_VERSION];
 let sequencialTransacaoGlobal = 1;
 
 // ============================================
@@ -716,7 +713,7 @@ export function gerarXMLExemplo() {
   const dadosTISS = converterAtendimentoParaTISS(atendimento, convenio, config);
   
   return gerarXMLTISS({
-    versao: '4.03.00',
+    versao: DEFAULT_TISS_VERSION,
     codigoPrestadorNaOperadora: convenio.codigo_prestador,
     registroANS: convenio.registro_ans,
     numeroLote: 'LOTE' + Date.now().toString(),

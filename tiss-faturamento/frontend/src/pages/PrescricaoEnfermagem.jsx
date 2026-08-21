@@ -9,7 +9,7 @@ import SearchableSelect from '../components/SearchableSelect';
 
 const emptyItem = { tipo: 'medicamento', descricao: '', dose: '', via: '', frequencia: '', horarios: '', se_necessario: false, orientacoes: '' };
 
-export default function PrescricaoEnfermagem() {
+export default function PrescricaoEnfermagem({ patientId: contextPatientId = '' }) {
   const { unidadeAtualId } = useUnidade();
   const [loading, setLoading] = useState(true);
   const [internacoes, setInternacoes] = useState([]);
@@ -51,9 +51,11 @@ export default function PrescricaoEnfermagem() {
     [prescricoes, internacaoId]
   );
   useEffect(() => {
+    const contextualAdmission = contextPatientId ? internacoes.find(item => String(item.paciente_id) === String(contextPatientId)) : null;
+    if (contextualAdmission && contextualAdmission.id !== internacaoId) { setInternacaoId(contextualAdmission.id); return; }
     const ativa = prescricoesInternacao.find(item => item.status === 'ativa') || prescricoesInternacao[0];
     setPrescricaoId(ativa?.id || '');
-  }, [internacaoId, prescricoes]);
+  }, [internacaoId, prescricoes, internacoes, contextPatientId]);
 
   const itensAtuais = itens.filter(item => item.prescricao_id === prescricaoId);
   const agenda = buildTodayAdministrations(itens.filter(item => prescricoes.find(p => p.id === item.prescricao_id && p.internacao_id === internacaoId && p.status === 'ativa')));
