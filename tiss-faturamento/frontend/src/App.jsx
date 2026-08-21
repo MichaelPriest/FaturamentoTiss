@@ -43,6 +43,7 @@ import LoginPage from './pages/Login';
 import Perfil from './pages/Perfil';
 import ResetPassword from './pages/ResetPassword';
 import SaasAdmin from './pages/SaasAdmin';
+import OperacaoHospitalar from './pages/OperacaoHospitalar';
 
 import { setConfig } from './lib/tissGenerator';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
@@ -61,6 +62,7 @@ const TAB_ROUTES = new Set([
   'atendimentos',
   'agendamentos',
   'ocupacao',
+  'operacao-hospitalar',
   'autorizacoes',
   'faturamento',
   'homologacao-webservice',
@@ -252,6 +254,12 @@ function MainApp() {
       ]
     },
     {
+      id: 'hospitalar', name: 'Operação Hospitalar', icon: BuildingOffice2Icon,
+      items: [
+        { id: 'operacao-hospitalar', name: 'Central Hospitalar', icon: BuildingOffice2Icon, color: 'from-blue-600 to-cyan-600' }
+      ]
+    },
+    {
       id: 'autorizacoes', name: 'Autorizações', icon: ShieldCheckIcon,
       items: [
         { id: 'autorizacoes', name: 'Autorizações TISS', icon: ShieldCheckIcon, color: 'from-indigo-500 to-indigo-600' }
@@ -309,6 +317,7 @@ function MainApp() {
       case 'atendimentos': return <Atendimentos />;
       case 'agendamentos': return <Agendamentos />;
       case 'ocupacao': return <Ocupacao />;
+      case 'operacao-hospitalar': return <OperacaoHospitalar />;
       case 'autorizacoes': return <Autorizacoes />;
       case 'faturamento': return <Faturamento />;
       case 'homologacao-webservice': return <HomologacaoWebservice />;
@@ -364,6 +373,7 @@ function MainApp() {
       atendimentos: 'Registro de atendimentos e guias',
       agendamentos: 'Gerenciamento de agenda e consultas',
       ocupacao: 'Mapa de salas, horários e disponibilidade',
+      'operacao-hospitalar': 'Gestão integrada de internações, leitos, estoque e farmácia',
       financeiro: 'Contas a receber, pagar e fluxo de caixa',
       glosas: 'Gestão de glosas e recursos',
       relatorios: 'Análise de dados e métricas',
