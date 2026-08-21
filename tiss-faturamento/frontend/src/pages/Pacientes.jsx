@@ -9,29 +9,8 @@ import { format, differenceInDays, parseISO } from 'date-fns';
 import { pacientesService, conveniosService } from '../services/supabaseService';
 import SearchableSelect from '../components/SearchableSelect';
 import { useUnidade } from '../contexts/UnidadeContext';
-
-// Funções de máscara
-const aplicarMascaraCPF = (valor) => {
-  const cpf = valor.replace(/\D/g, '');
-  if (cpf.length <= 3) return cpf;
-  if (cpf.length <= 6) return cpf.replace(/(\d{3})(\d{1,3})/, '$1.$2');
-  if (cpf.length <= 9) return cpf.replace(/(\d{3})(\d{3})(\d{1,3})/, '$1.$2.$3');
-  return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, '$1.$2.$3-$4');
-};
-
-const aplicarMascaraTelefone = (valor) => {
-  const telefone = valor.replace(/\D/g, '');
-  if (telefone.length <= 2) return telefone;
-  if (telefone.length <= 6) return telefone.replace(/(\d{2})(\d{1,4})/, '($1) $2');
-  if (telefone.length <= 10) return telefone.replace(/(\d{2})(\d{4})(\d{1,4})/, '($1) $2-$3');
-  return telefone.replace(/(\d{2})(\d{5})(\d{1,4})/, '($1) $2-$3');
-};
-
-const aplicarMascaraCEP = (valor) => {
-  const cep = valor.replace(/\D/g, '');
-  if (cep.length <= 5) return cep;
-  return cep.replace(/(\d{5})(\d{1,3})/, '$1-$2');
-};
+import { maskCep, maskCpf, maskPhone, unmask } from '../lib/inputMasks';
+import { findAddressByCep } from '../services/cepService';
 
 const aplicarMascaraRG = (valor) => {
   const rg = valor.replace(/\D/g, '');
@@ -113,21 +92,9 @@ export default function Pacientes() {
     
     setBuscandoCEP(true);
     try {
-      const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
-      const data = await response.json();
-      
-      if (!data.erro) {
-        setFormData(prev => ({
-          ...prev,
-          endereco: data.logradouro || '',
-          bairro: data.bairro || '',
-          cidade: data.localidade || '',
-          estado: data.uf || ''
-        }));
-        toast.success('Endereço encontrado!');
-      } else {
-        toast.error('CEP não encontrado');
-      }
+      const data = await findAddressByCep(cepLimpo);
+      setFormData(prev => ({ ...prev, ...data }));
+      toast.success('Endereço encontrado!');
     } catch (error) {
       toast.error('Erro ao buscar CEP');
     } finally {
@@ -136,7 +103,7 @@ export default function Pacientes() {
   };
 
   const handleCEPChange = (e) => {
-    const cepMask = aplicarMascaraCEP(e.target.value);
+    const cepMask = maskCep(e.target.value);
     setFormData({ ...formData, cep: cepMask });
     
     const cepLimpo = e.target.value.replace(/\D/g, '');
@@ -157,18 +124,18 @@ export default function Pacientes() {
       nome: formData.nome.toUpperCase(),
       numero_carteira: formData.numero_carteira || null,
       convenio_id: formData.convenio_id ? parseInt(formData.convenio_id) : null,
-      cpf: formData.cpf.replace(/\D/g, ''),
+      cpf: unmask(formData.cpf),
       rg: formData.rg.replace(/\D/g, ''),
       data_nascimento: formData.data_nascimento || null,
       sexo: formData.sexo,
-      telefone: formData.telefone.replace(/\D/g, ''),
-      celular: formData.celular.replace(/\D/g, ''),
+      telefone: unmask(formData.telefone),
+      celular: unmask(formData.celular),
       email: formData.email,
       endereco: formData.endereco,
       numero: formData.numero,
       complemento: formData.complemento,
       bairro: formData.bairro,
-      cep: formData.cep.replace(/\D/g, ''),
+      cep: unmask(formData.cep),
       cidade: formData.cidade,
       estado: formData.estado,
       data_validade_carteira: formData.data_validade_carteira || null,
@@ -369,9 +336,9 @@ export default function Pacientes() {
                 return (
                   <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <td className="px-4 py-3 text-sm text-gray-800 dark:text-gray-200">{p.nome}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{p.cpf ? aplicarMascaraCPF(p.cpf) : '-'}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{p.cpf ? maskCpf(p.cpf) : '-'}</td>
                     <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{p.data_nascimento ? format(parseISO(p.data_nascimento), 'dd/MM/yyyy') : '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{p.telefone ? aplicarMascaraTelefone(p.telefone) : (p.celular ? aplicarMascaraTelefone(p.celular) : '-')}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{p.telefone ? maskPhone(p.telefone) : (p.celular ? maskPhone(p.celular) : '-')}</td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex gap-1 justify-center">
                         <Link
@@ -386,11 +353,11 @@ export default function Pacientes() {
                             setEditing(p); 
                             setFormData({
                               ...p,
-                              cpf: p.cpf ? aplicarMascaraCPF(p.cpf) : '',
+                              cpf: p.cpf ? maskCpf(p.cpf) : '',
                               rg: p.rg || '',
-                              telefone: p.telefone ? aplicarMascaraTelefone(p.telefone) : '',
-                              celular: p.celular ? aplicarMascaraTelefone(p.celular) : '',
-                              cep: p.cep ? aplicarMascaraCEP(p.cep) : ''
+                              telefone: p.telefone ? maskPhone(p.telefone) : '',
+                              celular: p.celular ? maskPhone(p.celular) : '',
+                              cep: p.cep ? maskCep(p.cep) : ''
                             }); 
                             setShowModal(true); 
                           }} 
@@ -452,7 +419,7 @@ export default function Pacientes() {
                     <input 
                       type="text" 
                       value={formData.cpf} 
-                      onChange={e => setFormData({...formData, cpf: aplicarMascaraCPF(e.target.value)})} 
+                      onChange={e => setFormData({...formData, cpf: maskCpf(e.target.value)})} 
                       maxLength={14}
                       placeholder="000.000.000-00"
                       className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
@@ -495,7 +462,7 @@ export default function Pacientes() {
                     <input 
                       type="text" 
                       value={formData.telefone} 
-                      onChange={e => setFormData({...formData, telefone: aplicarMascaraTelefone(e.target.value)})} 
+                      onChange={e => setFormData({...formData, telefone: maskPhone(e.target.value)})} 
                       maxLength={15}
                       placeholder="(00) 0000-0000"
                       className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
@@ -506,7 +473,7 @@ export default function Pacientes() {
                     <input 
                       type="text" 
                       value={formData.celular} 
-                      onChange={e => setFormData({...formData, celular: aplicarMascaraTelefone(e.target.value)})} 
+                      onChange={e => setFormData({...formData, celular: maskPhone(e.target.value)})} 
                       maxLength={15}
                       placeholder="(00) 00000-0000"
                       className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" 
