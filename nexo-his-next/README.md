@@ -38,7 +38,8 @@ Execute em uma base vazia, nesta ordem:
 2. `database/migrations/001_financial_cycle.sql`;
 3. `database/migrations/002_reception.sql`;
 4. `database/migrations/003_triage.sql`;
-5. após validação contábil, `database/seeds/financial_base.sql`.
+5. `database/migrations/004_triage_idempotency.sql`;
+6. após validação contábil, `database/seeds/financial_base.sql`.
 
 O contrato inicial está em `docs/openapi.yaml`. Antes de qualquer transmissão real ainda são obrigatórios adaptador TISS da versão contratada, validação XSD, assinatura ICP-Brasil e homologação da operadora.
 
@@ -80,3 +81,7 @@ A migration `002_reception.sql` ativa o primeiro módulo completo: autenticaçã
 ## Triagem e dashboard vivo
 
 A migration `003_triage.sql` adiciona classificação de risco, sinais vitais, queixa principal e o RPC transacional que atualiza a etapa do atendimento. O dashboard deixa de usar números fixos para recepção, triagem, atendimento e internação quando conectado ao banco. A classificação é sempre escolhida pelo profissional habilitado; o sistema apenas valida limites técnicos dos dados informados.
+
+## Correção de concorrência da triagem
+
+A migration `004_triage_idempotency.sql` torna o registro idempotente: uma repetição devolve a triagem existente e uma classificação iniciada simultaneamente ao atendimento não perde os dados. Todas as mudanças de estado passam pela RPC `avancar_atendimento`, que bloqueia saltos de etapa e impede iniciar atendimento sem classificação concluída.

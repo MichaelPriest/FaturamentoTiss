@@ -63,8 +63,8 @@ export async function createReception(payload) {
 }
 
 export async function advanceReception(id, status) {
-  const { data } = await request(`atendimentos?id=eq.${encodeURIComponent(id)}&select=*`, { method: 'PATCH', body: { status, updated_at: new Date().toISOString() }, prefer: 'return=representation' });
-  return data[0];
+  const { data } = await request('rpc/avancar_atendimento', { method: 'POST', body: { p_atendimento_id: id, p_novo_status: status } });
+  return data;
 }
 
 export async function loadTriageQueue() {
