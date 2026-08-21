@@ -139,7 +139,7 @@ export async function loadTriageQueue() {
 
 export async function registerTriage(form) {
   const payload={p_atendimento_id:form.atendimento_id,p_classificacao:form.classificacao,p_queixa:form.queixa_principal.trim(),p_sistolica:form.pressao_sistolica===''?null:Number(form.pressao_sistolica),p_diastolica:form.pressao_diastolica===''?null:Number(form.pressao_diastolica),p_fc:form.frequencia_cardiaca===''?null:Number(form.frequencia_cardiaca),p_saturacao:form.saturacao===''?null:Number(form.saturacao),p_temperatura:form.temperatura===''?null:Number(form.temperatura),p_dor:form.escala_dor===''?null:Number(form.escala_dor),p_observacoes:form.observacoes||null};
-  const { data }=await request('rpc/registrar_triagem',{method:'POST',body:payload});
+  const { data }=await request('rpc/concluir_triagem_e_encaminhar',{method:'POST',body:payload});
   return data;
 }
 

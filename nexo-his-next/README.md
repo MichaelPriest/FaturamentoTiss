@@ -104,4 +104,4 @@ A migration `007_clinical_care.sql` adiciona evoluções SOAP associadas ao aten
 
 ## Cadastro completo e fonte pagadora
 
-A migration `008_complete_patient_registration.sql` amplia o cadastro demográfico, diferencia particular de beneficiário, vincula convênio e carteirinha ao atendimento e registra paciente e chegada na mesma transação. A triagem mantém o paciente selecionado, mostra a classificação já salva e oferece um avanço explícito e seguro para a Estação clínica.
+A migration `008_complete_patient_registration.sql` amplia o cadastro demográfico, diferencia particular de beneficiário, vincula convênio e carteirinha ao atendimento e registra paciente e chegada na mesma transação. A migration `009_triage_to_clinical.sql` conclui a classificação e encaminha o paciente para a Estação clínica na mesma transação, sem deixá-lo retido em `TRIAGEM`; classificações antigas ainda podem ser encaminhadas pelo botão explícito.
