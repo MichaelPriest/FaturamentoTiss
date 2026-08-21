@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { PlusIcon, PencilIcon, TrashIcon, BuildingOfficeIcon, Cog6ToothIcon, PhotoIcon, XMarkIcon, LinkIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilIcon, TrashIcon, BuildingOfficeIcon, Cog6ToothIcon, PhotoIcon, XMarkIcon, LinkIcon, RectangleStackIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { conveniosService } from '../services/supabaseService';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUnidade } from '../contexts/UnidadeContext';
+import PlanosConvenioModal from '../components/PlanosConvenioModal';
+import { maskAns, maskCnes, maskCnpj, unmask } from '../lib/inputMasks';
 
 const UFS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
 
@@ -19,6 +21,7 @@ export default function Convenios() {
   const [aba, setAba] = useState('dados');
   const [logoPreview, setLogoPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [plansFor, setPlansFor] = useState(null);
 
   const [formData, setFormData] = useState({
     registro_ans: '',
@@ -122,10 +125,10 @@ export default function Convenios() {
 
     try {
       if (editing) {
-        await conveniosService.atualizar(editing.id, formData);
+        await conveniosService.atualizar(editing.id, { ...formData, cnpj: unmask(formData.cnpj) });
         toast.success('Convênio atualizado com sucesso!');
       } else {
-        await conveniosService.criar(formData);
+        await conveniosService.criar({ ...formData, cnpj: unmask(formData.cnpj) });
         toast.success('Convênio cadastrado com sucesso!');
       }
       await carregarConvenios();
@@ -311,6 +314,7 @@ export default function Convenios() {
                   </td>
                   <td className="px-4 py-3 text-center">
                     <div className="flex gap-2 justify-center">
+                      <button onClick={() => setPlansFor(c)} className="p-1 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20" title="Planos do convênio"><RectangleStackIcon className="w-4 h-4" /></button>
                       <button 
                         onClick={() => handleEdit(c)} 
                         className="p-1 rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
@@ -407,7 +411,7 @@ export default function Convenios() {
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Registro ANS *</label>
-                      <input type="text" value={formData.registro_ans} onChange={e => setFormData({...formData, registro_ans: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" required />
+                      <input type="text" value={formData.registro_ans} inputMode="numeric" onChange={e => setFormData({...formData, registro_ans: maskAns(e.target.value)})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" required />
                       <p className="text-xs text-gray-500 mt-1">Código de registro da operadora na ANS (6 dígitos)</p>
                     </div>
                     <div>
@@ -425,7 +429,7 @@ export default function Convenios() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CNPJ</label>
-                      <input type="text" value={formData.cnpj} onChange={e => setFormData({...formData, cnpj: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" placeholder="00.000.000/0000-00" />
+                      <input type="text" value={maskCnpj(formData.cnpj)} inputMode="numeric" onChange={e => setFormData({...formData, cnpj: maskCnpj(e.target.value)})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" placeholder="00.000.000/0000-00" />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
@@ -500,7 +504,7 @@ export default function Convenios() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CNES</label>
-                      <input type="text" value={formData.cnes} onChange={e => setFormData({...formData, cnes: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" placeholder="0000000" />
+                      <input type="text" value={formData.cnes} inputMode="numeric" onChange={e => setFormData({...formData, cnes: maskCnes(e.target.value)})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" placeholder="0000000" />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Versão do Padrão TISS</label>
@@ -572,6 +576,7 @@ export default function Convenios() {
           </div>
         </div>
       )}
+      {plansFor && <PlanosConvenioModal convenio={plansFor} onClose={() => setPlansFor(null)} />}
     </div>
   );
 }

@@ -168,6 +168,16 @@ export default function ChamadosPainel() {
     if (status === 'finalizado') updates.finalizado_em = new Date().toISOString();
 
     try {
+      if (status === 'em_atendimento' && chamado.destino_tipo === 'triagem') {
+        const { error } = await supabase.rpc('encaminhar_chamado_triagem', {
+          p_chamado_id: chamado.id,
+          p_queixa: chamado.descricao || 'Aguardando avaliação da triagem'
+        });
+        if (error) throw error;
+        toast.success('Paciente encaminhado para a fila da triagem.');
+        await carregarDados();
+        return;
+      }
       const { error } = await supabase.from('chamados').update(updates).eq('id', chamado.id);
       if (error) throw error;
       

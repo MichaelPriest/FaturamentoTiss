@@ -225,6 +225,24 @@ export default function ChamadosRegistro() {
     return `${letra}${numeros}`;
   };
 
+  const gerarProximaSenha = async () => {
+    if (!unidadeAtualId || unidadeAtualId === 'todas') {
+      toast.error('Selecione uma unidade para gerar a senha.');
+      return '';
+    }
+    const { data, error } = await supabase.rpc('proxima_senha_atendimento', {
+      p_unidade_id: unidadeAtualId,
+      p_preferencial: false
+    });
+    if (error) {
+      // Compatibilidade durante a implantação da nova migration.
+      if (error.code === '42883' || error.code === 'PGRST202') return gerarSenhaAleatoria();
+      toast.error(error.message);
+      return '';
+    }
+    return data;
+  };
+
   // Buscar paciente por ID
   const buscarPacientePorId = async (pacienteId) => {
     if (!pacienteId) return null;
@@ -310,7 +328,8 @@ export default function ChamadosRegistro() {
       return;
     }
 
-    const senhaFinal = formData.senha.trim() || gerarSenhaAleatoria();
+    const senhaFinal = formData.senha.trim() || await gerarProximaSenha();
+    if (!senhaFinal) return;
     const agendamentoSelecionado = agendamentos.find(
       (item) => String(item.id) === String(formData.agendamento_id)
     );
@@ -695,7 +714,10 @@ export default function ChamadosRegistro() {
                     />
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, senha: gerarSenhaAleatoria() })}
+                      onClick={async () => {
+                        const senha = await gerarProximaSenha();
+                        if (senha) setFormData(current => ({ ...current, senha }));
+                      }}
                       className="px-3 py-2 bg-gray-200 dark:bg-gray-600 rounded-lg text-sm hover:bg-gray-300 dark:hover:bg-gray-500"
                     >
                       Gerar
