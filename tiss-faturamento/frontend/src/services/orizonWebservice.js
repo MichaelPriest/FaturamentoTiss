@@ -1,4 +1,5 @@
 import CryptoJS from 'crypto-js';
+import { resolveTissVersion } from '../lib/tissCompliance';
 import { supabase } from '../lib/supabaseClient';
 
 const TISS_NS = 'http://www.ans.gov.br/padroes/tiss/schemas';
@@ -134,7 +135,7 @@ export function validarDadosAutorizacao({ atendimento, convenio, login, senha })
   if (faltantes.length) throw new Error(`Dados obrigatórios ausentes: ${faltantes.join(', ')}.`);
 }
 
-export function montarEnvelopeSolicitacaoAutorizacao({ atendimento, convenio, login, senhaMD5, sequencial = 1, cnes = '' }) {
+export function montarEnvelopeSolicitacaoAutorizacao({ atendimento, convenio, login, senhaMD5, sequencial = 1, cnes = '', versao }) {
   const data = dataHoje();
   const hora = horaAgora();
   const codigoPrestador = convenio?.codigo_prestador || atendimento?.convenio_codigo_prestador || atendimento?.codigo_prestador || '';
@@ -148,6 +149,7 @@ export function montarEnvelopeSolicitacaoAutorizacao({ atendimento, convenio, lo
   const uf = atendimento?.uf_conselho || '35';
   const cbos = atendimento?.cbos || '225125';
   const itens = obterItensSolicitados(atendimento);
+  const versaoTiss = resolveTissVersion({ explicitVersion: versao, convenio });
 
   const procedimentos = itens.map((item) => {
     const quantidade = item.quantidade_autorizar || item.quantidade_necessaria || item.quantidade || item.quantidade_executada || 1;
@@ -172,7 +174,7 @@ export function montarEnvelopeSolicitacaoAutorizacao({ atendimento, convenio, lo
       </sch:identificacaoTransacao>
       <sch:origem><sch:identificacaoPrestador><sch:codigoPrestadorNaOperadora>${escapeXML(codigoPrestador)}</sch:codigoPrestadorNaOperadora></sch:identificacaoPrestador></sch:origem>
       <sch:destino><sch:registroANS>${escapeXML(registroANS)}</sch:registroANS></sch:destino>
-      <sch:Padrao>4.03.00</sch:Padrao>
+      <sch:Padrao>${escapeXML(versaoTiss)}</sch:Padrao>
       <sch:loginSenhaPrestador><sch:loginPrestador>${escapeXML(login)}</sch:loginPrestador><sch:senhaPrestador>${escapeXML(senhaMD5)}</sch:senhaPrestador></sch:loginSenhaPrestador>
     </sch:cabecalho>
     <sch:solicitacaoProcedimento>
@@ -217,12 +219,13 @@ export function montarEnvelopeSolicitacaoAutorizacao({ atendimento, convenio, lo
 </soapenv:Envelope>`;
 }
 
-export function montarEnvelopeStatusAutorizacao({ codigoPrestador, registroANS, numeroGuiaPrestador, numeroGuiaOperadora = '', login, senhaMD5, sequencial = 1 }) {
+export function montarEnvelopeStatusAutorizacao({ codigoPrestador, registroANS, numeroGuiaPrestador, numeroGuiaOperadora = '', login, senhaMD5, sequencial = 1, versao }) {
   const data = dataHoje();
   const hora = horaAgora();
   const identificacao = numeroGuiaOperadora
     ? `<sch:numeroGuiaOperadora>${escapeXML(numeroGuiaOperadora)}</sch:numeroGuiaOperadora>`
     : `<sch:numeroGuiaPrestador>${escapeXML(numeroGuiaPrestador)}</sch:numeroGuiaPrestador>`;
+  const versaoTiss = resolveTissVersion({ explicitVersion: versao });
   const corpoSemHash = `<sch:solicitaStatusAutorizacaoWS>
     <sch:cabecalho>
       <sch:identificacaoTransacao>
@@ -233,7 +236,7 @@ export function montarEnvelopeStatusAutorizacao({ codigoPrestador, registroANS, 
       </sch:identificacaoTransacao>
       <sch:origem><sch:identificacaoPrestador><sch:codigoPrestadorNaOperadora>${escapeXML(codigoPrestador)}</sch:codigoPrestadorNaOperadora></sch:identificacaoPrestador></sch:origem>
       <sch:destino><sch:registroANS>${escapeXML(registroANS)}</sch:registroANS></sch:destino>
-      <sch:Padrao>4.03.00</sch:Padrao>
+      <sch:Padrao>${escapeXML(versaoTiss)}</sch:Padrao>
       <sch:loginSenhaPrestador><sch:loginPrestador>${escapeXML(login)}</sch:loginPrestador><sch:senhaPrestador>${escapeXML(senhaMD5)}</sch:senhaPrestador></sch:loginSenhaPrestador>
     </sch:cabecalho>
     <sch:solicitaStatusAutorizacao>
@@ -252,10 +255,11 @@ export function montarEnvelopeStatusAutorizacao({ codigoPrestador, registroANS, 
 </soapenv:Envelope>`;
 }
 
-export function montarEnvelopeStatusProtocolo({ codigoPrestador, registroANS, numeroProtocolo, login, senhaMD5, sequencial = 1 }) {
+export function montarEnvelopeStatusProtocolo({ codigoPrestador, registroANS, numeroProtocolo, login, senhaMD5, sequencial = 1, versao }) {
   const now = new Date();
   const data = now.toISOString().slice(0, 10);
   const hora = now.toTimeString().slice(0, 8);
+  const versaoTiss = resolveTissVersion({ explicitVersion: versao });
   const corpoSemHash = `<sch:solicitacaoStatusProtocoloWS>
       <sch:cabecalho>
         <sch:identificacaoTransacao>
@@ -266,7 +270,7 @@ export function montarEnvelopeStatusProtocolo({ codigoPrestador, registroANS, nu
         </sch:identificacaoTransacao>
         <sch:origem><sch:identificacaoPrestador><sch:codigoPrestadorNaOperadora>${escapeXML(codigoPrestador)}</sch:codigoPrestadorNaOperadora></sch:identificacaoPrestador></sch:origem>
         <sch:destino><sch:registroANS>${escapeXML(registroANS)}</sch:registroANS></sch:destino>
-        <sch:Padrao>4.03.00</sch:Padrao>
+        <sch:Padrao>${escapeXML(versaoTiss)}</sch:Padrao>
         <sch:loginSenhaPrestador><sch:loginPrestador>${escapeXML(login)}</sch:loginPrestador><sch:senhaPrestador>${escapeXML(senhaMD5)}</sch:senhaPrestador></sch:loginSenhaPrestador>
       </sch:cabecalho>
       <sch:solicitacaoStatusProtocolo>

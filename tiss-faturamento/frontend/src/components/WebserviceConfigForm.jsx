@@ -68,7 +68,7 @@ export default function WebserviceConfigForm({ config, setConfig, convenioData, 
             onChange={e => atualizarCampo('webservice_provider', e.target.value)}
             className="w-full border rounded-lg px-3 py-2 text-sm dark:bg-gray-700 dark:border-gray-600"
           >
-            <option value="orizon">Orizon TISS 4.03.00</option>
+            <option value="orizon">Orizon TISS (versão do convênio)</option>
             <option value="tiss_generico">TISS / SOAP Genérico</option>
             <option value="portal">Portal do Convênio</option>
             <option value="manual">Manual / Sem WebService</option>

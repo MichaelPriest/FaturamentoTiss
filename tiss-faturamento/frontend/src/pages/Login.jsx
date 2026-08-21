@@ -178,7 +178,7 @@ export default function LoginPage() {
             <CurrencyDollarIcon className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">TISS Faturamento</h1>
-          <p className="text-blue-200 text-sm">Sistema de Faturamento TISS 4.03.00</p>
+          <p className="text-blue-200 text-sm">Jornada assistencial e faturamento TISS integrado</p>
         </div>
 
         <div className="bg-white/10 dark:bg-gray-800/50 backdrop-blur-xl rounded-2xl shadow-2xl p-8 border border-white/20 dark:border-gray-700">
@@ -266,7 +266,7 @@ export default function LoginPage() {
 
           <div className="mt-6 p-3 bg-white/10 dark:bg-gray-700/30 rounded-xl">
             <p className="text-xs text-blue-200 dark:text-gray-400 text-center">
-              Sistema de Faturamento TISS - Padrão ANS 4.03.00
+              Nexo Hospitalar · Padrão TISS configurado por operadora
             </p>
           </div>
         </div>

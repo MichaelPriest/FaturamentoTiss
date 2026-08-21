@@ -1,6 +1,6 @@
 # Nexo Hospitalar
 
-Plataforma React/Vite integrada ao Supabase para jornada assistencial, operação hospitalar, faturamento e comunicação TISS 4.03.00.
+Plataforma React/Vite integrada ao Supabase para jornada assistencial, operação hospitalar, faturamento e comunicação TISS versionada por contrato.
 
 ## Áreas integradas
 
@@ -16,6 +16,8 @@ A árvore de navegação não é escolhida manualmente. Ela é montada a partir 
 A Central Assistencial usa um contexto único de paciente, no padrão de estações clínicas de sistemas hospitalares corporativos. O profissional localiza o paciente uma vez e acompanha as etapas **Recepção → Triagem → Atendimento → Internação → Terapêutica/Apoio → Alta**. O paciente selecionado é mantido ao alternar entre as áreas e é pré-preenchido em novos registros de triagem, internação, exame e cirurgia.
 
 O painel contextual consolida alertas operacionais, internação ativa e pendências prioritárias, sem produzir diagnóstico ou substituir a avaliação do profissional habilitado.
+
+O desenho-alvo, as lacunas e os critérios de conclusão estão em [`../docs/ARQUITETURA_HIS.md`](../docs/ARQUITETURA_HIS.md). A versão TISS não deve ser atualizada apenas no texto da interface: XML, schemas, terminologias, endpoints e homologação da operadora precisam pertencer ao mesmo pacote normativo.
 
 ## Desenvolvimento
 
