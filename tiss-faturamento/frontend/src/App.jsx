@@ -44,6 +44,7 @@ import Perfil from './pages/Perfil';
 import ResetPassword from './pages/ResetPassword';
 import SaasAdmin from './pages/SaasAdmin';
 import OperacaoHospitalar from './pages/OperacaoHospitalar';
+import PrescricaoEnfermagem from './pages/PrescricaoEnfermagem';
 
 import { setConfig } from './lib/tissGenerator';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
@@ -63,6 +64,7 @@ const TAB_ROUTES = new Set([
   'agendamentos',
   'ocupacao',
   'operacao-hospitalar',
+  'prescricao-enfermagem',
   'autorizacoes',
   'faturamento',
   'homologacao-webservice',
@@ -256,7 +258,8 @@ function MainApp() {
     {
       id: 'hospitalar', name: 'Operação Hospitalar', icon: BuildingOffice2Icon,
       items: [
-        { id: 'operacao-hospitalar', name: 'Central Hospitalar', icon: BuildingOffice2Icon, color: 'from-blue-600 to-cyan-600' }
+        { id: 'operacao-hospitalar', name: 'Central Hospitalar', icon: BuildingOffice2Icon, color: 'from-blue-600 to-cyan-600' },
+        { id: 'prescricao-enfermagem', name: 'Prescrição e Enfermagem', icon: ClipboardDocumentCheckIcon, color: 'from-emerald-600 to-teal-600' }
       ]
     },
     {
@@ -318,6 +321,7 @@ function MainApp() {
       case 'agendamentos': return <Agendamentos />;
       case 'ocupacao': return <Ocupacao />;
       case 'operacao-hospitalar': return <OperacaoHospitalar />;
+      case 'prescricao-enfermagem': return <PrescricaoEnfermagem />;
       case 'autorizacoes': return <Autorizacoes />;
       case 'faturamento': return <Faturamento />;
       case 'homologacao-webservice': return <HomologacaoWebservice />;
@@ -374,6 +378,7 @@ function MainApp() {
       agendamentos: 'Gerenciamento de agenda e consultas',
       ocupacao: 'Mapa de salas, horários e disponibilidade',
       'operacao-hospitalar': 'Gestão integrada de internações, leitos, estoque e farmácia',
+      'prescricao-enfermagem': 'Prescrição eletrônica, aprazamento e checagem segura à beira-leito',
       financeiro: 'Contas a receber, pagar e fluxo de caixa',
       glosas: 'Gestão de glosas e recursos',
       relatorios: 'Análise de dados e métricas',
