@@ -1,170 +1,28 @@
-import { useState, useRef, useEffect } from 'react';
-import { MagnifyingGlassIcon, ChevronDownIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { CheckIcon, ChevronUpDownIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { filterSearchOptions } from '../lib/optionSearch';
 
-export default function SearchableSelect({ 
-  options, 
-  value, 
-  onChange, 
-  placeholder = "Selecione...",
-  label,
-  required = false,
-  className = ""
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [highlightedIndex, setHighlightedIndex] = useState(-1);
-  const containerRef = useRef(null);
-  const inputRef = useRef(null);
-  const listRef = useRef(null);
+export default function SearchableSelect({ label, value, onChange, options = [], required = false, placeholder = 'Digite para localizar...', getLabel = option => option.label ?? option.nome ?? '', emptyMessage = 'Nenhum registro localizado.' }) {
+  const getValue = option => option.value ?? option.id;
+  const legacyEventMode = options.some(option => Object.hasOwn(option, 'value'));
+  const selected = options.find(option => String(getValue(option)) === String(value));
+  const [query, setQuery] = useState(selected ? getLabel(selected) : '');
+  const [open, setOpen] = useState(false);
+  const container = useRef(null);
+  useEffect(() => { setQuery(selected ? getLabel(selected) : ''); }, [value, selected?.id]);
+  useEffect(() => { const close = event => { if (!container.current?.contains(event.target)) setOpen(false); }; document.addEventListener('mousedown', close); return () => document.removeEventListener('mousedown', close); }, []);
+  const filtered = useMemo(() => filterSearchOptions(options, selected && query === getLabel(selected) ? '' : query, getLabel).slice(0, 30), [options, query, selected?.id, getLabel]);
 
-  const selectedOption = options.find(opt => opt.value === value);
+  const emit = nextValue => onChange(legacyEventMode ? { target: { value: nextValue } } : String(nextValue));
+  const choose = option => { emit(getValue(option)); setQuery(getLabel(option)); setOpen(false); };
+  const clear = () => { emit(''); setQuery(''); setOpen(true); };
 
-  const filteredOptions = options.filter(opt =>
-    opt.label.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (containerRef.current && !containerRef.current.contains(event.target)) {
-        setIsOpen(false);
-        setSearchTerm('');
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    if (isOpen && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (listRef.current && highlightedIndex >= 0) {
-      const highlightedElement = listRef.current.children[highlightedIndex];
-      if (highlightedElement) {
-        highlightedElement.scrollIntoView({ block: 'nearest' });
-      }
-    }
-  }, [highlightedIndex]);
-
-  const handleKeyDown = (e) => {
-    if (!isOpen) {
-      if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter') {
-        e.preventDefault();
-        setIsOpen(true);
-      }
-      return;
-    }
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setHighlightedIndex(prev => 
-          prev < filteredOptions.length - 1 ? prev + 1 : prev
-        );
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setHighlightedIndex(prev => prev > 0 ? prev - 1 : -1);
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (highlightedIndex >= 0 && filteredOptions[highlightedIndex]) {
-          onChange({ target: { value: filteredOptions[highlightedIndex].value } });
-          setIsOpen(false);
-          setSearchTerm('');
-          setHighlightedIndex(-1);
-        } else if (filteredOptions.length === 1) {
-          onChange({ target: { value: filteredOptions[0].value } });
-          setIsOpen(false);
-          setSearchTerm('');
-        }
-        break;
-      case 'Escape':
-        setIsOpen(false);
-        setSearchTerm('');
-        setHighlightedIndex(-1);
-        break;
-    }
-  };
-
-  return (
-    <div ref={containerRef} className={`relative ${className}`}>
-      {label && (
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          {label} {required && <span className="text-red-500">*</span>}
-        </label>
-      )}
-      
-      <div
-        className="relative cursor-pointer"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <div className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white flex items-center justify-between">
-          <span className={!selectedOption ? 'text-gray-400 dark:text-gray-500' : ''}>
-            {selectedOption ? selectedOption.label : placeholder}
-          </span>
-          <ChevronDownIcon className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-        </div>
-      </div>
-
-      {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg overflow-hidden">
-          <div className="p-2 border-b border-gray-200 dark:border-gray-700">
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                ref={inputRef}
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Digite para buscar..."
-                className="w-full pl-9 pr-8 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              />
-              {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2"
-                >
-                  <XMarkIcon className="w-4 h-4 text-gray-400 hover:text-gray-600" />
-                </button>
-              )}
-            </div>
-          </div>
-          
-          <ul ref={listRef} className="max-h-48 overflow-y-auto">
-            {filteredOptions.length > 0 ? (
-              filteredOptions.map((option, index) => (
-                <li
-                  key={option.value}
-                  onClick={() => {
-                    onChange({ target: { value: option.value } });
-                    setIsOpen(false);
-                    setSearchTerm('');
-                    setHighlightedIndex(-1);
-                  }}
-                  className={`px-3 py-2 text-sm cursor-pointer transition-colors ${
-                    value === option.value
-                      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                      : index === highlightedIndex
-                      ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  {option.label}
-                </li>
-              ))
-            ) : (
-              <li className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 text-center">
-                Nenhum resultado encontrado
-              </li>
-            )}
-          </ul>
-        </div>
-      )}
+  return <label className="block text-sm dark:text-gray-200" ref={container}>{label}{required && <span className="text-red-500"> *</span>}
+    <div className="relative mt-1">
+      <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+      <input value={query} onFocus={() => setOpen(true)} onChange={event => { setQuery(event.target.value); emit(''); setOpen(true); }} placeholder={placeholder} required={required} pattern={required&&!value?'(?!)':undefined} title={required&&!value?'Selecione um registro na lista de resultados.':undefined} autoComplete="off" className="input !mt-0 !pl-9 !pr-16" />
+      <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">{value&&<button type="button" onClick={clear} className="rounded p-1 text-slate-400 hover:bg-slate-100"><XMarkIcon className="h-4 w-4"/></button>}<button type="button" onClick={() => setOpen(current => !current)} className="rounded p-1 text-slate-400"><ChevronUpDownIcon className="h-4 w-4"/></button></div>
+      {open&&<div className="absolute z-[70] mt-1 max-h-64 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl dark:border-gray-700 dark:bg-gray-800">{filtered.map(option=><button type="button" key={getValue(option)} onClick={() => choose(option)} className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-cyan-50 dark:text-gray-200 dark:hover:bg-gray-700"><span>{getLabel(option)}</span>{String(getValue(option))===String(value)&&<CheckIcon className="h-4 w-4 text-cyan-600"/>}</button>)}{!filtered.length&&<p className="px-3 py-6 text-center text-xs text-slate-500">{emptyMessage}</p>}</div>}
     </div>
-  );
+  </label>;
 }

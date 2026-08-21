@@ -1,6 +1,15 @@
-# Faturamento TISS
+# Nexo Hospitalar
 
-Aplicação React/Vite integrada ao Supabase para faturamento TISS 4.03.00.
+Plataforma React/Vite integrada ao Supabase para jornada assistencial, operação hospitalar, faturamento e comunicação TISS 4.03.00.
+
+## Áreas integradas
+
+- **Central Assistencial:** pronto atendimento, classificação de risco, internação, leitos, prescrição, enfermagem, farmácia, laboratório, imagem e centro cirúrgico em uma navegação única.
+- **Jornada ambulatorial:** pacientes, agenda, ocupação, atendimentos, procedimentos e prontuário.
+- **Receita e auditoria:** autorizações, faturamento TISS, lotes, glosas, financeiro e relatórios.
+- **Administração:** unidades, prestadores, convênios, salas, usuários, configurações e integrações.
+
+A árvore de navegação não é escolhida manualmente. Ela é montada a partir de `setor_acesso` e `nivel_acesso` do usuário; administradores recebem a visão institucional. As rotas e as tabelas hospitalares repetem a validação no frontend e nas políticas RLS.
 
 ## Desenvolvimento
 
@@ -8,6 +17,13 @@ Aplicação React/Vite integrada ao Supabase para faturamento TISS 4.03.00.
    Para outro ambiente/projeto Supabase, substitua os valores a partir de `.env.example` ou configure-os na plataforma de publicação.
 2. Execute as migrations de `../database` na ordem cronológica. As migrations
    `20260807_multiempresa_rls.sql` e `20260808_painel_saas.sql` implantam o isolamento e o painel SaaS.
+   Para os recursos hospitalares, aplique também, nesta ordem:
+   - `20260821_operacao_hospitalar.sql`;
+   - `20260822_prescricao_enfermagem.sql`;
+   - `20260823_pronto_atendimento.sql`;
+   - `20260824_diagnostico.sql`;
+   - `20260825_acesso_setorial.sql`;
+   - `20260826_centro_cirurgico.sql`.
 3. Instale e execute:
 
 ```bash
@@ -22,6 +38,9 @@ npm run dev
 - Dados operacionais, inclusive convênios e contratos, são visíveis somente nas unidades autorizadas ao usuário.
 - **Pacientes** pertencem à empresa e são compartilhados entre todas as unidades da mesma empresa.
 - A segurança é aplicada por Row Level Security no Supabase; filtros do frontend não são controles de segurança.
+- Cada usuário operacional possui um único setor principal (`recepcao`, `assistencial`, `diagnostico`, `farmacia`, `faturamento` ou `financeiro`) e nível (`operador`, `supervisor` ou `administrador`).
+- A Central Assistencial mostra somente as áreas autorizadas para o setor. Seletores de pacientes permitem busca digitando nome, CPF ou código disponível.
+- Listas de internação exibem somente internações ativas; altas permanecem preservadas no banco para histórico e auditoria.
 - A administração SaaS provisiona empresas, unidades e usuários por uma API privilegiada. A chave
   `service_role` existe somente no servidor e nunca pode usar o prefixo `VITE_`.
 
