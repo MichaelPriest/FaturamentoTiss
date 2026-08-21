@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabaseClient';
 import { useUnidade } from '../contexts/UnidadeContext';
 import { applyUnidadeToPayload } from '../services/unidadesService';
 import { buildTodayAdministrations, normalizeSchedule, validatePrescriptionItem } from '../lib/prescriptionRules';
+import SearchableSelect from '../components/SearchableSelect';
 
 const emptyItem = { tipo: 'medicamento', descricao: '', dose: '', via: '', frequencia: '', horarios: '', se_necessario: false, orientacoes: '' };
 
@@ -128,7 +129,7 @@ export default function PrescricaoEnfermagem() {
       </header>
 
       <section className="grid gap-4 rounded-2xl border bg-white p-5 dark:border-gray-700 dark:bg-gray-800 lg:grid-cols-2">
-        <label className="text-sm font-medium dark:text-gray-200">Internação ativa<select value={internacaoId} onChange={event => setInternacaoId(event.target.value)} className="mt-1 w-full rounded-xl border p-3 dark:border-gray-600 dark:bg-gray-700"><option value="">Selecione</option>{internacoes.map(item => <option key={item.id} value={item.id}>{item.pacientes?.nome} · {item.leitos?.codigo} · {item.numero_internacao}</option>)}</select></label>
+        <SearchableSelect label="Paciente internado" value={internacaoId} onChange={setInternacaoId} options={internacoes} getLabel={item=>`${item.pacientes?.nome} · Leito ${item.leitos?.codigo} · ${item.numero_internacao}`} placeholder="Digite o nome do paciente internado..." required/>
         <label className="text-sm font-medium dark:text-gray-200">Prescrição<select value={prescricaoId} onChange={event => setPrescricaoId(event.target.value)} className="mt-1 w-full rounded-xl border p-3 dark:border-gray-600 dark:bg-gray-700"><option value="">Selecione ou crie</option>{prescricoesInternacao.map(item => <option key={item.id} value={item.id}>{new Date(`${item.data_prescricao}T00:00:00`).toLocaleDateString('pt-BR')} · {item.status}</option>)}</select></label>
       </section>
 
