@@ -13,12 +13,17 @@ export function getWorkspace(id) {
   return SECTOR_WORKSPACES.find(workspace => workspace.id === id) || SECTOR_WORKSPACES[0];
 }
 
+export function getUserWorkspace(user) {
+  if (user?.role === 'admin' || user?.nivel_acesso === 'administrador') return getWorkspace('todos');
+  return getWorkspace(user?.setor_acesso || 'recepcao');
+}
+
 export function filterMenuGroups(groups, workspaceId, canAccess = () => true) {
   const workspace = getWorkspace(workspaceId);
   return groups
     .map(group => ({
       ...group,
-      items: group.items.filter(item => canAccess(item.id) && (workspace.id === 'todos' || workspace.items.includes(item.id)))
+      items: group.items.filter(item => canAccess(item.id) && (workspace.id === 'todos' || workspace.items.includes(item.id) || ['perfil','notificacoes'].includes(item.id)))
     }))
     .filter(group => group.items.length > 0);
 }

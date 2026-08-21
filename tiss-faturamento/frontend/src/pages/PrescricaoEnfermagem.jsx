@@ -25,9 +25,9 @@ export default function PrescricaoEnfermagem() {
     try {
       const [admissions, prescriptions, prescriptionItems, administrations] = await Promise.all([
         supabase.from('internacoes').select('id,numero_internacao,paciente_id,leito_id,pacientes(nome),leitos(codigo)').eq('status', 'ativa').order('data_entrada'),
-        supabase.from('prescricoes').select('*').order('created_at', { ascending: false }),
-        supabase.from('prescricao_itens').select('*').eq('status', 'ativo').order('created_at'),
-        supabase.from('administracoes_enfermagem').select('*').gte('horario_previsto', `${new Date().toISOString().slice(0, 10)}T00:00:00`).order('horario_previsto')
+        supabase.from('prescricoes_hospitalares').select('*').order('created_at', { ascending: false }),
+        supabase.from('prescricao_hospitalar_itens').select('*').eq('status', 'ativo').order('created_at'),
+        supabase.from('administracoes_hospitalares').select('*').gte('horario_previsto', `${new Date().toISOString().slice(0, 10)}T00:00:00`).order('horario_previsto')
       ]);
       for (const response of [admissions, prescriptions, prescriptionItems, administrations]) if (response.error) throw response.error;
       setInternacoes(admissions.data || []);
@@ -61,7 +61,7 @@ export default function PrescricaoEnfermagem() {
   const novaPrescricao = async () => {
     if (!internacaoId) return toast.error('Selecione uma internação ativa.');
     const internacao = internacoes.find(item => item.id === internacaoId);
-    const { data, error } = await supabase.from('prescricoes').insert(applyUnidadeToPayload({
+    const { data, error } = await supabase.from('prescricoes_hospitalares').insert(applyUnidadeToPayload({
       internacao_id: internacaoId,
       medico_id: null,
       status: 'rascunho'
@@ -80,7 +80,7 @@ export default function PrescricaoEnfermagem() {
     const validation = validatePrescriptionItem(itemForm);
     if (validation) return toast.error(validation);
     setSaving(true);
-    const { data, error } = await supabase.from('prescricao_itens').insert(applyUnidadeToPayload({
+    const { data, error } = await supabase.from('prescricao_hospitalar_itens').insert(applyUnidadeToPayload({
       ...itemForm,
       prescricao_id: prescricaoId,
       horarios: normalizeSchedule(itemForm.horarios),
@@ -97,7 +97,7 @@ export default function PrescricaoEnfermagem() {
   };
 
   const ativar = async () => {
-    const { error } = await supabase.rpc('ativar_prescricao', { p_prescricao_id: prescricaoId });
+    const { error } = await supabase.rpc('ativar_prescricao_hospitalar', { p_prescricao_id: prescricaoId });
     if (error) return toast.error(error.message);
     toast.success('Prescrição assinada e ativada.');
     carregar();
@@ -106,7 +106,7 @@ export default function PrescricaoEnfermagem() {
   const checar = async (scheduled, status) => {
     const observation = status === 'administrado' ? null : window.prompt('Informe a justificativa clínica:');
     if (status !== 'administrado' && !observation) return;
-    const { error } = await supabase.rpc('checar_administracao', {
+    const { error } = await supabase.rpc('checar_administracao_hospitalar', {
       p_item_id: scheduled.item.id,
       p_horario_previsto: scheduled.horarioPrevisto,
       p_status: status,

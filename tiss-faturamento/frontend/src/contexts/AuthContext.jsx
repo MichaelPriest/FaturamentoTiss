@@ -15,6 +15,8 @@ const profileFromAuthUser = (authUser) => ({
   empresa_id: null,
   unidade_id: null,
   saas_admin: false,
+  setor_acesso: 'recepcao',
+  nivel_acesso: 'operador',
 });
 
 export function AuthProvider({ children }) {
@@ -61,6 +63,8 @@ export function AuthProvider({ children }) {
           empresa_id: userData.empresa_id,
           unidade_id: userData.unidade_id,
           saas_admin: Boolean(saasAdmin),
+          setor_acesso: userData.setor_acesso || (userData.role === 'admin' ? 'todos' : 'recepcao'),
+          nivel_acesso: userData.nivel_acesso || (userData.role === 'admin' ? 'administrador' : 'operador'),
         };
       }
 
@@ -94,6 +98,8 @@ export function AuthProvider({ children }) {
         empresa_id: newUser.empresa_id,
         unidade_id: newUser.unidade_id,
         saas_admin: Boolean(saasAdmin),
+        setor_acesso: newUser.setor_acesso || 'recepcao',
+        nivel_acesso: newUser.nivel_acesso || 'operador',
       };
     } catch (error) {
       console.error('Erro ao carregar perfil:', error);
