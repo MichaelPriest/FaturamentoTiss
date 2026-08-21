@@ -43,3 +43,14 @@ O contrato inicial está em `docs/openapi.yaml`. Antes de qualquer transmissão 
 ## Fronteira com o legado
 
 Não importe módulos de `tiss-faturamento/` diretamente. Integração e migração de dados deverão ocorrer por APIs versionadas e jobs reexecutáveis, com reconciliação de totais e relatório de divergências.
+
+## Publicação na Vercel
+
+O endereço `https://faturamento-tiss.vercel.app/` continua sendo o projeto legado e não expõe esta aplicação em uma subrota. Para publicar a nova geração sem misturar os projetos:
+
+1. crie um segundo projeto na Vercel usando o mesmo repositório;
+2. em **Root Directory**, selecione `nexo-his-next`;
+3. mantenha os comandos de `vercel.json`, que instalam e compilam somente `apps/web`;
+4. associe um domínio próprio, por exemplo `nexo-his.vercel.app` ou `his.suaempresa.com.br`.
+
+Depois do deploy, a nova interface abre na raiz do novo domínio (`/`). Ela não está disponível em `/nexo`, `/next` ou `/nexo-his-next` no domínio legado até que seja criada, deliberadamente, uma regra de proxy entre os dois projetos.
