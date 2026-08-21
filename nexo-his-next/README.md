@@ -70,6 +70,8 @@ Os bundles públicos usam os nomes estáveis `nexo-app.js` e `nexo-app.css`. Iss
 
 Copie `apps/web/.env.example` para `apps/web/.env.local` e informe a URL e a chave pública `anon` do projeto Supabase criado pelas migrations. A interface exibe **Dados reais** somente após consultar com sucesso pacientes, internações, contas e glosas respeitando o JWT/RLS; sem configuração, mostra explicitamente **Demonstração**. Um token de sessão autenticado deve ser gravado em `sessionStorage` sob `nexo_access_token` pelo futuro módulo de login.
 
+O ambiente de produção está apontado para o projeto Supabase institucional por meio de uma chave **publishable**, que é pública por definição. Nunca coloque `service_role`, senha de banco ou segredo de assinatura em arquivos `VITE_*`.
+
 ## Primeiro fluxo transacional
 
 A migration `002_reception.sql` ativa o primeiro módulo completo: autenticação, cadastro real de paciente, registro de chegada, fila da recepção e avanço controlado pelos estados `AGENDADO → CHEGOU → TRIAGEM → EM_ATENDIMENTO → FINALIZADO`. Execute-a depois de `001_financial_cycle.sql`.
