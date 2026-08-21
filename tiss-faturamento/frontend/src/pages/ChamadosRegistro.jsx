@@ -321,6 +321,8 @@ export default function ChamadosRegistro() {
       categoria: 'chamada_paciente',
       prioridade: 'normal',
       status: 'aguardando',
+      etapa: 'recepcao',
+      etapa_ordem: 1,
       paciente_id: formData.paciente_id || (agendamentoSelecionado?.paciente_id ? String(agendamentoSelecionado.paciente_id) : null),
       paciente_nome: formData.paciente_nome.trim(),
       senha: senhaFinal,
@@ -334,7 +336,8 @@ export default function ChamadosRegistro() {
         agendamento_id: formData.agendamento_id ? String(formData.agendamento_id) : null,
         senha_gerada: senhaFinal,
         destino_tipo: formData.destino_tipo,
-        origem: formData.origem_nome
+        origem: formData.origem_nome,
+        fluxo: ['recepcao', 'triagem', 'atendimento']
       },
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
