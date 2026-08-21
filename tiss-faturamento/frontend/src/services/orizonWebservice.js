@@ -121,6 +121,19 @@ function obterItensSolicitados(atendimento) {
   return pendentes.length ? pendentes : [{ codigo: '10101012', nome: 'PROCEDIMENTO', quantidade: 1, valor_unitario: 0 }];
 }
 
+export function validarDadosAutorizacao({ atendimento, convenio, login, senha }) {
+  const faltantes = [];
+  if (!login) faltantes.push('login do WebService');
+  if (!senha) faltantes.push('senha/chave do WebService');
+  if (!(convenio?.codigo_prestador || atendimento?.convenio_codigo_prestador)) faltantes.push('código do prestador na operadora');
+  if (!(convenio?.registro_ans || atendimento?.convenio_registro_ans)) faltantes.push('registro ANS');
+  if (!(atendimento?.numero_carteira || atendimento?.paciente?.numero_carteira)) faltantes.push('carteira do beneficiário');
+  const itens = atendimento?.itens_pendentes?.length ? atendimento.itens_pendentes : atendimento?.itens || [];
+  if (!itens.length) faltantes.push('procedimentos solicitados');
+  if (itens.some(item => !(item.codigo || item.codigo_procedimento))) faltantes.push('código dos procedimentos');
+  if (faltantes.length) throw new Error(`Dados obrigatórios ausentes: ${faltantes.join(', ')}.`);
+}
+
 export function montarEnvelopeSolicitacaoAutorizacao({ atendimento, convenio, login, senhaMD5, sequencial = 1, cnes = '' }) {
   const data = dataHoje();
   const hora = horaAgora();
@@ -187,7 +200,7 @@ export function montarEnvelopeSolicitacaoAutorizacao({ atendimento, convenio, lo
         <sch:caraterAtendimento>${escapeXML(atendimento?.carater_atendimento || '1')}</sch:caraterAtendimento>
         <sch:dataSolicitacao>${escapeXML(atendimento?.data_solicitacao || atendimento?.data_atendimento || data)}</sch:dataSolicitacao>${procedimentos}
         <sch:dadosExecutante>
-          <sch:codigonaOperadora>${escapeXML(codigoPrestador)}</sch:codigonaOperadora>
+          <sch:contratadoExecutante><sch:codigoPrestadorNaOperadora>${escapeXML(codigoPrestador)}</sch:codigoPrestadorNaOperadora></sch:contratadoExecutante>
           ${cnes ? `<sch:CNES>${escapeXML(cnes)}</sch:CNES>` : ''}
         </sch:dadosExecutante>
       </sch:solicitacaoSP-SADT>
@@ -310,30 +323,30 @@ async function enviarSOAPDireto(endpoint, envelope, opcoes = {}) {
 async function enviarSOAPPorProxy(endpoint, envelope, opcoes = {}) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error('Sessão expirada. Entre novamente para usar o WebService.');
-  const response = await fetch(opcoes.proxyUrl || '/api/orizon-soap', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${session.access_token}`
-    },
-    body: JSON.stringify({
-      endpoint,
-      envelope,
-      gzip: opcoes.gzip !== false,
-      soapAction: opcoes.soapAction || ''
-    })
-  });
+  const tentativasGzip = opcoes.gzip === false ? [false] : [true, false];
+  let ultimoErro;
 
-  const payload = await response.json().catch(() => null);
-  if (!response.ok || payload?.ok === false) {
-    const detalhe = payload?.detail || payload?.text || payload?.statusText || response.statusText;
-    const erro = new Error(`${payload?.error || 'Falha ao comunicar com o WebService do convênio.'}${detalhe ? ` Detalhe: ${detalhe}` : ''}`);
-    erro.codigo = payload?.code || payload?.statusText || response.status;
-    erro.payload = payload;
-    throw erro;
+  for (const gzip of tentativasGzip) {
+    const response = await fetch(opcoes.proxyUrl || '/api/orizon-soap', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ endpoint, envelope, gzip, soapAction: opcoes.soapAction || '' })
+    });
+    const contentType = response.headers.get('content-type') || '';
+    const payload = contentType.includes('application/json') ? await response.json().catch(() => null) : null;
+    if (response.ok && payload?.ok !== false && payload?.text) return payload.text;
+
+    const respostaTexto = payload ? '' : await response.text().catch(() => '');
+    const detalhe = payload?.detail || payload?.text || payload?.statusText || respostaTexto || response.statusText;
+    ultimoErro = new Error(`${payload?.error || 'Falha ao comunicar com o WebService do convênio.'}${detalhe ? ` Detalhe: ${detalhe}` : ''}`);
+    ultimoErro.codigo = payload?.code || payload?.status || response.status;
+    ultimoErro.payload = payload;
+
+    const erroDeConfiguracao = response.status === 400 || response.status === 401 || response.status === 403;
+    if (erroDeConfiguracao) break;
   }
 
-  return payload?.text || '';
+  throw ultimoErro;
 }
 
 async function enviarSOAP(endpoint, envelope, opcoes = {}) {
@@ -416,6 +429,8 @@ export async function consultarStatusProtocoloOrizon({ endpoint, codigoPrestador
 
 
 export async function solicitarAutorizacaoProcedimentoOrizon({ endpoint, atendimento, convenio, login, senha, cnes, gzip = true, proxyUrl }) {
+  validarDadosAutorizacao({ atendimento, convenio, login, senha });
+  if (!endpoint) throw new Error('Endpoint de autorização não configurado. Preencha o modelo Orizon nas configurações do convênio.');
   const senhaMD5 = hashSenhaOrizon(senha);
   const envelope = montarEnvelopeSolicitacaoAutorizacao({ atendimento, convenio, login, senhaMD5, cnes });
   const xmlResposta = await enviarSOAP(endpoint, envelope, { gzip, proxyUrl });

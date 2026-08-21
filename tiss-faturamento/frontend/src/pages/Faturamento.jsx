@@ -31,6 +31,7 @@ import { supabase } from '../lib/supabaseClient';
 import { gerarXMLTISS, converterAtendimentoParaTISS, setVersao } from '../lib/tissGenerator';
 import { imprimirGuiaTISSOficial, imprimirMultiplasGuiasTISS } from '../components/ImpressaoGuiaTISS';
 import { imprimirContaFaturada, imprimirMultiplasContas as imprimirMultiplasContasFaturadas } from '../components/ImpressaoContaFaturada';
+import { buildContractorData } from '../lib/printData';
 import { useUnidade } from '../contexts/UnidadeContext';
 import { TODAS_UNIDADES_ID, applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
 import {
@@ -38,7 +39,8 @@ import {
   consultarStatusProtocoloOrizon,
   enviarLoteGuiasOrizon,
   hashSenhaOrizon,
-  montarEnvelopeLoteGuias
+  montarEnvelopeLoteGuias,
+  obterEndpointOrizon
 } from '../services/orizonWebservice';
 
 // ============================================
@@ -724,7 +726,7 @@ export default function Faturamento() {
     
     if (!validarDadosImpressao(atendimento, convenio)) return;
     
-    imprimirGuiaTISSOficial(atendimento, convenio, configClinica);
+    imprimirGuiaTISSOficial(atendimento, convenio, buildContractorData({ unidade: unidadeAtual, configuracao: configClinica, atendimento, convenio }));
     toast.success('Enviando guia para impressão...');
   };
 
@@ -739,7 +741,7 @@ export default function Faturamento() {
     
     if (!validarDadosImpressao(guiasSelecionadas[0], convenio)) return;
     
-    imprimirMultiplasGuiasTISS(guiasSelecionadas, convenio, configClinica);
+    imprimirMultiplasGuiasTISS(guiasSelecionadas, convenio, buildContractorData({ unidade: unidadeAtual, configuracao: configClinica, convenio }));
     toast.success(`${guiasSelecionadas.length} guia(s) enviada(s) para impressão...`);
   };
 
@@ -777,7 +779,7 @@ export default function Faturamento() {
         }
       }
       
-      imprimirMultiplasGuiasTISS(guiasDoLote, convenio, configClinicaAtual);
+      imprimirMultiplasGuiasTISS(guiasDoLote, convenio, buildContractorData({ unidade: unidadeAtual, configuracao: configClinicaAtual, convenio }));
       toast.success(`Imprimindo ${guiasDoLote.length} guia(s) do lote...`);
     } catch (error) {
       console.error('Erro ao imprimir lote:', error);
@@ -811,12 +813,7 @@ export default function Faturamento() {
       }
 
       const convenio = convenios.find(c => c.id === lote.convenio_id);
-      const clinica = {
-        nome_empresa: configClinica.nome_empresa || '',
-        nome_contratado: configClinica.nome_contratado || '',
-        cnpj: configClinica.cnpj || '',
-        cnes: configClinica.cnes || ''
-      };
+      const clinica = buildContractorData({ unidade: unidadeAtual, configuracao: configClinica, convenio });
 
       const contas = atendimentosDoLote.map((atendimento) => {
         const itens = typeof atendimento.itens === 'string'
@@ -875,12 +872,7 @@ export default function Faturamento() {
     
     const paciente = montarDadosPacienteConta(atendimento);
     
-    const clinica = {
-      nome_empresa: configClinica.nome_empresa || '',
-      nome_contratado: configClinica.nome_contratado || '',
-      cnpj: configClinica.cnpj || '',
-      cnes: configClinica.cnes || ''
-    };
+    const clinica = buildContractorData({ unidade: unidadeAtual, configuracao: configClinica, atendimento, convenio });
     
     const dadosConta = {
       numero_conta: atendimento.numero_guia_prestador || `GUI-${atendimento.id}`,
@@ -1544,8 +1536,8 @@ export default function Faturamento() {
       throw new Error('Informe usuário e chave/senha do WebService na página WebService do convênio. Se a Orizon exigir certificado digital, o envio deve ocorrer pelo proxy/servidor configurado.');
     }
 
-    const endpointLote = configIntegracao.url_webservice || convenio.url_webservice || '';
-    const endpointStatus = configIntegracao.url_status_protocolo_orizon || '';
+    const endpointLote = configIntegracao.url_webservice || convenio.url_webservice || obterEndpointOrizon(ambiente, 'loteGuias');
+    const endpointStatus = configIntegracao.url_status_protocolo_orizon || obterEndpointOrizon(ambiente, 'statusProtocolo');
     const proxyUrl = configIntegracao.proxy_url_webservice || '';
 
     if (opcoes.exigirEndpointLote !== false && !endpointLote) {
@@ -2062,7 +2054,7 @@ export default function Faturamento() {
                         toast.error('Nenhuma guia para imprimir');
                         return;
                       }
-                      imprimirMultiplasGuiasTISS(guiasParaImprimir, convenio, configClinica);
+                      imprimirMultiplasGuiasTISS(guiasParaImprimir, convenio, buildContractorData({ unidade: unidadeAtual, configuracao: configClinica, convenio }));
                       toast.success(`${guiasParaImprimir.length} guia(s) enviada(s) para impressão`);
                     }} className="text-purple-600 hover:text-purple-800 text-sm flex items-center gap-1">
                       <DocumentCheckIcon className="w-4 h-4" /> Imprimir

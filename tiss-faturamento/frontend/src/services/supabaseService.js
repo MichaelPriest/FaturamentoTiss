@@ -739,6 +739,7 @@ export const procedimentosService = {
         tipo: dadosBase.tipo || 'PROCEDIMENTO',
         grupo: dadosBase.grupo || '',
         valor_sugerido: dadosBase.valor_sugerido || 0,
+        valor_convenio: dadosBase.valor_convenio ?? null,
         tabela: dadosBase.tabela || 'TUSS',
         convenio_id: dadosBase.convenio_id || null,
         dados_adicionais: dados_adicionais || {},
