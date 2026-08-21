@@ -155,8 +155,19 @@ export async function loadClinicalRecord(atendimentoId) {
 }
 
 export async function registerClinicalEvolution(form) {
-  const {data}=await request('rpc/registrar_atendimento_clinico',{method:'POST',body:{p_atendimento_id:form.atendimento_id,p_subjetivo:form.subjetivo.trim(),p_objetivo:form.objetivo.trim(),p_avaliacao:form.avaliacao.trim(),p_plano:form.plano.trim(),p_cid10:form.cid10.trim()||null,p_prescricao:form.prescricao.trim()||null,p_exames:form.exames_solicitados.trim()||null,p_orientacoes:form.orientacoes.trim()||null,p_desfecho:form.desfecho,p_finalizar:form.finalizar}});
+  const {data}=await request('rpc/registrar_atendimento_clinico',{method:'POST',body:{p_atendimento_id:form.atendimento_id,p_subjetivo:form.subjetivo.trim(),p_objetivo:form.objetivo.trim(),p_avaliacao:form.avaliacao.trim(),p_plano:form.plano.trim(),p_cid10:form.cid10.trim()||null,p_prescricao:form.prescricao.trim()||null,p_exames:form.exames_solicitados.trim()||null,p_orientacoes:form.orientacoes.trim()||null,p_desfecho:form.desfecho,p_finalizar:form.finalizar,p_prioridade_farmacia:form.prioridade_farmacia,p_emitir_atestado:form.emitir_atestado,p_dias_atestado:form.dias_atestado===''?null:Number(form.dias_atestado),p_texto_atestado:form.texto_atestado.trim()||null,p_reavaliar_em:form.reavaliar_em?new Date(form.reavaliar_em).toISOString():null}});
   return data;
+}
+
+export async function loadPharmacyQueue() {
+  const {data}=await request('solicitacoes_farmacia?select=id,conteudo,prioridade,status,solicitado_em,pacientes(id,nome)&status=in.(PENDENTE,EM_SEPARACAO)&order=prioridade.desc,solicitado_em.asc&limit=100');
+  return data;
+}
+
+export async function updatePharmacyRequest(id,status) {
+  const body={status,...(status==='DISPENSADA'?{dispensado_em:new Date().toISOString()}:{})};
+  const {data}=await request(`solicitacoes_farmacia?id=eq.${encodeURIComponent(id)}&select=*`,{method:'PATCH',body,prefer:'return=representation'});
+  return data[0];
 }
 
 export async function loadOperationalDashboard() {

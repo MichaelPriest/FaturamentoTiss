@@ -6,5 +6,11 @@ export function validateClinicalEvolution(form) {
   if(form.finalizar&&form.desfecho==='PERMANECE') errors.push('Selecione um desfecho para finalizar.');
   if(form.cid10&&!/^[A-Z][0-9]{2}(\.[0-9A-Z]{1,2})?$/i.test(form.cid10.trim())) errors.push('CID-10 inválido.');
   if(form.finalizar&&!(form.orientacoes||'').trim()) errors.push('Registre as orientações de alta ou encaminhamento.');
+  if(form.desfecho==='REAVALIACAO'&&!form.reavaliar_em) errors.push('Informe a data e hora da reavaliação.');
+  if(form.emitir_atestado) {
+    const days=Number(form.dias_atestado);
+    if(!Number.isInteger(days)||days<1||days>365) errors.push('Informe de 1 a 365 dias de afastamento.');
+    if((form.texto_atestado||'').trim().length<10) errors.push('Informe o conteúdo completo do atestado.');
+  }
   return errors;
 }

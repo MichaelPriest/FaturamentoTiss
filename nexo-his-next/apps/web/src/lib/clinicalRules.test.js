@@ -7,3 +7,5 @@ test('valida evolução SOAP completa',()=>assert.deepEqual(validateClinicalEvol
 test('exige desfecho ao finalizar',()=>assert.match(validateClinicalEvolution({...valid,finalizar:true})[0],/desfecho/));
 test('rejeita CID-10 malformado',()=>assert.match(validateClinicalEvolution({...valid,cid10:'123'})[0],/CID-10/));
 test('exige orientação ao encerrar o cuidado',()=>assert.match(validateClinicalEvolution({...valid,finalizar:true,desfecho:'ALTA',orientacoes:''})[0],/orientações/));
+test('exige agendamento para reavaliação',()=>assert.match(validateClinicalEvolution({...valid,desfecho:'REAVALIACAO',reavaliar_em:''})[0],/data e hora/));
+test('valida dados do atestado médico',()=>assert.equal(validateClinicalEvolution({...valid,emitir_atestado:true,dias_atestado:0,texto_atestado:'curto'}).length,2));
