@@ -4,6 +4,7 @@ import { setConfig as setTissConfig } from '../lib/tissGenerator';
 import { supabase } from '../lib/supabaseClient';
 import { useUnidade } from '../contexts/UnidadeContext';
 import { TODAS_UNIDADES_ID, applyUnidadeToPayload, filterByUnidade } from '../services/unidadesService';
+import { SECTOR_WORKSPACES } from '../lib/sectorWorkspaces';
 import { 
   BuildingOfficeIcon, 
   CheckCircleIcon, 
@@ -48,7 +49,9 @@ export default function Configuracoes() {
     email: '',
     senha: '',
     nome: '',
-    role: 'usuario'
+    role: 'usuario',
+    setor_acesso: 'recepcao',
+    nivel_acesso: 'operador'
   });
   const [carregandoUsuarios, setCarregandoUsuarios] = useState(false);
 
@@ -218,6 +221,8 @@ export default function Configuracoes() {
             email: userForm.email,
             nome: userForm.nome,
             role: userForm.role,
+            setor_acesso: userForm.role === 'admin' ? 'todos' : userForm.setor_acesso,
+            nivel_acesso: userForm.role === 'admin' ? 'administrador' : userForm.nivel_acesso,
             ativo: true,
             created_at: new Date().toISOString(),
             unidade_id: unidadeAtualId !== TODAS_UNIDADES_ID ? unidadeAtualId : null
@@ -251,6 +256,8 @@ export default function Configuracoes() {
         .update({
           nome: userForm.nome,
           role: userForm.role,
+          setor_acesso: userForm.role === 'admin' ? 'todos' : userForm.setor_acesso,
+          nivel_acesso: userForm.role === 'admin' ? 'administrador' : userForm.nivel_acesso,
           updated_at: new Date().toISOString(),
           unidade_id: unidadeAtualId !== TODAS_UNIDADES_ID ? unidadeAtualId : null
         })
@@ -305,7 +312,9 @@ export default function Configuracoes() {
       email: '',
       senha: '',
       nome: '',
-      role: 'usuario'
+      role: 'usuario',
+      setor_acesso: 'recepcao',
+      nivel_acesso: 'operador'
     });
   };
 
@@ -316,7 +325,9 @@ export default function Configuracoes() {
         email: usuario.email,
         senha: '',
         nome: usuario.nome,
-        role: usuario.role
+        role: usuario.role,
+        setor_acesso: usuario.setor_acesso || 'recepcao',
+        nivel_acesso: usuario.nivel_acesso || 'operador'
       });
     } else {
       resetUserForm();
@@ -488,6 +499,7 @@ export default function Configuracoes() {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nome</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">E-mail</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Perfil</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Setor / nível</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Criado em</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Ações</th>
@@ -496,13 +508,13 @@ export default function Configuracoes() {
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {carregandoUsuarios ? (
                   <tr>
-                    <td colSpan="6" className="px-4 py-8 text-center">
+                    <td colSpan="7" className="px-4 py-8 text-center">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
                     </td>
                   </tr>
                 ) : usuarios.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                    <td colSpan="7" className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                       O provisionamento de usuários é realizado pelo painel SaaS. Cada usuário deve possuir uma única unidade configurada.
                     </td>
                   </tr>
@@ -519,6 +531,10 @@ export default function Configuracoes() {
                         }`}>
                           {usuario.role === 'admin' ? 'Administrador' : 'Usuário'}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+                        <span className="block font-medium">{usuario.role === 'admin' ? 'Todos os setores' : (SECTOR_WORKSPACES.find(item => item.id === usuario.setor_acesso)?.shortName || 'Recepção')}</span>
+                        <span className="text-xs capitalize text-gray-400">{usuario.role === 'admin' ? 'administrador' : (usuario.nivel_acesso || 'operador')}</span>
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
@@ -649,6 +665,20 @@ export default function Configuracoes() {
                       <option value="usuario">Usuário - Acesso restrito</option>
                     </select>
                   </div>
+                  {userForm.role !== 'admin' && <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Setor de acesso</label>
+                      <select value={userForm.setor_acesso} onChange={e => setUserForm({...userForm, setor_acesso: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm dark:text-white">
+                        {SECTOR_WORKSPACES.filter(item => item.id !== 'todos' && item.id !== 'administracao').map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nível no setor</label>
+                      <select value={userForm.nivel_acesso} onChange={e => setUserForm({...userForm, nivel_acesso: e.target.value})} className="w-full bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm dark:text-white">
+                        <option value="operador">Operador</option><option value="supervisor">Supervisor</option>
+                      </select>
+                    </div>
+                  </>}
                 </div>
                 
                 <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
