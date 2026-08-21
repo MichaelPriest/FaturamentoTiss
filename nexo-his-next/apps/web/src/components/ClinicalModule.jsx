@@ -1,5 +1,6 @@
 import { useEffect,useState } from 'react';
 import Icon from './Icon';
+import ClinicalSupportPanels from './ClinicalSupportPanels';
 import { loadClinicalQueue,loadClinicalMeasurements,loadClinicalRecord,registerClinicalEvolution,registerClinicalMeasurement } from '../lib/hisApi';
 import { validateClinicalEvolution } from '../lib/clinicalRules';
 
@@ -34,7 +35,7 @@ export default function ClinicalModule({onPatientSelected}){
         <section className="medical-document"><label className="finish-check"><input type="checkbox" disabled={!form.atendimento_id} checked={form.emitir_atestado} onChange={e=>setForm({...form,emitir_atestado:e.target.checked})}/> Emitir atestado médico assinado</label>{form.emitir_atestado&&<><label>Dias de afastamento<input type="number" min="1" max="365" value={form.dias_atestado} onChange={e=>setForm({...form,dias_atestado:e.target.value})}/></label><label className="document-text">Conteúdo do atestado<textarea value={form.texto_atestado} onChange={e=>setForm({...form,texto_atestado:e.target.value})} placeholder="Declaro, para os devidos fins..."/></label><p>Assinatura eletrônica vinculada ao médico autenticado, data/hora e hash de integridade.</p></>}</section>
         <div className="clinical-outcome"><label>CID-10<input disabled={!form.atendimento_id} placeholder="Ex.: R10.4" value={form.cid10} onChange={e=>setForm({...form,cid10:e.target.value.toUpperCase()})}/></label><label>Desfecho<select disabled={!form.atendimento_id} value={form.desfecho} onChange={e=>setForm({...form,desfecho:e.target.value})}><option value="PERMANECE">Permanece em atendimento</option><option value="REAVALIACAO">Programar reavaliação</option><option value="OBSERVACAO">Encaminhar para observação</option><option value="ALTA">Alta</option><option value="INTERNACAO">Internar paciente</option><option value="TRANSFERENCIA">Transferência</option></select></label>{form.desfecho==='REAVALIACAO'&&<label>Reavaliar em<input type="datetime-local" value={form.reavaliar_em} onChange={e=>setForm({...form,reavaliar_em:e.target.value})}/></label>}<label className="finish-check"><input type="checkbox" disabled={!form.atendimento_id||['OBSERVACAO','REAVALIACAO'].includes(form.desfecho)} checked={form.finalizar} onChange={e=>setForm({...form,finalizar:e.target.checked})}/> Finalizar atendimento após salvar</label></div>
         <div className="form-actions"><button type="button" className="secondary" onClick={()=>{setForm(empty);setHistory([]);}}>Limpar</button><button className="primary" disabled={saving||!form.atendimento_id}>{saving?'Salvando...':form.finalizar?'Salvar e finalizar':'Registrar atendimento'}</button></div>
-      </form></div>
+      </form>{selected&&<ClinicalSupportPanels attendanceId={selected.id} version={history.length+measurements.length}/>}</div>
   </section>;
 }
 

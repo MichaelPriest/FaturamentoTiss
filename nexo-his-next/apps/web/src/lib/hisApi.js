@@ -160,6 +160,28 @@ export async function registerClinicalMeasurement(atendimentoId,measurement) {
   return data[0];
 }
 
+export async function loadClinicalSupport(atendimentoId) {
+  const id=encodeURIComponent(atendimentoId);
+  const [diagnoses,requests,documents,status,account]=await Promise.all([
+    request(`atendimento_diagnosticos?select=*&atendimento_id=eq.${id}&order=created_at.desc`),
+    request(`solicitacoes_assistenciais?select=*&atendimento_id=eq.${id}&order=created_at.desc`),
+    request(`documentos_medicos?select=*&atendimento_id=eq.${id}&order=created_at.desc`),
+    request(`atendimentos_status_historico?select=*&atendimento_id=eq.${id}&order=created_at.desc`),
+    request(`conta_hospitalar_itens?select=*&atendimento_id=eq.${id}&order=created_at.desc`)
+  ]);
+  return {diagnosticos:diagnoses.data,solicitacoes:requests.data,documentos:documents.data,status:status.data,conta:account.data};
+}
+
+export async function registerAttendanceDiagnosis(atendimentoId,form) {
+  const {data}=await request('rpc/registrar_diagnostico_atendimento',{method:'POST',body:{p_atendimento_id:atendimentoId,p_cid10:form.cid10,p_descricao:form.descricao,p_tipo:form.tipo,p_situacao:form.situacao,p_infectocontagioso:form.infectocontagioso}});
+  return data;
+}
+
+export async function registerCareRequest(atendimentoId,form) {
+  const {data}=await request('rpc/registrar_solicitacao_assistencial',{method:'POST',body:{p_atendimento_id:atendimentoId,p_tipo:form.tipo,p_descricao:form.descricao,p_codigo_tuss:form.codigo_tuss||null,p_quantidade:Number(form.quantidade||1),p_indicacao:form.indicacao||null,p_cid10:form.cid10||null,p_urgencia:form.urgencia,p_requer_autorizacao:form.requer_autorizacao,p_senha:form.senha||null,p_valor_unitario:Number(form.valor_unitario||0)}});
+  return data;
+}
+
 export async function loadClinicalRecord(atendimentoId) {
   if(!atendimentoId) return [];
   const {data}=await request(`evolucoes_clinicas?select=id,subjetivo,objetivo,avaliacao,plano,cid10,prescricao,exames_solicitados,orientacoes,desfecho,created_at&atendimento_id=eq.${encodeURIComponent(atendimentoId)}&order=created_at.desc&limit=20`);
