@@ -14,7 +14,7 @@ const ACTIONS = {
     ['Lançar atendimento','atendimentos',CheckCircleIcon], ['Faturamento TISS','faturamento',CurrencyDollarIcon]
   ],
   recepcao: [['Pronto atendimento','pronto-atendimento',ClockIcon],['Novo atendimento','atendimentos',CheckCircleIcon],['Agenda','agendamentos',CalendarDaysIcon],['Fila de pacientes','chamados',UserGroupIcon]],
-  assistencial: [['Pronto atendimento','pronto-atendimento',ClockIcon],['Central hospitalar','operacao-hospitalar',HomeModernIcon],['Apoio diagnóstico','apoio-diagnostico',ChartBarIcon],['Prescrição e enfermagem','prescricao-enfermagem',CheckCircleIcon]],
+  assistencial: [['Pronto atendimento','pronto-atendimento',ClockIcon],['Central hospitalar','operacao-hospitalar',HomeModernIcon],['Centro cirúrgico','centro-cirurgico',CalendarDaysIcon],['Prescrição e enfermagem','prescricao-enfermagem',CheckCircleIcon]],
   diagnostico: [['Fila de exames','apoio-diagnostico',ChartBarIcon],['Pacientes','pacientes',UserGroupIcon],['Pronto atendimento','pronto-atendimento',ClockIcon],['Atendimentos','atendimentos',CheckCircleIcon]],
   farmacia: [['Estoque hospitalar','operacao-hospitalar',HomeModernIcon],['Agenda de administração','prescricao-enfermagem',ClockIcon],['Procedimentos','procedimentos',CheckCircleIcon]],
   faturamento: [['Contas e lotes','faturamento',CurrencyDollarIcon],['Autorizações','autorizacoes',CheckCircleIcon],['Glosas','glosas',ExclamationTriangleIcon],['Relatórios','relatorios',ChartBarIcon]],

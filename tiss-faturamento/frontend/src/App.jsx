@@ -47,6 +47,7 @@ import OperacaoHospitalar from './pages/OperacaoHospitalar';
 import PrescricaoEnfermagem from './pages/PrescricaoEnfermagem';
 import ProntoAtendimento from './pages/ProntoAtendimento';
 import ApoioDiagnostico from './pages/ApoioDiagnostico';
+import CentroCirurgico from './pages/CentroCirurgico';
 import { filterMenuGroups, getUserWorkspace } from './lib/sectorWorkspaces';
 
 import { setConfig } from './lib/tissGenerator';
@@ -70,6 +71,7 @@ const TAB_ROUTES = new Set([
   'prescricao-enfermagem',
   'pronto-atendimento',
   'apoio-diagnostico',
+  'centro-cirurgico',
   'autorizacoes',
   'faturamento',
   'homologacao-webservice',
@@ -268,7 +270,8 @@ function MainApp() {
         { id: 'pronto-atendimento', name: 'Pronto Atendimento', icon: ShieldCheckIcon, color: 'from-red-600 to-orange-500' },
         { id: 'operacao-hospitalar', name: 'Central Hospitalar', icon: BuildingOffice2Icon, color: 'from-blue-600 to-cyan-600' },
         { id: 'prescricao-enfermagem', name: 'Prescrição e Enfermagem', icon: ClipboardDocumentCheckIcon, color: 'from-emerald-600 to-teal-600' },
-        { id: 'apoio-diagnostico', name: 'Laboratório e Imagem', icon: DocumentTextIcon, color: 'from-violet-600 to-fuchsia-500' }
+        { id: 'apoio-diagnostico', name: 'Laboratório e Imagem', icon: DocumentTextIcon, color: 'from-violet-600 to-fuchsia-500' },
+        { id: 'centro-cirurgico', name: 'Centro Cirúrgico', icon: CalendarDaysIcon, color: 'from-rose-600 to-red-500' }
       ]
     },
     {
@@ -336,6 +339,7 @@ function MainApp() {
       case 'prescricao-enfermagem': return <PrescricaoEnfermagem />;
       case 'pronto-atendimento': return <ProntoAtendimento />;
       case 'apoio-diagnostico': return <ApoioDiagnostico />;
+      case 'centro-cirurgico': return <CentroCirurgico />;
       case 'autorizacoes': return <Autorizacoes />;
       case 'faturamento': return <Faturamento />;
       case 'homologacao-webservice': return <HomologacaoWebservice />;
@@ -395,6 +399,7 @@ function MainApp() {
       'prescricao-enfermagem': 'Prescrição eletrônica, aprazamento e checagem segura à beira-leito',
       'pronto-atendimento': 'Classificação de risco, sinais vitais e fila assistencial',
       'apoio-diagnostico': 'Solicitações, coleta, processamento e resultados de exames',
+      'centro-cirurgico': 'Mapa cirúrgico, segurança pré-operatória e fluxo de sala',
       financeiro: 'Contas a receber, pagar e fluxo de caixa',
       glosas: 'Gestão de glosas e recursos',
       relatorios: 'Análise de dados e métricas',
