@@ -4,7 +4,8 @@ import Icon from './components/Icon';
 import LoginView from './components/LoginView';
 import ReceptionModule from './components/ReceptionModule';
 import TriageModule from './components/TriageModule';
-import { getStoredSession, isHisApiConfigured, loadOperationalDashboard, searchPatients, signIn, signOut } from './lib/hisApi';
+import { getStoredSession, isHisApiConfigured, loadCurrentProfile, loadOperationalDashboard, searchPatients, signIn, signOut } from './lib/hisApi';
+import { formatAccessLabel } from './lib/hisApiRules';
 import './styles.css';
 
 const menu = [
@@ -49,11 +50,13 @@ function App() {
   const [selected, setSelected] = useState(patients[0]);
   const [remotePatients, setRemotePatients] = useState([]);
   const [dashboard, setDashboard] = useState(null);
+  const [profile,setProfile]=useState(null);
   const [dataState, setDataState] = useState(isHisApiConfigured ? 'loading' : 'demo');
   const [error, setError] = useState('');
   useEffect(() => {
     if (!isHisApiConfigured || !session) return;
-    loadOperationalDashboard().then(data => { setDashboard(data); setDataState('live'); }).catch(err => { setError(err.message); setDataState('error'); });
+    loadCurrentProfile().then(setProfile).catch(err=>setError(err.message));
+    loadOperationalDashboard().then(data => { setDashboard(data);setDataState('live'); }).catch(err => { setError(err.message); setDataState('error'); });
   }, [session]);
   useEffect(()=>{const expired=()=>setSession(null);window.addEventListener('nexo:session-expired',expired);return()=>window.removeEventListener('nexo:session-expired',expired);},[]);
   useEffect(() => {
@@ -74,18 +77,21 @@ function App() {
     bed: patient.admission ? 'Internação ativa' : '—', since: patient.admission ? new Date(patient.admission.data_entrada).toLocaleDateString('pt-BR') : '—', risk: 'Sem alerta'
   })) : patients;
   const journeyStages=dashboard?[['Recepção',String((dashboard.receptionSummary.AGENDADO||0)+(dashboard.receptionSummary.CHEGOU||0)),'aguardando triagem'],['Triagem',String(dashboard.receptionSummary.TRIAGEM||0),'classificados'],['Atendimento',String(dashboard.receptionSummary.EM_ATENDIMENTO||0),'em atendimento'],['Internação',String(dashboard.metrics.admissions),'internações ativas'],['Alta','—','em atualização']]:[['Recepção','24','6 aguardando cadastro'],['Triagem','11','3 acima do tempo'],['Atendimento','38','12 em consultório'],['Internação','47','82% de ocupação'],['Alta','8','5 com pendências']];
+  const displayName=profile?.nome||session?.user?.user_metadata?.nome||session?.user?.user_metadata?.full_name||session?.user?.email?.split('@')[0]||'Usuário';
+  const initials=displayName.split(' ').filter(Boolean).slice(0,2).map(part=>part[0]).join('').toUpperCase();
+  const accessLabel=profile?formatAccessLabel(profile.setor_acesso,profile.nivel_acesso):'Carregando perfil';
   if (isHisApiConfigured && !session) return <LoginView onLogin={async(email,password)=>setSession(await signIn(email,password))}/>;
   return <div className="app-shell">
     <aside className="sidebar">
       <div className="brand"><span className="brand-mark">N</span><div><strong>Nexo HIS</strong><small>Gestão hospitalar integrada</small></div></div>
       <nav>{menu.map(section => <section key={section.group}><h3>{section.group}</h3>{section.items.map(([icon,label]) => <button key={label} className={active===label?'active':''} onClick={()=>setActive(label)}><Icon name={icon} size={16}/>{label}{label==='Glosas e recursos'&&<b>{dashboard?.metrics.pendingGlosas ?? 5}</b>}</button>)}</section>)}</nav>
-      <div className="unit-card"><span className="status-dot"/><div><strong>Hospital Central</strong><small>Unidade Matriz · CNES 1234567</small></div></div>
+      <div className="unit-card"><span className="status-dot"/><div><strong>{profile?.unidades?.nome||'Unidade não identificada'}</strong><small>{profile?.unidades?.cnes?`CNES ${profile.unidades.cnes}`:'Vínculo institucional'}</small></div></div>
     </aside>
     <main>
-      <header className="topbar"><div><span className="eyebrow">CENTRAL OPERACIONAL</span><h1>{active}</h1></div><div className="top-actions"><span className={`data-status ${dataState}`}>{dataState==='live'?'Dados reais':dataState==='loading'?'Sincronizando':dataState==='error'?'Falha na conexão':'Demonstração'}</span><button className="icon-btn" aria-label="Notificações"><Icon name="bell" size={16}/><i/></button><div className="avatar">{session?.user?.email?.slice(0,2).toUpperCase()||'MF'}</div><div className="user"><strong>{session?.user?.email||'Marina Ferreira'}</strong><button className="logout-link" onClick={()=>{signOut();setSession(null)}}>{session?'Sair':'Supervisão · Faturamento'}</button></div></div></header>
+      <header className="topbar"><div><span className="eyebrow">CENTRAL OPERACIONAL</span><h1>{active}</h1></div><div className="top-actions"><span className={`data-status ${dataState}`}>{dataState==='live'?'Dados reais':dataState==='loading'?'Sincronizando':dataState==='error'?'Falha na conexão':'Demonstração'}</span><button className="icon-btn" aria-label="Notificações"><Icon name="bell" size={16}/><i/></button><div className="avatar">{initials}</div><div className="user"><strong>{displayName}</strong><small>{accessLabel}</small><button className="logout-link" onClick={()=>{signOut();setProfile(null);setSession(null)}}>Sair</button></div></div></header>
       <section className="patient-bar"><div className="search-wrap"><span><Icon name="search" size={16}/></span><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Localizar paciente por nome, prontuário ou CPF"/>{query&&<div className="search-results">{filtered.map(p=><button key={p.id} onClick={()=>{setSelected(p);setQuery('')}}><span className="mini-avatar">{p.initials}</span><span><strong>{p.name}</strong><small>Pront. {p.id} · {p.payer}</small></span></button>)}{filtered.length===0&&<p>Nenhum paciente localizado.</p>}</div>}</div><div className="patient-context"><span className="patient-avatar">{selected.initials}</span><div><strong>{selected.name}</strong><small>Pront. {selected.id} · {selected.age} · {selected.payer}</small></div><span className="tag blue">{selected.journey}</span><button>Ver contexto completo <Icon name="chevron" size={12}/></button></div></section>
       <div className="workspace">
-        <section className="hero"><div><span className="eyebrow">SEXTA-FEIRA, 21 DE AGOSTO</span><h2>Bom dia, Marina.</h2><p>Acompanhe a operação assistencial e financeira da unidade em uma única visão.</p>{error&&<p className="connection-error">{error}</p>}</div><div className="hero-actions"><button className="secondary"><Icon name="download" size={14}/> Exportar painel</button><button className="primary"><Icon name="plus" size={14}/> Nova admissão</button></div></section>
+        <section className="hero"><div><span className="eyebrow">SEXTA-FEIRA, 21 DE AGOSTO</span><h2>Bom dia, {displayName.split(' ')[0]}.</h2><p>Acompanhe a operação assistencial e financeira da unidade em uma única visão.</p>{error&&<p className="connection-error">{error}</p>}</div><div className="hero-actions"><button className="secondary"><Icon name="download" size={14}/> Exportar painel</button><button className="primary"><Icon name="plus" size={14}/> Nova admissão</button></div></section>
         {active === 'Recepção e agenda' ? <ReceptionModule onPatientSelected={patient=>setSelected({initials:patient.nome.split(' ').slice(0,2).map(x=>x[0]).join(''),name:patient.nome,id:String(patient.id).padStart(8,'0'),age:'Cadastro ativo',payer:'Consulte o atendimento',journey:'Recepção'})}/> : active === 'Pronto atendimento' ? <TriageModule onPatientSelected={patient=>setSelected({initials:patient.nome.split(' ').slice(0,2).map(x=>x[0]).join(''),name:patient.nome,id:String(patient.id).padStart(8,'0'),age:'Cadastro ativo',payer:'Atendimento atual',journey:'Triagem'})}/> : active === 'Visão operacional' ? <><section className="metrics">{liveCards.map(c=><article className={`metric ${c.tone}`} key={c.label}><div><span>{c.label}</span><strong>{c.value}</strong><small>{c.note}</small></div><i/></article>)}</section>
         <section className="grid-main">
           <article className="panel flow-panel"><header><div><h3>Fluxo assistencial em tempo real</h3><p>Pacientes por etapa da jornada</p></div><button>Ver central →</button></header><div className="journey">

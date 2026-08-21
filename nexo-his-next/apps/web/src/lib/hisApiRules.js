@@ -11,3 +11,7 @@ export function shouldRefreshSession(expiresAt, now = Date.now()) {
   const expiration = Number(expiresAt || 0);
   return expiration > 0 && now >= expiration;
 }
+
+export function formatAccessLabel(sector, level) {
+  return [sector,level].filter(Boolean).map(value=>String(value).replaceAll('_',' ').replace(/\b\w/g,letter=>letter.toUpperCase())).join(' · ');
+}

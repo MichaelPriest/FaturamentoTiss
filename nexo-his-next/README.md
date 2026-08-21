@@ -39,7 +39,8 @@ Execute em uma base vazia, nesta ordem:
 3. `database/migrations/002_reception.sql`;
 4. `database/migrations/003_triage.sql`;
 5. `database/migrations/004_triage_idempotency.sql`;
-6. após validação contábil, `database/seeds/financial_base.sql`.
+6. `database/migrations/005_user_profile.sql`;
+7. após validação contábil, `database/seeds/financial_base.sql`.
 
 O contrato inicial está em `docs/openapi.yaml`. Antes de qualquer transmissão real ainda são obrigatórios adaptador TISS da versão contratada, validação XSD, assinatura ICP-Brasil e homologação da operadora.
 
@@ -89,3 +90,7 @@ A migration `004_triage_idempotency.sql` torna o registro idempotente: uma repet
 ## Renovação de sessão
 
 O cliente guarda access token, refresh token e vencimento somente em `sessionStorage`. Antes de uma consulta, renova preventivamente o JWT; diante de HTTP 401, tenta uma única renovação e repete a requisição. Se o refresh também estiver vencido ou revogado, limpa a sessão e retorna à tela de login, sem ciclo infinito de requisições.
+
+## Identidade do usuário
+
+A migration `005_user_profile.sql` libera por RLS somente o próprio perfil e a unidade vinculada. O cabeçalho, saudação, iniciais, setor, nível, nome da unidade e CNES passam a vir do banco; o e-mail é usado apenas como fallback quando o cadastro institucional ainda não existe.

@@ -59,6 +59,14 @@ export function signOut() {
   sessionStorage.removeItem('nexo_user');
 }
 
+export async function loadCurrentProfile() {
+  const session=getStoredSession();
+  if(!session?.user?.id) throw new Error('Usuário autenticado sem identificador.');
+  const {data}=await request(`usuarios?id=eq.${encodeURIComponent(session.user.id)}&select=id,nome,role,setor_acesso,nivel_acesso,unidades(nome,cnes)&limit=1`);
+  if(!data[0]) throw new Error('Perfil institucional não encontrado. Solicite o vínculo à unidade.');
+  return data[0];
+}
+
 function expireSession() {
   signOut();
   window.dispatchEvent(new CustomEvent('nexo:session-expired'));
