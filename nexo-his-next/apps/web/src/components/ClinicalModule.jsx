@@ -19,7 +19,7 @@ export default function ClinicalModule({onPatientSelected}){
     {error&&<p className="module-error">{error}</p>}{success&&<p className="module-success">{success}</p>}
     <div className="clinical-layout"><aside className="clinical-queue"><h4>Fila clínica</h4>{loading?<p>Carregando...</p>:queue.length?queue.map(item=>{const itemTriage=item.triagens?.[0];return <button key={item.id} className={form.atendimento_id===item.id?'selected':''} onClick={()=>select(item)}><span className="mini-avatar">{item.pacientes.nome.split(' ').slice(0,2).map(x=>x[0]).join('')}</span><div><strong>{item.pacientes.nome}</strong><small>{itemTriage?.queixa_principal||'Sem queixa registrada'}</small></div>{itemTriage&&<span className={`risk-dot ${itemTriage.classificacao.toLowerCase()}`}>{itemTriage.classificacao}</span>}<Icon name="chevron" size={14}/></button>}):<div className="compact-empty">Nenhum paciente em atendimento.</div>}</aside>
       <form className="clinical-form" onSubmit={submit}>
-        <div className="clinical-summary"><strong>{selected?.pacientes?.nome||'Selecione um paciente da fila'}</strong><small>{triage?`${triage.classificacao} · ${triage.queixa_principal} · PA ${triage.pressao_sistolica||'-'}/${triage.pressao_diastolica||'-'} · FC ${triage.frequencia_cardiaca||'-'} · SpO₂ ${triage.saturacao||'-'}% · T ${triage.temperatura||'-'}°C · Dor ${triage.escala_dor??'-'}/10`:'A classificação e os sinais vitais aparecerão aqui.'}</small></div>
+        <TriageSummary patient={selected?.pacientes} triage={triage} />
         {history.length>0&&<details className="clinical-history"><summary>Histórico deste atendimento ({history.length})</summary>{history.map(item=><article key={item.id}><strong>{new Date(item.created_at).toLocaleString('pt-BR')} · {item.cid10||'Sem CID'}</strong><p><b>S:</b> {item.subjetivo} <b>A:</b> {item.avaliacao}</p>{item.prescricao&&<p><b>Prescrição:</b> {item.prescricao}</p>}</article>)}</details>}{loadingHistory&&<p className="clinical-loading">Carregando histórico...</p>}
         {[['subjetivo','S · Subjetivo','Relato, sintomas e história do paciente'],['objetivo','O · Objetivo','Exame físico, sinais e achados'],['avaliacao','A · Avaliação','Hipóteses e impressão diagnóstica'],['plano','P · Plano','Condutas e plano terapêutico']].map(([field,label,placeholder])=><label key={field}>{label}<textarea disabled={!form.atendimento_id} required placeholder={placeholder} value={form[field]} onChange={e=>setForm({...form,[field]:e.target.value})}/></label>)}
         <label>Prescrição clínica<textarea disabled={!form.atendimento_id} placeholder="Medicamento, dose, via, frequência e duração" value={form.prescricao} onChange={e=>setForm({...form,prescricao:e.target.value})}/></label>
@@ -28,5 +28,23 @@ export default function ClinicalModule({onPatientSelected}){
         <div className="clinical-outcome"><label>CID-10<input disabled={!form.atendimento_id} placeholder="Ex.: R10.4" value={form.cid10} onChange={e=>setForm({...form,cid10:e.target.value.toUpperCase()})}/></label><label>Desfecho<select disabled={!form.atendimento_id} value={form.desfecho} onChange={e=>setForm({...form,desfecho:e.target.value})}><option value="PERMANECE">Permanece em atendimento</option><option value="ALTA">Alta</option><option value="INTERNACAO">Internação</option><option value="TRANSFERENCIA">Transferência</option></select></label><label className="finish-check"><input type="checkbox" disabled={!form.atendimento_id} checked={form.finalizar} onChange={e=>setForm({...form,finalizar:e.target.checked})}/> Finalizar atendimento após salvar</label></div>
         <div className="form-actions"><button type="button" className="secondary" onClick={()=>{setForm(empty);setHistory([]);}}>Limpar</button><button className="primary" disabled={saving||!form.atendimento_id}>{saving?'Salvando...':form.finalizar?'Salvar e finalizar':'Registrar atendimento'}</button></div>
       </form></div>
+  </section>;
+}
+
+function TriageSummary({patient,triage}) {
+  if(!patient) return <div className="clinical-summary clinical-summary-empty"><Icon name="clinical" size={22}/><div><strong>Selecione um paciente da fila</strong><small>A classificação de risco e os sinais vitais ficarão disponíveis antes do registro clínico.</small></div></div>;
+  const risk=(triage?.classificacao||'SEM CLASSIFICAÇÃO').toLowerCase();
+  const vitals=[
+    ['Pressão arterial',triage?.pressao_sistolica&&triage?.pressao_diastolica?`${triage.pressao_sistolica}/${triage.pressao_diastolica}`:'—','mmHg'],
+    ['Frequência cardíaca',triage?.frequencia_cardiaca||'—','bpm'],
+    ['Saturação',triage?.saturacao??'—','%'],
+    ['Temperatura',triage?.temperatura??'—','°C'],
+    ['Escala de dor',triage?.escala_dor??'—','/ 10']
+  ];
+  return <section className="triage-clinical-card">
+    <header><div><span className="eyebrow">RESUMO DA TRIAGEM</span><h4>{patient.nome}</h4><small>Chegada assistencial · dados disponíveis para decisão clínica</small></div><span className={`triage-risk ${risk}`}>{triage?.classificacao||'Não classificado'}</span></header>
+    <div className="triage-complaint"><span>Queixa principal</span><strong>{triage?.queixa_principal||'Não informada'}</strong>{triage?.observacoes&&<p><b>Observações da triagem:</b> {triage.observacoes}</p>}</div>
+    <div className="triage-vitals">{vitals.map(([label,value,unit])=><article key={label}><span>{label}</span><strong>{value}</strong><small>{unit}</small></article>)}</div>
+    {triage?.realizada_em&&<footer>Classificação realizada em {new Date(triage.realizada_em).toLocaleString('pt-BR')}</footer>}
   </section>;
 }

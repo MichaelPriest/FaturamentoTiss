@@ -144,7 +144,7 @@ export async function registerTriage(form) {
 }
 
 export async function loadClinicalQueue() {
-  const {data}=await request('atendimentos?select=id,status,prioridade,data_chegada,pacientes(id,nome,cpf,data_nascimento),triagens(classificacao,queixa_principal,pressao_sistolica,pressao_diastolica,frequencia_cardiaca,saturacao,temperatura,escala_dor)&status=eq.EM_ATENDIMENTO&order=updated_at.asc&limit=100');
+  const {data}=await request('atendimentos?select=id,status,prioridade,data_chegada,pacientes(id,nome,cpf,data_nascimento),triagens(classificacao,queixa_principal,pressao_sistolica,pressao_diastolica,frequencia_cardiaca,saturacao,temperatura,escala_dor,observacoes,realizada_em)&status=eq.EM_ATENDIMENTO&order=updated_at.asc&limit=100');
   return data;
 }
 
