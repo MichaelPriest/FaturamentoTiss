@@ -46,6 +46,7 @@ import SaasAdmin from './pages/SaasAdmin';
 import OperacaoHospitalar from './pages/OperacaoHospitalar';
 import PrescricaoEnfermagem from './pages/PrescricaoEnfermagem';
 import ProntoAtendimento from './pages/ProntoAtendimento';
+import ApoioDiagnostico from './pages/ApoioDiagnostico';
 import { filterMenuGroups, getWorkspace, SECTOR_WORKSPACES } from './lib/sectorWorkspaces';
 
 import { setConfig } from './lib/tissGenerator';
@@ -68,6 +69,7 @@ const TAB_ROUTES = new Set([
   'operacao-hospitalar',
   'prescricao-enfermagem',
   'pronto-atendimento',
+  'apoio-diagnostico',
   'autorizacoes',
   'faturamento',
   'homologacao-webservice',
@@ -273,7 +275,8 @@ function MainApp() {
       items: [
         { id: 'pronto-atendimento', name: 'Pronto Atendimento', icon: ShieldCheckIcon, color: 'from-red-600 to-orange-500' },
         { id: 'operacao-hospitalar', name: 'Central Hospitalar', icon: BuildingOffice2Icon, color: 'from-blue-600 to-cyan-600' },
-        { id: 'prescricao-enfermagem', name: 'Prescrição e Enfermagem', icon: ClipboardDocumentCheckIcon, color: 'from-emerald-600 to-teal-600' }
+        { id: 'prescricao-enfermagem', name: 'Prescrição e Enfermagem', icon: ClipboardDocumentCheckIcon, color: 'from-emerald-600 to-teal-600' },
+        { id: 'apoio-diagnostico', name: 'Laboratório e Imagem', icon: DocumentTextIcon, color: 'from-violet-600 to-fuchsia-500' }
       ]
     },
     {
@@ -337,6 +340,7 @@ function MainApp() {
       case 'operacao-hospitalar': return <OperacaoHospitalar />;
       case 'prescricao-enfermagem': return <PrescricaoEnfermagem />;
       case 'pronto-atendimento': return <ProntoAtendimento />;
+      case 'apoio-diagnostico': return <ApoioDiagnostico />;
       case 'autorizacoes': return <Autorizacoes />;
       case 'faturamento': return <Faturamento />;
       case 'homologacao-webservice': return <HomologacaoWebservice />;
@@ -395,6 +399,7 @@ function MainApp() {
       'operacao-hospitalar': 'Gestão integrada de internações, leitos, estoque e farmácia',
       'prescricao-enfermagem': 'Prescrição eletrônica, aprazamento e checagem segura à beira-leito',
       'pronto-atendimento': 'Classificação de risco, sinais vitais e fila assistencial',
+      'apoio-diagnostico': 'Solicitações, coleta, processamento e resultados de exames',
       financeiro: 'Contas a receber, pagar e fluxo de caixa',
       glosas: 'Gestão de glosas e recursos',
       relatorios: 'Análise de dados e métricas',
