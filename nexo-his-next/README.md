@@ -32,18 +32,15 @@ npm run dev
 
 ## Banco
 
-Execute em uma base vazia, nesta ordem:
+Para um projeto Supabase novo, abra o **SQL Editor** como proprietário e execute uma única vez:
 
-1. `database/migrations/000_core.sql`;
-2. `database/migrations/001_financial_cycle.sql`;
-3. `database/migrations/002_reception.sql`;
-4. `database/migrations/003_triage.sql`;
-5. `database/migrations/004_triage_idempotency.sql`;
-6. `database/migrations/005_user_profile.sql`;
-7. `database/migrations/006_profile_onboarding.sql`;
-8. `database/migrations/007_clinical_care.sql`;
-9. `database/migrations/008_complete_patient_registration.sql`;
-10. após validação contábil, `database/seeds/financial_base.sql`.
+```text
+database/supabase_full_setup.sql
+```
+
+O arquivo consolidado contém, na ordem correta, todas as migrations `000_core.sql` até `013_clinical_workspace_operations.sql`: tabelas, relacionamentos, índices, funções RPC, triggers, grants e políticas RLS. Ele é destinado a uma base vazia e não inclui usuários, senhas ou dados fictícios. Depois de criar o primeiro usuário no Supabase Auth, siga o exemplo comentado no final do SQL para vincular empresa, unidade e perfil.
+
+Ao adicionar uma migration, regenere o instalador consolidado com `npm run db:build`. Em ambientes já instalados, não reaplique o arquivo completo: execute somente as migrations novas. O seed contábil opcional continua em `database/seeds/financial_base.sql` e deve ser aplicado somente após validação da instituição.
 
 O contrato inicial está em `docs/openapi.yaml`. Antes de qualquer transmissão real ainda são obrigatórios adaptador TISS da versão contratada, validação XSD, assinatura ICP-Brasil e homologação da operadora.
 

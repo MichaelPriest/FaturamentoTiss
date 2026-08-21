@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "npm --prefix apps/web run dev",
     "build": "npm --prefix apps/web run build",
+    "db:build": "node database/scripts/build-full-setup.mjs",
     "test": "node --test apps/api/src/**/*.test.cjs apps/web/src/**/*.test.js"
   }
 }
