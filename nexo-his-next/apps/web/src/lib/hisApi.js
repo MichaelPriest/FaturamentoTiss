@@ -133,7 +133,7 @@ export async function advanceReception(id, status) {
 }
 
 export async function loadTriageQueue() {
-  const { data } = await request('atendimentos?select=id,status,prioridade,data_chegada,pacientes(id,nome,cpf,data_nascimento),triagens(id,classificacao,queixa_principal,pressao_sistolica,pressao_diastolica,frequencia_cardiaca,saturacao,temperatura,escala_dor,observacoes,realizada_em)&status=in.(CHEGOU,TRIAGEM)&order=data_chegada.asc&limit=100');
+  const { data } = await request('atendimentos?select=id,numero_atendimento,status,prioridade,tipo,setor,local_atendimento,data_chegada,modalidade_pagamento,numero_carteirinha,plano,numero_guia,senha_autorizacao,validade_autorizacao,origem_paciente,motivo_atendimento,pacientes(id,nome,nome_social,cpf,data_nascimento,sexo,responsavel_nome,foto_url,alergias,doencas_cronicas,medicamentos_continuos,alertas_clinicos),unidades(nome),convenios(razao_social),prestadores(nome,conselho,numero_conselho),triagens(id,classificacao,queixa_principal,pressao_sistolica,pressao_diastolica,frequencia_cardiaca,saturacao,temperatura,escala_dor,observacoes,realizada_em)&status=in.(CHEGOU,TRIAGEM)&order=data_chegada.asc&limit=100');
   return data;
 }
 
@@ -144,8 +144,20 @@ export async function registerTriage(form) {
 }
 
 export async function loadClinicalQueue() {
-  const {data}=await request('atendimentos?select=id,status,prioridade,data_chegada,pacientes(id,nome,cpf,data_nascimento),triagens(classificacao,queixa_principal,pressao_sistolica,pressao_diastolica,frequencia_cardiaca,saturacao,temperatura,escala_dor,observacoes,realizada_em)&status=eq.EM_ATENDIMENTO&order=updated_at.asc&limit=100');
+  const {data}=await request('atendimentos?select=id,numero_atendimento,status,prioridade,tipo,setor,local_atendimento,data_chegada,modalidade_pagamento,numero_carteirinha,plano,numero_guia,senha_autorizacao,validade_autorizacao,origem_paciente,motivo_atendimento,pacientes(id,nome,nome_social,cpf,data_nascimento,sexo,responsavel_nome,foto_url,alergias,doencas_cronicas,medicamentos_continuos,alertas_clinicos),unidades(nome),convenios(razao_social),prestadores(nome,conselho,numero_conselho),triagens(classificacao,queixa_principal,pressao_sistolica,pressao_diastolica,frequencia_cardiaca,saturacao,temperatura,escala_dor,observacoes,realizada_em)&status=eq.EM_ATENDIMENTO&order=updated_at.asc&limit=100');
   return data;
+}
+
+export async function loadClinicalMeasurements(atendimentoId) {
+  if(!atendimentoId) return [];
+  const {data}=await request(`medicoes_clinicas?select=*&atendimento_id=eq.${encodeURIComponent(atendimentoId)}&order=created_at.desc&limit=20`);
+  return data;
+}
+
+export async function registerClinicalMeasurement(atendimentoId,measurement) {
+  const body={atendimento_id:atendimentoId,...Object.fromEntries(Object.entries(measurement).map(([key,value])=>[key,value===''?null:Number(value)]))};
+  const {data}=await request('medicoes_clinicas?select=*',{method:'POST',body,prefer:'return=representation'});
+  return data[0];
 }
 
 export async function loadClinicalRecord(atendimentoId) {
