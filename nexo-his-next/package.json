@@ -1,11 +1,41 @@
 {
-  "name": "nexo-his-next",
+  "name": "nexo-his",
+  "version": "0.2.0",
   "private": true,
-  "version": "0.1.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
-    "dev": "npm --prefix apps/web run dev",
-    "build": "npm --prefix apps/web run build",
-    "db:build": "node database/scripts/build-full-setup.mjs",
-    "test": "node --test apps/api/src/**/*.test.cjs apps/web/src/**/*.test.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test apps/api/src/**/*.test.cjs apps/web/src/**/*.test.js",
+    "test:e2e": "playwright test",
+    "db:build": "node database/scripts/build-full-setup.mjs"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^3.10.0",
+    "@supabase/ssr": "^0.6.1",
+    "@supabase/supabase-js": "^2.49.1",
+    "next": "^15.2.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-hook-form": "^7.54.2",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.51.1",
+    "@types/node": "^22.13.10",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "eslint": "^9.22.0",
+    "eslint-config-next": "^15.2.4",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.8.2",
+    "autoprefixer": "^10.4.21",
+    "@eslint/eslintrc": "^3.3.1"
   }
 }

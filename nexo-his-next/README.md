@@ -1,104 +1,51 @@
-# Nexo HIS Next
+# Nexo HIS
 
-Nova geração independente do sistema legado em `tiss-faturamento/`. Este diretório possui aplicação, domínio, banco e documentação próprios; nenhuma rota ou tabela desta versão é carregada pelo produto atual.
+Monólito modular hospitalar em Next.js, TypeScript strict e Supabase. A implementação é incremental: consulte `docs/STATUS.md` antes de considerar qualquer módulo pronto.
 
-## Princípios
+## Requisitos
 
-- jornada única do paciente, da recepção à alta e ao ciclo de receita;
-- contexto clínico persistente em vez de módulos desconectados;
-- navegação determinada pelo perfil e setor;
-- segurança multiempresa/unidade no banco;
-- valores financeiros decimais, auditoria e operações idempotentes;
-- pacotes TISS versionados e homologados, sem declarar como oficial um artefato não verificado.
+- Node.js 20 ou superior;
+- Docker e Supabase CLI para banco local;
+- projeto Supabase e Vercel separados por ambiente.
 
-## Estrutura
-
-```text
-apps/web/       nova interface React/Vite
-apps/api/       domínio e futura API independente
-database/       schema criado do zero e seeds
-docs/           OpenAPI e decisões regulatórias
-```
-
-## Interface
-
-A primeira estação operacional implementa uma interface hospitalar densa e orientada à jornada: busca global de paciente, contexto persistente, fluxo assistencial, ocupação, contas a fechar, glosas no prazo e pendências acionáveis. Ela não copia código, marcas ou identidade proprietária de outros produtos.
+## Desenvolvimento
 
 ```bash
-cd apps/web
+cp .env.example .env.local
 npm install
+supabase start
+supabase db reset
 npm run dev
+```
+
+Variáveis `NEXT_PUBLIC_*` contêm apenas URL e chave publicável. Nunca use `SUPABASE_SECRET_KEY` em Client Components. Preview não deve receber credenciais de produção.
+
+## Qualidade
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npm run test:e2e
 ```
 
 ## Banco
 
-Para um projeto Supabase novo, abra o **SQL Editor** como proprietário e execute uma única vez:
+A fonte oficial da nova arquitetura está em `supabase/migrations`. `supabase db reset` cria o banco local integralmente. Testes de RLS ficam em `supabase/tests` e não contêm dados reais.
 
-```text
-database/supabase_full_setup.sql
-```
+O diretório `database/` pertence à geração anterior e permanece apenas durante a migração incremental descrita no ADR 0001. Não aplique os dois conjuntos no mesmo banco.
 
-O arquivo consolidado contém, na ordem correta, todas as migrations `000_core.sql` até `014_attendance_relationships.sql`: tabelas, relacionamentos, índices, funções RPC, triggers, grants e políticas RLS. Ele é destinado a uma base vazia e não inclui usuários, senhas ou dados fictícios. Depois de criar o primeiro usuário no Supabase Auth, siga o exemplo comentado no final do SQL para vincular empresa, unidade e perfil.
+## Documentação
 
-Ao adicionar uma migration, regenere o instalador consolidado com `npm run db:build`. Em ambientes já instalados, não reaplique o arquivo completo: execute somente as migrations novas. O seed contábil opcional continua em `database/seeds/financial_base.sql` e deve ser aplicado somente após validação da instituição.
+- `PLAN.md`: marcos e gates;
+- `docs/ARQUITETURA.md`: limites e camadas;
+- `docs/MODELO_DADOS.md`: entidades e convenções;
+- `docs/MATRIZ_PERMISSOES.md`: RBAC;
+- `docs/SEGURANCA.md`: controles e operação;
+- `docs/STATUS.md`: estado real e bloqueios;
+- `docs/adr`: decisões arquiteturais.
 
-O contrato inicial está em `docs/openapi.yaml`. Antes de qualquer transmissão real ainda são obrigatórios adaptador TISS da versão contratada, validação XSD, assinatura ICP-Brasil e homologação da operadora.
+## Implantação
 
-## Fronteira com o legado
-
-Não importe módulos de `tiss-faturamento/` diretamente. Integração e migração de dados deverão ocorrer por APIs versionadas e jobs reexecutáveis, com reconciliação de totais e relatório de divergências.
-
-## Publicação na Vercel
-
-O código-fonte continua independente, mas uma cópia compilada da interface é publicada pelo frontend legado em:
-
-```text
-https://faturamento-tiss.vercel.app/nexo
-```
-
-Os arquivos em `tiss-faturamento/frontend/public/nexo` são somente artefatos de distribuição; a fonte permanece neste diretório. Para publicar a nova geração em domínio totalmente independente:
-
-1. crie um segundo projeto na Vercel usando o mesmo repositório;
-2. em **Root Directory**, selecione `nexo-his-next`;
-3. mantenha os comandos de `vercel.json`, que instalam e compilam somente `apps/web`;
-4. associe um domínio próprio, por exemplo `nexo-his.vercel.app` ou `his.suaempresa.com.br`.
-
-No projeto independente, a interface abre na raiz do novo domínio (`/`). No deploy legado, a regra específica da Vercel preserva `/nexo` e seus assets antes do fallback da aplicação antiga.
-
-O comando `vercel-build` do frontend legado recompila esta fonte a cada deploy. Assim, `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` configuradas na Vercel são incorporadas à distribuição `/nexo`, sem duplicar código-fonte no legado.
-
-Os bundles públicos usam os nomes estáveis `nexo-app.js` e `nexo-app.css`. Isso evita que um HTML mantido no cache referencie hashes removidos no deploy seguinte. As rotas da Vercel também mantêm compatibilidade com os primeiros hashes já publicados.
-
-## Conexão com dados reais
-
-Copie `apps/web/.env.example` para `apps/web/.env.local` e informe a URL e a chave pública `anon` do projeto Supabase criado pelas migrations. A interface exibe **Dados reais** somente após consultar com sucesso pacientes, internações, contas e glosas respeitando o JWT/RLS; sem configuração, mostra explicitamente **Demonstração**. Um token de sessão autenticado deve ser gravado em `sessionStorage` sob `nexo_access_token` pelo futuro módulo de login.
-
-O ambiente de produção está apontado para o projeto Supabase institucional por meio de uma chave **publishable**, que é pública por definição. Nunca coloque `service_role`, senha de banco ou segredo de assinatura em arquivos `VITE_*`.
-
-## Primeiro fluxo transacional
-
-A migration `002_reception.sql` ativa o primeiro módulo completo: autenticação, cadastro real de paciente, registro de chegada, fila da recepção e avanço controlado pelos estados `AGENDADO → CHEGOU → TRIAGEM → EM_ATENDIMENTO → FINALIZADO`. Execute-a depois de `001_financial_cycle.sql`.
-
-## Triagem e dashboard vivo
-
-A migration `003_triage.sql` adiciona classificação de risco, sinais vitais, queixa principal e o RPC transacional que atualiza a etapa do atendimento. O dashboard deixa de usar números fixos para recepção, triagem, atendimento e internação quando conectado ao banco. A classificação é sempre escolhida pelo profissional habilitado; o sistema apenas valida limites técnicos dos dados informados.
-
-## Correção de concorrência da triagem
-
-A migration `004_triage_idempotency.sql` torna o registro idempotente: uma repetição devolve a triagem existente e uma classificação iniciada simultaneamente ao atendimento não perde os dados. Todas as mudanças de estado passam pela RPC `avancar_atendimento`, que bloqueia saltos de etapa e impede iniciar atendimento sem classificação concluída.
-
-## Renovação de sessão
-
-O cliente guarda access token, refresh token e vencimento somente em `sessionStorage`. Antes de uma consulta, renova preventivamente o JWT; diante de HTTP 401, tenta uma única renovação e repete a requisição. Se o refresh também estiver vencido ou revogado, limpa a sessão e retorna à tela de login, sem ciclo infinito de requisições.
-
-## Identidade do usuário
-
-As migrations `005_user_profile.sql` e `006_profile_onboarding.sql` liberam por RLS somente o próprio perfil e a unidade vinculada. No primeiro acesso sem cadastro, o RPC `garantir_meu_perfil` cria o vínculo automaticamente quando existe no máximo uma unidade; em instalações multiunidade, exige vínculo explícito de um administrador para evitar acesso à unidade errada. O cabeçalho, saudação, iniciais, setor, nível, nome da unidade e CNES passam a vir do banco; o e-mail é usado apenas como fallback.
-
-## Estação clínica
-
-A migration `007_clinical_care.sql` adiciona evoluções SOAP associadas ao atendimento e ao profissional autenticado. As migrations `010_complete_clinical_station.sql` a `013_clinical_workspace_operations.sql` completam a estação com identificação assistencial e financeira, prescrição integrada à Farmácia, documentos auditáveis, medições seriadas, diagnósticos, pedidos, observação, reavaliação, internação, faturamento e histórico imutável de status. Os painéis da própria Estação clínica permitem registrar e acompanhar diagnósticos, solicitações, documentos, conta e linha do tempo sem trocar de página.
-
-## Cadastro completo e fonte pagadora
-
-A migration `008_complete_patient_registration.sql` amplia o cadastro demográfico, diferencia particular de beneficiário, vincula convênio e carteirinha ao atendimento e registra paciente e chegada na mesma transação. A migration `009_triage_to_clinical.sql` conclui a classificação e encaminha o paciente para a Estação clínica na mesma transação, sem deixá-lo retido em `TRIAGEM`; classificações antigas ainda podem ser encaminhadas pelo botão explícito.
+A Vercel detecta Next.js pela raiz. Configure URL/chave publicável por ambiente e mantenha a chave secreta somente no servidor. Deploy em produção exige autorização explícita, migrations validadas em staging, testes RLS e restauração de backup ensaiada.

@@ -1,0 +1,3 @@
+export const permissions=['sistema.administrar','empresa.administrar','unidade.administrar','estrutura.gerenciar','usuarios.gerenciar','pacientes.visualizar','pacientes.criar','pacientes.editar','atendimentos.abrir','atendimentos.transferir','atendimentos.alta','triagem.registrar','prontuario.visualizar','prontuario.evoluir','prescricao.criar','prescricao.suspender','prescricao.checar','enfermagem.evoluir','farmacia.dispensar','faturamento.visualizar','faturamento.fechar','auditoria.visualizar'] as const;
+export type Permission=typeof permissions[number];
+export function hasPermission(granted:readonly string[],required:Permission){return granted.includes('sistema.administrar')||granted.includes(required);}
