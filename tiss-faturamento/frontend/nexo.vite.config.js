@@ -8,6 +8,12 @@ const frontendRoot = fileURLToPath(new URL('.', import.meta.url));
 // Ponte exclusiva de publicação: a fonte permanece no projeto independente.
 export default defineConfig({
   plugins: [react()],
+  // O bundle legado não usa Tailwind. Fixar uma configuração PostCSS vazia
+  // impede o Vite de subir até a raiz Next.js e carregar o postcss.config.mjs
+  // do novo aplicativo, cujas dependências não pertencem a este build.
+  css: {
+    postcss: { plugins: [] }
+  },
   resolve: {
     alias: [
       { find: 'react/jsx-runtime', replacement: resolve(frontendRoot, 'node_modules/react/jsx-runtime.js') },
