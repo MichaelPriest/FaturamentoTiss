@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { conveniosService } from '../services/supabaseService';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUnidade } from '../contexts/UnidadeContext';
+import { maskANS, maskCNPJ, unmask } from '../lib/inputMasks';
 
 const UFS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
 
@@ -41,7 +42,8 @@ export default function Convenios() {
     percentual_coparticipacao: 0,
     proximo_numero_guia: 1000000,
     ultimo_numero_guia: 999999,
-    versao_tiss: '4.03.00'
+    versao_tiss: '4.03.00',
+    planos: []
   });
 
   useEffect(() => {
@@ -121,11 +123,12 @@ export default function Convenios() {
     }
 
     try {
+      const payload = { ...formData, registro_ans: unmask(formData.registro_ans), cnpj: unmask(formData.cnpj) };
       if (editing) {
-        await conveniosService.atualizar(editing.id, formData);
+        await conveniosService.atualizar(editing.id, payload);
         toast.success('Convênio atualizado com sucesso!');
       } else {
-        await conveniosService.criar(formData);
+        await conveniosService.criar(payload);
         toast.success('Convênio cadastrado com sucesso!');
       }
       await carregarConvenios();
@@ -159,7 +162,7 @@ export default function Convenios() {
       ambiente: 'homologacao', url_webservice: '',
       tipo_tabela: 'TUSS', multiplicador: 1.00, coparticipacao: false,
       percentual_coparticipacao: 0, proximo_numero_guia: 1000000,
-      ultimo_numero_guia: 999999, versao_tiss: '4.03.00'
+      ultimo_numero_guia: 999999, versao_tiss: '4.03.00', planos: []
     });
     setLogoPreview(null);
   };
@@ -187,7 +190,8 @@ export default function Convenios() {
       percentual_coparticipacao: convenio.percentual_coparticipacao || 0,
       proximo_numero_guia: convenio.proximo_numero_guia || 1000000,
       ultimo_numero_guia: convenio.ultimo_numero_guia || 999999,
-      versao_tiss: convenio.versao_tiss || '4.03.00'
+      versao_tiss: convenio.versao_tiss || '4.03.00',
+      planos: Array.isArray(convenio.planos) ? convenio.planos : []
     });
     setLogoPreview(convenio.logo_base64 || null);
     setAba('dados');
@@ -393,6 +397,10 @@ export default function Convenios() {
                 >
                   Numeração Guias
                 </button>
+                <button type="button" onClick={() => setAba('planos')}
+                  className={`px-4 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap ${aba === 'planos' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400'}`}>
+                  Planos ({formData.planos.length})
+                </button>
                 <button 
                   onClick={() => setAba('financeiro')} 
                   className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-all duration-200 whitespace-nowrap ${aba === 'financeiro' ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-600' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
@@ -407,7 +415,7 @@ export default function Convenios() {
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Registro ANS *</label>
-                      <input type="text" value={formData.registro_ans} onChange={e => setFormData({...formData, registro_ans: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" required />
+                      <input type="text" value={formData.registro_ans} onChange={e => setFormData({...formData, registro_ans: maskANS(e.target.value)})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" required />
                       <p className="text-xs text-gray-500 mt-1">Código de registro da operadora na ANS (6 dígitos)</p>
                     </div>
                     <div>
@@ -425,7 +433,7 @@ export default function Convenios() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CNPJ</label>
-                      <input type="text" value={formData.cnpj} onChange={e => setFormData({...formData, cnpj: e.target.value})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" placeholder="00.000.000/0000-00" />
+                      <input type="text" value={formData.cnpj} onChange={e => setFormData({...formData, cnpj: maskCNPJ(e.target.value)})} className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white" placeholder="00.000.000/0000-00" />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
@@ -444,6 +452,24 @@ export default function Convenios() {
                       <input type="checkbox" checked={formData.ativo} onChange={e => setFormData({...formData, ativo: e.target.checked})} className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600" />
                       <label className="text-sm text-gray-700 dark:text-gray-300">Convênio Ativo</label>
                     </div>
+                  </div>
+                )}
+
+                {aba === 'planos' && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div><h4 className="font-semibold text-gray-800 dark:text-white">Planos do convênio</h4><p className="text-xs text-gray-500">Cadastre os produtos disponíveis para seleção na carteira do paciente.</p></div>
+                      <button type="button" onClick={() => setFormData(prev => ({ ...prev, planos: [...prev.planos, { id: crypto.randomUUID(), nome: '', codigo: '', ativo: true }] }))} className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm flex gap-1"><PlusIcon className="w-4"/>Adicionar</button>
+                    </div>
+                    {formData.planos.map((plano, index) => (
+                      <div key={plano.id || index} className="grid grid-cols-[1fr_1fr_auto_auto] gap-2 items-end p-3 rounded-xl bg-gray-50 dark:bg-gray-700/40">
+                        <label className="text-xs text-gray-600 dark:text-gray-300">Nome<input value={plano.nome} onChange={e => setFormData(prev => ({...prev, planos: prev.planos.map((p,i) => i === index ? {...p,nome:e.target.value.toUpperCase()} : p)}))} className="mt-1 w-full border rounded-lg px-3 py-2 dark:bg-gray-700" placeholder="Ex.: Executivo" /></label>
+                        <label className="text-xs text-gray-600 dark:text-gray-300">Código<input value={plano.codigo} onChange={e => setFormData(prev => ({...prev, planos: prev.planos.map((p,i) => i === index ? {...p,codigo:e.target.value.toUpperCase()} : p)}))} className="mt-1 w-full border rounded-lg px-3 py-2 dark:bg-gray-700" placeholder="EXE-01" /></label>
+                        <label className="pb-2 text-xs flex gap-1"><input type="checkbox" checked={plano.ativo !== false} onChange={e => setFormData(prev => ({...prev, planos: prev.planos.map((p,i) => i === index ? {...p,ativo:e.target.checked} : p)}))}/>Ativo</label>
+                        <button type="button" aria-label="Remover plano" onClick={() => setFormData(prev => ({...prev, planos: prev.planos.filter((_,i) => i !== index)}))} className="mb-1 p-2 text-red-600"><TrashIcon className="w-4"/></button>
+                      </div>
+                    ))}
+                    {!formData.planos.length && <div className="py-10 text-center text-sm text-gray-500 border border-dashed rounded-xl">Nenhum plano cadastrado.</div>}
                   </div>
                 )}
 

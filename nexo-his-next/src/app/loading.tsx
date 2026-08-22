@@ -1,0 +1,1 @@
+export default function Loading(){return <main className="grid min-h-screen place-items-center" aria-live="polite"><div className="h-10 w-10 animate-spin rounded-full border-4 border-brand-100 border-t-brand-700"/><span className="sr-only">Carregando</span></main>}

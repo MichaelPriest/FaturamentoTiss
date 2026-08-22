@@ -133,24 +133,75 @@ export async function advanceReception(id, status) {
 }
 
 export async function loadTriageQueue() {
-  const { data } = await request('atendimentos?select=id,status,prioridade,data_chegada,pacientes(id,nome,cpf,data_nascimento),triagens(id,classificacao,queixa_principal,pressao_sistolica,pressao_diastolica,frequencia_cardiaca,saturacao,temperatura,escala_dor,observacoes,realizada_em)&status=in.(CHEGOU,TRIAGEM)&order=data_chegada.asc&limit=100');
+  const { data } = await request('atendimentos?select=id,numero_atendimento,status,prioridade,tipo,setor,local_atendimento,data_chegada,modalidade_pagamento,numero_carteirinha,plano,numero_guia,senha_autorizacao,validade_autorizacao,origem_paciente,motivo_atendimento,pacientes(id,nome,nome_social,cpf,data_nascimento,sexo,responsavel_nome,foto_url,alergias,doencas_cronicas,medicamentos_continuos,alertas_clinicos),unidades(nome),convenios(razao_social),prestadores(nome,conselho,numero_conselho),triagens(id,classificacao,queixa_principal,pressao_sistolica,pressao_diastolica,frequencia_cardiaca,saturacao,temperatura,escala_dor,observacoes,realizada_em)&status=in.(CHEGOU,TRIAGEM)&order=data_chegada.asc&limit=100');
   return data;
 }
 
 export async function registerTriage(form) {
   const payload={p_atendimento_id:form.atendimento_id,p_classificacao:form.classificacao,p_queixa:form.queixa_principal.trim(),p_sistolica:form.pressao_sistolica===''?null:Number(form.pressao_sistolica),p_diastolica:form.pressao_diastolica===''?null:Number(form.pressao_diastolica),p_fc:form.frequencia_cardiaca===''?null:Number(form.frequencia_cardiaca),p_saturacao:form.saturacao===''?null:Number(form.saturacao),p_temperatura:form.temperatura===''?null:Number(form.temperatura),p_dor:form.escala_dor===''?null:Number(form.escala_dor),p_observacoes:form.observacoes||null};
-  const { data }=await request('rpc/registrar_triagem',{method:'POST',body:payload});
+  const { data }=await request('rpc/concluir_triagem_e_encaminhar',{method:'POST',body:payload});
   return data;
 }
 
 export async function loadClinicalQueue() {
-  const {data}=await request('atendimentos?select=id,status,prioridade,data_chegada,pacientes(id,nome,cpf,data_nascimento),triagens(classificacao,queixa_principal,pressao_sistolica,pressao_diastolica,frequencia_cardiaca,saturacao,temperatura,escala_dor)&status=eq.EM_ATENDIMENTO&order=updated_at.asc&limit=100');
+  const {data}=await request('atendimentos?select=id,numero_atendimento,status,prioridade,tipo,setor,local_atendimento,data_chegada,modalidade_pagamento,numero_carteirinha,plano,numero_guia,senha_autorizacao,validade_autorizacao,origem_paciente,motivo_atendimento,pacientes(id,nome,nome_social,cpf,data_nascimento,sexo,responsavel_nome,foto_url,alergias,doencas_cronicas,medicamentos_continuos,alertas_clinicos),unidade:unidades!atendimentos_unidade_id_fkey(nome),convenios(razao_social),prestadores(nome,conselho,numero_conselho),triagens(classificacao,queixa_principal,pressao_sistolica,pressao_diastolica,frequencia_cardiaca,saturacao,temperatura,escala_dor,observacoes,realizada_em)&status=eq.EM_ATENDIMENTO&order=updated_at.asc&limit=100');
+  return data;
+}
+
+export async function loadClinicalMeasurements(atendimentoId) {
+  if(!atendimentoId) return [];
+  const {data}=await request(`medicoes_clinicas?select=*&atendimento_id=eq.${encodeURIComponent(atendimentoId)}&order=created_at.desc&limit=20`);
+  return data;
+}
+
+export async function registerClinicalMeasurement(atendimentoId,measurement) {
+  const body={atendimento_id:atendimentoId,...Object.fromEntries(Object.entries(measurement).map(([key,value])=>[key,value===''?null:Number(value)]))};
+  const {data}=await request('medicoes_clinicas?select=*',{method:'POST',body,prefer:'return=representation'});
+  return data[0];
+}
+
+export async function loadClinicalSupport(atendimentoId) {
+  const id=encodeURIComponent(atendimentoId);
+  const [diagnoses,requests,documents,status,account]=await Promise.all([
+    request(`atendimento_diagnosticos?select=*&atendimento_id=eq.${id}&order=created_at.desc`),
+    request(`solicitacoes_assistenciais?select=*&atendimento_id=eq.${id}&order=created_at.desc`),
+    request(`documentos_medicos?select=*&atendimento_id=eq.${id}&order=created_at.desc`),
+    request(`atendimentos_status_historico?select=*&atendimento_id=eq.${id}&order=created_at.desc`),
+    request(`conta_hospitalar_itens?select=*&atendimento_id=eq.${id}&order=created_at.desc`)
+  ]);
+  return {diagnosticos:diagnoses.data,solicitacoes:requests.data,documentos:documents.data,status:status.data,conta:account.data};
+}
+
+export async function registerAttendanceDiagnosis(atendimentoId,form) {
+  const {data}=await request('rpc/registrar_diagnostico_atendimento',{method:'POST',body:{p_atendimento_id:atendimentoId,p_cid10:form.cid10,p_descricao:form.descricao,p_tipo:form.tipo,p_situacao:form.situacao,p_infectocontagioso:form.infectocontagioso}});
+  return data;
+}
+
+export async function registerCareRequest(atendimentoId,form) {
+  const {data}=await request('rpc/registrar_solicitacao_assistencial',{method:'POST',body:{p_atendimento_id:atendimentoId,p_tipo:form.tipo,p_descricao:form.descricao,p_codigo_tuss:form.codigo_tuss||null,p_quantidade:Number(form.quantidade||1),p_indicacao:form.indicacao||null,p_cid10:form.cid10||null,p_urgencia:form.urgencia,p_requer_autorizacao:form.requer_autorizacao,p_senha:form.senha||null,p_valor_unitario:Number(form.valor_unitario||0)}});
+  return data;
+}
+
+export async function loadClinicalRecord(atendimentoId) {
+  if(!atendimentoId) return [];
+  const {data}=await request(`evolucoes_clinicas?select=id,subjetivo,objetivo,avaliacao,plano,cid10,prescricao,exames_solicitados,orientacoes,desfecho,created_at&atendimento_id=eq.${encodeURIComponent(atendimentoId)}&order=created_at.desc&limit=20`);
   return data;
 }
 
 export async function registerClinicalEvolution(form) {
-  const {data}=await request('rpc/registrar_evolucao_clinica',{method:'POST',body:{p_atendimento_id:form.atendimento_id,p_subjetivo:form.subjetivo.trim(),p_objetivo:form.objetivo.trim(),p_avaliacao:form.avaliacao.trim(),p_plano:form.plano.trim(),p_cid10:form.cid10.trim()||null,p_desfecho:form.desfecho,p_finalizar:form.finalizar}});
+  const {data}=await request('rpc/registrar_atendimento_clinico',{method:'POST',body:{p_atendimento_id:form.atendimento_id,p_subjetivo:form.subjetivo.trim(),p_objetivo:form.objetivo.trim(),p_avaliacao:form.avaliacao.trim(),p_plano:form.plano.trim(),p_cid10:form.cid10.trim()||null,p_prescricao:form.prescricao.trim()||null,p_exames:form.exames_solicitados.trim()||null,p_orientacoes:form.orientacoes.trim()||null,p_desfecho:form.desfecho,p_finalizar:form.finalizar,p_prioridade_farmacia:form.prioridade_farmacia,p_emitir_atestado:form.emitir_atestado,p_dias_atestado:form.dias_atestado===''?null:Number(form.dias_atestado),p_texto_atestado:form.texto_atestado.trim()||null,p_reavaliar_em:form.reavaliar_em?new Date(form.reavaliar_em).toISOString():null}});
   return data;
+}
+
+export async function loadPharmacyQueue() {
+  const {data}=await request('solicitacoes_farmacia?select=id,conteudo,prioridade,status,solicitado_em,pacientes(id,nome)&status=in.(PENDENTE,EM_SEPARACAO)&order=prioridade.desc,solicitado_em.asc&limit=100');
+  return data;
+}
+
+export async function updatePharmacyRequest(id,status) {
+  const body={status,...(status==='DISPENSADA'?{dispensado_em:new Date().toISOString()}:{})};
+  const {data}=await request(`solicitacoes_farmacia?id=eq.${encodeURIComponent(id)}&select=*`,{method:'PATCH',body,prefer:'return=representation'});
+  return data[0];
 }
 
 export async function loadOperationalDashboard() {

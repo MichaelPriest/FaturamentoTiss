@@ -1,0 +1,24 @@
+name: CI
+on: { pull_request: {}, push: { branches: [main] } }
+permissions: { contents: read }
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: public-anon-key-placeholder-for-build-only
+      NEXT_PUBLIC_APP_ENV: development
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install --ignore-scripts
+        working-directory: nexo-his-next
+      - run: npm run lint
+        working-directory: nexo-his-next
+      - run: npm run typecheck
+        working-directory: nexo-his-next
+      - run: npm test
+        working-directory: nexo-his-next
+      - run: npm run build
+        working-directory: nexo-his-next

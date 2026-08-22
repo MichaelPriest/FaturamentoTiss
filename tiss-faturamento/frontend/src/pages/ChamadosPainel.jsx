@@ -14,6 +14,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useUnidade } from '../contexts/UnidadeContext';
 import { filterByUnidade } from '../services/unidadesService';
 
+const etapaConfig = { recepcao: { label: 'Recepção', next: 'triagem', destino: 'Triagem' }, triagem: { label: 'Triagem', next: 'atendimento', destino: 'Consultório' }, atendimento: { label: 'Atendimento' } };
+
 const statusConfig = {
   aguardando: { label: 'Aguardando', className: 'bg-blue-500', icon: ClockIcon },
   chamado: { label: 'Chamado', className: 'bg-yellow-500', icon: BellAlertIcon },
@@ -120,6 +122,7 @@ export default function ChamadosPainel() {
 
       const espera = dadosFiltrados
         .filter(c => c.status === 'aguardando' || c.status === 'chamado')
+        .sort((a, b) => (a.etapa_ordem || 1) - (b.etapa_ordem || 1) || new Date(a.created_at) - new Date(b.created_at))
         .slice(0, 8);
       setFilaEspera(espera);
 
@@ -167,6 +170,19 @@ export default function ChamadosPainel() {
     if (status === 'em_atendimento') updates.atendido_em = new Date().toISOString();
     if (status === 'finalizado') updates.finalizado_em = new Date().toISOString();
 
+    const etapaAtual = chamado.etapa || 'recepcao';
+    const proximaEtapa = etapaConfig[etapaAtual]?.next;
+    if (status === 'finalizado' && proximaEtapa) {
+      updates.status = 'aguardando';
+      updates.etapa = proximaEtapa;
+      updates.etapa_ordem = proximaEtapa === 'triagem' ? 2 : 3;
+      updates.origem_nome = chamado.destino_nome || etapaConfig[etapaAtual].label;
+      updates.destino_nome = etapaConfig[etapaAtual].destino;
+      updates.chamado_em = null;
+      updates.atendido_em = null;
+      updates.finalizado_em = null;
+    }
+
     try {
       const { error } = await supabase.from('chamados').update(updates).eq('id', chamado.id);
       if (error) throw error;
@@ -176,7 +192,7 @@ export default function ChamadosPainel() {
         tocarSomNotificacao();
       }
       
-      toast.success(status === 'chamado' ? 'Paciente chamado!' : 'Status atualizado');
+      toast.success(status === 'chamado' ? 'Paciente chamado!' : (proximaEtapa && status === 'finalizado' ? `Encaminhado para ${etapaConfig[proximaEtapa].label}` : 'Status atualizado'));
       await carregarDados();
     } catch (error) {
       console.error('Erro ao atualizar chamada:', error);
@@ -321,7 +337,7 @@ export default function ChamadosPainel() {
                       className="mt-6 w-full bg-white text-teal-700 py-3 rounded-xl font-semibold hover:bg-gray-100 transition-all flex items-center justify-center gap-2"
                     >
                       <CheckCircleIcon className="w-5 h-5" />
-                      Finalizar Atendimento
+                      {etapaConfig[chamadoAtual.etapa || 'recepcao']?.next ? `Encaminhar para ${etapaConfig[etapaConfig[chamadoAtual.etapa || 'recepcao'].next].label}` : 'Finalizar Atendimento'}
                     </button>
                   </>
                 ) : (
@@ -371,6 +387,7 @@ export default function ChamadosPainel() {
                               <p className="font-semibold text-gray-800">
                                 {formatarNome(chamado.paciente_nome || chamado.titulo)}
                               </p>
+                              <span className="inline-flex mt-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[11px] font-semibold uppercase tracking-wide">{etapaConfig[chamado.etapa || 'recepcao']?.label}</span>
                               <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
                                 <span className="flex items-center gap-1">
                                   {getDestinoIcon(chamado.destino_tipo)}
